@@ -65,10 +65,9 @@ WooCommerce-specific.
   sent to the front desk.
 - **No PHP plugin changes.** No change to `woocommerce-pos`,
   `woocommerce-pos-pro`, any WCPOS add-on or any other existing plugin.
-  Whether this app may ship a small companion plugin of its own, as
-  medusapos does for Medusa, is open as decision D1 in
-  [PLAN.md](../PLAN.md). It is Paul's call, and until he makes it there is
-  none.
+  No companion plugin of its own either, as medusapos has for Medusa:
+  decision D1 in [PLAN.md](../PLAN.md) (2026-09-28) makes the WCPOS Free
+  plugin's `wcpos/v2` API the surface this app writes through.
 - **No TallyUI package code.** TallyUI changes are made in the TallyUI
   repository by a worker dispatched there.
 - **No production infrastructure.** The dev store runs on the Mac mini
@@ -88,9 +87,9 @@ WooCommerce-specific.
   reimplemented from WCPOS source.** Features whose server half lives in the
   WCPOS plugins (the product uuid, registers, the payment ledger, fiscal
   records) need those plugins on the store.
-- **This app will look like a WCPOS client to the store.** If it syncs or
-  writes through `wcpos/*` routes, its orders carry WCPOS's POS metadata,
+- **This app will look like a WCPOS client to the store.** Because it syncs
+  and writes through `wcpos/*` routes (D1), its orders carry WCPOS's POS metadata,
   and WCPOS's own surfaces (Store health's register checks, reports) will
   see them, for example as sales from a till with no register. That is
   accepted as the cost of using the plugin rather than changing it; the
-  exact effects are listed when D1 is decided.
+  exact effects are listed in the M3 spike's findings.

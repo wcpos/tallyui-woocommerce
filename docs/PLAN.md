@@ -5,9 +5,8 @@ then widening toward the [parity target](PARITY.md). The boundaries are in
 [ADR 0001](adr/0001-repo-place-and-boundaries.md); the brief is
 [BRIEF.md](BRIEF.md). No dates here: the front desk sets them.
 
-The milestones below assume the recommended answer to **D1** (the WCPOS
-Free plugin on the store, spoken to through `wcpos/v2`). Where another
-answer would change a milestone, the milestone says so.
+**D1 is decided: (b).** The store runs the WCPOS Free plugin and the app
+speaks to it through `wcpos/v2`. The milestones below are built on that.
 
 ## Principles for the order
 
@@ -61,8 +60,6 @@ Each says what a tester can do when it is done.
   current pull also has two defects to fix on the way: `modified_after`
   without `dates_are_gmt=true` misses edits on stores west of UTC, and the
   default `status=any` syncs drafts.
-- *If D1 is (c):* consumer keys instead of the WCPOS sign-in, and G1 is
-  a client-generated product key plus the two defects.
 
 ### M2: Build a cart
 
@@ -191,7 +188,11 @@ deliberately outside it, re-checked against the v2 release tag.
 
 ## Decisions needed
 
-- **D1: how the app writes to the store (before M1).** WooCommerce core's
+- **D1: how the app writes to the store. Decided 2026-09-28 by the front
+  desk: (b).** The front desk made the call alongside its recommendation to
+  Paul that TallyUI connectors become drivers in the shape of the WCPOS
+  `next` engine. The `wcpos/v2` API is the driver surface, so (a) and (c)
+  are out. The options as they were weighed follow. WooCommerce core's
   `POST /wc/v3/orders` has no idempotency key. TallyUI's order outbox sends
   commands through a pluggable transport; its default endpoint is
   `/tally/v1/commands`, which medusapos serves with its own server plugin.
@@ -219,7 +220,7 @@ deliberately outside it, re-checked against the v2 release tag.
   keep money, discounts, payments and the difference between permanent and
   retryable failures exact, not only translate the HTTP call. D1 decides
   how the connector is built, so the TallyUI work goes through the front
-  desk. Whether (a) is allowed at all is Paul's call.
+  desk.
 - **D2: authentication (answered, recorded here).** The connector sends a
   consumer key as HTTP Basic auth, which WooCommerce accepts only over
   HTTPS, and API keys authenticate only `wc/` and `wc-` routes
