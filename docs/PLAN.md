@@ -19,10 +19,14 @@ answer would change a milestone, the milestone says so.
 2. **Stable before in flux, in flux before v2-only.** PARITY.md marks what
    is still moving on WCPOS `next`. Build stable features first; build the
    moving ones late, against `next`'s shape.
-3. **Released wire first.** M1–M6 run against the released Free plugin
-   (1.10.x), which is what a tester's store has. From M7 the milestones need
-   v2's routes and are built against the plugins' `next` builds on the dev
-   store until v2 is released (D6).
+3. **Released wire first.** M1–M7 run against the released plugins
+   (1.10.x), which is what a tester's store has, and G1–G8 target the 1.10.x
+   wire shape. From M8 the milestones need the routes v2 adds and are built
+   against the plugins' `next` builds on the dev store until v2 is
+   released (D6). The v2 app requires the v2 plugin (monorepo#1949), so when
+   v2 ships this app moves to the v2 wire in one step, raising its own
+   plugin floor with it; in-flux features are rebuilt to `next`'s shape at
+   that point, not before.
 4. **Web first.** Like `medusapos/app`, the web build is the tester surface
    until the MVP holds. iOS, Android and desktop come with the hardware
    milestone.
@@ -52,7 +56,7 @@ Each says what a tester can do when it is done.
   Reloads with the network off and still browses.
 - **TallyUI:** G1, the connector signs in with the WCPOS token and pulls
   products through `wcpos/v2`: the product `uuid` its schema is keyed on
-  only comes on POS requests (wiki `plugin-free/pos-request-detection.md`),
+  only comes on POS requests (wiki `architecture/plugin-free/pos-request-detection.md`),
   and WooCommerce API keys do not authenticate `wcpos/*` routes (D2). The
   current pull also has two defects to fix on the way: `modified_after`
   without `dates_are_gmt=true` misses edits on stores west of UTC, and the
@@ -81,11 +85,13 @@ Each says what a tester can do when it is done.
   order outbox that maps `order.create` onto the `wcpos/v2` push, keeping
   TallyUI's command id as the push's mutation id and the client order id
   as its record id, so a replay resolves to the same order (wiki
-  `plugin-free/v2-push-envelope-and-idempotency.md`).
+  `architecture/plugin-free/v2-push-envelope-and-idempotency.md`).
 - **Spike first:** confirm that the released plugin's push accepts an
   order created already paid by cash. On 1.10.x, WCPOS itself completes
   cash through the order-pay page; if the push will not take a paid order,
-  M3 moves to the `next` plugin and waits for D6.
+  M3 moves to the `next` plugin. On `next` a sale cannot complete until a
+  register is picked (monorepo#2045), so the MVP would then wait for M8's
+  register work, and D6 would be due before M3.
 
 ### M4: Customers and receipts
 
@@ -105,7 +111,7 @@ Each says what a tester can do when it is done.
 - **TallyUI:** G5, tax rates and tax settings in the connector, and proof
   that `@tallyui/pos`'s tax maths rounds the way WooCommerce does (WCPOS
   needed a port of Woo's matcher and rounding to get there: wiki
-  `client/tax-rate-matching.md`, `client/order-math-tax-parity.md`);
+  `architecture/client/tax-rate-matching.md`, `architecture/client/order-math-tax-parity.md`);
   G6, coupons.
 
 ### M6: Orders and refunds
@@ -115,8 +121,12 @@ Each says what a tester can do when it is done.
   chosen.
 - **TallyUI:** G7, order history and refunds (connector and commands).
 
-**M0–M6 cover the *stable* selling features in PARITY.md on the released
-Free plugin.** Features whose server half is Pro depend on D3.
+**M0–M6 cover the selling features that exist on the released 1.10.x
+line.** Several are *in flux* in PARITY.md and are rebuilt to `next`'s
+shape when v2 ships (principle 3). On 1.10.x, customer create (M4),
+coupons (M5; Free only on `next`, #1934), order history and refunds (M6)
+are Pro, so under D3 those parts need Pro on the store, and the dev store
+needs a Pro licence before M4 (D6). M1–M3 need only the Free plugin.
 
 ### M7: Stores and cashiers
 
@@ -128,7 +138,7 @@ Free plugin.** Features whose server half is Pro depend on D3.
 
 Registers come before the v2 checkout because on v2 a sale cannot
 complete until a register is picked (monorepo#2045), and with sessions on
-it needs an open session (wiki `client/register-sessions.md`).
+it needs an open session (wiki `architecture/client/register-sessions.md`).
 
 - **Tester:** picks the till's register, opens it with a counted float,
   moves cash in and out, closes by counting the drawer, and prints the
@@ -193,7 +203,7 @@ deliberately outside it, re-checked against the v2 release tag.
   - **(b) Require the WCPOS Free plugin** and map commands onto its
     `wcpos/v2` push, which already reserves each mutation atomically,
     replays the original verdict and resolves a replayed create to the
-    same order (wiki `plugin-free/v2-push-envelope-and-idempotency.md`).
+    same order (wiki `architecture/plugin-free/v2-push-envelope-and-idempotency.md`).
     No PHP is written, and every v2 feature past M6 needs the plugin
     anyway. The costs: sign-in moves to the WCPOS token from M1, the app
     presents itself to the store as a WCPOS client, and it follows a
@@ -231,10 +241,11 @@ deliberately outside it, re-checked against the v2 release tag.
   outside this machine, so, as with medusapos, testers bring their own
   WooCommerce store: HTTPS, the WCPOS Free plugin (under D1 (b)), and a
   host that does not strip the plugin's headers. The tester guide says so.
-- **D6: WCPOS builds on the dev store (before M7).** The Free plugin's
-  latest release is 1.10.20; v2's routes exist only on the plugins' `next`
-  branches, and Pro is not on wordpress.org. Proposal: the dev store runs
-  the released Free plugin for M1–M6, and from M7 installs builds made
+- **D6: WCPOS builds on the dev store (Pro before M4, `next` before
+  M8).** The Free plugin's latest release is 1.10.20; the routes v2 adds
+  exist only on the plugins' `next` branches, and Pro is not on
+  wordpress.org. Proposal: the dev store runs the released Free plugin for
+  M1–M3, adds released Pro for M4–M7, and from M8 installs builds made
   from `~/Projects/woocommerce-pos` and `woocommerce-pos-pro` at `next`,
   without changing them. Pro on the dev store needs a licence, which is
   Paul's to give.
@@ -273,7 +284,7 @@ never created on the Coolify VPS.
 - **Contents:** WordPress and WooCommerce at pinned versions; pretty
   permalinks (WooCommerce reads the route from the request URI when
   deciding on key auth); the WCPOS Free plugin at its latest release
-  (1.10.20 today), with `next` builds from M7 (D6); a store timezone west
+  (1.10.20 today), released Pro from M4 and `next` builds from M8 (D6); a store timezone west
   of UTC, so date-cursor bugs show; a seed of simple and variable products
   with stock, barcodes and images; two tax rates (off until M5); one
   coupon; one customer; a `shop_manager` cashier.
