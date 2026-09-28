@@ -60,6 +60,8 @@ Each says what a tester can do when it is done.
   current pull also has two defects to fix on the way: `modified_after`
   without `dates_are_gmt=true` misses edits on stores west of UTC, and the
   default `status=any` syncs drafts.
+- **Sync:** sync via `@wcpos/sync-engine` per TallyUI ADR-067; the
+  connector's replication adapters are not used by this app.
 
 ### M2: Build a cart
 
