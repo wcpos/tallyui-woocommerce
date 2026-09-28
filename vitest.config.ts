@@ -7,6 +7,8 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
     alias: {
       'react-native': 'react-native-web',
+      // react-native-svg's native modules import Flow source; use its web entry, as TallyUI's own tests do.
+      'react-native-svg': path.resolve(__dirname, 'apps/pos/node_modules/react-native-svg/src/elements.web.ts'),
       react: path.resolve(__dirname, 'apps/pos/node_modules/react'),
       'react-dom': path.resolve(__dirname, 'apps/pos/node_modules/react-dom'),
     },
