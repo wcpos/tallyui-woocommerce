@@ -28,8 +28,13 @@ Run from the repository root:
 - `pnpm typecheck`: turbo runs `tsc --noEmit` in each package
 - `pnpm test`: Vitest from the root config, capped at two workers
 - `pnpm --filter @tallyui-woocommerce/pos web`: start the web app
-- `pnpm --filter @tallyui-woocommerce/pos build:web`: web export, the
-  check that Metro and uniwind bundle the app
+- `pnpm build`: turbo runs the app's `expo export --platform web` into
+  `apps/pos/dist`, the check that Metro and uniwind bundle the app
+
+Keep `react`, `react-dom`, `react-native` and the other Expo-managed
+packages at the versions `expo install --check` expects, and declare the
+same exact `react` / `react-dom` at the root: a second React copy renders
+a blank page.
 
 Never put a test file under `apps/pos/app/`: expo-router treats every file
 there as a route.
