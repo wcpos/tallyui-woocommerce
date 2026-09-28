@@ -6,46 +6,56 @@ Date: 2026-09-28
 ## Context
 
 TallyUI is a set of commerce-agnostic POS packages published to npm as
-`@tallyui/*`. Two apps already consume them: `medusapos/app` (Medusa) and
-`vendurepos` (Vendure). Paul's brief of 2026-09-28 ([BRIEF.md](../BRIEF.md))
-adds a third, for WooCommerce, aiming at feature parity with WCPOS v2.
+`@tallyui/*` (2.0.0 published 2026-09-28). `medusapos/app` is the first app
+built on them: a Medusa POS. It resolves TallyUI from a sibling checkout
+pinned to a commit through `file:` overrides, because the packages were not
+published in usable form when it started. `vendurepos` is planned but has
+only a README. Paul's brief of 2026-09-28 ([BRIEF.md](../BRIEF.md)) adds a
+WooCommerce app, aiming at feature parity with WCPOS v2.
 
 WCPOS already is a WooCommerce POS: the `wcpos/monorepo` client and the
 `woocommerce-pos` / `woocommerce-pos-pro` plugins. This app is not a
 replacement for it and must not become a second place where WCPOS work is
-done. It is a TallyUI app that happens to sell from WooCommerce, and the
-test of TallyUI's claim that one set of packages serves every platform.
+done. It is a TallyUI app that sells from WooCommerce, and a test of
+TallyUI's claim that one set of packages serves every platform.
 
-`@tallyui/connector-woocommerce@2.0.0` is the published WooCommerce
-connector. As of 2026-09-28 it covers products only: one RxDB schema,
-product traits, a pull sync and a replication, over the WooCommerce REST API
-authenticated with a consumer key and secret.
+`@tallyui/connector-woocommerce@2.0.0` covers products only. Its schema is
+keyed on the `uuid` the WCPOS Free plugin adds to POS requests, and it
+authenticates with a WooCommerce consumer key. The rest of TallyUI's domain
+(cart, tax maths, tender, register sessions, receipt data, an order outbox
+with a pluggable transport) is in `@tallyui/pos` and is not
+WooCommerce-specific.
 
 ## Decision
 
-1. **This repository mirrors `medusapos/app`.** Same shape (pnpm + turbo
-   monorepo, an Expo app under `apps/pos`), same house rules, same Codex
-   spec process, same one-lane (`main`) branching. Where the two differ, it
-   is because WooCommerce differs from Medusa, and the difference is
+1. **This repository mirrors `medusapos/app`.** It has the same shape (a
+   pnpm + turbo monorepo with the Expo app in `apps/pos`, where medusapos
+   uses `apps/expo`), the same house rules, the same Codex spec process
+   and one lane (`main`). Where the two differ, it is because WooCommerce
+   differs from Medusa or because of point 2, and the difference is
    recorded in an ADR here.
-2. **It consumes TallyUI from npm only.** `@tallyui/*` packages are
-   dependencies at published versions (`2.0.0` at the start). Never a
-   `file:` link, a `workspace:` link into a TallyUI checkout, a git
-   dependency, a vendored copy or a patch-package patch.
+2. **It consumes TallyUI from npm only.** Every `@tallyui/*` package is a
+   dependency at one exact published version, all the same (`2.0.0` at the
+   start), upgraded together. There is never a `file:` link, a `workspace:`
+   link into a TallyUI checkout, a git dependency, a vendored copy, a
+   patch, or a resolver alias to a package's `src`. This is the deliberate
+   difference from medusapos: it does not copy medusapos's `file:`
+   overrides.
 3. **`@tallyui/connector-woocommerce` is the integration point.** Every
-   WooCommerce schema, trait, sync and replication the app uses comes from
-   the connector. When the app needs a WooCommerce capability the connector
-   lacks (customers, orders, taxes, coupons, a different auth), the gap is
-   written up and sent to the front desk, which dispatches the TallyUI
+   WooCommerce schema, trait, sync, replication and transport the app uses
+   comes from TallyUI. When the app needs something TallyUI lacks, the gap
+   is written up and sent to the front desk, which dispatches the TallyUI
    work; this app then upgrades to the release that has it. The app does
    not grow its own parallel WooCommerce layer. If a milestone cannot wait,
    a stopgap may compose the connector's exported pieces inside
-   `apps/pos`, marked as such, with the TallyUI issue linked in the code
+   `apps/pos`, marked as a stopgap with the TallyUI issue linked in a code
    comment, and it is removed on the upgrade.
 4. **The WooCommerce side is used as it ships.** The app talks to
-   WooCommerce core's REST API and, where a feature needs it, to the WCPOS
-   plugins' released REST contract (`wcpos/v1`, and `wcpos/v2` once 1.11.0 /
-   2.0 ships). It reads those contracts; it does not change them.
+   WooCommerce core's REST API and to the WCPOS plugins' released REST
+   contract (`wcpos/v1`, and `wcpos/v2`, which shipped in the Free plugin
+   1.10.0). v2-only features are built against the plugins' `next` builds
+   on the dev store until v2 is released. The app reads those contracts; it
+   does not change them.
 
 ## What this repository deliberately does not do
 
@@ -53,28 +63,34 @@ authenticated with a consumer key and secret.
   (the monorepo client, the plugins, wcpos.com) are not picked up here,
   even when this app hits them. A WCPOS defect found here is written up and
   sent to the front desk.
-- **No PHP plugin changes.** Not to `woocommerce-pos`, not to
-  `woocommerce-pos-pro`, not to any add-on, and no companion plugin of our
-  own on the WooCommerce side. If parity needs a server route that does not
-  exist, that is a WCPOS decision for Paul, not a task here.
+- **No PHP plugin changes.** No change to `woocommerce-pos`,
+  `woocommerce-pos-pro`, any WCPOS add-on or any other existing plugin.
+  Whether this app may ship a small companion plugin of its own, as
+  medusapos does for Medusa, is open as decision D1 in
+  [PLAN.md](../PLAN.md). It is Paul's call, and until he makes it there is
+  none.
 - **No TallyUI package code.** TallyUI changes are made in the TallyUI
   repository by a worker dispatched there.
 - **No production infrastructure.** The dev store runs on the Mac mini
   (see [PLAN.md](../PLAN.md)); nothing is created on the Coolify VPS.
 - **No multi-instance storage.** One tab, one database, following the
-  machine-wide single-instance rule and WCPOS v1.11.0's move to SQLite
+  machine-wide single-instance rule and WCPOS v2's move to SQLite
   (monorepo#2146). Storage choice is TallyUI's; this app does not build
   cross-tab leader election or shared sessions.
 
 ## Consequences
 
-- The app's progress is gated by the connector. Customers, orders and
-  checkout cannot land until TallyUI publishes them, so PLAN.md orders the
-  milestones by what the connector can do and names each connector gap.
-- Parity is measured against WCPOS's shipped behaviour, not reimplemented
-  from WCPOS source. Features whose server half lives in the WCPOS plugins
-  (registers, payment ledger, fiscal records) require those plugins on the
-  store; a store without them gets the WooCommerce-core subset.
-- Because nothing on the WooCommerce side changes, a merchant can run this
-  app against the same store as WCPOS without either noticing the other,
-  apart from ordinary shared stock and orders.
+- **TallyUI releases gate the app.** Because only published versions are
+  used, every gap waits for a TallyUI release: 2.0.0 came out the day this
+  repository started. PLAN.md orders the milestones by what TallyUI can do,
+  names each gap, and asks for them one milestone ahead.
+- **Parity is measured against WCPOS's shipped behaviour, not
+  reimplemented from WCPOS source.** Features whose server half lives in the
+  WCPOS plugins (the product uuid, registers, the payment ledger, fiscal
+  records) need those plugins on the store.
+- **This app will look like a WCPOS client to the store.** If it syncs or
+  writes through `wcpos/*` routes, its orders carry WCPOS's POS metadata,
+  and WCPOS's own surfaces (Store health's register checks, reports) will
+  see them, for example as sales from a till with no register. That is
+  accepted as the cost of using the plugin rather than changing it; the
+  exact effects are listed when D1 is decided.

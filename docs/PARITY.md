@@ -3,27 +3,34 @@
 What "feature parity with WCPOS v2" means for this app, feature by feature.
 Built on 2026-09-28 from the roadmap repo (`wcpos/roadmap`, release issues
 #195, #225, #226 and `ROADMAP.md`), the wiki (`product/features/*`,
-`architecture/client.md` and its 1.11.0 / 2.0 contract pages) and the
-monorepo's `origin/next` against `origin/main` (commit and PR titles, route
-lists, `LEDGER.md` files, per-area diff size). WCPOS source code was not
-read beyond that.
+`architecture/client.md` and its 1.11.0 / 2.0 contract pages,
+`architecture/plugin-free.md`) and the monorepo's `origin/next` against
+`origin/main` (commit and PR titles, route lists, `LEDGER.md` files,
+per-area diff size). WCPOS source code was not read beyond that.
 
 ## What v2 is
 
-- WCPOS **2.0 is the monorepo's `next` lane**: the unreleased 1.11.0 line,
-  which ships as 2.0 (monorepo#1815). Its release issue is roadmap#195,
-  *v1.11.0: Checkout & payments*: a POS-owned checkout (cash, split
-  payments, terminals, Tap to Pay), refunds and receipts on the same money
-  model, a customer display, the quick-discount coupon that retires
-  negative fees, a configurable register layout, and the regime-agnostic
-  fiscal groundwork. The 2.0 reports and closures contract and the move to
-  SQLite storage ride the same lane.
-- `main` is the released **1.10.x** line (offline queues, the sync engine,
-  Store health, stock validation).
+- WCPOS **v2 is the monorepo's `next` lane**: the unreleased line that
+  carries the app version 1.11.0 today (monorepo#1815) and is to ship as
+  2.0 (wiki `architecture/client.md`, Release lanes). What the release is
+  finally called is still open with Paul (roadmap#363, monorepo#2197,
+  woocommerce-pos#2080); this file says "v2" throughout.
+- Its release issue is roadmap#195, *v1.11.0: Checkout & payments*: a
+  POS-owned checkout (cash, split payments, terminals, Tap to Pay), refunds
+  and receipts on the same money model, a customer display, the
+  quick-discount coupon that retires negative fees, a configurable register
+  layout, and the regime-agnostic fiscal groundwork. The reports and
+  closures contract and the move to SQLite storage ride the same lane.
+- `main` is the released **1.10.x** line: offline queues, the sync engine,
+  Store health and stock validation. The `wcpos/v2` REST namespace (the
+  sync surface) **already shipped** with the Free plugin 1.10.0 on
+  2026-08-25 (wiki `architecture/plugin-free.md`); v2 adds routes and
+  response shapes to it, and the v2 app requires the v2 plugin
+  (monorepo#1949).
 - **Not in the target:** v1.12.0 *Fiscal compliance* (roadmap#225: NF525,
   VeriFactu country modules) and v1.13.0 *Works with your other plugins*
   (roadmap#226). They come after v2 and are added here only if Paul moves
-  them into 2.0. `ROADMAP.md`'s "v2.0.0: tablet-first UI refresh" line is
+  them into it. `ROADMAP.md`'s "v2.0.0: tablet-first UI refresh" line is
   older than the decision to ship `next` as 2.0 and is read as the same
   release.
 
@@ -31,143 +38,152 @@ read beyond that.
 
 **Status**, from comparing `origin/main` with `origin/next`:
 
-- **stable**: the same on main and next (diff on next is a few dozen
-  lines or none). Safe to build against today.
+- **stable**: the same on main and next (a few dozen changed lines or
+  none). Safe to build against today.
 - **in flux**: exists on main, materially reworked on next. Build to the
   `next` shape, not main's, and as late as the milestone order allows.
 - **v2-only**: exists only on next.
 
-**Server** is what the WooCommerce store needs for the feature:
-`Woo` (WooCommerce core REST API), `Free` (the `woocommerce-pos` plugin,
-`wcpos/v1` / `wcpos/v2` routes), `Pro` (`woocommerce-pos-pro`). The v2
-client requires plugin 1.11.0 (monorepo#1949); this app follows the same
-floor for any feature that uses the plugin. See [ADR 0001](adr/0001-repo-place-and-boundaries.md):
-we use these contracts as they ship and never change them.
+**Server** is what the store needs for the feature: `Woo` (WooCommerce
+core REST API), `Free` (the `woocommerce-pos` plugin), `Pro`
+(`woocommerce-pos-pro`). This app uses those contracts as they ship and
+never changes them ([ADR 0001](adr/0001-repo-place-and-boundaries.md)).
 
-**Connector** is whether `@tallyui/connector-woocommerce@2.0.0` covers the
-data today. It has products only (schema, traits, pull sync, replication)
-over the REST API with a consumer key and secret. Every "no" is a TallyUI
-gap to send to the front desk before the milestone that needs it
-([PLAN.md](PLAN.md)).
+**TallyUI** is what `@tallyui/*@2.0.0` already provides. `conn` is
+`@tallyui/connector-woocommerce`, which has products only: one schema
+keyed on the WCPOS plugin's `uuid`, a pull sync and a replication, with
+consumer-key auth. `pos` is `@tallyui/pos`, which already has the
+commerce-agnostic domain: cart and sale, order builder and parked orders,
+tax maths, tender, register sessions and closure documents, receipt data,
+and an order outbox with a pluggable transport. So most gaps are
+WooCommerce data and transport, not domain logic. Every gap goes to the
+front desk before the milestone that needs it ([PLAN.md](PLAN.md)).
 
 ## Connect and session
 
-| Feature | WCPOS behaviour | Status | Server | Connector |
+| Feature | WCPOS behaviour | Status | Server | TallyUI |
 |---|---|---|---|---|
-| Connect a store | Site → cashier → store flow; each site lists its authorised cashiers | in flux (plugin floor raised to 1.11.0, #1949, #2220) | Free | no: consumer-key auth only |
-| Browser-based login | Browser authorisation endpoint issuing access/refresh tokens | stable | Free | no |
-| Session management | List and revoke a user's sessions across devices | stable | Free | no |
-| Capability gating | Controls lock by the cashier's WordPress capabilities; unknown fails open | stable | Free | no |
-| Multi-store | Pick a store at connect; store switching; a register bound to a store skips the picker | in flux (#1967, #1996) | Pro | no |
-| Online status | Green/yellow/red indicator; passive-first connectivity probe | stable | Woo | n/a (app) |
+| Connect a store | Site → cashier → store; each site lists its authorised cashiers | in flux (plugin floor raised, #1949, #2220) | Free | conn: consumer keys only |
+| Browser-based login | Browser authorisation endpoint issuing access/refresh tokens (JWT) | stable | Free | gap |
+| Session management | List and revoke a user's sessions across devices | stable | Free | gap |
+| Switch cashier at the till | Change cashier without reconnecting; on next, from the register's user sheet | in flux (#1996, roadmap#268) | Free | gap |
+| Capability gating | Controls lock by the cashier's WordPress capabilities; unknown fails open | stable | Free | gap |
+| Multi-store | Pick a store at connect; a register bound to a store skips the picker | in flux (#1967, #1996) | Pro | gap |
+| Online status | Green/yellow/red indicator; passive-first probe | stable | Woo | app |
 
 ## Catalogue
 
-| Feature | WCPOS behaviour | Status | Server | Connector |
+| Feature | WCPOS behaviour | Status | Server | TallyUI |
 |---|---|---|---|---|
-| Product sync, offline | Catalogue stored on device, browsable offline, background sync on reconnect | stable (engine reworked on next under the hood: sync-engine +2.9k lines) | Woo / Free | yes (products; pull only) |
-| Grid and table views | Grid default, 2–8 columns, configurable tile fields; table view toggle | in flux (products column becomes a pluggable panel whose side is a setting, #1785) | Woo | yes |
-| Variations | Variations popover with attribute pickers and stock badge | stable | Woo / Free | no: variations not in the connector |
-| Product search | Any-order substring search over name, SKU, barcode | stable | Woo | partial (depends on TallyUI search) |
-| Quick filters | Merchant-built quick-filter buttons with an editor; price and type filters | v2-only (#1839) | Woo | no |
-| Barcode scanning | Scanner input adds products; `@wcpos/scanner` | stable | Woo | partial (barcode field in schema) |
-| Stock display and overselling guard | Stock shown; optional block on over-quantity adds and at checkout | stable | Free (setting) | partial (stock fields) |
-| Products admin screen | Edit stock, price, COGS inline | stable | Pro | no: pull only, no writes |
-| Cost of goods display | COGS column when WooCommerce COGS is enabled | stable | Woo | no |
-| Store-specific pricing | Per-store regular/sale prices | stable | Pro | no |
+| Product sync, offline | Catalogue stored on device, browsable offline, background sync | stable (engine reworked under the hood: sync-engine +2.9k lines) | Free (uuid) | conn: products, pull only |
+| Grid and table views | Grid default, 2–8 columns, configurable tile fields; table toggle | in flux (products column becomes a pluggable panel, side is a setting, #1785) | Woo | components |
+| Variations | Variations popover with attribute pickers and stock badge | stable | Woo / Free | gap |
+| Product search | Any-order substring over name, SKU, barcode | stable | Woo | pos: `searchProducts` |
+| Quick filters | Merchant-built quick-filter buttons with an editor; price and type filters | v2-only (#1839) | Woo | gap |
+| Barcode scanning | Scanner input adds products (`@wcpos/scanner`); the barcode field is the plugin's, Woo core's is `global_unique_id` | stable | Free | gap (scanner) |
+| Decimal quantities | Fractional quantities on POS requests | stable | Free | check pos cart |
+| Stock and overselling guard | Stock shown; optional block on over-quantity adds and at checkout | stable | Free (setting) | pos: `stock` |
+| Products admin screen | Edit stock, price, COGS inline | stable | Pro | gap (writes) |
+| Cost of goods display | COGS column when WooCommerce COGS is on | stable | Woo | gap |
+| Store-specific pricing | Per-store regular/sale prices | stable | Pro | gap |
 
 ## Cart and pricing
 
-| Feature | WCPOS behaviour | Status | Server | Connector |
+| Feature | WCPOS behaviour | Status | Server | TallyUI |
 |---|---|---|---|---|
-| Cart, open orders | Several open carts; lines, quantity, remove | in flux (open-order tabs move into a configurable bar, #1996, #1985) | Woo | no: orders not in the connector |
-| Line price edit, split line | Edit a line's price; split a line for mixed discounts | stable | Woo | no |
-| Per-line quick discount | Percentage buttons in the line's number pad | stable | Woo | no |
-| Order-level quick discount | "Add Discount" writes an on-the-fly quick-discount coupon line; negative fees removed | v2-only (#1934, roadmap#91) | Free | no |
-| Coupons | Apply WooCommerce coupons with client-side validation mirroring Woo | stable | Pro (sync); Woo (apply) | no |
-| Fees and shipping lines | Misc fee and shipping lines on the cart | stable | Woo | no |
-| Miscellaneous product | Ad-hoc line with a name and price | stable | Woo | no |
-| Tax calculation | On-device port of WooCommerce's rate matcher; store-address or base location | stable (settings: four tax inputs locked to store values on next, #1970) | Woo | no: tax rates not in the connector |
-| Customers at the till | Search by name, email, company, phone, tax ID; attach; guest orders | stable | Woo / Free | no |
-| Customer create and edit | Create and edit customer records at the register | stable | Pro | no |
+| Cart, open orders | Several open carts; lines, quantity, remove | in flux (open-order tabs move into a configurable bar, #1996, #1985) | Woo | pos: sale, parked orders |
+| Line price edit, split line | Edit a line's price; split a line for mixed discounts | stable | Woo | pos: order builder |
+| Per-line quick discount | Percentage buttons in the line's number pad | stable | Woo | pos: discounts |
+| Order-level quick discount | "Add Discount" writes an on-the-fly quick-discount coupon line; negative fees removed | v2-only (#1934, roadmap#91) | Free | gap (coupon line) |
+| Coupons | Apply WooCommerce coupons with client-side validation mirroring Woo; Free on next | in flux (#1934 moves coupons to Free) | Free | gap |
+| Fees and shipping lines | Fee and shipping lines on the cart | stable | Woo | pos: order builder |
+| Miscellaneous product | Ad-hoc line with a name and price | stable | Woo | pos: order builder |
+| Tax calculation | On-device port of WooCommerce's rate matcher and rounding | stable (tax settings locked to store values on next, #1970) | Woo | pos: tax maths; gap: rate data, Woo rounding parity |
+| Customers at the till | Search by name, email, company, phone, tax ID; attach; guest orders | stable | Woo / Free | gap |
+| Customer create and edit | Create and edit customers at the register, including tax IDs | stable | Pro | gap |
+| Order notes and meta | Add a note; edit order meta | in flux (`add-note` removed, `edit-order-meta` reworked on next) | Woo | gap |
 
 ## Checkout and payments
 
-| Feature | WCPOS behaviour | Status | Server | Connector |
+| Feature | WCPOS behaviour | Status | Server | TallyUI |
 |---|---|---|---|---|
-| Checkout surface | Tender pane: keypad replaces the products column, receipt is the last stage, checkout opens while the order saves | in flux (heavy rework, #1794, #1898, #1993) | Free | no |
-| Cash | Cash tender with change due. On main it completes through the order-pay page; on next it is a `manual` capture mode with no server round trip | in flux | Free | no |
-| Payment ledger | N payment rows on one Woo order; descriptor, route family, capture modes | v2-only (payments contract v1, #1792) | Free | no |
-| Split payments | Visible split plan, including split by item | v2-only (#1997, #1929) | Free | no |
-| Offline payment recording | Payments recorded offline and replayed; completing sale journaled before money moves | v2-only (#2161, #1965) | Free | no |
-| Legacy order-pay webview | Any Woo gateway through the order-pay page | stable (kept as one capture mode on next) | Woo | no |
-| Per-gateway order status | Order status per gateway (BACS/cheque on-hold, others completed) | stable | Free | no |
-| Card terminals | Server-side terminal capture; on-device Stripe Terminal and SumUp drivers; Tap to Pay | v2-only (#1913, #1956–#1968) | Pro + extension | no |
-| Tips | Tip on the reader or at the till, recorded as a Tip fee line | v2-only (roadmap#106) | Free / Pro | no |
+| Checkout surface | Tender pane: keypad replaces the products column, receipt is the last stage, checkout opens while the order saves | in flux (heavy rework, #1794, #1898, #1993) | Free | pos: tender |
+| Cash | Cash tender with change due. On main it completes through the order-pay page; on next it is a `manual` capture mode with no server round trip | in flux | Free | pos: tender; gap: transport |
+| Payment ledger | N payment rows on one Woo order; descriptor, route family, capture modes | v2-only (payments contract v1, #1792) | Free | gap |
+| Split payments | Visible split plan, including split by item | v2-only (#1997, #1929) | Free | gap |
+| Offline payment recording | Payments recorded offline and replayed; completing sale journaled before money moves | v2-only (#1792, #2161) | Free | pos: outbox; gap: ledger |
+| Legacy order-pay webview | Any Woo gateway through the order-pay page | stable (kept as one capture mode on next) | Woo | gap |
+| Per-gateway order status | Order status per gateway (BACS/cheque on-hold, others completed) | stable | Free | n/a (server) |
+| Card terminals | Server-side terminal capture; on-device Stripe Terminal and SumUp drivers; Tap to Pay | v2-only (#1913, #1956–#1968) | Pro + extension | gap |
+| Tips | On the reader or at the till, recorded as a Tip fee line | v2-only (roadmap#106) | Free / Pro | gap |
 | Email controls | Per-type toggles for which Woo emails fire for POS orders | stable | Free | n/a (server) |
 
 ## Registers, fiscal, reports
 
-| Feature | WCPOS behaviour | Status | Server | Connector |
+| Feature | WCPOS behaviour | Status | Server | TallyUI |
 |---|---|---|---|---|
-| Registers | One till = one server-record register; device points at one | v2-only (#1996, roadmap#197) | Free (binding to store: Pro) | no |
-| Register sessions and cash movements | Open with a counted float, cash in/out, close by counting, variance, manager override | v2-only (#1996, #2006, #2022) | Free | no |
-| Sale-time provenance | Till stamps sale time, zone, register, counter, session, write-once | v2-only (#1962, #2045, roadmap#198) | Free | no |
-| Fiscal records | Write-once typed, numbered, checksummed records per sale, refund, void, closure | v2-only (roadmap#200) | Free | no |
-| Closures, X and Z reports | Closure numbers, stored closures, reprint and recount | v2-only (#2005, roadmap#199) | Free (cross-register view: Pro) | no |
-| Reports: Sales room | Period total with comparison, hourly bars, tiles opening tables; today on this register (Free), 92 days, any register/store (Pro) | in flux (reports +6.4k lines on next) | Free / Pro | no |
-| End-of-day report | Daily sales summary | in flux (absorbed into Reports and closures) | Pro | no |
-| Receipt identity and QR | Receipt schema 1.4: software, register, document type, copy marking, real QR | v2-only (roadmap#201, #1971) | Free | no |
+| Registers | One till = one server-record register; a sale cannot complete until one is picked | v2-only (#1996, #2045, roadmap#197) | Free (store binding: Pro) | pos: register; gap: sync |
+| Register sessions and cash movements | Open with a counted float, cash in/out, close by counting, variance, manager override | v2-only (#1996, #2006, #2022) | Free | pos: register session; gap: sync |
+| Sale-time provenance | Till stamps sale time, zone, register, counter, session, write-once | v2-only (#1962, #2045, roadmap#198) | Free | gap |
+| Fiscal records and voids | Write-once typed, numbered, checksummed records for sale, refund, void, cancellation, closure | v2-only (roadmap#200) | Free | gap |
+| Closures, X and Z reports | Closure numbers, stored closures, reprint and recount | v2-only (#2005, roadmap#199) | Free (cross-register view: Pro) | pos: closure document; gap: sync |
+| Reports: Sales room | Period total with comparison, hourly bars, tiles opening tables; today on this register (Free), 92 days, any register and store (Pro) | in flux (reports +6.4k lines on next) | Free / Pro | gap |
+| End-of-day report | Daily sales summary | in flux (absorbed into Reports and closures) | Pro | gap |
+| Receipt identity and QR | Receipt schema 1.4: software, register, document type, copy marking, real QR | v2-only (roadmap#201, #1971) | Free | pos: receipt data (check schema) |
 
 ## Orders and refunds
 
-| Feature | WCPOS behaviour | Status | Server | Connector |
+| Feature | WCPOS behaviour | Status | Server | TallyUI |
 |---|---|---|---|---|
-| Order history | Browse, filter (including by register), reopen past orders | in flux (additive: +610 lines, #1966, #2162) | Pro | no |
-| Refunds | Full and partial refunds with cashier and store audit; refund document printable | in flux (refund document v2-only, #1973) | Pro | no |
+| Order history | Browse, filter (including by register), reopen past orders | in flux (additive, +610 lines, #1966) | Pro | gap |
+| Refunds | Full and partial refunds with cashier and store audit; refund document printable | in flux (refund document v2-only, #1973) | Pro | gap |
 | POS vs online filter | Order-source filter in WooCommerce analytics | stable | Pro | n/a (server) |
 
 ## Receipts and printing
 
-| Feature | WCPOS behaviour | Status | Server | Connector |
+| Feature | WCPOS behaviour | Status | Server | TallyUI |
 |---|---|---|---|---|
-| Receipt screen | Optimistic local render then server upgrade; zoom; template switcher; PDF | in flux (+3k lines: identity blocks, print intent, offline copies) | Free | no |
-| Receipt templates | Logicless (Mustache) and thermal XML templates synced to the device; legacy PHP via server | stable | Free | no |
-| Browser print | System print dialog fallback | stable | none | n/a (app) |
-| Thermal printing | ESC/POS, StarPRNT, ePOS; Epson and Star on web; raw TCP, USB, Bluetooth on native and desktop | in flux (`@wcpos/printer` +1.1k lines, test print proves logo, QR, barcodes) | none | n/a (app) |
-| Multi-printer routing | Manual, per-template override, auto-match by type and width | stable | none | n/a (app) |
-| Cloud printing | PrintNode, Star Online, Star CloudPRNT, Epson Server Direct Print | stable | Free | no |
-| Email receipt, offline queue | Send when online; retry with back-off; health panel | stable | Free | no |
-| Cash drawer kick | Open drawer on print | stable | none | n/a (app) |
+| Receipt screen | Optimistic local render then server upgrade; zoom; template switcher; PDF | in flux (+3k lines: identity blocks, print intent, offline copies) | Free | pos: receipt data |
+| Receipt templates | Logicless (Mustache) and thermal XML templates synced to the device; legacy PHP via server | stable | Free | gap |
+| Browser print | System print dialog fallback | stable | none | app |
+| Email receipt, offline queue | Send when online; retry with back-off; health panel | stable | Free (Woo core can also send order details) | gap |
+| Thermal printing | ESC/POS, StarPRNT, ePOS; Epson and Star on web; raw TCP, USB, Bluetooth on native and desktop | in flux (`@wcpos/printer` +1.1k lines) | none | gap (printer) |
+| Label printer formats | ZPL, CPCL, TSPL outputs | stable | Free | gap (printer) |
+| Multi-printer routing | Manual, per-template override, auto-match by type and width | stable | none | gap (printer) |
+| Cloud printing | PrintNode, Star Online, Star CloudPRNT, Epson Server Direct Print | stable | Free | gap |
+| Cash drawer kick | Open drawer on print | stable | none | gap (printer) |
 
 ## Customer-facing and extensions
 
-| Feature | WCPOS behaviour | Status | Server | Connector |
+| Feature | WCPOS behaviour | Status | Server | TallyUI |
 |---|---|---|---|---|
-| Customer display | Second screen showing cart and total over WebRTC, paired from settings | v2-only (#1824, #1851–#1879) | Pro (signaling and pairing) | n/a (app) |
-| Configurable register layout | Cart side as a setting; slot primitive for WCPOS's own panels | v2-only (#1785, slots README) | none | n/a (app) |
-| Mini-apps | postMessage bridge for web-class extensions | stable | Free | n/a (app) |
+| Customer display | Second screen showing cart and total over WebRTC, paired from settings | v2-only (#1824, #1851–#1879) | Pro (signaling, pairing) | gap |
+| Configurable register layout | Cart side as a setting; slot primitive for WCPOS's own panels | v2-only (#1785, slots README) | none | gap |
+| Mini-apps | postMessage bridge for web-class extensions | stable | Free | gap |
 | Extension directory and management | Browse extensions; install and update from the POS | stable | Free (browse), Pro (install) | n/a (server) |
 
-## Operations and settings
+## Operations, settings and platforms
 
-| Feature | WCPOS behaviour | Status | Server | Connector |
+| Feature | WCPOS behaviour | Status | Server | TallyUI |
 |---|---|---|---|---|
-| Store health | Performance, database coverage, storage footprint, logs; Registers panel on next | in flux (additive, #1969) | Free | n/a (app) |
-| Logs | Level-filtered log ledger; register and checkout events on next | in flux (#2009, #2034) | Free | n/a (app) |
-| Settings | General, tax, theme, barcode scanning, printing, printers; customer display on next | in flux (+1.5k lines) | Free | n/a (app) |
-| Notifications | In-app notifications (Novu) | stable | none (WCPOS service) | out of scope: WCPOS's own service |
-| Translations and RTL | i18next, RTL | stable | none | n/a (app, TallyUI) |
-| Pro upsell previews | Blurred Pro pages for Free users | stable | Pro | out of scope: WCPOS licensing |
+| Platforms | Web, iOS, Android, desktop (Electron) | stable | none | app (Expo) |
+| Store health | Performance, database coverage, storage footprint, logs; Registers panel on next | in flux (additive, #1969) | Free | gap |
+| Logs | Level-filtered log ledger; register and checkout events on next | in flux (#2009, #2034) | Free | pos: logging |
+| Settings | General, tax, theme, barcode, printing, printers; customer display on next | in flux (+1.5k lines) | Free | pos: store settings |
+| Translations and RTL | i18next, RTL | stable | none | gap |
+| Notifications | In-app notifications (Novu) | stable | WCPOS service | out of scope |
+| Pro upsell previews | Blurred Pro pages for Free users | stable | Pro | out of scope |
 
 ## Deliberately outside parity
 
 - WCPOS's own services: Novu notifications, PostHog analytics and flags,
   licence activation and the Pro upsell. They belong to the WCPOS product,
   not to a TallyUI app selling from WooCommerce.
-- Everything on the server side of the table (email controls, analytics
-  filter, extension installs, the WP-admin template editor and gallery):
-  the store keeps doing these for any client, and nothing here changes them.
+- The in-WordPress web bundle: that is how WCPOS is delivered by its
+  plugin, which this app does not change.
+- Everything done only on the server (email controls, the analytics filter,
+  extension installs, the WP-admin template editor and gallery): the store
+  keeps doing these for any client.
 - v1.12.0 country fiscal modules and v1.13.0 plugin compatibility work, as
   above.
 
@@ -175,5 +191,5 @@ gap to send to the front desk before the milestone that needs it
 
 Re-derive the status column from `origin/next` before each milestone that
 builds an *in flux* feature, because `next` is still moving (656 commits
-ahead of `main` on 2026-09-28). When 2.0 ships, *in flux* and *v2-only*
+ahead of `main` on 2026-09-28). When v2 ships, *in flux* and *v2-only*
 collapse into *stable* and this file's target is frozen at that tag.
