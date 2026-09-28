@@ -1,0 +1,25 @@
+{
+  "private": true,
+  "name": "tallyui-woocommerce",
+  "packageManager": "pnpm@10.28.2",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "test": "vitest run",
+    "typecheck": "turbo typecheck",
+    "clean": "turbo clean"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.0",
+    "typescript": "~5.9.2",
+    "vitest": "^4.0.18",
+    "@testing-library/react": "^16.3.3",
+    "jsdom": "^28.1.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native-web": "0.21.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["rxdb", "esbuild"]
+  }
+}
