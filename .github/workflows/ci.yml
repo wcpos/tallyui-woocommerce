@@ -23,7 +23,11 @@ jobs:
         with:
           node-version-file: apps/pos/package.json
           package-manager-cache: false
-      - run: pnpm install --frozen-lockfile
+      # rxdb-premium's installer echoes its access token, so the output is filtered.
+      - name: Install (token lines filtered)
+        run: |
+          set -o pipefail
+          { pnpm install --frozen-lockfile; } 2>&1 | { grep -vi accessToken || true; }
       - name: "Guard: pnpm side-effects cache is off"
         run: |
           value="$(pnpm config get side-effects-cache)"
