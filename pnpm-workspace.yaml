@@ -1,1 +1,3 @@
 packages: ["apps/*"]
+# The licensed rxdb-premium build must never enter a cache.
+sideEffectsCache: false
