@@ -22,7 +22,14 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version-file: apps/pos/package.json
-          cache: pnpm
+          package-manager-cache: false
       - run: pnpm install --frozen-lockfile
+      - name: "Guard: pnpm side-effects cache is off"
+        run: |
+          value="$(pnpm config get side-effects-cache)"
+          if [ "$value" != "false" ]; then
+            echo "::error::pnpm side-effects cache must be false, got: $value"
+            exit 1
+          fi
       - run: pnpm typecheck
       - run: pnpm test
