@@ -24,17 +24,18 @@ rm -f "$DEV_STORE_WP/ping.php"
 
 if [[ ! -f "$DEV_STORE_WP/wp-config.php" ]]; then
     render_template "$script_dir/templates/wp-config-extra.php" "$DEV_STORE_ETC/wp-config-extra.php"
+    # With --prompt, WP-CLI echoes the full command, password included, to stdout.
     {
         printf '%s\n' "$DB_PASSWORD"
         cat "$DEV_STORE_ETC/wp-config-extra.php"
     } | wp_cli config create --dbname="$DB_NAME" --dbuser="$DB_USER" \
-        --dbhost="localhost:$DEV_STORE_DB_SOCKET" --skip-check --prompt=dbpass --extra-php
+        --dbhost="localhost:$DEV_STORE_DB_SOCKET" --skip-check --prompt=dbpass --extra-php > /dev/null
 fi
 
 if ! wp_cli core is-installed; then
     printf '%s\n' "$ADMIN_PASSWORD" | wp_cli core install --url="$DEV_STORE_URL" \
         --title="TallyUI WooCommerce dev store" --admin_user="$ADMIN_USER" \
-        --admin_email=admin@dev-store.invalid --skip-email --prompt=admin_password
+        --admin_email=admin@dev-store.invalid --skip-email --prompt=admin_password > /dev/null
 fi
 
 wp_cli option update home "$DEV_STORE_URL"
@@ -65,12 +66,11 @@ wp_cli option update woocommerce_calc_taxes no
 wp_cli option update woocommerce_currency USD
 wp_cli option update woocommerce_default_country US:CA
 wp_cli option update woocommerce_onboarding_profile '{"skipped":true}' --format=json
-wp_cli option update woocommerce_task_list_hidden yes
 wp_cli option update woocommerce_manage_stock yes
 
 if ! wp_cli user get "$CASHIER_USER" --field=ID >/dev/null 2>&1; then
     printf '%s\n' "$CASHIER_PASSWORD" | wp_cli user create "$CASHIER_USER" \
-        cashier@dev-store.invalid --role=shop_manager --prompt=user_pass
+        cashier@dev-store.invalid --role=shop_manager --prompt=user_pass > /dev/null
 fi
 if ! wp_cli user list-caps "$CASHIER_USER" | grep -qx 'access_woocommerce_pos'; then
     wp_cli user add-cap "$CASHIER_USER" access_woocommerce_pos
