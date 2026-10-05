@@ -22,7 +22,7 @@ running services and reload Caddy. `down.sh` stops them without deleting data.
 
 HTTP listens on `127.0.0.1:8480`, MariaDB on `127.0.0.1:3306`, and the Caddy
 admin endpoint on `127.0.0.1:2480`. PHP FPM uses `run/php-fpm.sock`, never a
-TCP port. Port 8481 is reserved for a later public listener.
+TCP port. The public filter listener uses `127.0.0.1:8481`.
 
 Homebrew tools must already be installed. PHP 8.3 is keg-only and is called
 by its full paths: `/opt/homebrew/opt/php@8.3/bin/php` and
@@ -48,3 +48,14 @@ It deletes all products first and removes previously generated seed images.
 The catalogue has 11 simple products (one draft), T-Shirt and Hoodie variable
 products, and 9 variations across Coffee, Bakery and Merch, with stock and SKUs.
 Product images are generated locally; barcodes use the WooCommerce GTIN field.
+
+## Public URL and smoke
+
+Public URL: `https://claudes-mac-mini.tail6a20e3.ts.net:10000` (Funnel to `127.0.0.1:8481`).
+Only `/wp-json/` and `/wp-json/wcpos/*` reads (GET/HEAD/OPTIONS),
+`/wp-json/wcpos/v1/auth/refresh` and `/wp-json/wcpos/v2/auth/refresh` (POST/OPTIONS),
+and `/wcpos-auth` or `/wcpos-auth/*` (GET/POST) reach PHP.
+Static GET/HEAD requests under `/wp-content/uploads/*`, `/wp-includes/*`, and
+`/wp-content/plugins/*` are exposed, excluding `*.php`; everything else returns 403.
+Do admin work through WP-CLI (`wp_cli` from `dev/woo-store/lib.sh`).
+Run `dev/woo-store/smoke.sh` to check public blocking, cashier sign-in and 12 products.
