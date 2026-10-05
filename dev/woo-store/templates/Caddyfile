@@ -1,0 +1,16 @@
+{
+    admin 127.0.0.1:2480
+    auto_https off
+    persist_config off
+}
+
+http://127.0.0.1:@HTTP_PORT@ {
+    bind 127.0.0.1
+    root * @WP@
+    encode gzip
+    php_fastcgi unix/@FPM_SOCKET@
+    file_server
+    log {
+        output file @LOG@/caddy-access.log
+    }
+}
