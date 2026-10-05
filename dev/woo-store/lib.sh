@@ -25,8 +25,9 @@ readonly DEV_STORE_CREDENTIALS="$DEV_STORE_STATE/credentials.env" # Private stor
 export WP_CLI_PHP="$DEV_STORE_PHP"
 export WP_CLI_CACHE_DIR="$DEV_STORE_STATE/wp-cli-cache"
 
+# WP-CLI's core download needs more than PHP CLI's default 128M.
 wp_cli() {
-    "$DEV_STORE_PHP" /opt/homebrew/bin/wp --path="$DEV_STORE_WP" "$@"
+    "$DEV_STORE_PHP" -d memory_limit=512M /opt/homebrew/bin/wp --path="$DEV_STORE_WP" "$@"
 }
 
 ensure_credentials() {
