@@ -53,15 +53,21 @@ Each says what a tester can do when it is done.
   the plugin's browser login), and sees the store's published products in a
   grid with image, name and price. Searches by name, SKU or barcode.
   Reloads with the network off and still browses.
-- **TallyUI:** G1, the connector signs in with the WCPOS token and pulls
-  products through `wcpos/v2`: the product `uuid` its schema is keyed on
+- **TallyUI:** G1, shipped in `@tallyui/connector-woocommerce@3.0.0`
+  ([ADR 0004](adr/0004-m1-sync-through-tallyui-database.md)). The connector
+  signs in with the WCPOS token and pulls products through `wcpos/v2`: the product `uuid` its schema is keyed on
   only comes on POS requests (wiki `architecture/plugin-free/pos-request-detection.md`),
   and WooCommerce API keys do not authenticate `wcpos/*` routes (D2). The
   current pull also has two defects to fix on the way: `modified_after`
   without `dates_are_gmt=true` misses edits on stores west of UTC, and the
   default `status=any` syncs drafts.
-- **Sync:** sync via `@wcpos/sync-engine` per TallyUI ADR-067; the
-  connector's replication adapters are not used by this app.
+- **Sync:** `@wcpos/sync-engine` (TallyUI ADR-067) is not on npm, so M1
+  runs the connector's `replication.products` and `reconcile.catalogue`
+  under `@tallyui/database`, kept in one module so the engine can replace
+  them ([ADR 0004](adr/0004-m1-sync-through-tallyui-database.md)).
+- **Sign-in:** WCPOS 1.10.20's `/wcpos-auth/` accepts an `https`
+  `redirect_uri` and returns the tokens in its query string, so the web
+  app signs in through the plugin's own login page.
 
 ### M2: Build a cart
 
@@ -237,13 +243,14 @@ deliberately outside it, re-checked against the v2 release tag.
   gates; features whose server half only Pro has need Pro on the store. Put
   plainly, that gives away part of what WCPOS Pro sells, for anyone who
   runs this app instead. It is a commercial call, so it is Paul's.
-- **D4: hosting for testers (before M3).** `medusapos/app` hosts its web
-  build on Vercel (its ADR 0005). The same is likely here; it is an
-  outward-facing choice for the front desk.
-- **D5: testers' stores (before M3).** The dev store is not reachable from
-  outside this machine, so, as with medusapos, testers bring their own
-  WooCommerce store: HTTPS, the WCPOS Free plugin (under D1 (b)), and a
-  host that does not strip the plugin's headers. The tester guide says so.
+- **D4: hosting for testers. Decided 2026-10-05 by the front desk:**
+  Vercel, team `wcpos`, as `medusapos/app` does
+  ([ADR 0002](adr/0002-hosting-on-vercel.md)).
+- **D5: testers' stores. Decided 2026-10-05 by the front desk:** the demo
+  runs against this Mac mini's dev store, exposed read-only through
+  Tailscale Funnel ([ADR 0003](adr/0003-demo-store-through-funnel.md)).
+  Testers may still bring their own store: HTTPS, the WCPOS Free plugin
+  (under D1 (b)), and a host that does not strip the plugin's headers.
 - **D6: WCPOS builds on the dev store (Pro before M4, `next` before
   M8).** The Free plugin's latest release is 1.10.20; the routes v2 adds
   exist only on the plugins' `next` branches, and Pro is not on
@@ -267,16 +274,16 @@ never created on the Coolify VPS.
   PostgreSQL and Redis). A native stack avoids a Linux VM's memory on a
   24 GB machine shared by parallel workers. Components: PHP 8.3 with
   php-fpm (Homebrew's `php@8.3` is keg-only, so the scripts call it by
-  path), MariaDB, WP-CLI, and Caddy as the web server. None is installed
-  yet; installing them is ordinary admin work on this machine.
-- **HTTPS through Caddy.** WooCommerce's key auth needs HTTPS, and a
-  realistic store has it. Caddy serves `https://localhost:8443` with its
-  internal CA (`tls internal`, trusted once with `caddy trust`) in front of
-  php-fpm. Browsers pick up the trusted CA; Node does not, so smoke and e2e
-  scripts set `NODE_EXTRA_CA_CERTS` to Caddy's root certificate.
-- **Ports and sockets:** 8443 for HTTPS; MariaDB on `127.0.0.1:3306`;
-  php-fpm on a Unix socket, because port 9000 is already taken on this
-  machine.
+  path), MariaDB, WP-CLI, and Caddy as the web server, installed with
+  Homebrew on 2026-10-05.
+- **HTTPS through Tailscale Funnel.** The store's URL is
+  `https://claudes-mac-mini.tail6a20e3.ts.net:10000`; Funnel terminates
+  TLS and forwards to Caddy's public filter listener, so no local CA is
+  needed ([ADR 0003](adr/0003-demo-store-through-funnel.md)).
+- **Ports and sockets:** Caddy on `127.0.0.1:8480` (full access, local
+  only) and `127.0.0.1:8481` (the public filter Funnel points at);
+  MariaDB on `127.0.0.1:3306`; php-fpm on a Unix socket, because port
+  9000 is already taken on this machine.
 - **Where it lives:** setup scripts in this repo under `dev/woo-store/`
   (as `medusapos/app` keeps `dev/medusa-store/`), outside the pnpm
   workspace. Runtime state (WordPress files, the database data directory,
