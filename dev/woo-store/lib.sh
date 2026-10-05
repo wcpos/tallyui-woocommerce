@@ -13,6 +13,7 @@ readonly DEV_STORE_DB_PORT=3306 # Loopback database port.
 readonly DEV_STORE_DB_SOCKET="$DEV_STORE_RUN/mysql.sock" # Database socket.
 readonly DEV_STORE_FPM_SOCKET="$DEV_STORE_RUN/php-fpm.sock" # PHP FastCGI socket.
 readonly DEV_STORE_HTTP_PORT=8480 # Local full-access HTTP port.
+readonly DEV_STORE_PUBLIC_PORT=8481 # Public filter listener; Funnel :10000 points here (ADR 0003).
 readonly DEV_STORE_PHP=/opt/homebrew/opt/php@8.3/bin/php # Keg-only PHP CLI.
 readonly DEV_STORE_PHP_FPM=/opt/homebrew/opt/php@8.3/sbin/php-fpm # Keg-only PHP service.
 readonly DEV_STORE_URL="https://claudes-mac-mini.tail6a20e3.ts.net:10000" # Public WordPress URL (ADR 0003).
@@ -58,7 +59,8 @@ render_template() {
         -e "s|@DB_PORT@|$DEV_STORE_DB_PORT|g" \
         -e "s|@DB_SOCKET@|$DEV_STORE_DB_SOCKET|g" \
         -e "s|@FPM_SOCKET@|$DEV_STORE_FPM_SOCKET|g" \
-        -e "s|@HTTP_PORT@|$DEV_STORE_HTTP_PORT|g" "$1" > "$2"
+        -e "s|@HTTP_PORT@|$DEV_STORE_HTTP_PORT|g" \
+        -e "s|@PUBLIC_PORT@|$DEV_STORE_PUBLIC_PORT|g" "$1" > "$2"
 }
 
 dev_store_log() {
