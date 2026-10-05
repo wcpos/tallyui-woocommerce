@@ -48,21 +48,29 @@ http://:@PUBLIC_PORT@ {
     }
     @static {
         method GET HEAD
-        path /wp-content/uploads/* /wp-includes/* /wp-content/plugins/*
+        path /wp-content/uploads/* /wp-includes/* /wp-content/plugins/* /wp-admin/css/* /wp-admin/images/*
         not path *.php
     }
 
     handle @rest_index {
-        php_fastcgi unix/@FPM_SOCKET@
+        php_fastcgi unix/@FPM_SOCKET@ {
+            env HTTPS on
+        }
     }
     handle @wcpos_read {
-        php_fastcgi unix/@FPM_SOCKET@
+        php_fastcgi unix/@FPM_SOCKET@ {
+            env HTTPS on
+        }
     }
     handle @wcpos_refresh {
-        php_fastcgi unix/@FPM_SOCKET@
+        php_fastcgi unix/@FPM_SOCKET@ {
+            env HTTPS on
+        }
     }
     handle @wcpos_auth {
-        php_fastcgi unix/@FPM_SOCKET@
+        php_fastcgi unix/@FPM_SOCKET@ {
+            env HTTPS on
+        }
     }
     handle @static {
         file_server
