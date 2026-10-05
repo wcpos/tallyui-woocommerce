@@ -1,0 +1,12 @@
+[
+  {
+    "id": 0,
+    "name": "TallyUI WooCommerce dev store",
+    "currency": "USD",
+    "currency_pos": "left",
+    "locale": "en_US",
+    "price_num_decimals": 2,
+    "price_decimal_sep": ".",
+    "price_thousand_sep": ","
+  }
+]
