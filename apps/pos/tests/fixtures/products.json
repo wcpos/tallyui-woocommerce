@@ -1,0 +1,123 @@
+[
+  {
+    "id": 80,
+    "name": "Espresso",
+    "slug": "espresso",
+    "type": "simple",
+    "status": "publish",
+    "sku": "COF-ESP",
+    "global_unique_id": "2000000000015",
+    "price": "3.00",
+    "regular_price": "3.00",
+    "sale_price": "",
+    "on_sale": false,
+    "purchasable": true,
+    "stock_status": "instock",
+    "stock_quantity": 100,
+    "manage_stock": true,
+    "date_modified_gmt": "2026-10-05T22:20:33",
+    "categories": [
+      {
+        "id": 25,
+        "name": "Coffee"
+      }
+    ],
+    "images": [
+      {
+        "id": 81,
+        "src": "https://claudes-mac-mini.tail6a20e3.ts.net:10000/wp-content/uploads/2026/10/espresso-300x300.png",
+        "alt": ""
+      }
+    ],
+    "variations": [],
+    "meta_data": [
+      {
+        "key": "_woocommerce_pos_uuid",
+        "value": "085da8e4-7f83-43bf-8234-8248dedd19f2"
+      }
+    ]
+  },
+  {
+    "id": 84,
+    "name": "Cold Brew",
+    "slug": "cold-brew",
+    "type": "simple",
+    "status": "publish",
+    "sku": "COF-CLD",
+    "global_unique_id": "2000000000039",
+    "price": "4.00",
+    "regular_price": "5.00",
+    "sale_price": "4.00",
+    "on_sale": true,
+    "purchasable": true,
+    "stock_status": "instock",
+    "stock_quantity": 40,
+    "manage_stock": true,
+    "date_modified_gmt": "2026-10-05T22:20:33",
+    "categories": [
+      {
+        "id": 25,
+        "name": "Coffee"
+      }
+    ],
+    "images": [
+      {
+        "id": 85,
+        "src": "https://claudes-mac-mini.tail6a20e3.ts.net:10000/wp-content/uploads/2026/10/cold-brew-300x300.png",
+        "alt": ""
+      }
+    ],
+    "variations": [],
+    "meta_data": [
+      {
+        "key": "_woocommerce_pos_uuid",
+        "value": "7f0a3d1b-017e-4286-aed3-475065dff67b"
+      }
+    ]
+  },
+  {
+    "id": 102,
+    "name": "T-Shirt",
+    "slug": "t-shirt",
+    "type": "variable",
+    "status": "publish",
+    "sku": "MER-TEE",
+    "global_unique_id": "2000000000121",
+    "price": "25.00",
+    "regular_price": "",
+    "sale_price": "",
+    "on_sale": false,
+    "purchasable": true,
+    "stock_status": "instock",
+    "stock_quantity": null,
+    "manage_stock": false,
+    "date_modified_gmt": "2026-10-05T22:20:33",
+    "categories": [
+      {
+        "id": 27,
+        "name": "Merch"
+      }
+    ],
+    "images": [
+      {
+        "id": 103,
+        "src": "https://claudes-mac-mini.tail6a20e3.ts.net:10000/wp-content/uploads/2026/10/t-shirt-300x300.png",
+        "alt": ""
+      }
+    ],
+    "variations": [
+      104,
+      105,
+      106,
+      107,
+      108,
+      109
+    ],
+    "meta_data": [
+      {
+        "key": "_woocommerce_pos_uuid",
+        "value": "72668d25-ca99-45f1-9427-9f4fa3dada85"
+      }
+    ]
+  }
+]
