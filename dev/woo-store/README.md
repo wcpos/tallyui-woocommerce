@@ -40,3 +40,11 @@ Generated credentials are stored outside the repo in
 `$HOME/.local/share/tallyui-woocommerce/dev-store/credentials.env` (mode 600).
 The cashier account is `cashier`, with the `shop_manager` role and POS access.
 `install.sh` is re-runnable; it preserves existing credentials and cashier accounts.
+
+## Seed
+
+Run `dev/woo-store/seed.sh` with MariaDB running to replace the demo catalogue.
+It deletes all products first and removes previously generated seed images.
+The catalogue has 11 simple products (one draft), T-Shirt and Hoodie variable
+products, and 9 variations across Coffee, Bakery and Merch, with stock and SKUs.
+Product images are generated locally; barcodes use the WooCommerce GTIN field.
