@@ -17,10 +17,8 @@ for blocked_path in /wp-admin/ /wp-login.php /xmlrpc.php \
     /wp-json/wc/v3/products '/?rest_route=/wc/v3/products' \
     /wp-content/plugins/woocommerce-pos/woocommerce-pos.php; do
     check="403 $blocked_path"
-    curl_status=0
-    status="$(curl -fsS -o /dev/null -w '%{http_code}' \
-        "$DEV_STORE_URL$blocked_path" 2>/dev/null)" || curl_status=$?
-    [[ "$curl_status" == 22 && "$status" == 403 ]]
+    status="$(curl -sS -o /dev/null -w '%{http_code}' "$DEV_STORE_URL$blocked_path")"
+    [[ "$status" == 403 ]]
     printf 'ok 403 %s\n' "$blocked_path"
 done
 
