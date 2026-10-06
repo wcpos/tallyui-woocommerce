@@ -8,6 +8,9 @@ import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { SaleScreen } from '../components/sale-screen';
 import type { SaleScreenProps } from '../components/sale-screen';
 import { parkedCartSchema, type ParkedCartCollection } from '../lib/sale/parked-carts';
+import { SessionProvider } from '../lib/auth/session-context';
+import { saveSession } from '../lib/auth/session';
+import { OutboxProvider } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 
@@ -24,6 +27,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 test('narrow: adds, opens, changes quantity, removes and returns to products', () => {
@@ -70,7 +74,17 @@ test('wide: the grid and cart render together at 900px and Cold Brew costs $4.00
 });
 
 test('Cash shows the payment placeholder and Back to cart preserves the cart', () => {
-  render(<SaleScreen {...props} />);
+  const data = new Map<string, string>();
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => data.get(key) ?? null,
+    setItem: (key: string, value: string) => { data.set(key, value); },
+  });
+  saveSession({
+    site: { name: 'Store', home: 'https://shop.example', wpApiUrl: '', wcposApiUrl: '', authUrl: '' },
+    tokens: { accessToken: 'test', refreshToken: 'test', expiresAt: 2000000000,
+      user: { id: 2, uuid: 'cashier', displayName: 'Paul' } },
+  });
+  render(<SessionProvider><OutboxProvider><SaleScreen {...props} /></OutboxProvider></SessionProvider>);
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' }));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
