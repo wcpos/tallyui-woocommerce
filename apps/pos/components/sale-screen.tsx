@@ -5,7 +5,7 @@ import { Button, Cart, CartBar, POSLayout, Text } from '@tallyui/components';
 import { TaxProvider, useSale } from '@tallyui/pos';
 import { simpleEntry } from '../lib/sale/simple-entry';
 import { parkCart, restoreCart } from '../lib/sale/parked-carts';
-import type { ParkedCart } from '../lib/sale/parked-carts';
+import type { ParkedCart, ParkedCartCollection } from '../lib/sale/parked-carts';
 import { ParkedCartsList } from './parked-carts';
 import { CatalogueView } from './catalogue-view';
 import type { CatalogueViewProps } from './catalogue-view';
@@ -13,7 +13,7 @@ import type { CatalogueViewProps } from './catalogue-view';
 // One web till until the register job (M8).
 const REGISTER_ID = 'web';
 
-export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | 'message'> { cashierRef: string }
+export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | 'message'> { cashierRef: string; parkedCarts?: ParkedCartCollection }
 
 export function SaleScreen(props: SaleScreenProps): JSX.Element {
   // The dev store runs with taxes off until M5 (docs/PLAN.md).
@@ -21,7 +21,7 @@ export function SaleScreen(props: SaleScreenProps): JSX.Element {
 }
 
 function SaleScreenInner(props: SaleScreenProps): JSX.Element {
-  const { connector, currency } = props;
+  const { connector, currency, parkedCarts } = props;
   const sale = useSale({ currency }, { registerId: REGISTER_ID, cashierRef: props.cashierRef });
   const { width } = useWindowDimensions();
   const [cartOpen, setCartOpen] = useState(false);
@@ -30,6 +30,14 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const [parkedOpen, setParkedOpen] = useState(false);
   const [restoring, setRestoring] = useState<ParkedCart>();
   const restoreSteps = useRef<ReturnType<typeof restoreCart> | null>(null);
+
+  useEffect(() => {
+    if (!parkedCarts) return;
+    const subscription = parkedCarts.find({ sort: [{ parkedAt: 'desc' }] }).$.subscribe(docs => {
+      setParked(docs.map(doc => doc.toJSON() as ParkedCart));
+    });
+    return () => subscription.unsubscribe();
+  }, [parkedCarts]);
 
   useEffect(() => {
     if (!restoring) return;
@@ -42,19 +50,42 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     }
   }, [sale.order, restoring]);
 
-  function onPark() {
+  async function onPark() {
     const cart = parkCart(sale.order);
-    setParked(carts => [cart, ...carts]);
+    try {
+      if (parkedCarts) await parkedCarts.insert(cart);
+      else setParked(carts => [cart, ...carts]);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+      return;
+    }
     sale.newSale();
   }
 
-  function onOpen(id: string) {
+  async function onOpen(id: string) {
     const selected = parked.find(cart => cart.id === id)!;
     const current = sale.order.lineItems.length ? parkCart(sale.order) : undefined;
-    setParked(carts => [...(current ? [current] : []), ...carts.filter(cart => cart.id !== id)]);
+    try {
+      if (parkedCarts) {
+        if (current) await parkedCarts.insert(current);
+        await parkedCarts.findOne(id).remove();
+      } else setParked(carts => [...(current ? [current] : []), ...carts.filter(cart => cart.id !== id)]);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+      return;
+    }
     sale.newSale();
     setRestoring(selected);
     setParkedOpen(false);
+  }
+
+  async function onDelete(id: string) {
+    try {
+      if (parkedCarts) await parkedCarts.findOne(id).remove();
+      else setParked(carts => carts.filter(cart => cart.id !== id));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    }
   }
 
   function onSelect(doc: any) {
@@ -83,7 +114,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           </View>
           {parkedOpen ? (
             <ParkedCartsList carts={parked} currency={currency} onOpen={onOpen}
-              onDelete={id => setParked(carts => carts.filter(cart => cart.id !== id))}
+              onDelete={onDelete}
               onClose={() => setParkedOpen(false)} />
           ) : <Cart sale={sale} />}
         </>

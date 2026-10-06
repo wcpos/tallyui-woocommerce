@@ -2,9 +2,12 @@ import { createElement } from 'react';
 import type { ReactNode } from 'react';
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, expect, test } from 'vitest';
+import { createRxDatabase } from 'rxdb';
+import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
+import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { createOrderBuilder, TaxProvider, useSale } from '@tallyui/pos';
-import { parkCart, restoreCart } from '../lib/sale/parked-carts';
+import { parkCart, parkedCartSchema, restoreCart } from '../lib/sale/parked-carts';
 import type { ParkedCart } from '../lib/sale/parked-carts';
 import products from './fixtures/products.json';
 
@@ -65,6 +68,37 @@ test('parks a real order with quantities, totals and only Discount fields', () =
   ]);
   expect(parked.orderDiscounts).toEqual([]);
   expect(parkCart(orderFixture(true)).orderDiscounts).toEqual([orderDiscount]);
+});
+
+test('the schema stores a real parked cart with optional variants and discount fields', async () => {
+  const db = await createRxDatabase({
+    name: `parked_${crypto.randomUUID()}`, multiInstance: false,
+    storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }),
+  });
+  try {
+    const { parked_carts } = await db.addCollections({ parked_carts: { schema: parkedCartSchema } });
+    const builder = createOrderBuilder({
+      currency: 'USD', taxContext: { getTaxRatePpm: () => 0, pricesIncludeTax: false },
+    });
+    const espresso = builder.addLine({
+      productId: '80', variantId: '80', name: 'Espresso', quantity: 2, unitPrice: { amount: 300, currency: 'USD' },
+    });
+    const coldBrew = builder.addLine({
+      productId: '84', name: 'Cold Brew', quantity: 1, unitPrice: { amount: 400, currency: 'USD' },
+    });
+    builder.applyLineDiscount(espresso, { type: 'fixed', value: 50 });
+    builder.applyLineDiscount(coldBrew, lineDiscount);
+    builder.applyOrderDiscount({ type: 'percentage', value: 10 });
+    const parked = parkCart(builder.getSnapshot());
+    expect(parked.lines[0].variantId).toBe('80');
+    expect(parked.lines[1].variantId).toBeUndefined();
+    expect(parked.lines[0].discounts).toEqual([{ type: 'fixed', value: 50 }]);
+    expect(parked.orderDiscounts).toEqual([{ type: 'percentage', value: 10 }]);
+    await parked_carts.insert(parked);
+    expect((await parked_carts.findOne(parked.id).exec())!.toJSON()).toEqual(parked);
+  } finally {
+    await db.remove();
+  }
 });
 
 test.each([false, true])('restores quantities and discounts through real useSale (order discount: %s)', withOrderDiscount => {

@@ -12,7 +12,7 @@ export function ParkedCartsList({ carts, currency, onOpen, onDelete, onClose }: 
       <Text>Parked carts</Text>
       {carts.length === 0 ? <Text>No parked carts</Text> : carts.map(cart => (
         <View key={cart.id} className="gap-2 py-2">
-          <Text>{`${cart.itemCount} items · ${formatMoney({ amount: cart.totalMinor, currency })}`}</Text>
+          <Text>{`${cart.itemCount} ${cart.itemCount === 1 ? 'item' : 'items'} · ${formatMoney({ amount: cart.totalMinor, currency })}`}</Text>
           <Text>{new Date(cart.parkedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</Text>
           <Button onPress={() => onOpen(cart.id)}><Text>Open</Text></Button>
           <Button onPress={() => onDelete(cart.id)}><Text>Delete</Text></Button>
