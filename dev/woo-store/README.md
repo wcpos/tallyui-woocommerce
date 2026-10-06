@@ -67,8 +67,8 @@ idempotently set the San Francisco base address, five tax rates (including reduc
 zero and compound rates), product tax classes/statuses, and TEN, FIVEOFF, MUG2,
 EXPIRED and ONCE coupons. It never touches the product list or renumbers products.
 All modes print JSON status. Taxes stay off by default: `on` is for tests and
-captures; `off` restores the demo state because the till refuses payment while
-the store charges tax. Run `off` after tests or captures, before smoke or demos.
+captures; `off` restores the demo state (taxes off). Run `off` after tests or
+captures, before smoke or demos.
 
 ## Public URL and smoke
 
@@ -77,8 +77,11 @@ Only `/wp-json/` and `/wp-json/wcpos/*` reads (GET/HEAD/OPTIONS),
 `/wp-json/wcpos/v1/auth/refresh` and `/wp-json/wcpos/v2/auth/refresh` (POST/OPTIONS),
 `/wp-json/wcpos/v2/push/orders` (POST/OPTIONS),
 `/wp-json/wcpos/v2/push/customers` and `/wp-json/wcpos/v2/orders/<digits>/email` (POST/OPTIONS),
+`/wp-json/wcpos/v1|v2/orders/<digits>/refunds` and `…/refunds/preview`
+(POST/OPTIONS, for WCPOS Pro refunds),
 and `/wcpos-auth` or `/wcpos-auth/*` (GET/POST) reach PHP.
 Static GET/HEAD requests under `/wp-content/uploads/*`, `/wp-includes/*`, and
-`/wp-content/plugins/*` are exposed, excluding `*.php`; everything else returns 403.
+`/wp-content/plugins/*` are exposed, excluding `*.php`; refund DELETE stays blocked
+and everything else returns 403.
 Do admin work through WP-CLI (`wp_cli` from `dev/woo-store/lib.sh`).
 Run `dev/woo-store/smoke.sh` to check public blocking, cashier sign-in and 12 products.
