@@ -6,6 +6,7 @@ import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, taxProvide
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
 import type { CatalogueEntry, ParkedOrderSummary } from '@tallyui/pos';
 import { useRegister } from '../lib/register/register-context';
+import { buildReceiptIdentity } from '../lib/receipts/receipt-identity';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { parkCart, restoreCart } from '../lib/sale/parked-carts';
 import { taxClassOptions } from '../lib/sale/tax-classes';
@@ -18,6 +19,7 @@ import { CustomerPicker } from './customer-picker';
 import type { ReceiptMailer } from '../lib/receipts/receipt-mailer';
 import { useReceiptEmailSender, type ReceiptEmailCollection } from '../lib/receipts/receipt-emails';
 import { ReceiptEmail } from './receipt-email';
+import { ReceiptIdentity } from './receipt-identity';
 import { RegisterControls, RegisterSwitch } from './register-controls';
 
 // The till id; the bound register is the drawer.
@@ -197,6 +199,11 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         <>
           <Receipt order={sale.stage.order} posOrder={sale.stage.posOrder} store={{ name: props.storeName }}
             cashier={props.cashierName} registerId={REGISTER_ID} newSale={sale.newSale} />
+          <ReceiptIdentity identity={buildReceiptIdentity({
+            posOrder: sale.stage.posOrder,
+            register: register?.boundRegisterId && register.registerName ? { id: register.boundRegisterId, name: register.registerName } : null,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          })} />
           {mailer && receiptEmails && outbox.enabled ? <ReceiptEmail collection={receiptEmails}
             orderId={sale.stage.posOrder.id} defaultEmail={sale.stage.order.customer?.email ?? ''} /> : null}
         </>
