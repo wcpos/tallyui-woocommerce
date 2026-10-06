@@ -73,7 +73,7 @@ test('wide: the grid and cart render together at 900px and Cold Brew costs $4.00
   expect(within(screen.getByText('Subtotal').parentElement!).getByText('$4.00')).not.toBeNull();
 });
 
-test('Cash shows the payment placeholder and Back to cart preserves the cart', () => {
+test('with no order transport, Cash shows the payment placeholder and Back to cart keeps the cart', () => {
   const data = new Map<string, string>();
   vi.stubGlobal('localStorage', {
     getItem: (key: string) => data.get(key) ?? null,
@@ -84,7 +84,7 @@ test('Cash shows the payment placeholder and Back to cart preserves the cart', (
     tokens: { accessToken: 'test', refreshToken: 'test', expiresAt: 2000000000,
       user: { id: 2, uuid: 'cashier', displayName: 'Paul' } },
   });
-  render(<SessionProvider><OutboxProvider><SaleScreen {...props} /></OutboxProvider></SessionProvider>);
+  render(<SessionProvider><OutboxProvider transportFor={() => null}><SaleScreen {...props} /></OutboxProvider></SessionProvider>);
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' }));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
