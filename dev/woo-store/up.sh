@@ -12,6 +12,8 @@ mkdir -p "$DEV_STORE_WP" "$DEV_STORE_DATA" "$DEV_STORE_RUN" "$DEV_STORE_LOG" "$D
 for template in my.cnf php-fpm.conf Caddyfile; do
     render_template "$script_dir/templates/$template" "$DEV_STORE_ETC/$template"
 done
+mkdir -p "$DEV_STORE_WP/wp-content/mu-plugins"
+render_template "$script_dir/templates/dev-mail-log.php" "$DEV_STORE_WP/wp-content/mu-plugins/dev-mail-log.php"
 
 if [[ ! -d "$DEV_STORE_DATA/mysql" ]]; then
     /opt/homebrew/bin/mariadb-install-db --defaults-file="$DEV_STORE_ETC/my.cnf" \
