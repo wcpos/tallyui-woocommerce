@@ -14,6 +14,9 @@ import { CatalogueView } from './catalogue-view';
 import type { CatalogueViewProps } from './catalogue-view';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { CustomerPicker } from './customer-picker';
+import type { ReceiptMailer } from '../lib/receipts/receipt-mailer';
+import { useReceiptEmailSender, type ReceiptEmailCollection } from '../lib/receipts/receipt-emails';
+import { ReceiptEmail } from './receipt-email';
 
 // One web till until the register job (M8).
 const REGISTER_ID = 'web';
@@ -21,7 +24,10 @@ const REGISTER_ID = 'web';
 // transport (createWooCommandTransport) reads v3; the connector has no capabilities() probe yet (G3 follow-up).
 const ORDER_CAPABILITIES = { orderCreate: 3 } as const;
 
-export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | 'message'> { cashierRef: string; parkedCarts?: ParkedCartCollection; customers?: CustomerSource | null }
+export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | 'message'> {
+  cashierRef: string; parkedCarts?: ParkedCartCollection; customers?: CustomerSource | null;
+  mailer?: ReceiptMailer | null; receiptEmails?: ReceiptEmailCollection;
+}
 
 export function SaleScreen(props: SaleScreenProps): JSX.Element {
   // The dev store runs with taxes off until M5 (docs/PLAN.md).
@@ -29,8 +35,10 @@ export function SaleScreen(props: SaleScreenProps): JSX.Element {
 }
 
 function SaleScreenInner(props: SaleScreenProps): JSX.Element {
-  const { connector, currency, parkedCarts } = props;
+  const { connector, currency, parkedCarts, mailer, receiptEmails } = props;
   const outbox = useOutbox();
+  useReceiptEmailSender({ collection: mailer ? receiptEmails ?? null : null, mailer: mailer ?? null,
+    orders: outbox.enabled ? outbox.orders : null });
   const sale = useSale({ currency }, {
     registerId: REGISTER_ID, cashierRef: props.cashierRef,
     capabilities: ORDER_CAPABILITIES,
@@ -161,8 +169,12 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           <Button onPress={() => sale.cancelTender()}><Text>Back to cart</Text></Button>
         </>
       ) : sale.stage.kind === 'receipt' ? (
-        <Receipt order={sale.stage.order} posOrder={sale.stage.posOrder} store={{ name: props.storeName }}
-          cashier={props.cashierName} registerId={REGISTER_ID} newSale={sale.newSale} />
+        <>
+          <Receipt order={sale.stage.order} posOrder={sale.stage.posOrder} store={{ name: props.storeName }}
+            cashier={props.cashierName} registerId={REGISTER_ID} newSale={sale.newSale} />
+          {mailer && receiptEmails && outbox.enabled ? <ReceiptEmail collection={receiptEmails}
+            orderId={sale.stage.posOrder.id} defaultEmail={sale.stage.order.customer?.email ?? ''} /> : null}
+        </>
       ) : null}
       {outbox.enabled ? <SyncStatus state={outbox.state} /> : null}
     </View>

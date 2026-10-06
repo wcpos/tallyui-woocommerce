@@ -5,12 +5,14 @@ import type { TallyDatabase, TallyReplicationState } from '@tallyui/database';
 import { appStorage } from '../app-storage';
 import type { Session } from '../auth/session';
 import { parkedCartSchema, parkedCartMigrationStrategies, type ParkedCartCollection } from '../sale/parked-carts';
+import { receiptEmailSchema, type ReceiptEmailCollection } from '../receipts/receipt-emails';
 import { fetchStoreInfo } from './store-info';
 import type { StoreInfo } from './store-info';
 
 export interface Catalogue {
   db: TallyDatabase;
   parkedCarts: ParkedCartCollection;
+  receiptEmails: ReceiptEmailCollection;
   connector: TallyConnector;
   store: StoreInfo;
   replication: TallyReplicationState<any>;
@@ -41,9 +43,12 @@ export async function startCatalogue(
     // SQLite-wasm per ADR 0004; tests pass memory storage explicitly.
     storage: options.storage ?? appStorage(),
   });
-  // House rule: a local-only collection, never replicated.
-  const { parked_carts: parkedCarts } = await db.addCollections<{ parked_carts: ParkedCartCollection }>({
+  // House rule: local-only collections, never replicated.
+  const { parked_carts: parkedCarts, receipt_emails: receiptEmails } = await db.addCollections<{
+    parked_carts: ParkedCartCollection; receipt_emails: ReceiptEmailCollection;
+  }>({
     parked_carts: { schema: parkedCartSchema, migrationStrategies: parkedCartMigrationStrategies },
+    receipt_emails: { schema: receiptEmailSchema },
   });
   const replication = startReplication({ collection: db.products, adapter: connector.replication!.products!, context });
   const reconcile = startCatalogueReconcile({
@@ -51,7 +56,7 @@ export async function startCatalogue(
     reSync: () => replication.reSync(),
   });
   return {
-    db, parkedCarts, connector, store, replication,
+    db, parkedCarts, receiptEmails, connector, store, replication,
     setAccessToken(token) {
       Object.assign(context.headers, connector.auth.getHeaders({ token }));
       void replication.resume();
