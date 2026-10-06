@@ -4,6 +4,8 @@ import type { StoreSite } from './site';
 export interface Session { site: StoreSite; tokens: AuthTokens }
 export const SESSION_KEY = 'tallywoo.session';
 export const PENDING_KEY = 'tallywoo.auth.pending';
+// The other cashiers signed in at this till, by site home; the active one stays under SESSION_KEY
+export const CASHIERS_KEY = 'tallywoo.cashiers';
 export const REFRESH_WINDOW_SECONDS = 360;
 
 export function loadSession(storage?: Storage): Session | null {
@@ -23,6 +25,20 @@ export function saveSession(session: Session, storage?: Storage): void {
 export function clearSession(storage?: Storage): void {
   try {
     (storage ?? globalThis.localStorage).removeItem(SESSION_KEY);
+  } catch {}
+}
+
+export function loadCashiers(storage?: Storage): Record<string, Session[]> {
+  try {
+    return JSON.parse((storage ?? globalThis.localStorage).getItem(CASHIERS_KEY) ?? '{}');
+  } catch {
+    return {};
+  }
+}
+
+export function saveCashiers(cashiers: Record<string, Session[]>, storage?: Storage): void {
+  try {
+    (storage ?? globalThis.localStorage).setItem(CASHIERS_KEY, JSON.stringify(cashiers));
   } catch {}
 }
 
