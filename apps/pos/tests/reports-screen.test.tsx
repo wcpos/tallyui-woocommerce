@@ -313,3 +313,73 @@ test('CatalogueView exposes Reports only when an onOpenReports handler is suppli
   rerender(<CatalogueView {...props} />);
   expect(screen.queryByRole('button', { name: 'Reports' })).toBeNull();
 }, 20_000);
+
+test('the Payments tile opens a table of methods', async () => {
+  await setup({ multiplePayments: true });
+  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '2.00' } });
+  fireEvent.click(screen.getByTestId('split-tender-add-button'));
+  fireEvent.click(screen.getByTestId('split-tender-method-card'));
+  expect((screen.getByLabelText('Tender amount') as HTMLInputElement).value).toBe('4.00');
+  fireEvent.click(screen.getByTestId('split-tender-add-button'));
+  fireEvent.click(screen.getByRole('button', { name: 'Complete sale' }));
+  expect(await screen.findByTestId('receipt-order')).not.toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'New sale' }));
+  await screen.findByText('Scan or tap a product to start a sale.');
+  await waitFor(() => expect(within(screen.getByTestId('reports-today')).getByText('Total: $6.00')).not.toBeNull());
+  fireEvent.click(screen.getByTestId('sales-room-payments-open'));
+  const table = within(await screen.findByTestId('sales-table'));
+  expect(table.getAllByTestId(/^sales-table-row-/).map(row => row.getAttribute('data-testid'))).toEqual([
+    'sales-table-row-external', 'sales-table-row-cash',
+  ]);
+  expect(within(table.getByTestId('sales-table-row-external')).getAllByText(/./).map(cell => cell.textContent)).toEqual([
+    'Card terminal', '1', '$4.00', '66.7%',
+  ]);
+  expect(within(table.getByTestId('sales-table-row-cash')).getAllByText(/./).map(cell => cell.textContent)).toEqual([
+    'Cash', '1', '$2.00', '33.3%',
+  ]);
+  expect(within(table.getByTestId('sales-table-total')).getAllByText(/./).map(cell => cell.textContent)).toEqual([
+    'Total', '1', '$6.00',
+  ]);
+  expect(table.getByTestId('sales-table-scope').textContent).toBe('Today · This till');
+  expect(table.getByTestId('sales-table-status').textContent).toBe('1 order · $6.00');
+  fireEvent.click(table.getByTestId('sales-table-close'));
+  await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
+  expect(within(screen.getByTestId('sales-room-payments')).getByText('Cash · 1 order · $2.00')).not.toBeNull();
+}, 20_000);
+
+test('an open table follows live data', async () => {
+  const app = await setup();
+  await payCash();
+  await waitFor(() => expect(within(screen.getByTestId('reports-today')).getByText('Total: $3.00')).not.toBeNull());
+  fireEvent.click(screen.getByTestId('sales-room-payments-open'));
+  expect(within(await screen.findByTestId('sales-table')).getByTestId('sales-table-row-cash')).not.toBeNull();
+  const [order] = await app.orders.find().exec();
+  const createdAt = new Date(Date.parse(dayRange(new Date()).startIso) - 60_000).toISOString();
+  await act(async () => { await order.incrementalPatch({ createdAt }); });
+  await waitFor(() => {
+    const table = within(screen.getByTestId('sales-table'));
+    expect(table.getByText('No sales yet today.')).not.toBeNull();
+    expect(table.getByTestId('sales-table-status').textContent).toBe('0 orders · $0.00');
+  });
+  expect(screen.getByTestId('sales-table')).not.toBeNull();
+}, 20_000);
+
+test('the Taxes tile opens a table of rates', async () => {
+  await setup({ storeSettings: { ...noTaxSettings, taxRatesPpm: { default: 100000 } } });
+  await payCash();
+  await waitFor(() => expect(within(screen.getByTestId('reports-today')).getByText('Total: $3.30')).not.toBeNull());
+  fireEvent.click(screen.getByTestId('sales-room-taxes-open'));
+  const table = within(await screen.findByTestId('sales-table'));
+  expect(table.getByText('Taxes collected')).not.toBeNull();
+  expect(within(table.getByTestId('sales-table-row-100000')).getAllByText(/./).map(cell => cell.textContent)).toEqual([
+    'Tax 10%', '$3.00', '$0.30', '$3.30',
+  ]);
+  expect(within(table.getByTestId('sales-table-total')).getAllByText(/./).map(cell => cell.textContent)).toEqual([
+    'Total', '$3.00', '$0.30', '$3.30',
+  ]);
+  fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+  await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
+}, 20_000);
