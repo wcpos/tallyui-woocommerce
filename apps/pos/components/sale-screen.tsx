@@ -5,6 +5,7 @@ import { Button, Cart, CartBar, ParkedSales, POSLayout, Receipt, SplitTender, Sy
 import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, taxProviderProps, useSale } from '@tallyui/pos';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
 import type { CatalogueEntry, ParkedOrderSummary, Payment, TenderVoid } from '@tallyui/pos';
+import { createCustomersBlockedReason, type CashierCapabilities } from '../lib/auth/capabilities';
 import { useRegister } from '../lib/register/register-context';
 import { buildReceiptIdentity } from '../lib/receipts/receipt-identity';
 import { useReceiptPrintCount } from '../lib/receipts/use-receipt-print-count';
@@ -37,6 +38,7 @@ export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | '
   storeSettings: StoreSettings; locale?: string;
   multiplePayments?: boolean;
   capabilities?: ServerCapabilities;
+  cashier?: CashierCapabilities;
 }
 
 export function SaleScreen(props: SaleScreenProps): JSX.Element {
@@ -45,6 +47,7 @@ export function SaleScreen(props: SaleScreenProps): JSX.Element {
 
 function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const { connector, currency, parkedCarts, mailer, receiptEmails } = props;
+  const effective: CashierCapabilities = props.cashier ?? { known: false, reason: 'Your permissions have not been read from the store.' };
   const outbox = useOutbox();
   const register = useRegister();
   useReceiptEmailSender({ collection: mailer ? receiptEmails ?? null : null, mailer: mailer ?? null,
@@ -247,7 +250,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       {width < 900 && message ? <Text>{message}</Text> : null}
       {sale.stage.kind === 'cart' ? (
         <>
-          {props.customers ? <CustomerPicker source={props.customers} customer={sale.order.customer ?? null} onChange={sale.setCustomer} /> : null}
+          {props.customers ? <CustomerPicker source={props.customers} customer={sale.order.customer ?? null} onChange={sale.setCustomer}
+            createBlockedReason={createCustomersBlockedReason(effective)} /> : null}
           <View className="flex-row gap-2">
             <Button disabled={!sale.order.lineItems.length} onPress={async () => {
               const result = await onPark();

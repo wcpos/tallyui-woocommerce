@@ -4,6 +4,7 @@ import { createTallyDatabase, startCatalogueReconcile, startReplication } from '
 import type { TallyDatabase, TallyReplicationState } from '@tallyui/database';
 import { appStorage } from '../app-storage';
 import type { Session } from '../auth/session';
+import { fetchCashierCapabilities, type CashierCapabilities } from '../auth/capabilities';
 import { parkedCartSchema, parkedCartMigrationStrategies, type ParkedCartCollection } from '../sale/parked-carts';
 import { receiptEmailSchema, type ReceiptEmailCollection } from '../receipts/receipt-emails';
 import { fetchStoreInfo } from './store-info';
@@ -15,6 +16,7 @@ export interface Catalogue {
   receiptEmails: ReceiptEmailCollection;
   connector: TallyConnector;
   store: StoreInfo;
+  cashier: CashierCapabilities;
   capabilities?: ServerCapabilities;
   replication: TallyReplicationState<any>;
   setAccessToken(token: string): void;
@@ -39,6 +41,7 @@ export async function startCatalogue(
     headers: { ...connector.auth.getHeaders({ token: session.tokens.accessToken }) },
   };
   const store = await fetchStoreInfo(session, context.headers, options.fetchImpl);
+  const cashier = await fetchCashierCapabilities(session, context.headers, options.fetchImpl);
   const capabilities = await connector.capabilities?.(context);
   const db = await createTallyDatabase({
     connector, name: databaseName(session),
@@ -58,7 +61,7 @@ export async function startCatalogue(
     reSync: () => replication.reSync(),
   });
   return {
-    db, parkedCarts, receiptEmails, connector, store, capabilities, replication,
+    db, parkedCarts, receiptEmails, connector, store, cashier, capabilities, replication,
     setAccessToken(token) {
       Object.assign(context.headers, connector.auth.getHeaders({ token }));
       void replication.resume();
