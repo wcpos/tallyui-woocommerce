@@ -13,6 +13,7 @@ Demo: https://tallyui-woocommerce.vercel.app. It connects to any store running W
   - Discount a line or the whole order by a percentage or an amount.
   - Park a cart, with its customer, and reopen it later; parked carts survive a reload.
 - **Customers:** search the store's customers by name, email or phone, attach one or leave the sale as a guest, and create a customer at the till.
+- Register sessions (optional, per till): open with a float, pay in and out, close with a count.
 - **Cash and card sales:**
   - Take cash and show change, or record a card payment taken on a separate terminal.
   - The order is created in WooCommerce exactly once, as paid and completed, with the customer attached and stock reduced.
@@ -26,7 +27,7 @@ Demo: https://tallyui-woocommerce.vercel.app. It connects to any store running W
 - **Payments:** card-terminal integration and split tender. WooCommerce takes one payment per order.
 - **Other lines:** coupons, and fee, shipping and miscellaneous lines.
 - **Order history:** browsing past orders and refunds.
-- **Register:** register sessions and closing.
+- Register sessions are per signed-in cashier on each till; switching cashiers or sharing a drawer comes with cashier switching and register sync.
 - **Platforms:** native and desktop apps.
 
 WooCommerce sends its own order emails unless WCPOS → Settings → Checkout → Customer emails is off.

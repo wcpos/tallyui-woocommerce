@@ -16,6 +16,7 @@ import { CustomerPicker } from './customer-picker';
 import type { ReceiptMailer } from '../lib/receipts/receipt-mailer';
 import { useReceiptEmailSender, type ReceiptEmailCollection } from '../lib/receipts/receipt-emails';
 import { ReceiptEmail } from './receipt-email';
+import { RegisterControls, RegisterSwitch } from './register-controls';
 
 // The till id; the bound register is the drawer.
 const REGISTER_ID = 'web';
@@ -64,9 +65,10 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   }, [register?.setTenderInProgress, sale.stage.kind]);
 
   async function gatedStartTender(method: 'cash' | 'external') {
-    if (!register?.enabled) return sale.startTender(method);
+    if (!register?.enabled) { register?.setTenderInProgress(true); return sale.startTender(method); }
     try {
       const session = await register.requireSaleSession();
+      register?.setTenderInProgress(true);
       sale.startTender(method, { session: session ?? undefined });
     } catch (error) {
       if (!(error instanceof RegisterSessionRequiredError)) throw error;
@@ -165,7 +167,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const browse = variants ? (
     <VariantChooser entries={variants} currency={currency} onSelect={onAdd} onClose={() => setVariants(undefined)} />
   ) : <CatalogueView {...props} onSelect={onSelect} message={message} />;
-  const cart = (
+  const cartPane = (
     <View className="flex-1 bg-background p-4">
       {width < 900 && message ? <Text>{message}</Text> : null}
       {sale.stage.kind === 'cart' ? (
@@ -203,6 +205,13 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         </>
       ) : null}
       {outbox.enabled ? <SyncStatus state={outbox.state} /> : null}
+    </View>
+  );
+
+  const cart = (
+    <View className="flex-1">
+      <RegisterControls currency={currency} cartEmpty={!sale.order.lineItems.length}>{cartPane}</RegisterControls>
+      <RegisterSwitch />
     </View>
   );
 

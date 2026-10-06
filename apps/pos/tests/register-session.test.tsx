@@ -15,6 +15,11 @@ import { useRegisterSessionsSetting } from '../lib/register/register-setting';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 
+vi.mock('@tallyui/components', async importOriginal => ({
+  ...await importOriginal<typeof import('@tallyui/components')>(),
+  RegisterColumn: ({ children }: { children: import('react').ReactNode }) => children,
+}));
+
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
   const data = new Map<string, string>();
