@@ -7,6 +7,7 @@ import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
 import type { CatalogueEntry, ParkedOrderSummary } from '@tallyui/pos';
 import { useRegister } from '../lib/register/register-context';
 import { buildReceiptIdentity } from '../lib/receipts/receipt-identity';
+import { useReceiptPrintCount } from '../lib/receipts/use-receipt-print-count';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { parkCart, restoreCart } from '../lib/sale/parked-carts';
 import { taxClassOptions } from '../lib/sale/tax-classes';
@@ -52,6 +53,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     onSaleCompleted: outbox.enabled ? outbox.record : undefined,
     isStored: outbox.enabled ? outbox.isStored : undefined,
   });
+  const printCount = useReceiptPrintCount(sale.stage.kind === 'receipt' ? sale.stage.posOrder.id : null);
   const { width } = useWindowDimensions();
   const [cartOpen, setCartOpen] = useState(false);
   const [message, setMessage] = useState<string>();
@@ -203,6 +205,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             posOrder: sale.stage.posOrder,
             register: register?.boundRegisterId && register.registerName ? { id: register.boundRegisterId, name: register.registerName } : null,
             timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            copies: printCount,
           })} />
           {mailer && receiptEmails && outbox.enabled ? <ReceiptEmail collection={receiptEmails}
             orderId={sale.stage.posOrder.id} defaultEmail={sale.stage.order.customer?.email ?? ''} /> : null}
