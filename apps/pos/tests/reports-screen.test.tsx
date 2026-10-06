@@ -93,6 +93,8 @@ test('Today starts empty and observes an Espresso cash sale', async () => {
   const today = within(screen.getByTestId('reports-today'));
   expect(today.getByText('No sales yet today.')).not.toBeNull();
   expect(within(screen.getByTestId('reports-closures')).getByText('No closures yet. A closure appears here when a register session closes.')).not.toBeNull();
+  expect(screen.queryByTestId('x-report-print')).toBeNull();
+  expect(screen.queryByTestId('closures-csv')).toBeNull();
   await payCash();
   await waitFor(() => expect(today.getByText('Sales today: 1')).not.toBeNull());
   expect(today.getByText('Total: $3.00')).not.toBeNull();
@@ -136,26 +138,94 @@ test('Reprint prints the mounted Copy document once without changing the closure
   const app = await setup();
   await openRegister();
   await closeRegister('100.00');
+  expect(screen.queryByTestId('x-report-print')).toBeNull();
   const closure = app.register.lastClosure!;
   const collection = app.orders.database.collections.closures;
   const before = (await collection.findOne(closure.id).exec())!.toJSON();
-  const printedDocuments: (string | null)[] = [];
+  const printedDocuments: { text: string | null; dataPrint: string | null | undefined; todayHidden: boolean }[] = [];
   const print = vi.spyOn(window, 'print').mockImplementation(() => {
     const document = screen.queryByTestId('closure-print-document');
-    printedDocuments.push(document?.textContent ?? null);
-    expect(document?.getAttribute('data-print')).toBe('closure');
-    expect(screen.getByTestId('reports-today').closest('[data-print="hide"]')).not.toBeNull();
+    printedDocuments.push({ text: document?.textContent ?? null, dataPrint: document?.getAttribute('data-print'),
+      todayHidden: screen.getByTestId('reports-today').closest('[data-print="hide"]') !== null });
   });
   fireEvent.click(await screen.findByTestId(`closure-reprint-${closure.id}`));
   await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
-  expect(printedDocuments[0]).toContain('Closure #1');
-  expect(printedDocuments[0]).toContain('Copy');
-  expect(printedDocuments[0]).toContain('Counted: $100.00');
+  expect(printedDocuments[0].dataPrint).toBe('closure');
+  expect(printedDocuments[0].todayHidden).toBe(true);
+  expect(printedDocuments[0].text).toContain('Closure #1');
+  expect(printedDocuments[0].text).toContain('Copy');
+  expect(printedDocuments[0].text).toContain('Counted: $100.00');
   expect(screen.getByTestId('closure-print-document').textContent).toContain('Copy');
   fireEvent.click(screen.getByTestId(`closure-reprint-${closure.id}`));
   await waitFor(() => expect(print).toHaveBeenCalledTimes(2));
-  expect(printedDocuments[1]).toContain('Copy');
+  expect(printedDocuments[1].dataPrint).toBe('closure');
+  expect(printedDocuments[1].todayHidden).toBe(true);
+  expect(printedDocuments[1].text).toContain('Copy');
   expect((await collection.findOne(closure.id).exec())!.toJSON()).toEqual(before);
+}, 20_000);
+
+test('Print X report prints the mounted open session with its expected cash', async () => {
+  const app = await setup();
+  await openRegister();
+  fireEvent.click(screen.getByTestId('register-bar-open-panel'));
+  fireEvent.click(await screen.findByTestId('register-panel-paid-out'));
+  fireEvent.change(await screen.findByTestId('movement-amount'), { target: { value: '20.00' } });
+  fireEvent.change(screen.getByTestId('movement-reason'), { target: { value: 'Milk' } });
+  fireEvent.click(screen.getByTestId('movement-confirm'));
+  await waitFor(() => expect(within(screen.getByTestId('register-panel-expected')).getByText('$80.00')).not.toBeNull());
+  await waitFor(() => expect(screen.queryByTestId('movement-confirm')).toBeNull());
+  fireEvent.click(screen.getByTestId('register-panel-dismiss'));
+  await payCash();
+  await waitFor(() => expect(app.register.expected.cash).toBe(8300));
+  const before = app.register.session;
+  const printedDocuments: { text: string | null; dataPrint: string | null; todayHidden: boolean; opened: boolean }[] = [];
+  const print = vi.spyOn(window, 'print').mockImplementation(() => {
+    const report = screen.getByTestId('closure-print-document');
+    printedDocuments.push({ text: report.textContent, dataPrint: report.getAttribute('data-print'), opened: within(report).queryByText(/^Opened: .+ Paul$/) !== null,
+      todayHidden: screen.getByTestId('reports-today').closest('[data-print="hide"]') !== null });
+  });
+  const button = screen.getByTestId('x-report-print');
+  expect(button.textContent).toBe('Print X report');
+  fireEvent.click(button);
+  await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+  expect(printedDocuments[0].opened).toBe(true);
+  expect(printedDocuments[0].text).not.toContain('Closed:');
+  expect(printedDocuments[0].dataPrint).toBe('closure');
+  expect(printedDocuments[0].todayHidden).toBe(true);
+  expect(printedDocuments[0].text).toContain('X report');
+  expect(printedDocuments[0].text).toContain('Register: This till');
+  expect(printedDocuments[0].text).toContain('Expected: $83.00');
+  expect(printedDocuments[0].text).not.toContain('Closure #');
+  expect(app.register.session).toEqual(before);
+  expect(await app.orders.database.collections.closures.find().exec()).toHaveLength(0);
+}, 20_000);
+
+test('Download CSV downloads the listed closures and revokes its object URL', async () => {
+  await setup();
+  await openRegister();
+  await closeRegister('100.00');
+  vi.stubGlobal('URL', class extends URL {
+    static createObjectURL = vi.fn(() => 'blob:closures-test');
+    static revokeObjectURL = vi.fn();
+  });
+  const anchors: HTMLAnchorElement[] = [];
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+    anchors.push(this);
+    expect(this.isConnected).toBe(true);
+  });
+  const button = await screen.findByTestId('closures-csv');
+  expect(button.textContent).toBe('Download CSV');
+  fireEvent.click(button);
+  expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+  const blob = vi.mocked(URL.createObjectURL).mock.calls[0][0] as Blob;
+  expect(blob).toBeInstanceOf(Blob);
+  expect(blob.type).toBe('text/csv;charset=utf-8');
+  expect(await blob.text()).toContain('"Business day","Closure"');
+  expect(click).toHaveBeenCalledTimes(1);
+  expect(anchors[0].download).toMatch(/^closures-\d{4}-\d{2}-\d{2}\.csv$/);
+  expect(anchors[0].href).toBe('blob:closures-test');
+  expect(anchors[0].isConnected).toBe(false);
+  expect(URL.revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:closures-test');
 }, 20_000);
 
 test('CatalogueView exposes Reports only when an onOpenReports handler is supplied', () => {
