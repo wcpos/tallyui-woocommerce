@@ -7,7 +7,8 @@ export type CatalogueColumnId = 'name' | 'price' | 'stock' | 'category' | 'sku' 
 export interface CatalogueColumnSetting { id: CatalogueColumnId; visible: boolean }
 export type CatalogueTileFieldId = 'name' | 'price' | 'category' | 'sku' | 'barcode' | 'stock';
 export type CatalogueTileFields = Record<CatalogueTileFieldId, boolean>;
-export interface AppCatalogueViewState extends CatalogueViewState { columns: CatalogueColumnSetting[]; tileFields: CatalogueTileFields }
+export type PanelPosition = 'left' | 'right';
+export interface AppCatalogueViewState extends CatalogueViewState { columns: CatalogueColumnSetting[]; tileFields: CatalogueTileFields; position: PanelPosition }
 // Stock and categories are columns here because ProductTable has no name sub-fields.
 export const CATALOGUE_COLUMNS: { id: CatalogueColumnId; label: string; visible: boolean }[] = [
   { id: 'name', label: 'Name', visible: true },
@@ -32,7 +33,13 @@ export const CATALOGUE_VIEW_DEFAULTS: AppCatalogueViewState = {
   view: 'grid', gridColumns: 4, sort: { field: 'name', dir: 'asc' }, categoryId: null,
   columns: CATALOGUE_COLUMNS.map(({ id, visible }) => ({ id, visible })),
   tileFields: Object.fromEntries(CATALOGUE_TILE_FIELDS.map(({ id, visible }) => [id, visible])) as CatalogueTileFields,
+  // v2's pos-products.position: the side the products pane takes, with the cart on the other side.
+  position: 'left',
 };
+
+export function normalizePanelPosition(raw: unknown): PanelPosition {
+  return raw === 'right' ? 'right' : 'left';
+}
 
 export function normalizeCatalogueColumns(raw: unknown): CatalogueColumnSetting[] {
   if (!Array.isArray(raw)) return CATALOGUE_VIEW_DEFAULTS.columns.map(column => ({ ...column }));
@@ -65,6 +72,7 @@ export function loadCatalogueView(storage?: Storage): AppCatalogueViewState {
       ...normalizeCatalogueViewState(parsed, CATALOGUE_VIEW_DEFAULTS),
       columns: normalizeCatalogueColumns(typeof parsed === 'object' && parsed !== null ? parsed.columns : undefined),
       tileFields: normalizeCatalogueTileFields(typeof parsed === 'object' && parsed !== null ? parsed.tileFields : undefined),
+      position: normalizePanelPosition(typeof parsed === 'object' && parsed !== null ? parsed.position : undefined),
     };
   } catch { return CATALOGUE_VIEW_DEFAULTS; }
 }

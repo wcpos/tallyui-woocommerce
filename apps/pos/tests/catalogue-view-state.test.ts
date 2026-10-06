@@ -40,6 +40,7 @@ test('saves the exact JSON and round-trips a table state', () => {
     view: 'table', gridColumns: 6, sort: { field: 'price', dir: 'desc' }, categoryId: null,
     columns: CATALOGUE_VIEW_DEFAULTS.columns.map(c => ({ ...c, visible: c.id === 'sku' ? true : c.id === 'category' ? false : c.visible })),
     tileFields: { ...CATALOGUE_VIEW_DEFAULTS.tileFields, sku: true, price: false },
+    position: 'right',
   };
   saveCatalogueView(state, storage);
   expect(storage.getItem(CATALOGUE_VIEW_KEY)).toBe(JSON.stringify(state));
@@ -56,6 +57,18 @@ test('preserves an explicit null sort and table view', () => {
   const storage = memoryStorage();
   storage.setItem(CATALOGUE_VIEW_KEY, '{"sort":null,"view":"table"}');
   expect(loadCatalogueView(storage)).toEqual({ ...CATALOGUE_VIEW_DEFAULTS, view: 'table', sort: null });
+});
+
+test('a stored value without position loads products left', () => {
+  const storage = memoryStorage();
+  storage.setItem(CATALOGUE_VIEW_KEY, '{"view":"table"}');
+  expect(loadCatalogueView(storage).position).toBe('left');
+});
+
+test.each(['right', 'left', 'top', 7, null])('position %s normalises', position => {
+  const storage = memoryStorage();
+  storage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ position }));
+  expect(loadCatalogueView(storage).position).toBe(position === 'right' ? 'right' : 'left');
 });
 
 test('ignores storage read and write errors', () => {

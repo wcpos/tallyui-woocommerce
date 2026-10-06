@@ -256,6 +256,29 @@ test('restore resets the whole catalogue and keeps the settings dialog open', ()
   expect(screen.getByRole('slider').getAttribute('aria-valuenow')).toBe('4');
 });
 
+test('panel position buttons show the saved side and save a change', () => {
+  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"position":"left"}');
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
+  expect(screen.getByTestId('panel-position-left').getAttribute('aria-selected')).toBe('true');
+  expect(screen.getByTestId('panel-position-right').getAttribute('aria-selected')).toBe('false');
+  fireEvent.click(screen.getByTestId('panel-position-right'));
+  expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!).position).toBe('right');
+  expect(screen.getByTestId('panel-position-right').getAttribute('aria-selected')).toBe('true');
+  expect(screen.getByTestId('panel-position-left').getAttribute('aria-selected')).toBe('false');
+});
+
+test('restore puts the products back on the left', () => {
+  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"view":"table","position":"right"}');
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
+  expect(screen.getByTestId('panel-position-right').getAttribute('aria-selected')).toBe('true');
+  fireEvent.click(screen.getByTestId('catalogue-settings-restore'));
+  expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!).position).toBe('left');
+  expect(screen.getByTestId('panel-position-left').getAttribute('aria-selected')).toBe('true');
+  expect(screen.getByTestId('panel-position-right').getAttribute('aria-selected')).toBe('false');
+});
+
 test('default tiles show name and price without optional fields', () => {
   render(<CatalogueView {...props} />);
   const tile = within(screen.getByTestId('product-tile-80'));
