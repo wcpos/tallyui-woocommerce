@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { View, useWindowDimensions } from 'react-native';
-import { Button, Cart, CartBar, POSLayout, Text } from '@tallyui/components';
+import { Button, Cart, CartBar, POSLayout, Receipt, SyncStatus, Tender, Text } from '@tallyui/components';
 import { catalogueEntries, TaxProvider, useSale } from '@tallyui/pos';
 import type { CatalogueEntry } from '@tallyui/pos';
+import { useOutbox } from '../lib/sale/outbox-context';
 import { parkCart, restoreCart } from '../lib/sale/parked-carts';
 import type { ParkedCart, ParkedCartCollection } from '../lib/sale/parked-carts';
 import { ParkedCartsList } from './parked-carts';
@@ -24,7 +25,12 @@ export function SaleScreen(props: SaleScreenProps): JSX.Element {
 
 function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const { connector, currency, parkedCarts } = props;
-  const sale = useSale({ currency }, { registerId: REGISTER_ID, cashierRef: props.cashierRef });
+  const outbox = useOutbox();
+  const sale = useSale({ currency }, {
+    registerId: REGISTER_ID, cashierRef: props.cashierRef,
+    onSaleCompleted: outbox.enabled ? outbox.record : undefined,
+    isStored: outbox.enabled ? outbox.isStored : undefined,
+  });
   const { width } = useWindowDimensions();
   const [cartOpen, setCartOpen] = useState(false);
   const [message, setMessage] = useState<string>();
@@ -142,12 +148,16 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
               onClose={() => setPriceOpen(false)} />
           ) : <Cart sale={sale} />}
         </>
-      ) : sale.stage.kind === 'tender' ? (
+      ) : sale.stage.kind === 'tender' ? outbox.enabled ? <Tender sale={sale} /> : (
         <>
           <Text>Taking payment arrives in the next update</Text>
           <Button onPress={() => sale.cancelTender()}><Text>Back to cart</Text></Button>
         </>
+      ) : sale.stage.kind === 'receipt' ? (
+        <Receipt order={sale.stage.order} posOrder={sale.stage.posOrder} store={{ name: props.storeName }}
+          cashier={props.cashierName} registerId={REGISTER_ID} newSale={sale.newSale} />
       ) : null}
+      {outbox.enabled ? <SyncStatus state={outbox.state} /> : null}
     </View>
   );
 
