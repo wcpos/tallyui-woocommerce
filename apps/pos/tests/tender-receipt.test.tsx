@@ -75,6 +75,10 @@ test('cash tender records and sends one sale, prints a final receipt, and starts
   const receipt = within(receiptOrder.parentElement!);
   expect(receipt.getByText(stores[0].name)).not.toBeNull();
   expect(receipt.getByLabelText('Total: $6.00')).not.toBeNull();
+  const identity = within(screen.getByTestId('receipt-identity'));
+  expect(identity.getByText('Sales receipt')).not.toBeNull();
+  expect(identity.getByText('Register: This till')).not.toBeNull();
+  expect(identity.getByText('TallyUI WooCommerce POS 0.1.0')).not.toBeNull();
   expect(receipt.queryByText(/\(draft\)/)).toBeNull();
   await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
   expect(send.mock.calls.flatMap(([batch]) => batch)).toEqual([expect.objectContaining({ type: 'order.create' })]);
@@ -82,6 +86,7 @@ test('cash tender records and sends one sale, prints a final receipt, and starts
   fireEvent.click(receipt.getByRole('button', { name: 'New sale' }));
   expect(screen.getByText('Scan or tap a product to start a sale.')).not.toBeNull();
   expect(screen.queryByTestId('receipt-order')).toBeNull();
+  expect(screen.queryByTestId('receipt-identity')).toBeNull();
   expect(screen.queryByRole('button', { name: 'Remove Espresso' })).toBeNull();
   expect(send).toHaveBeenCalledTimes(1);
 }, 20_000);

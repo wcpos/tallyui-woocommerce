@@ -125,11 +125,11 @@ front desk before the milestone that needs it ([PLAN.md](PLAN.md)).
 | Registers | One till = one server-record register; a sale cannot complete until one is picked | v2-only (#1996, #2045, roadmap#197) | Free (store binding: Pro) | pos: register; gap: sync |
 | Register sessions and cash movements | Open with a counted float, cash in/out, close by counting, variance, manager override | v2-only (#1996, #2006, #2022) | Free | pos: register session; gap: sync |
 | Sale-time provenance | Till stamps sale time, zone, register, counter, session, write-once | v2-only (#1962, #2045, roadmap#198) | Free | gap |
-| Fiscal records and voids | Write-once typed, numbered, checksummed records for sale, refund, void, cancellation, closure | v2-only (roadmap#200) | Free | gap |
+| Fiscal records and voids | Write-once typed, numbered, checksummed records for sale, refund, void, cancellation, closure; the receipt QR (`fiscal.qr_payload`, filled only by a fiscal module or a filter) | v2-only (roadmap#200) | Free | gap |
 | Closures, X and Z reports | Closure numbers, stored closures, reprint and recount | v2-only (#2005, roadmap#199) | Free (cross-register view: Pro) | pos: closure document; gap: sync |
 | Reports: Sales room | Period total with comparison, hourly bars, tiles opening tables; today on this register (Free), 92 days, any register and store (Pro) | in flux (reports +6.4k lines on next) | Free / Pro | app, partial: today on this till against yesterday by now, in the device's time zone rather than the store's; hourly bars; Payments by method with split tenders; Taxes by rate. Payments, Taxes and the hero's Orders open tables (today, this till) with Export CSV. Gap: Print and the template select in tables; other periods, registers and stores (Pro) |
 | End-of-day report | Daily sales summary | in flux (absorbed into Reports and closures) | Pro | gap |
-| Receipt identity and QR | Receipt schema 1.4: software, register, document type, copy marking, real QR | v2-only (roadmap#201, #1971) | Free | pos: receipt data (check schema) |
+| Receipt identity and QR | Receipt schema 1.4: software, register, document type, copy marking, real QR | v2-only (roadmap#201, #1971) | Free | app, partial: under the receipt, "Sales receipt", the bound register's name and the software name and version, built with the schema 1.4 keys. Gap: copy marking (next). No QR on a plain sale, as in v2 Free: `fiscal.qr_payload` is filled only by a fiscal module, so the QR goes with Fiscal records. TallyUI gaps G-R1 to G-R5 (Receipt slot, ReceiptData 1.4, sale counter and zone, plugin version, server print counter) |
 
 ## Orders and refunds
 

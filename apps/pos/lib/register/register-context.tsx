@@ -4,12 +4,12 @@ import { bindRegister, ensureRegister, getBoundRegisterId, useRegisterSession } 
 import { useSession } from '../auth/session-context';
 import { useOutbox } from '../sale/outbox-context';
 import { ordersDatabaseName } from '../sale/order-store';
+import { SOFTWARE_VERSION } from '../software';
 import { useRegisterSessionsSetting } from './register-setting';
 
-// apps/pos/package.json version, stamped on local closures.
-const SOFTWARE_VERSION = '0.1.0';
 type Register = ReturnType<typeof useRegisterSession> & {
   boundRegisterId: string | null;
+  registerName: string | null;
   setTenderInProgress: (on: boolean) => void;
   setting: boolean;
   setSetting: (on: boolean) => void;
@@ -23,8 +23,9 @@ export function RegisterProvider({ children }: { children: ReactNode }) {
   const collections = orders?.database.collections;
   const host = collections?.register_sessions ?? null;
   const storeKey = session ? ordersDatabaseName(session) : '';
-  const [binding, setBinding] = useState<{ storeKey: string; id: string } | null>(null);
+  const [binding, setBinding] = useState<{ storeKey: string; id: string; name: string } | null>(null);
   const boundRegisterId = host && binding?.storeKey === storeKey ? binding.id : null;
+  const registerName = host && binding?.storeKey === storeKey ? binding.name : null;
   const [setting, setSetting] = useRegisterSessionsSetting();
   const [tenderInProgress, setTenderInProgress] = useState(false);
 
@@ -37,7 +38,7 @@ export function RegisterProvider({ children }: { children: ReactNode }) {
       if (getBoundRegisterId(doc, storeKey) === null) {
         await bindRegister(host, storeKey, { id, name: doc.name });
       }
-      if (mounted) setBinding({ storeKey, id });
+      if (mounted) setBinding({ storeKey, id, name: doc.name });
     })();
     return () => { mounted = false; };
   }, [host, storeKey]);
@@ -55,7 +56,7 @@ export function RegisterProvider({ children }: { children: ReactNode }) {
     },
     timezone: 'device', softwareVersion: SOFTWARE_VERSION, tenderInProgress,
   });
-  return <RegisterContext.Provider value={{ ...hookResult, enabled, boundRegisterId, setTenderInProgress, setting, setSetting }}>{children}</RegisterContext.Provider>;
+  return <RegisterContext.Provider value={{ ...hookResult, enabled, boundRegisterId, registerName, setTenderInProgress, setting, setSetting }}>{children}</RegisterContext.Provider>;
 }
 
 export function useRegister(): Register {
