@@ -4,8 +4,9 @@ import { View, useWindowDimensions } from 'react-native';
 import { ConnectorProvider } from '@tallyui/core';
 import type { TallyConnector } from '@tallyui/core';
 import { Button, defaultProductColumns, ProductCard, ProductGrid, ProductTable, SearchInput, Text, ViewToggle } from '@tallyui/components';
-import { productSortValue, searchProducts, sortProducts } from '@tallyui/pos';
+import { productSortValue, resolveGridColumns, searchProducts, sortProducts } from '@tallyui/pos';
 import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
+import { CatalogueDisplayOptions } from './catalogue-display-options';
 
 export interface CatalogueViewProps {
   connector: TallyConnector;
@@ -27,13 +28,20 @@ export function CatalogueView({
   const [term, setTerm] = useState('');
   const [viewState, setViewState] = useCatalogueView();
   const { width } = useWindowDimensions();
+  // Phones keep 2 tiles a row whatever the setting.
+  const numColumns = width < 600 ? 2 : resolveGridColumns(viewState.gridColumns, width);
   const searching = Boolean(term.trim());
   const items = useMemo(() => {
     const searched = searching ? searchProducts(products, term, connector.traits.product) : products;
     return sortProducts([...searched], viewState.sort, (doc, field) => productSortValue(doc, field, connector.traits.product, { currency }));
   }, [products, term, searching, connector.traits.product, currency, viewState.sort]);
-  const columns = useMemo(() => defaultProductColumns(connector.traits.product, { currency })
-    .filter(column => ['name', 'price', 'stock', 'category'].includes(column.id)), [connector.traits.product, currency]);
+  const columns = useMemo(() => {
+    const byId = new Map(defaultProductColumns(connector.traits.product, { currency }).map(column => [column.id, column]));
+    return viewState.columns.filter(c => c.visible).flatMap(c => {
+      const column = byId.get(c.id);
+      return column ? [column] : [];
+    });
+  }, [connector.traits.product, currency, viewState.columns]);
   const searchSlot = <SearchInput value={term} onChangeText={setTerm} placeholder="Search name, SKU or barcode" />;
   const emptyState = <Text>{searching ? 'No products match' : 'No products yet'}</Text>;
   const statusLine = status === 'error' ? 'Sync failed' : notice ? notice.message ?? notice.code
@@ -46,6 +54,7 @@ export function CatalogueView({
           <Text>{storeName}</Text>
           <Text>{`Cashier: ${cashierName}`}</Text>
           <ViewToggle value={viewState.view} onChange={view => setViewState({ ...viewState, view })} />
+          <CatalogueDisplayOptions state={viewState} onChange={setViewState} />
           {onOpenReports && <Button onPress={onOpenReports}><Text>Reports</Text></Button>}
           <Button onPress={onSignOut}><Text>Sign out</Text></Button>
         </View>
@@ -53,7 +62,7 @@ export function CatalogueView({
         {message ? <Text>{message}</Text> : null}
         {viewState.view === 'grid' ? <ProductGrid
           items={items}
-          numColumns={width < 600 ? 2 : width >= 900 ? 4 : 3}
+          numColumns={numColumns}
           renderItem={doc => <ProductCard doc={doc} onPress={onSelect ? () => onSelect(doc) : undefined} />}
           searchSlot={searchSlot}
           emptyState={emptyState}
