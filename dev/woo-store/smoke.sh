@@ -22,6 +22,21 @@ for blocked_path in /wp-admin/ /wp-login.php /xmlrpc.php \
     printf 'ok 403 %s\n' "$blocked_path"
 done
 
+check='401 POST /wp-json/wcpos/v2/push/orders without a token'
+status="$(curl -sS -o "$tmp_dir/push-orders" -w '%{http_code}' \
+    -H 'Content-Type: application/json' -H 'X-WCPOS: 1' -d '{}' \
+    "$DEV_STORE_URL/wp-json/wcpos/v2/push/orders")"
+[[ "$status" == 401 ]]
+jq -e '.code == "woocommerce_pos_rest_unauthorized"' "$tmp_dir/push-orders" > /dev/null
+printf 'ok %s\n' "$check"
+
+check='403 POST /wp-json/wcpos/v2/push/products'
+status="$(curl -sS -o /dev/null -w '%{http_code}' \
+    -H 'Content-Type: application/json' -H 'X-WCPOS: 1' -d '{}' \
+    "$DEV_STORE_URL/wp-json/wcpos/v2/push/products")"
+[[ "$status" == 403 ]]
+printf 'ok %s\n' "$check"
+
 check='rest index'
 status="$(curl -fsS -H 'X-WCPOS: 1' -o "$tmp_dir/index" -w '%{http_code}' \
     "$DEV_STORE_URL/wp-json/?wcpos=1")"

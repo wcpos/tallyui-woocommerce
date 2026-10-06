@@ -54,6 +54,7 @@ Product images are generated locally; barcodes use the WooCommerce GTIN field.
 Public URL: `https://claudes-mac-mini.tail6a20e3.ts.net:10000` (Funnel to `127.0.0.1:8481`).
 Only `/wp-json/` and `/wp-json/wcpos/*` reads (GET/HEAD/OPTIONS),
 `/wp-json/wcpos/v1/auth/refresh` and `/wp-json/wcpos/v2/auth/refresh` (POST/OPTIONS),
+`/wp-json/wcpos/v2/push/orders` (POST/OPTIONS),
 and `/wcpos-auth` or `/wcpos-auth/*` (GET/POST) reach PHP.
 Static GET/HEAD requests under `/wp-content/uploads/*`, `/wp-includes/*`, and
 `/wp-content/plugins/*` are exposed, excluding `*.php`; everything else returns 403.
