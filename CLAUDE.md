@@ -42,7 +42,7 @@ there as a route.
 ## TallyUI
 
 - `@tallyui/*` packages come from npm at one exact version, all the same
-  (`3.0.0` now). Upgrade them together in one PR.
+  (`3.4.0` now). Upgrade them together in one PR.
 - Never a `file:`, `link:` or `workspace:` specifier, a git dependency,
   `pnpm.overrides`, a patch, or a Metro, tsconfig or Vitest alias that
   points at a package's `src`. Resolve through the published `exports`.
