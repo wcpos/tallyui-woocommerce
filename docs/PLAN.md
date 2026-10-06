@@ -169,13 +169,26 @@ it needs an open session (wiki `architecture/client/register-sessions.md`).
 ### M10: Reports, fiscal records and receipts
 
 - **Tester:** sees the day's sales in Reports and the closures room;
-  voids and refunds produce their own records; every receipt carries the
+  voided payments and refunds produce their own records; every receipt carries the
   register, the software and a copy marking on reprints (no QR on a plain
   sale, as in WCPOS v2 Free, where `fiscal.qr_payload` is filled only by a
   fiscal module; ruled by the front desk 2026-10-06); the WCPOS receipt
   templates render on the device.
 - **TallyUI:** G11, reports, fiscal records, receipt templates and receipt
   schema 1.4.
+- **Hold (front desk, 2026-10-06):** there is no local journal of voided
+  payments yet. A voided payment here is a split-tender leg that is removed,
+  or abandoned with Back, after the money changed hands.
+  - **Condition:** TallyUI fixes the voided-tender shape (gap G-F2,
+    TallyUI#479) and exports its `TenderVoid` type and schema from
+    `@tallyui/pos`. The journal is built on that schema in the release that
+    ships it, so it needs no migration.
+  - **Until then:** the "Cancel this payment?" step tells the cashier what to
+    hand back or void.
+  - In v2, the records themselves are written by the server, through routes
+    that exist only on plugin `next`. They arrive when the fork rebases onto
+    it, not from this app. There is no Reports read-back, because v2 has
+    none.
 
 ### M11: Printing, scanning and native apps
 
