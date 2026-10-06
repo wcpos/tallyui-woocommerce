@@ -1,6 +1,6 @@
 import { createRxDatabase } from 'rxdb';
 import type { RxCollection, RxStorage } from 'rxdb';
-import { addPosOrderCollection, cashMovementSchema, closureSchema, ensureRegister, registerSessionCollection, tenderVoidCollection } from '@tallyui/pos';
+import { addPosOrderCollection, addRegisterSessionCollection, cashMovementSchema, closureSchema, ensureRegister, tenderVoidCollection } from '@tallyui/pos';
 import type { PosOrder } from '@tallyui/pos';
 import { appStorage } from '../app-storage';
 import type { Session } from '../auth/session';
@@ -16,8 +16,8 @@ export async function openOrderStore(
 ): Promise<{ orders: RxCollection<PosOrder>; close(): Promise<void> }> {
   const db = await createRxDatabase({ name, storage: storage ?? appStorage(), multiInstance: false });
   const orders = await addPosOrderCollection(db);
+  await addRegisterSessionCollection(db);
   await db.addCollections({
-    register_sessions: registerSessionCollection(),
     cash_movements: { schema: cashMovementSchema },
     closures: { schema: closureSchema },
     tender_voids: tenderVoidCollection(),
