@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Platform, ScrollView, View } from 'react-native';
+import { Platform, Pressable, ScrollView, View } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { Button, Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
@@ -9,11 +9,13 @@ import { useSession } from '../lib/auth/session-context';
 import { useRegister } from '../lib/register/register-context';
 import { closuresCsv } from '../lib/reports/closures-csv';
 import { salesRoom } from '../lib/reports/sales-room';
+import { paymentsTable, taxesTable } from '../lib/reports/sales-tables';
 import { dayRange } from '../lib/reports/today-sales';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { ordersDatabaseName } from '../lib/sale/order-store';
 import { ClosurePrint } from './closure-print';
 import { HourlyBars } from './hourly-bars';
+import { SalesTable } from './sales-table';
 
 export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }: {
   storeName: string; currency: string; locale?: string; onBack(): void;
@@ -33,6 +35,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const [sales, setSales] = useState<PosOrder[]>([]);
   const [rows, setRows] = useState<Closure[]>([]);
   const [reprint, setReprint] = useState<Closure | 'x' | null>(null);
+  const [openTable, setOpenTable] = useState<'payments' | 'taxes' | null>(null);
   const [printRequest, setPrintRequest] = useState(0);
   locale = locale.replaceAll('_', '-');
   const today = formatClosureDate(new Date().toISOString(), { timezone: 'device', locale }).date_ymd;
@@ -101,14 +104,19 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
         </View>
         <HourlyBars hours={room.hours} currency={currency} locale={locale} />
         {room.today.byMethod.length > 0 && <View testID="sales-room-payments" className="gap-2 rounded-lg border border-border p-4">
-          <Text accessibilityRole="header">Payments</Text>
+          <Pressable testID="sales-room-payments-open" accessibilityRole="button" accessibilityLabel="Open Payments table" onPress={() => setOpenTable('payments')}>
+            <Text accessibilityRole="header">Payments ›</Text>
+          </Pressable>
           {room.today.byMethod.map(row => <Text key={row.method}>{`${row.label} · ${row.count} ${row.count === 1 ? 'order' : 'orders'} · ${money(row.totalMinor)}`}</Text>)}
           {room.today.splitCount > 0 && <Text>{`Split tenders: ${room.today.splitCount}`}</Text>}
         </View>}
         {room.today.taxMinor !== 0 && <View testID="sales-room-taxes" className="gap-2 rounded-lg border border-border p-4">
-          <Text accessibilityRole="header">Taxes</Text>
+          <Pressable testID="sales-room-taxes-open" accessibilityRole="button" accessibilityLabel="Open Taxes table" onPress={() => setOpenTable('taxes')}>
+            <Text accessibilityRole="header">Taxes ›</Text>
+          </Pressable>
           {room.today.taxRates.map(row => <Text key={row.ratePpm}>{`${row.label} — Net ${money(row.netMinor)} — Tax ${money(row.taxMinor)} — Gross ${money(row.grossMinor)}`}</Text>)}
         </View>}
+        {openTable && <SalesTable table={openTable === 'payments' ? paymentsTable(room.today, money) : taxesTable(room.today, money)} scope="Today · This till" onClose={() => setOpenTable(null)} />}
         <View testID="reports-closures" className="gap-2 rounded-lg border border-border p-4">
           <View className="flex-row items-center justify-between">
             <Text accessibilityRole="header">Closures</Text>
