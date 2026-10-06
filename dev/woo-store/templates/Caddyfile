@@ -42,6 +42,10 @@ http://:@PUBLIC_PORT@ {
         path /wp-json/wcpos/v1/auth/refresh /wp-json/wcpos/v2/auth/refresh
         method POST OPTIONS
     }
+    @wcpos_push {
+        path /wp-json/wcpos/v2/push/orders
+        method POST OPTIONS
+    }
     @wcpos_auth {
         path /wcpos-auth /wcpos-auth/*
         method GET POST
@@ -63,6 +67,11 @@ http://:@PUBLIC_PORT@ {
         }
     }
     handle @wcpos_refresh {
+        php_fastcgi unix/@FPM_SOCKET@ {
+            env HTTPS on
+        }
+    }
+    handle @wcpos_push {
         php_fastcgi unix/@FPM_SOCKET@ {
             env HTTPS on
         }
