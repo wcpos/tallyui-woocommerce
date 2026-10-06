@@ -3,10 +3,11 @@ import type { JSX } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import { ConnectorProvider } from '@tallyui/core';
 import type { TallyConnector } from '@tallyui/core';
-import { Button, defaultProductColumns, ProductCard, ProductGrid, ProductTable, SearchInput, Text, ViewToggle } from '@tallyui/components';
+import { Button, defaultProductColumns, ProductGrid, ProductTable, SearchInput, Text, ViewToggle } from '@tallyui/components';
 import { productSortValue, resolveGridColumns, searchProducts, sortProducts } from '@tallyui/pos';
 import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
 import { CatalogueDisplayOptions } from './catalogue-display-options';
+import { ProductTile } from './product-tile';
 
 export interface CatalogueViewProps {
   connector: TallyConnector;
@@ -63,7 +64,7 @@ export function CatalogueView({
         {viewState.view === 'grid' ? <ProductGrid
           items={items}
           numColumns={numColumns}
-          renderItem={doc => <ProductCard doc={doc} onPress={onSelect ? () => onSelect(doc) : undefined} />}
+          renderItem={doc => <ProductTile doc={doc} fields={viewState.tileFields} onPress={onSelect ? () => onSelect(doc) : undefined} />}
           searchSlot={searchSlot}
           emptyState={emptyState}
         /> : <ProductTable

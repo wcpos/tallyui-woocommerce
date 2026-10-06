@@ -1,11 +1,11 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { PortalHost } from '@tallyui/primitives';
 import { CatalogueView } from '../components/catalogue-view';
 import type { CatalogueViewProps } from '../components/catalogue-view';
-import { CATALOGUE_VIEW_DEFAULTS, CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { CATALOGUE_TILE_FIELDS, CATALOGUE_VIEW_DEFAULTS, CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 
@@ -221,9 +221,11 @@ test.each(['grid', 'table'])('%s settings show only the relevant controls and cl
   if (view === 'grid') {
     expect(screen.getByText('Tile size')).not.toBeNull();
     expect(screen.queryAllByTestId(/^column-toggle-/)).toHaveLength(0);
+    expect(screen.getAllByTestId(/^tile-field-toggle-/).map(node => node.getAttribute('data-testid'))).toEqual(CATALOGUE_TILE_FIELDS.map(({ id }) => `tile-field-toggle-${id}`));
   } else {
     expect(screen.getByTestId('column-toggle-name')).not.toBeNull();
     expect(screen.queryAllByTestId(/^tile-size-/)).toHaveLength(0);
+    expect(screen.queryAllByTestId(/^tile-field-toggle-/)).toHaveLength(0);
   }
   fireEvent.click(screen.getByTestId('catalogue-settings-close'));
   expect(screen.queryByTestId('catalogue-settings')).toBeNull();
@@ -238,4 +240,76 @@ test('restore resets the whole catalogue and keeps the settings dialog open', ()
   expect(localStorage.getItem(CATALOGUE_VIEW_KEY)).toBe(JSON.stringify(CATALOGUE_VIEW_DEFAULTS));
   expect(screen.getByTestId('catalogue-settings')).not.toBeNull();
   expect(screen.getByTestId('tile-size-4').getAttribute('aria-checked')).toBe('true');
+});
+
+test('default tiles show name and price without optional fields', () => {
+  render(<CatalogueView {...props} />);
+  const tile = within(screen.getByTestId('product-tile-80'));
+  expect(tile.getByText('Espresso')).not.toBeNull();
+  expect(tile.getByText('$3.00')).not.toBeNull();
+  expect(tile.queryByText('COF-ESP')).toBeNull();
+  expect(tile.queryByText('2000000000015')).toBeNull();
+  expect(tile.queryByText('Coffee')).toBeNull();
+  expect(screen.getByTestId('product-tile-80').textContent).not.toContain('In Stock');
+});
+
+test('the SKU tile switch updates immediately, saves and survives a remount', () => {
+  const { unmount } = render(<><CatalogueView {...props} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
+  fireEvent.click(screen.getByRole('switch', { name: 'Show SKU on tiles' }));
+  expect(within(screen.getByTestId('product-tile-80')).getByText('COF-ESP')).not.toBeNull();
+  expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!).tileFields.sku).toBe(true);
+  unmount();
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  expect(within(screen.getByTestId('product-tile-80')).getByText('COF-ESP')).not.toBeNull();
+});
+
+test('category, barcode and stock switches show their tile fields', () => {
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
+  for (const label of ['Category', 'Barcode', 'Stock']) {
+    fireEvent.click(screen.getByRole('switch', { name: `Show ${label} on tiles` }));
+  }
+  const tile = within(screen.getByTestId('product-tile-80'));
+  expect(tile.getByText('Coffee')).not.toBeNull();
+  expect(tile.getByText('2000000000015')).not.toBeNull();
+  expect(screen.getByTestId('product-tile-80').textContent).toContain('In Stock (100)');
+});
+
+test('the price tile switch hides price and keeps name visible', () => {
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
+  fireEvent.click(screen.getByRole('switch', { name: 'Show Price on tiles' }));
+  const tile = within(screen.getByTestId('product-tile-80'));
+  expect(tile.queryByText('$3.00')).toBeNull();
+  expect(tile.getByText('Espresso')).not.toBeNull();
+});
+
+test('the name tile switch hides name and keeps price visible', () => {
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
+  fireEvent.click(screen.getByRole('switch', { name: 'Show Name on tiles' }));
+  const tile = within(screen.getByTestId('product-tile-80'));
+  expect(tile.queryByText('Espresso')).toBeNull();
+  expect(tile.getByText('$3.00')).not.toBeNull();
+});
+
+test('restore resets tile fields and saves the complete defaults', () => {
+  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"tileFields":{"name":false,"price":false,"sku":true,"stock":true}}');
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
+  fireEvent.click(screen.getByTestId('catalogue-settings-restore'));
+  const tile = within(screen.getByTestId('product-tile-80'));
+  expect(tile.getByText('Espresso')).not.toBeNull();
+  expect(tile.getByText('$3.00')).not.toBeNull();
+  expect(tile.queryByText('COF-ESP')).toBeNull();
+  expect(localStorage.getItem(CATALOGUE_VIEW_KEY)).toBe(JSON.stringify(CATALOGUE_VIEW_DEFAULTS));
+});
+
+test('pressing a grid tile selects its product once', () => {
+  const onSelect = vi.fn();
+  render(<CatalogueView {...props} onSelect={onSelect} />);
+  fireEvent.click(screen.getByTestId('product-tile-84'));
+  expect(onSelect).toHaveBeenCalledOnce();
+  expect(onSelect).toHaveBeenCalledWith(products[1]);
 });

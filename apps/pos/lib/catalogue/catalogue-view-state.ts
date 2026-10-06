@@ -5,7 +5,9 @@ import type { CatalogueViewState } from '@tallyui/pos';
 export const CATALOGUE_VIEW_KEY = 'tallywoo.catalogue_view.v1';
 export type CatalogueColumnId = 'name' | 'price' | 'stock' | 'category' | 'sku' | 'barcode';
 export interface CatalogueColumnSetting { id: CatalogueColumnId; visible: boolean }
-export interface AppCatalogueViewState extends CatalogueViewState { columns: CatalogueColumnSetting[] }
+export type CatalogueTileFieldId = 'name' | 'price' | 'category' | 'sku' | 'barcode' | 'stock';
+export type CatalogueTileFields = Record<CatalogueTileFieldId, boolean>;
+export interface AppCatalogueViewState extends CatalogueViewState { columns: CatalogueColumnSetting[]; tileFields: CatalogueTileFields }
 // Stock and categories are columns here because ProductTable has no name sub-fields.
 export const CATALOGUE_COLUMNS: { id: CatalogueColumnId; label: string; visible: boolean }[] = [
   { id: 'name', label: 'Name', visible: true },
@@ -15,10 +17,21 @@ export const CATALOGUE_COLUMNS: { id: CatalogueColumnId; label: string; visible:
   { id: 'sku', label: 'SKU', visible: false },
   { id: 'barcode', label: 'Barcode', visible: false },
 ];
+// Grid tile fields in WCPOS v2's order, with v2's defaults (name and price on). v2's Tax, On Sale and Cost of
+// Goods Sold fields are left out: TallyUI has no tax display, no way to hide the was-price, and no COGS trait.
+export const CATALOGUE_TILE_FIELDS: { id: CatalogueTileFieldId; label: string; visible: boolean }[] = [
+  { id: 'name', label: 'Name', visible: true },
+  { id: 'price', label: 'Price', visible: true },
+  { id: 'category', label: 'Category', visible: false },
+  { id: 'sku', label: 'SKU', visible: false },
+  { id: 'barcode', label: 'Barcode', visible: false },
+  { id: 'stock', label: 'Stock', visible: false },
+];
 // WCPOS v2's products panel defaults: grid, 4 tiles a row, name ascending.
 export const CATALOGUE_VIEW_DEFAULTS: AppCatalogueViewState = {
   view: 'grid', gridColumns: 4, sort: { field: 'name', dir: 'asc' }, categoryId: null,
   columns: CATALOGUE_COLUMNS.map(({ id, visible }) => ({ id, visible })),
+  tileFields: Object.fromEntries(CATALOGUE_TILE_FIELDS.map(({ id, visible }) => [id, visible])) as CatalogueTileFields,
 };
 
 export function normalizeCatalogueColumns(raw: unknown): CatalogueColumnSetting[] {
@@ -36,6 +49,13 @@ export function normalizeCatalogueColumns(raw: unknown): CatalogueColumnSetting[
   return columns;
 }
 
+export function normalizeCatalogueTileFields(raw: unknown): CatalogueTileFields {
+  return Object.fromEntries(CATALOGUE_TILE_FIELDS.map(({ id, visible }) => {
+    const value = typeof raw === 'object' && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>)[id] : undefined;
+    return [id, typeof value === 'boolean' ? value : visible];
+  })) as CatalogueTileFields;
+}
+
 export function loadCatalogueView(storage?: Storage): AppCatalogueViewState {
   try {
     const raw = (storage ?? globalThis.localStorage).getItem(CATALOGUE_VIEW_KEY);
@@ -44,6 +64,7 @@ export function loadCatalogueView(storage?: Storage): AppCatalogueViewState {
     return {
       ...normalizeCatalogueViewState(parsed, CATALOGUE_VIEW_DEFAULTS),
       columns: normalizeCatalogueColumns(typeof parsed === 'object' && parsed !== null ? parsed.columns : undefined),
+      tileFields: normalizeCatalogueTileFields(typeof parsed === 'object' && parsed !== null ? parsed.tileFields : undefined),
     };
   } catch { return CATALOGUE_VIEW_DEFAULTS; }
 }
