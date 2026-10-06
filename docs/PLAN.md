@@ -181,8 +181,10 @@ it needs an open session (wiki `architecture/client/register-sessions.md`).
   or abandoned with Back, after the money changed hands.
   - **Condition:** TallyUI fixes the voided-tender shape (gap G-F2,
     TallyUI#479) and exports its `TenderVoid` type and schema from
-    `@tallyui/pos`. The journal is built on that schema in the release that
-    ships it, so it needs no migration.
+    `@tallyui/pos` (TallyUI#482, open). The journal's `tender_voids`
+    collection is created from that package's `tenderVoidCollection()` in
+    the release that ships it, not from a local copy, so it needs no
+    migration.
   - **Until then:** the "Cancel this payment?" step tells the cashier what to
     hand back or void.
   - In v2, the records themselves are written by the server, through routes
