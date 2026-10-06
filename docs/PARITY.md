@@ -76,7 +76,7 @@ front desk before the milestone that needs it ([PLAN.md](PLAN.md)).
 | Feature | WCPOS behaviour | Status | Server | TallyUI |
 |---|---|---|---|---|
 | Product sync, offline | Catalogue stored on device, browsable offline, background sync | stable (engine reworked under the hood: sync-engine +2.9k lines) | Free (uuid) | conn: products, pull only |
-| Grid and table views | Grid default, 2–8 columns, configurable tile fields; table toggle | in flux (products column becomes a pluggable panel, side is a setting, #1785) | Woo | components |
+| Grid and table views | Grid default, 2–8 columns, configurable tile fields; table toggle | stable for grid and table (#1785 closed 2026-09-03; the panel side moved to Configurable register layout); tile visuals still moving | Woo | app: grid by default at 4 a row, tile size 2–8 in Product settings (phones keep 2); tile fields Name, Price, Category, SKU, Barcode and Stock (Name and Price on); a sortable table with column switches; Restore default settings; saved per device. Differences: tile size is buttons, not a slider (G-G6); no column reorder (G-G5); stock and category are table columns, not sub-fields under the name; no Tax or On Sale tile field (G-G4) and no Cost of Goods Sold (G-G3) |
 | Variations | Variations popover with attribute pickers and stock badge | stable | Woo / Free | gap |
 | Product search | Any-order substring over name, SKU, barcode | stable | Woo | pos: `searchProducts` |
 | Quick filters | Merchant-built quick-filter buttons with an editor; price and type filters | v2-only (#1839) | Woo | gap |
