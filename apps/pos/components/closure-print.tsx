@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Platform, View } from 'react-native';
 import { Text } from '@tallyui/components';
 import { minorUnitDigits } from '@tallyui/core';
-import { buildClosureDocument, type Closure, type ClosureContext, type labelKeys } from '@tallyui/pos';
+import { buildClosureDocument, buildXReportDocument, type Closure, type ClosureContext, type RegisterSession, type labelKeys } from '@tallyui/pos';
 
 const labels: Record<keyof typeof labelKeys, string> = {
   x_report: 'X report', closure: 'Closure', opened: 'Opened', closed: 'Closed', approver: 'Approver',
@@ -16,9 +16,10 @@ const labels: Record<keyof typeof labelKeys, string> = {
   paid_in: 'Paid in', paid_out: 'Paid out', no_sale: 'No sale', void: 'Void', copy: 'Copy',
 };
 
-export function ClosurePrint({ closure, storeName, currency, locale = 'en-US', copy }: {
-  closure: Closure; storeName: string; currency: string; locale?: string; copy?: boolean;
-}) {
+export function ClosurePrint({ kind, closure, expected, storeName, currency, locale = 'en-US', copy, registerName, resolveCashierName }: {
+  storeName: string; currency: string; locale?: string; copy?: boolean;
+  registerName?: string; resolveCashierName?: (id: string) => string;
+} & ({ kind?: 'z'; closure: Closure; expected?: never } | { kind: 'x'; closure: RegisterSession; expected: Record<string, number> })) {
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
     const style = document.createElement('style');
@@ -32,18 +33,19 @@ export function ClosurePrint({ closure, storeName, currency, locale = 'en-US', c
     style: 'currency', currency, minimumFractionDigits: exponent, maximumFractionDigits: exponent,
   });
   const ctx: ClosureContext = {
-    store: { name: storeName }, currency, exponent, locale: locale.replaceAll('_', '-'), timezone: 'device',
+    store: { name: storeName }, currency, exponent, locale: locale.replaceAll('_', '-'), timezone: 'device', expected,
     printedAt: new Date().toISOString(), formatMoney: value => value === '' ? '' : money.format(Number(value)), i18n: labels,
   };
-  const { closure: report, store, register, order, i18n } = buildClosureDocument(closure, ctx);
+  const { closure: report, store, register, order, i18n } = kind === 'x' ? buildXReportDocument(closure, ctx) : buildClosureDocument(closure, ctx);
   const { breakdowns } = report;
+  const openedBy = kind === 'x' ? closure.opened_by : report.opened_by;
   return (
     <View testID="closure-print-document" dataSet={{ print: 'closure' }} style={{ display: 'none' }} className="gap-2 p-4">
-      <Text accessibilityRole="header">{`${String(store.name)} — ${i18n.closure} #${report.number}`}</Text>
+      <Text accessibilityRole="header">{`${String(store.name)} — ${kind === 'x' ? i18n.x_report : `${i18n.closure} #${closure.number}`}`}</Text>
       {copy && <Text>{i18n.copy}</Text>}
-      <Text>{`Register: ${String(register.name || register.id)}`}</Text>
-      <Text>{`${i18n.opened}: ${report.opened_at.datetime} ${String(breakdowns.labels.opened_by_name)}`}</Text>
-      <Text>{`${i18n.closed}: ${report.closed_at.datetime} ${String(breakdowns.labels.closed_by_name)}`}</Text>
+      <Text>{`Register: ${String(register.name || registerName || register.id)}`}</Text>
+      <Text>{`${i18n.opened}: ${report.opened_at.datetime} ${String(breakdowns.labels.opened_by_name || (openedBy ? resolveCashierName?.(String(openedBy)) ?? openedBy : ''))}`}</Text>
+      {report.closed_at.datetime && <Text>{`${i18n.closed}: ${report.closed_at.datetime} ${String(breakdowns.labels.closed_by_name || (closure.closed_by ? resolveCashierName?.(closure.closed_by) ?? closure.closed_by : ''))}`}</Text>}
       {breakdowns.labels.approved_by_name != null && breakdowns.labels.approved_by_name !== '' && <Text>{`${i18n.approver}: ${String(breakdowns.labels.approved_by_name)}`}</Text>}
       <Text>{`Printed: ${order.printed.datetime}`}</Text>
       <Text>{i18n.opening_float}</Text>
@@ -55,7 +57,7 @@ export function ClosurePrint({ closure, storeName, currency, locale = 'en-US', c
         <Text key={movement.id}>{`• ${movement.created_at.datetime} — ${movement.type_label}: ${movement.amount_display} — ${movement.reason}${movement.voided ? ` (${i18n.voided})` : ''}`}</Text>
       ))}
       <Text>{i18n.tenders}</Text>
-      {Object.entries(report.till_expected).map(([tender, amount]) => (
+      {'till_expected' in report && Object.entries(report.till_expected).map(([tender, amount]) => (
         <Text key={tender}>{`Till expected (${tender}): ${ctx.formatMoney(amount)}`}</Text>
       ))}
       {report.tenders.map(tender => (
@@ -70,8 +72,8 @@ export function ClosurePrint({ closure, storeName, currency, locale = 'en-US', c
         <Text>{i18n.sales}</Text>
         <Text>{`${i18n.period_sales}: ${report.period_sales_total_display}`}</Text>
         <Text>{`${i18n.period_refunds}: ${report.period_refunds_total_display}`}</Text>
-        {breakdowns.transaction_count != null && breakdowns.transaction_count !== '' && <Text>{`${i18n.transactions}: ${String(breakdowns.transaction_count)}`}</Text>}
-        {breakdowns.refund_count != null && breakdowns.refund_count !== '' && <Text>{`${i18n.refunds}: ${String(breakdowns.refund_count)}`}</Text>}
+        {'transaction_count' in breakdowns && breakdowns.transaction_count != null && breakdowns.transaction_count !== '' && <Text>{`${i18n.transactions}: ${String(breakdowns.transaction_count)}`}</Text>}
+        {'refund_count' in breakdowns && breakdowns.refund_count != null && breakdowns.refund_count !== '' && <Text>{`${i18n.refunds}: ${String(breakdowns.refund_count)}`}</Text>}
         {breakdowns.payment_methods.map((method, index) => <Text key={index}>{`${i18n.payment_method}: ${String(method.name)} — ${i18n.sales}: ${method.sales_display} — ${i18n.refunds}: ${method.refunds_display}`}</Text>)}
         {breakdowns.tax_rates.map((rate, index) => <Text key={index}>{`${i18n.tax_rate}: ${String(rate.name)} — ${i18n.net}: ${rate.net_display} — ${i18n.tax}: ${rate.tax_display} — ${i18n.gross}: ${rate.gross_display}`}</Text>)}
         {breakdowns.cashiers.length > 0 && <Text>{`${i18n.cashiers}: ${breakdowns.cashiers.map(cashier => String(cashier.name)).join(', ')}`}</Text>}
@@ -82,7 +84,7 @@ export function ClosurePrint({ closure, storeName, currency, locale = 'en-US', c
         <Text>{`${i18n.perpetual_sales}: ${report.perpetual_sales_total_display}`}</Text>
         <Text>{`${i18n.perpetual_refunds}: ${report.perpetual_refunds_total_display}`}</Text>
       </View>}
-      <Text>{`${i18n.unsynced_sales}: ${report.unsynced_count} — ${report.unsynced_total_display}`}</Text>
+      {'unsynced_count' in report && <Text>{`${i18n.unsynced_sales}: ${report.unsynced_count} — ${report.unsynced_total_display}`}</Text>}
     </View>
   );
 }

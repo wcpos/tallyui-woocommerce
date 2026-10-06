@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Platform, ScrollView, View } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { Button, Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
@@ -7,6 +7,7 @@ import { clampClosureScope, formatClosureDate, selectClosureRows, type Closure, 
 import { Portal } from '@tallyui/primitives';
 import { useSession } from '../lib/auth/session-context';
 import { useRegister } from '../lib/register/register-context';
+import { closuresCsv } from '../lib/reports/closures-csv';
 import { dayRange, summarizeSales } from '../lib/reports/today-sales';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { ordersDatabaseName } from '../lib/sale/order-store';
@@ -18,11 +19,13 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const outbox = useOutbox();
   const orders = outbox.enabled ? outbox.orders : null;
   const { session } = useSession();
+  const user = session?.tokens.user;
+  const resolveCashierName = (id: string) => user && id === String(user.id) ? user.displayName : id;
   const register = useRegister();
   const [range] = useState(() => dayRange(new Date()));
   const [sales, setSales] = useState<PosOrder[]>([]);
   const [rows, setRows] = useState<Closure[]>([]);
-  const [reprint, setReprint] = useState<Closure | null>(null);
+  const [reprint, setReprint] = useState<Closure | 'x' | null>(null);
   const [printRequest, setPrintRequest] = useState(0);
   locale = locale.replaceAll('_', '-');
   const today = formatClosureDate(new Date().toISOString(), { timezone: 'device', locale }).date_ymd;
@@ -32,6 +35,18 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   }, today), 'device');
   const summary = summarizeSales(sales, currency);
   const money = (amount: number) => formatMoney({ amount, currency }, locale);
+  const downloadCsv = () => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const csv = closuresCsv(closures, currency, session?.tokens.user, storeName);
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `closures-${today}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  };
 
   useEffect(() => {
     if (!orders) return;
@@ -49,7 +64,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
       if (typeof window !== 'undefined' && typeof window.print === 'function') window.print();
     }, 0);
     return () => clearTimeout(timer);
-  }, [reprint?.id, printRequest]);
+  }, [reprint, printRequest]);
 
   return (
     <View className="flex-1 bg-background" dataSet={reprint ? { print: 'hide' } : undefined}>
@@ -58,6 +73,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
         <Button testID="reports-back" onPress={onBack}><Text>Back</Text></Button>
       </View>
       <ScrollView contentContainerClassName="gap-4 p-4">
+        {register.session?.status === 'open' && <Button testID="x-report-print" onPress={() => { setReprint('x'); setPrintRequest(value => value + 1); }}><Text>Print X report</Text></Button>}
         <View testID="reports-today" className="gap-2 rounded-lg border border-border p-4">
           <Text accessibilityRole="header">Today</Text>
           <Text>{`Sales today: ${summary.count}`}</Text>
@@ -69,7 +85,10 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
           {summary.count === 0 && <Text>No sales yet today.</Text>}
         </View>
         <View testID="reports-closures" className="gap-2 rounded-lg border border-border p-4">
-          <Text accessibilityRole="header">Closures</Text>
+          <View className="flex-row items-center justify-between">
+            <Text accessibilityRole="header">Closures</Text>
+            {closures.length > 0 && <Button testID="closures-csv" onPress={downloadCsv}><Text>Download CSV</Text></Button>}
+          </View>
           {closures.length === 0 && <Text>No closures yet. A closure appears here when a register session closes.</Text>}
           {closures.map(closure => (
             <View key={closure.id} className="gap-2 border-b border-border py-3">
@@ -85,7 +104,9 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
         </View>
       </ScrollView>
       {reprint && <Portal name="closure-reprint">
-        <ClosurePrint closure={reprint} storeName={storeName} currency={currency} locale={locale} copy />
+        {reprint === 'x'
+          ? register.session && <ClosurePrint kind="x" closure={register.session} expected={register.expected} storeName={storeName} currency={currency} locale={locale} registerName="This till" resolveCashierName={resolveCashierName} />
+          : <ClosurePrint closure={reprint} storeName={storeName} currency={currency} locale={locale} registerName="This till" resolveCashierName={resolveCashierName} copy />}
       </Portal>}
     </View>
   );
