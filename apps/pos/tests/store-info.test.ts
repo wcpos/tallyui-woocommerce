@@ -26,7 +26,7 @@ test.each([
   const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(Response.json([
     { id: 0, name: 'Store', currency: 'USD', ...taxSettings },
   ]));
-  expect((await fetchStoreInfo(session, headers, fetchImpl)).chargesTax).toBe(expected);
+  expect((await fetchStoreInfo(session, headers, fetchImpl as unknown as typeof fetch)).chargesTax).toBe(expected);
 });
 
 test('uppercases the currency', async () => {
