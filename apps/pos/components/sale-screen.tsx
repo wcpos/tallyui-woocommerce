@@ -12,11 +12,16 @@ import { VariantChooser } from './variant-chooser';
 import { PriceEdit } from './price-edit';
 import { CatalogueView } from './catalogue-view';
 import type { CatalogueViewProps } from './catalogue-view';
+import type { CustomerSource } from '../lib/customers/customer-source';
+import { CustomerPicker } from './customer-picker';
 
 // One web till until the register job (M8).
 const REGISTER_ID = 'web';
+// order.create v3 carries the customer id (customer.customerId) and the till's figures. The WooCommerce
+// transport (createWooCommandTransport) reads v3; the connector has no capabilities() probe yet (G3 follow-up).
+const ORDER_CAPABILITIES = { orderCreate: 3 } as const;
 
-export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | 'message'> { cashierRef: string; parkedCarts?: ParkedCartCollection }
+export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | 'message'> { cashierRef: string; parkedCarts?: ParkedCartCollection; customers?: CustomerSource | null }
 
 export function SaleScreen(props: SaleScreenProps): JSX.Element {
   // The dev store runs with taxes off until M5 (docs/PLAN.md).
@@ -28,6 +33,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const outbox = useOutbox();
   const sale = useSale({ currency }, {
     registerId: REGISTER_ID, cashierRef: props.cashierRef,
+    capabilities: ORDER_CAPABILITIES,
     onSaleCompleted: outbox.enabled ? outbox.record : undefined,
     isStored: outbox.enabled ? outbox.isStored : undefined,
   });
@@ -132,6 +138,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       {width < 900 && message ? <Text>{message}</Text> : null}
       {sale.stage.kind === 'cart' ? (
         <>
+          {props.customers ? <CustomerPicker source={props.customers} customer={sale.order.customer ?? null} onChange={sale.setCustomer} /> : null}
           <View className="flex-row gap-2">
             <Button disabled={!sale.order.lineItems.length} onPress={onPark}><Text>Park cart</Text></Button>
             <Button onPress={() => setParkedOpen(true)}><Text>{`Parked (${parked.length})`}</Text></Button>
