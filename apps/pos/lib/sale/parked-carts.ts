@@ -1,5 +1,6 @@
 import type { ProductTraits } from '@tallyui/core';
 import type { Discount, Order, useSale } from '@tallyui/pos';
+import type { RxCollection, RxJsonSchema } from 'rxdb';
 import { catalogueEntries } from '@tallyui/pos';
 
 export interface ParkedLine {
@@ -8,6 +9,36 @@ export interface ParkedLine {
 export interface ParkedCart {
   id: string; parkedAt: string; lines: ParkedLine[]; orderDiscounts: Discount[]; itemCount: number; totalMinor: number;
 }
+
+export type ParkedCartCollection = RxCollection<ParkedCart>;
+export const parkedCartSchema: RxJsonSchema<ParkedCart> = {
+  version: 0, primaryKey: 'id', type: 'object',
+  properties: {
+    id: { type: 'string', maxLength: 64 },
+    parkedAt: { type: 'string', maxLength: 32 },
+    lines: { type: 'array', items: {
+      type: 'object', properties: {
+        productId: { type: 'string' }, variantId: { type: 'string' },
+        quantity: { type: 'number' }, name: { type: 'string' },
+        discounts: { type: 'array', items: {
+          type: 'object', properties: {
+            type: { type: 'string', enum: ['percentage', 'fixed'] }, value: { type: 'number' },
+            label: { type: 'string' }, couponCode: { type: 'string' },
+          }, required: ['type', 'value'],
+        } },
+      }, required: ['productId', 'quantity', 'name', 'discounts'],
+    } },
+    orderDiscounts: { type: 'array', items: {
+      type: 'object', properties: {
+        type: { type: 'string', enum: ['percentage', 'fixed'] }, value: { type: 'number' },
+        label: { type: 'string' }, couponCode: { type: 'string' },
+      }, required: ['type', 'value'],
+    } },
+    itemCount: { type: 'integer' }, totalMinor: { type: 'integer' },
+  },
+  required: ['id', 'parkedAt', 'lines', 'orderDiscounts', 'itemCount', 'totalMinor'],
+  indexes: ['parkedAt'],
+};
 
 function discountFields({ type, value, label, couponCode }: Discount): Discount {
   return { type, value, ...(label !== undefined ? { label } : {}), ...(couponCode !== undefined ? { couponCode } : {}) };

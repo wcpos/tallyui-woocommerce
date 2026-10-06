@@ -58,6 +58,9 @@ test('replicates the real fixtures in memory, updates auth headers and stops', a
   vi.stubGlobal('fetch', fetchImpl);
   const catalogue = await startCatalogue(session, { storage: getRxStorageMemory() });
   try {
+    expect(catalogue.parkedCarts.name).toBe('parked_carts');
+    expect(catalogue.parkedCarts.database).toBe(catalogue.db);
+    expect(await catalogue.parkedCarts.find().exec()).toEqual([]);
     await catalogue.replication.awaitInitialReplication();
     const docs = (await catalogue.db.products.find().exec()).map(doc => doc.toJSON()).sort((a, b) => a.id - b.id);
     expect(docs).toHaveLength(products.length);

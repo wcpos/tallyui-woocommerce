@@ -19,6 +19,7 @@ export default function Catalogue() {
   return (
     <SaleScreen
       connector={catalogue.connector}
+      parkedCarts={catalogue.parkedCarts}
       currency={catalogue.store.currency}
       products={products}
       storeName={catalogue.store.name}
