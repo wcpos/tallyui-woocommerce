@@ -56,6 +56,10 @@ case "$1" in
             dev_store_log "The fork changes PHP dependencies since the commit Pro bundles ($ref to $sha); the overlay cannot carry them."
             exit 1
         fi
+        if [[ -n "$(git -C "$checkout" diff --name-only "$ref" "$sha" -- vendor vendor_prefixed assets packages)" ]]; then
+            dev_store_log "The fork changes built files (vendor, vendor_prefixed, assets or packages) since the commit Pro bundles ($ref to $sha); the overlay cannot carry them."
+            exit 1
+        fi
         if [[ ! -f "$marker" ]]; then
             mkdir -p "$backup_dir"
             rsync -a --delete "$free_dir/" "$backup_dir/"
@@ -67,8 +71,18 @@ case "$1" in
         rsync -a --delete "$backup_dir/" "$free_dir/"
         tmp="$(mktemp -d)"
         trap 'rm -rf -- "$tmp"' EXIT
-        git -C "$checkout" archive "$sha" | tar -x -C "$tmp"
-        rsync -a --checksum --exclude-from="$tmp/.distignore" "$tmp/" "$free_dir/"
+        mkdir "$tmp/export"
+        git -C "$checkout" archive "$sha" | tar -x -C "$tmp/export"
+        rsync -a --exclude-from="$tmp/export/.distignore" "$tmp/export/" "$tmp/stage/"
+        while IFS= read -r -d '' path; do
+            if [[ -f "$tmp/stage/$path" ]]; then
+                mkdir -p -- "$(dirname -- "$free_dir/$path")"
+                cp -p -- "$tmp/stage/$path" "$free_dir/$path"
+            fi
+        done < <(git -C "$checkout" diff -z --name-only --no-renames --diff-filter=AM "$ref" "$sha")
+        while IFS= read -r -d '' path; do
+            rm -f -- "$free_dir/$path"
+        done < <(git -C "$checkout" diff -z --name-only --no-renames --diff-filter=D "$ref" "$sha")
         printf '%s\n' "$sha" > "$marker"
         printf 'tally %s\n' "$sha"
         ;;

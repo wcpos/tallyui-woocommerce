@@ -84,7 +84,9 @@ dev/woo-store/wcpos-fork.sh restore
 The fork checkout lives in `wcpos-fork/checkout` and the stock backup in
 `wcpos-fork/stock` under the shared dev-store state directory. A Pro update
 overwrites the overlay: run `apply` again; smoke fails until then. The overlay
-refuses to apply if the fork changes PHP dependencies since Pro's bundled commit.
+copies only the fork's changes since the commit Pro bundles. It refuses if the
+fork changes PHP dependencies or built files (`vendor`, `vendor_prefixed`,
+`assets`, or `packages`).
 
 ## Public URL and smoke
 
