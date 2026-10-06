@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useMemo, useRef } from 'react';
 import type { JSX, ReactNode } from 'react';
 import type { RxStorage } from 'rxdb';
 import type { OrderCreateEnvelope } from '@tallyui/core';
@@ -15,15 +15,21 @@ const DEVICE_ID_KEY = 'tallywoo.device_id';
 type Outbox = (ReturnType<typeof useOrderOutbox> & { enabled: true }) | { enabled: false };
 const OutboxContext = createContext<Outbox>({ enabled: false });
 
-export function OutboxProvider({ children, transportFor = orderTransport, storage }: {
+export function OutboxProvider({ children, transportFor, storage }: {
   children: ReactNode;
   transportFor?: (session: Session) => CommandTransport<OrderCreateEnvelope> | null;
   storage?: RxStorage<any, any>;
 }): JSX.Element {
   const { session } = useSession();
-  const transport = session ? transportFor(session) : null;
+  const latest = useRef(session);
+  latest.current = session;
+  const storeKey = session ? ordersDatabaseName(session) : null;
+  const transport = useMemo(() => {
+    const createTransport = transportFor ?? (s => orderTransport(s, () => latest.current?.tokens.accessToken ?? ''));
+    return session ? createTransport(session) : null;
+  }, [storeKey]);
   const outbox = useOrderOutbox({
-    storeKey: session && transport ? ordersDatabaseName(session) : null,
+    storeKey: transport ? storeKey : null,
     open: name => openOrderStore(name, storage),
     transport: () => transport!,
     deviceId: transport ? getDeviceId(typeof localStorage === 'undefined' ? null : localStorage, DEVICE_ID_KEY) : '',
