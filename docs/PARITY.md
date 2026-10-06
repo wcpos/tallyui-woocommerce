@@ -66,9 +66,9 @@ front desk before the milestone that needs it ([PLAN.md](PLAN.md)).
 |---|---|---|---|---|
 | Connect a store | Site → cashier → store; each site lists its authorised cashiers | in flux (plugin floor raised, #1949, #2220) | Free | app: one store URL, then the plugin's sign-in page; no cashier or store picker |
 | Browser-based login | Browser authorisation endpoint issuing access/refresh tokens (JWT) | stable | Free | app: `/wcpos-auth` sign-in, tokens kept and refreshed |
-| Session management | List and revoke a user's sessions across devices | stable | Free | gap |
+| Session management | List and revoke a user's sessions across devices, in the plugin's WP admin (POS → Settings → Sessions), not in the POS app; sign-out revokes nothing | stable | Free | n/a (server): this app's sessions are listed and revoked in WP admin, as v2's are ([ADR 0006](adr/0006-auth-sessions-and-capabilities-are-app-territory.md)) |
 | Switch cashier at the till | Change cashier without reconnecting; on next, from the register's user sheet | in flux (#1996, roadmap#268) | Free | gap |
-| Capability gating | Controls lock by the cashier's WordPress capabilities; unknown fails open | stable | Free | gap |
+| Capability gating | Controls lock by the cashier's WordPress capabilities; unknown fails open | stable | Free | gap: app territory, and unknown fails closed here ([ADR 0006](adr/0006-auth-sessions-and-capabilities-are-app-territory.md)) |
 | Multi-store | Pick a store at connect; a register bound to a store skips the picker | in flux (#1967, #1996) | Pro | gap |
 | Online status | Green/yellow/red indicator; passive-first probe | stable | Woo | app |
 
