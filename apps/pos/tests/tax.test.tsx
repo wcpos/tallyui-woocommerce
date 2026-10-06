@@ -161,7 +161,7 @@ test('a taxes failure blocks the sale until Retry succeeds', async () => {
   expect(await screen.findByText('Cash Tendered')).not.toBeNull();
 });
 
-test.each(['Order discount', 'Discount'])('inclusive stores refuse %s before tender and allow its removal', async control => {
+test.each(['Order discount', 'Discount'])('inclusive stores take a sale with %s to tender', async control => {
   inclusive = true;
   renderTill();
   fireEvent.click(await screen.findByText('Espresso'));
@@ -170,13 +170,8 @@ test.each(['Order discount', 'Discount'])('inclusive stores refuse %s before ten
   fireEvent.change(screen.getByLabelText('Discount value'), { target: { value: '10' } });
   fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
-  expect(await screen.findByText("Discounts can't be sold on a tax-inclusive store yet. Remove the discount to take payment.")).not.toBeNull();
-  expect(screen.queryByText('Cash Tendered')).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Complete sale' })).toBeNull();
-  expect(fetchStub.mock.calls.filter(([url]) => String(url).includes('/push/'))).toHaveLength(0);
-  fireEvent.click(screen.getByRole('button', { name: /^Remove discount / }));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
   expect(await screen.findByText('Cash Tendered')).not.toBeNull();
+  expect(screen.queryByText("Discounts can't be sold on a tax-inclusive store yet. Remove the discount to take payment.")).toBeNull();
 });
 
 test('a token refresh does not re-resolve settings and Retry uses the latest token', async () => {

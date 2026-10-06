@@ -92,6 +92,32 @@ test('pushes a discounted line with subtotal equal to total (ADR-077a)', async (
   ]);
 });
 
+test('pushes an inclusive discounted line with subtotal equal to total at the net', async () => {
+  const builder = createOrderBuilder({
+    currency: 'USD', taxContext: {
+      getTaxRatePpm: () => 100000, pricesIncludeTax: true,
+      rounding: { granularity: 'woocommerce', roundAtSubtotal: false },
+      getTaxRates: () => [{ id: 1, code: 'US-TAX-1', label: 'Tax', rate: '10.0000', priority: 1, compound: false, shipping: true }],
+    },
+  });
+  const lineId = builder.addLine({
+    productId: '80', variantId: '80', name: 'Espresso', quantity: 2, unitPrice: { amount: 300, currency: 'USD' },
+  });
+  builder.applyLineDiscount(lineId, { type: 'fixed', value: 100 });
+  builder.addPayment({ method: 'cash', amountMinor: 500 });
+  const order = finalizeOrder(builder.getSnapshot(), { capabilities: { orderCreate: 3 } });
+  envelope = toOrderCreateEnvelope(order, 'test-device');
+  expect(envelope.payload.totalMinor).toBe(500);
+  await expect(orderTransport(session, () => 't1').send([envelope], { local: { orders: new Map([[envelope.id, order]]) } })).resolves.toEqual({
+    kind: 'results',
+    results: [{ id: envelope.id, status: 'applied', serverRefs: { orderId: '115', displayId: '115', totalMinor: 500 } }],
+  });
+  const { payload } = JSON.parse(fetchStub.mock.calls[0][1]!.body as string);
+  expect(payload.line_items).toEqual([
+    { product_id: 80, quantity: 2, subtotal: '4.545455', total: '4.545455' },
+  ]);
+});
+
 test.each([true, false])('sends two tenders only with acceptsPaymentsList=%s', async acceptsPaymentsList => {
   envelope.payload.payments = [
     { clientPaymentId: 'cash', method: 'cash', amountMinor: 200 },
