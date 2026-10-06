@@ -1,3 +1,4 @@
+import { noTaxSettings } from './fixtures/store-settings';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
@@ -51,7 +52,7 @@ test.each([true, false, undefined])('uses the advertised tender UI with multiple
     <SessionProvider>
       <OutboxProvider transportFor={() => fakeTransport} storage={getRxStorageMemory()}>
         <OrderStoreReady />
-        <SaleScreen connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
+        <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
           storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}}
           multiplePayments={multiplePayments} />
         <PortalHost />
@@ -101,7 +102,7 @@ test('the existing outbox transport sees a catalogue capability that arrives lat
     <SessionProvider>
       <OutboxProvider storage={storage}>
         <OrderStoreReady />
-        <SaleScreen connector={connector} currency={stores[0].currency} products={products}
+        <SaleScreen storeSettings={noTaxSettings} connector={connector} currency={stores[0].currency} products={products}
           storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}}
           multiplePayments={multiplePayments} />
         <PortalHost />

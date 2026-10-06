@@ -1,3 +1,4 @@
+import { noTaxSettings } from './fixtures/store-settings';
 import type { ComponentProps } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
@@ -153,7 +154,7 @@ test('Guest clears the attached customer', () => {
 });
 
 test.each([undefined, null])('no customer controls without a source (%s)', customers => {
-  render(<SaleScreen {...saleProps} customers={customers} />);
+  render(<SaleScreen storeSettings={noTaxSettings} {...saleProps} customers={customers} />);
   expect(screen.queryByRole('button', { name: 'Change customer' })).toBeNull();
   expect(screen.queryByText('Guest')).toBeNull();
 });
@@ -184,7 +185,7 @@ test('sends the picked customer with a cash sale, then sends a guest after New s
     <SessionProvider>
       <OutboxProvider transportFor={() => fakeTransport} storage={getRxStorageMemory()}>
         <OrderStoreReady />
-        <SaleScreen {...saleProps} customers={source} />
+        <SaleScreen storeSettings={noTaxSettings} {...saleProps} customers={source} />
       </OutboxProvider>
     </SessionProvider>,
   );
