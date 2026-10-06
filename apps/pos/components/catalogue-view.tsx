@@ -6,6 +6,7 @@ import type { TallyConnector } from '@tallyui/core';
 import { Button, defaultProductColumns, ProductGrid, ProductTable, SearchInput, Text, ViewToggle } from '@tallyui/components';
 import { productSortValue, resolveGridColumns, searchProducts, sortProducts } from '@tallyui/pos';
 import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
+import type { AppCatalogueViewState } from '../lib/catalogue/catalogue-view-state';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { CatalogueDisplayOptions } from './catalogue-display-options';
 import { ProductTile } from './product-tile';
@@ -24,10 +25,13 @@ export interface CatalogueViewProps {
   message?: string;
   onSignOut(): void;
   onOpenReports?(): void;
+  viewState?: AppCatalogueViewState;
+  onViewStateChange?(next: AppCatalogueViewState): void;
 }
 
 export function CatalogueView({
   connector, currency, products, storeName, cashierName, cashierControl, status, notice, onSignOut, onOpenReports, onSelect, onScan, message,
+  viewState: controlledViewState, onViewStateChange,
 }: CatalogueViewProps): JSX.Element {
   const [term, setTerm] = useState('');
   function scan(code: string) {
@@ -36,7 +40,9 @@ export function CatalogueView({
     else if (result === 'search') setTerm(code);
   }
   useWedgeScanner(scan, Boolean(onScan));
-  const [viewState, setViewState] = useCatalogueView();
+  const [ownViewState, setOwnViewState] = useCatalogueView();
+  const viewState = controlledViewState ?? ownViewState;
+  const setViewState = onViewStateChange ?? setOwnViewState;
   const { width } = useWindowDimensions();
   // Phones keep 2 tiles a row whatever the setting.
   const numColumns = width < 600 ? 2 : resolveGridColumns(viewState.gridColumns, width);

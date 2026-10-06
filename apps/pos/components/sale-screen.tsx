@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { View, useWindowDimensions } from 'react-native';
-import { Button, Cart, CartBar, ParkedSales, POSLayout, Receipt, SplitTender, SyncStatus, Tender, Text } from '@tallyui/components';
+import { Button, Cart, CartBar, ParkedSales, Receipt, SplitTender, SyncStatus, Tender, Text } from '@tallyui/components';
 import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, taxProviderProps, useSale } from '@tallyui/pos';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
 import type { CatalogueEntry, ParkedOrderSummary, Payment, TenderVoid } from '@tallyui/pos';
 import { createCustomersBlockedReason, type CashierCapabilities } from '../lib/auth/capabilities';
+import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
 import { useRegister } from '../lib/register/register-context';
 import { buildReceiptIdentity } from '../lib/receipts/receipt-identity';
 import { useReceiptPrintCount } from '../lib/receipts/use-receipt-print-count';
@@ -52,6 +53,7 @@ export function SaleScreen(props: SaleScreenProps): JSX.Element {
 
 function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const { connector, currency, parkedCarts, mailer, receiptEmails } = props;
+  const [viewState, setViewState] = useCatalogueView();
   const effective: CashierCapabilities = props.cashier ?? { known: false, reason: 'Your permissions have not been read from the store.' };
   const outbox = useOutbox();
   const register = useRegister();
@@ -296,6 +298,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const browse = variants ? (
     <VariantChooser entries={variants} currency={currency} onSelect={onAdd} onClose={() => setVariants(undefined)} />
   ) : <CatalogueView {...props} onSelect={onSelect} onScan={onScan} message={message}
+    viewState={viewState} onViewStateChange={setViewState}
     cashierControl={props.onSwitchCashier ? <CashierSheet name={props.cashierName} cashiers={props.cashiers ?? []}
       onSwitch={changeCashier} onAddAnother={() => changeCashier()} onSignOut={props.onSignOut}
       blockedReason={sale.stage.kind === 'tender' || sale.saving ? 'Finish or cancel the payment first.' : undefined}
@@ -367,7 +370,18 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     </View>
   );
 
-  if (width >= 900) return <POSLayout layout="split" className="bg-background" browseSlot={browse} cartSlot={cart} />;
+  if (width >= 900) {
+    const productsPanel = <View key="products" testID="pos-products-panel" className="flex-[3]">{browse}</View>;
+    const cartPanel = <View key="cart" testID="pos-cart-panel"
+      className={`flex-[2] ${viewState.position === 'right' ? 'border-r' : 'border-l'} border-border`}>{cart}</View>;
+    return (
+      <View className="flex-1 bg-bg bg-background">
+        <View className="flex-1 flex-row">
+          {viewState.position === 'right' ? [cartPanel, productsPanel] : [productsPanel, cartPanel]}
+        </View>
+      </View>
+    );
+  }
   return (
     <View className="flex-1 bg-background">
       {cartOpen ? (
