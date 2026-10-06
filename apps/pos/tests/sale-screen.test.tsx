@@ -6,9 +6,9 @@ import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import * as ReactNative from 'react-native';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
+import { Cart } from '@tallyui/components';
 import { catalogueEntries, TaxProvider, useSale } from '@tallyui/pos';
 import { SaleScreen } from '../components/sale-screen';
-import { PriceEdit } from '../components/price-edit';
 import type { SaleScreenProps } from '../components/sale-screen';
 import { parkedCartSchema, parkedCartMigrationStrategies, type ParkedCartCollection } from '../lib/sale/parked-carts';
 import { SessionProvider } from '../lib/auth/session-context';
@@ -108,11 +108,9 @@ test('editing Espresso ×2 changes the unit price and subtotal exactly', () => {
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' }));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Edit price' }));
-  expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true);
-  fireEvent.click(screen.getByRole('button', { name: 'Espresso · $3.00' }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'New price (USD)' }), { target: { value: '2.50' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  fireEvent.click(screen.getByText('Price', { exact: true }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Price value' }), { target: { value: '2.50' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
   expect(screen.queryByRole('textbox')).toBeNull();
   expect(screen.getByText('$2.50 × 2')).not.toBeNull();
   expect(within(screen.getByText('Subtotal').parentElement!).getByText('$5.00')).not.toBeNull();
@@ -124,18 +122,24 @@ test('invalid prices leave the form open and Cancel preserves the original price
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' }));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Edit price' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Espresso · $3.00' }));
-  for (const value of ['abc', '', '-1.50', '1.2.3', '2.501', '1e2', '9007199254740992']) {
-    fireEvent.change(screen.getByRole('textbox', { name: 'New price (USD)' }), { target: { value } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    expect(screen.getByRole('alert').textContent).toBe('Enter a valid price');
-    expect(screen.getByRole('button', { name: 'Espresso · $3.00' })).not.toBeNull();
+  fireEvent.click(screen.getByText('Price', { exact: true }));
+  for (const [value, message] of [
+    ['', 'Enter a price.'], ['abc', 'Enter a number.'], ['-1', 'Enter a price of 0 or more.'],
+    ['1.2.3', 'Enter a number.'], ['2.501', 'Use at most 2 decimal places.'],
+    ['1e2', 'Enter a number.'], ['9007199254740992', 'Enter a number.'],
+  ]) {
+    fireEvent.change(screen.getByRole('textbox', { name: 'Price value' }), { target: { value } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(screen.getByRole('alert').textContent).toBe(message);
+    expect(screen.getByRole('group', { name: 'Price for Espresso' })).not.toBeNull();
+    expect(screen.getByText('$3.00 × 2')).not.toBeNull();
+    expect(within(screen.getByText('Total').parentElement!).getByText('$6.00')).not.toBeNull();
   }
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(screen.queryByRole('textbox')).toBeNull();
   expect(screen.getByText('$3.00 × 2')).not.toBeNull();
   expect(within(screen.getByText('Subtotal').parentElement!).getByText('$6.00')).not.toBeNull();
+  expect(within(screen.getByText('Total').parentElement!).getByText('$6.00')).not.toBeNull();
 }, 20_000);
 
 test('shows the parked customer in the list and restores them to the cart', async () => {
@@ -155,26 +159,42 @@ test('shows the parked customer in the list and restores them to the cart', asyn
   expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
 });
 
-test('Edit price is only shown when the cart has lines', () => {
+test('Price actions appear once per line and none appear with an empty cart', () => {
   vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
   render(<SaleScreen {...props} />);
-  expect(screen.queryByRole('button', { name: 'Edit price' })).toBeNull();
+  expect(screen.queryByText('Price', { exact: true })).toBeNull();
   fireEvent.click(screen.getByText('Espresso'));
-  expect(screen.getByRole('button', { name: 'Edit price' })).not.toBeNull();
+  expect(screen.getAllByText('Price', { exact: true })).toHaveLength(1);
+  fireEvent.click(screen.getByText('Cold Brew'));
+  expect(screen.getAllByText('Price', { exact: true })).toHaveLength(2);
+  fireEvent.click(screen.getAllByText('Price', { exact: true })[1]);
+  expect(screen.getByRole('group', { name: 'Price for Cold Brew' })).not.toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Remove Cold Brew' }));
+  expect(screen.getAllByText('Price', { exact: true })).toHaveLength(1);
   fireEvent.click(screen.getByRole('button', { name: 'Remove Espresso' }));
-  expect(screen.queryByRole('button', { name: 'Edit price' })).toBeNull();
+  expect(screen.queryByText('Price', { exact: true })).toBeNull();
 });
 
-test.each([['JPY', '250', '¥250', '¥500'], ['KWD', '2.501', 'KWD 2.501', 'KWD 5.002']])(
-  'price edits use the minor exponent for %s', (currency, value, unit, total) => {
+test.each([
+  ['JPY', '350', '¥350', '¥700', '350.5', 'Use a whole amount.'],
+  ['KWD', '2.50', 'KWD 2.500', 'KWD 5.000', '2.501', 'Use at most 2 decimal places.'],
+])(
+  'price edits respect the library decimal limit for %s', (currency, value, unit, total, invalid, message) => {
     vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
     render(<SaleScreen {...props} currency={currency} />);
     fireEvent.click(screen.getByText('Espresso'));
     fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Edit price' }));
-    fireEvent.click(screen.getByRole('button', { name: /Espresso ·/ }));
-    fireEvent.change(screen.getByRole('textbox', { name: `New price (${currency})` }), { target: { value } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByText('Price', { exact: true }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Price value' }), { target: { value } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(screen.getByText(`${unit} × 2`)).not.toBeNull();
+    expect(within(screen.getByText('Subtotal').parentElement!).getByText(total)).not.toBeNull();
+    fireEvent.click(screen.getByText('Price', { exact: true }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Price value' }), { target: { value: invalid } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(screen.getByRole('alert').textContent).toBe(message);
+    expect(screen.getByRole('group', { name: 'Price for Espresso' })).not.toBeNull();
     expect(screen.getByText(`${unit} × 2`)).not.toBeNull();
     expect(within(screen.getByText('Subtotal').parentElement!).getByText(total)).not.toBeNull();
   },
@@ -185,15 +205,15 @@ test('a real setUnitPrice refusal stays inline without closing the form', () => 
     wrapper: ({ children }) => <TaxProvider ratesPpm={{}} pricesIncludeTax={false}>{children}</TaxProvider>,
   });
   act(() => result.current.add(catalogueEntries([products[0]], props.connector.traits.product, { currency: 'USD' })[0], props.connector.traits.product));
-  const lines = result.current.order.lineItems;
+  const sale = result.current;
   act(() => result.current.newSale());
-  const onClose = vi.fn();
-  render(<PriceEdit lines={lines} currency="USD" onSave={result.current.setUnitPrice} onClose={onClose} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Espresso · $3.00' }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'New price (USD)' }), { target: { value: '2.50' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-  expect(screen.getByRole('alert').textContent).toBe(`Unknown line ${lines[0].id}`);
-  expect(onClose).not.toHaveBeenCalled();
+  render(<Cart sale={sale} canEditPrice />);
+  fireEvent.click(screen.getByText('Price', { exact: true }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Price value' }), { target: { value: '2.50' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+  const form = screen.getByRole('group', { name: 'Price for Espresso' });
+  expect(within(form).getByRole('alert').textContent).toBe(`Unknown line ${sale.order.lineItems[0].id}`);
+  expect(within(form).getByRole('textbox', { name: 'Price value' })).not.toBeNull();
   expect(result.current.order.lineItems).toEqual([]);
 });
 

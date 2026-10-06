@@ -46,6 +46,7 @@ function typeQuery(value: string) {
 
 test('searches from two trimmed characters and attaches the selected summary', async () => {
   openPicker();
+  expect(screen.getAllByPlaceholderText('Search name, email or phone')).toHaveLength(1);
   typeQuery('g');
   expect(search).not.toHaveBeenCalled();
   typeQuery(' g ');

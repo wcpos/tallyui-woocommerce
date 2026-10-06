@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { ConnectorUnauthorizedError, customerTraits } from '@tallyui/core';
 import type { Customer } from '@tallyui/core';
 import type { CustomerSummary } from '@tallyui/pos';
-import { Button, CustomerForm, CustomerSelect, SearchInput, Text } from '@tallyui/components';
+import { Button, CustomerForm, CustomerSelect, Text } from '@tallyui/components';
 import type { CustomerSource } from '../lib/customers/customer-source';
 
 export function CustomerPicker({ source, customer, onChange }: {
@@ -13,7 +13,6 @@ export function CustomerPicker({ source, customer, onChange }: {
 }) {
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [query, setQuery] = useState('');
   const [results, setResults] = useState<Customer[]>([]);
   const [error, setError] = useState<string>();
   const [values, setValues] = useState({ firstName: '', lastName: '', email: '', phone: '', address: '' });
@@ -23,7 +22,6 @@ export function CustomerPicker({ source, customer, onChange }: {
     request.current++;
     setOpen(false);
     setCreating(false);
-    setQuery('');
     setResults([]);
     setError(undefined);
   }
@@ -40,7 +38,6 @@ export function CustomerPicker({ source, customer, onChange }: {
 
   async function search(text: string) {
     const current = ++request.current;
-    setQuery(text);
     setResults([]);
     setError(undefined);
     const trimmed = text.trim();
@@ -80,9 +77,8 @@ export function CustomerPicker({ source, customer, onChange }: {
       {creating ? <CustomerForm values={values} onChangeField={(field, value) => setValues(v => ({ ...v, [field]: value }))}
         onSubmit={create} showAddress={false} submitLabel="Create customer" /> : (
         <>
-          {/* TallyUI's CustomerSelect ignores onSearch in 3.0.3. */}
-          <SearchInput value={query} onChangeText={search} placeholder="Search name, email or phone" />
-          <CustomerSelect customers={results} selected={null} onSelect={pick} onSearch={() => {}} traits={customerTraits} />
+          <CustomerSelect customers={results} selected={null} onSelect={pick} onSearch={search}
+            placeholder="Search name, email or phone" traits={customerTraits} />
           <Button onPress={() => {
             request.current++;
             setError(undefined);
