@@ -1,11 +1,13 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { createRxDatabase } from 'rxdb';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import * as ReactNative from 'react-native';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
+import { catalogueEntries, TaxProvider, useSale } from '@tallyui/pos';
 import { SaleScreen } from '../components/sale-screen';
+import { PriceEdit } from '../components/price-edit';
 import type { SaleScreenProps } from '../components/sale-screen';
 import { parkedCartSchema, type ParkedCartCollection } from '../lib/sale/parked-carts';
 import { SessionProvider } from '../lib/auth/session-context';
@@ -13,6 +15,9 @@ import { saveSession } from '../lib/auth/session';
 import { OutboxProvider } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import variations from './fixtures/variations.json';
+
+const shirt = { ...products[2], variation_docs: variations.documents.filter(doc => doc.parent_id === products[2].id).map(doc => doc.payload) };
 
 const props: SaleScreenProps = {
   connector: createWooCommerceConnector(), currency: stores[0].currency, products,
@@ -50,15 +55,126 @@ test('narrow: adds, opens, changes quantity, removes and returns to products', (
   expect(screen.getByRole('button', { name: 'Cart is empty' })).not.toBeNull();
 });
 
-test('variable products show a message and add nothing; adding a simple product clears it', () => {
-  render(<SaleScreen {...props} />);
+test('variable products without options add nothing; adding a simple product clears the message', () => {
+  render(<SaleScreen {...props} products={[products[0], { ...shirt, variation_docs: [] }]} />);
   fireEvent.click(screen.getByText('T-Shirt'));
-  expect(screen.getByText('Options for T-Shirt are coming soon')).not.toBeNull();
+  expect(screen.getByText('T-Shirt has no options to sell')).not.toBeNull();
   expect(screen.getByRole('button', { name: 'Cart is empty' })).not.toBeNull();
   expect(screen.queryByRole('button', { name: /Open cart/ })).toBeNull();
   fireEvent.click(screen.getByText('Espresso'));
-  expect(screen.queryByText('Options for T-Shirt are coming soon')).toBeNull();
+  expect(screen.queryByText('T-Shirt has no options to sell')).toBeNull();
   expect(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' })).not.toBeNull();
+});
+
+test.each([600, 900])('variants at %spx: lists synced titles, prices and stock, then adds the selected variant', width => {
+  vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width, height: 800, scale: 1, fontScale: 1 });
+  render(<SaleScreen {...props} products={[shirt]} />);
+  fireEvent.click(screen.getByText('T-Shirt'));
+  for (const title of ['S / Black', 'S / White', 'M / Black']) {
+    const option = screen.getByRole('button', { name: new RegExp(title) });
+    expect(within(option).getByText(title)).not.toBeNull();
+    expect(within(option).getByText('$25.00')).not.toBeNull();
+    expect(within(option).getByText('In stock · 10')).not.toBeNull();
+  }
+  fireEvent.click(screen.getByRole('button', { name: /M \/ Black/ }));
+  expect(screen.queryByText('Choose an option')).toBeNull();
+  if (width < 900) fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $25.00' }));
+  expect(screen.getByText('T-Shirt · M / Black')).not.toBeNull();
+  expect(screen.getByText('$25.00 × 1')).not.toBeNull();
+  expect(within(screen.getByText('Subtotal').parentElement!).getByText('$25.00')).not.toBeNull();
+});
+
+test('one purchasable variant adds immediately', () => {
+  render(<SaleScreen {...props} products={[{ ...shirt, variation_docs: shirt.variation_docs.slice(2) }]} />);
+  fireEvent.click(screen.getByText('T-Shirt'));
+  expect(screen.queryByText('Choose an option')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $25.00' }));
+  expect(screen.getByText('T-Shirt · M / Black')).not.toBeNull();
+});
+
+test('cancelling the variant chooser adds nothing', () => {
+  render(<SaleScreen {...props} products={[shirt]} />);
+  fireEvent.click(screen.getByText('T-Shirt'));
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.getByText('T-Shirt')).not.toBeNull();
+  expect(screen.getByRole('button', { name: 'Cart is empty' })).not.toBeNull();
+});
+
+test('editing Espresso ×2 changes the unit price and subtotal exactly', () => {
+  render(<SaleScreen {...props} />);
+  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Edit price' }));
+  expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: 'Espresso · $3.00' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'New price (USD)' }), { target: { value: '2.50' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  expect(screen.queryByRole('textbox')).toBeNull();
+  expect(screen.getByText('$2.50 × 2')).not.toBeNull();
+  expect(within(screen.getByText('Subtotal').parentElement!).getByText('$5.00')).not.toBeNull();
+  expect(within(screen.getByText('Total').parentElement!).getByText('$5.00')).not.toBeNull();
+});
+
+test('invalid prices leave the form open and Cancel preserves the original price and total', () => {
+  render(<SaleScreen {...props} />);
+  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Edit price' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Espresso · $3.00' }));
+  for (const value of ['abc', '', '-1.50', '1.2.3', '2.501', '1e2', '9007199254740992']) {
+    fireEvent.change(screen.getByRole('textbox', { name: 'New price (USD)' }), { target: { value } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getByRole('alert').textContent).toBe('Enter a valid price');
+    expect(screen.getByRole('button', { name: 'Espresso · $3.00' })).not.toBeNull();
+  }
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.queryByRole('textbox')).toBeNull();
+  expect(screen.getByText('$3.00 × 2')).not.toBeNull();
+  expect(within(screen.getByText('Subtotal').parentElement!).getByText('$6.00')).not.toBeNull();
+}, 20_000);
+
+test('Edit price is only shown when the cart has lines', () => {
+  vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
+  render(<SaleScreen {...props} />);
+  expect(screen.queryByRole('button', { name: 'Edit price' })).toBeNull();
+  fireEvent.click(screen.getByText('Espresso'));
+  expect(screen.getByRole('button', { name: 'Edit price' })).not.toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Remove Espresso' }));
+  expect(screen.queryByRole('button', { name: 'Edit price' })).toBeNull();
+});
+
+test.each([['JPY', '250', '¥250', '¥500'], ['KWD', '2.501', 'KWD 2.501', 'KWD 5.002']])(
+  'price edits use the minor exponent for %s', (currency, value, unit, total) => {
+    vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
+    render(<SaleScreen {...props} currency={currency} />);
+    fireEvent.click(screen.getByText('Espresso'));
+    fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit price' }));
+    fireEvent.click(screen.getByRole('button', { name: /Espresso ·/ }));
+    fireEvent.change(screen.getByRole('textbox', { name: `New price (${currency})` }), { target: { value } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getByText(`${unit} × 2`)).not.toBeNull();
+    expect(within(screen.getByText('Subtotal').parentElement!).getByText(total)).not.toBeNull();
+  },
+);
+
+test('a real setUnitPrice refusal stays inline without closing the form', () => {
+  const { result } = renderHook(() => useSale({ currency: 'USD' }, { registerId: 'web', cashierRef: '2' }), {
+    wrapper: ({ children }) => <TaxProvider ratesPpm={{}} pricesIncludeTax={false}>{children}</TaxProvider>,
+  });
+  act(() => result.current.add(catalogueEntries([products[0]], props.connector.traits.product, { currency: 'USD' })[0], props.connector.traits.product));
+  const lines = result.current.order.lineItems;
+  act(() => result.current.newSale());
+  const onClose = vi.fn();
+  render(<PriceEdit lines={lines} currency="USD" onSave={result.current.setUnitPrice} onClose={onClose} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Espresso · $3.00' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'New price (USD)' }), { target: { value: '2.50' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  expect(screen.getByRole('alert').textContent).toBe(`Unknown line ${lines[0].id}`);
+  expect(onClose).not.toHaveBeenCalled();
+  expect(result.current.order.lineItems).toEqual([]);
 });
 
 test('wide: the grid and cart render together at 900px and Cold Brew costs $4.00', () => {
