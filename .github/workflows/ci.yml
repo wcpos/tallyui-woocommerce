@@ -24,10 +24,13 @@ jobs:
           node-version-file: apps/pos/package.json
           package-manager-cache: false
       # rxdb-premium's installer echoes its access token, so the output is filtered.
+      # Its postinstall reads the licence from RXDB_PREMIUM (a repository secret); fork PRs get none.
       - name: Install (token lines filtered)
         run: |
           set -o pipefail
           { pnpm install --frozen-lockfile; } 2>&1 | { grep -vi accessToken || true; }
+        env:
+          RXDB_PREMIUM: ${{ secrets.RXDB_PREMIUM }}
       - name: "Guard: pnpm side-effects cache is off"
         run: |
           value="$(pnpm config get side-effects-cache)"

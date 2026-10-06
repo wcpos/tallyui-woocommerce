@@ -2,7 +2,7 @@ import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import type { SyncContext, TallyConnector } from '@tallyui/core';
 import { createTallyDatabase, startCatalogueReconcile, startReplication } from '@tallyui/database';
 import type { TallyDatabase, TallyReplicationState } from '@tallyui/database';
-import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
+import { appStorage } from '../app-storage';
 import type { Session } from '../auth/session';
 import { fetchStoreInfo } from './store-info';
 import type { StoreInfo } from './store-info';
@@ -36,8 +36,8 @@ export async function startCatalogue(
   const store = await fetchStoreInfo(session, context.headers, options.fetchImpl);
   const db = await createTallyDatabase({
     connector, name: databaseName(session),
-    // In-memory until the SQLite-wasm job (ADR 0004).
-    storage: options.storage ?? getRxStorageMemory(),
+    // SQLite-wasm per ADR 0004; tests pass memory storage explicitly.
+    storage: options.storage ?? appStorage(),
   });
   const replication = startReplication({ collection: db.products, adapter: connector.replication!.products!, context });
   const reconcile = startCatalogueReconcile({

@@ -7,3 +7,5 @@ dist/
 .env.local
 expo-env.d.ts
 web-build/
+apps/pos/public/tallyui-sqlite-worker.js
+apps/pos/public/sqlite3.wasm

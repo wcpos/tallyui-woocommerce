@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { JSX, ReactNode } from 'react';
 import { useSession } from '../auth/session-context';
+import { storageStartMessage } from '../storage-start-failure';
 import { startCatalogue } from './start-catalogue';
 import type { Catalogue } from './start-catalogue';
 
@@ -53,7 +54,7 @@ export function CatalogueProvider({ children }: { children: ReactNode }): JSX.El
         if (!disposed) setValue(previous => ({ ...previous, status: 'ready' }));
       } catch (error) {
         if (!disposed) setValue(previous => ({
-          ...previous, status: 'error', error: error instanceof Error ? error.message : String(error),
+          ...previous, status: 'error', error: storageStartMessage(error) ?? (error instanceof Error ? error.message : String(error)),
         }));
       }
     })();

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import type { Session } from '../lib/auth/session';
 import { databaseName, startCatalogue } from '../lib/catalogue/start-catalogue';
 import products from './fixtures/products.json';
@@ -55,7 +56,7 @@ test('replicates the real fixtures in memory, updates auth headers and stops', a
     return Response.json(ordered.slice(offset, offset + limit), { headers: { 'X-WP-Total': String(matching.length) } });
   });
   vi.stubGlobal('fetch', fetchImpl);
-  const catalogue = await startCatalogue(session);
+  const catalogue = await startCatalogue(session, { storage: getRxStorageMemory() });
   try {
     await catalogue.replication.awaitInitialReplication();
     const docs = (await catalogue.db.products.find().exec()).map(doc => doc.toJSON()).sort((a, b) => a.id - b.id);

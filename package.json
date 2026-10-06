@@ -20,6 +20,6 @@
     "react-native-web": "0.21.2"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["rxdb", "esbuild"]
+    "onlyBuiltDependencies": ["rxdb", "rxdb-premium", "esbuild"]
   }
 }
