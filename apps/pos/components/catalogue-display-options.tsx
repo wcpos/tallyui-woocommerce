@@ -39,10 +39,10 @@ export function CatalogueDisplayOptions({ state, onChange }: { state: AppCatalog
         <SettingsGroup title="Panel position">
           <View className="flex-row gap-4">
             <Button testID="panel-position-left" variant={state.position === 'left' ? 'default' : 'outline'}
-              accessibilityState={{ selected: state.position === 'left' }}
+              aria-selected={state.position === 'left'}
               onPress={() => onChange({ ...state, position: 'left' })}><Text>Products left</Text></Button>
             <Button testID="panel-position-right" variant={state.position === 'right' ? 'default' : 'outline'}
-              accessibilityState={{ selected: state.position === 'right' }}
+              aria-selected={state.position === 'right'}
               onPress={() => onChange({ ...state, position: 'right' })}><Text>Products right</Text></Button>
           </View>
         </SettingsGroup>

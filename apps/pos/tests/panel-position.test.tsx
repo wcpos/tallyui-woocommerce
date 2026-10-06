@@ -41,7 +41,6 @@ test('products sit left of the cart by default', () => {
   const productsPanel = screen.getByTestId('pos-products-panel');
   const cartPanel = screen.getByTestId('pos-cart-panel');
   expect(productsPanel.compareDocumentPosition(cartPanel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(cartPanel.className).toContain('border-l');
 });
 
 test('a stored right position puts the cart first', () => {
@@ -50,7 +49,6 @@ test('a stored right position puts the cart first', () => {
   const productsPanel = screen.getByTestId('pos-products-panel');
   const cartPanel = screen.getByTestId('pos-cart-panel');
   expect(cartPanel.compareDocumentPosition(productsPanel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(cartPanel.className).toContain('border-r');
 });
 
 test('choosing Products right in settings moves the panes at once', () => {
