@@ -30,6 +30,8 @@ test('empty storage loads the defaults', () => {
     { id: 'stock', visible: true }, { id: 'category', visible: true },
     { id: 'sku', visible: false }, { id: 'barcode', visible: false },
   ]);
+  expect(CATALOGUE_VIEW_DEFAULTS.tileFields).toEqual({ name: true, price: true, category: false, sku: false, barcode: false, stock: false });
+  expect(Object.keys(CATALOGUE_VIEW_DEFAULTS.tileFields)).toEqual(['name', 'price', 'category', 'sku', 'barcode', 'stock']);
 });
 
 test('saves the exact JSON and round-trips a table state', () => {
@@ -37,6 +39,7 @@ test('saves the exact JSON and round-trips a table state', () => {
   const state: AppCatalogueViewState = {
     view: 'table', gridColumns: 6, sort: { field: 'price', dir: 'desc' }, categoryId: null,
     columns: CATALOGUE_VIEW_DEFAULTS.columns.map(c => ({ ...c, visible: c.id === 'sku' ? true : c.id === 'category' ? false : c.visible })),
+    tileFields: { ...CATALOGUE_VIEW_DEFAULTS.tileFields, sku: true, price: false },
   };
   saveCatalogueView(state, storage);
   expect(storage.getItem(CATALOGUE_VIEW_KEY)).toBe(JSON.stringify(state));
@@ -91,4 +94,20 @@ test('invalid columns fall back independently of the stored view', () => {
   const state = loadCatalogueView(storage);
   expect(state).toEqual({ ...CATALOGUE_VIEW_DEFAULTS, view: 'table' });
   expect(state.columns).not.toBe(CATALOGUE_VIEW_DEFAULTS.columns);
+});
+
+test('normalizes tile fields individually and drops unknown keys', () => {
+  const storage = memoryStorage();
+  storage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ tileFields: { sku: true, price: 'no', name: false, bogus: true } }));
+  const fields = loadCatalogueView(storage).tileFields;
+  expect(fields).toEqual({ name: false, price: true, category: false, sku: true, barcode: false, stock: false });
+  expect(Object.keys(fields)).toEqual(['name', 'price', 'category', 'sku', 'barcode', 'stock']);
+});
+
+test.each(['{"view":"table","tileFields":[true]}', '{"view":"table","tileFields":"x"}'])('invalid tile fields fall back independently of the stored view: %s', raw => {
+  const storage = memoryStorage();
+  storage.setItem(CATALOGUE_VIEW_KEY, raw);
+  const state = loadCatalogueView(storage);
+  expect(state).toEqual({ ...CATALOGUE_VIEW_DEFAULTS, view: 'table' });
+  expect(state.tileFields).not.toBe(CATALOGUE_VIEW_DEFAULTS.tileFields);
 });
