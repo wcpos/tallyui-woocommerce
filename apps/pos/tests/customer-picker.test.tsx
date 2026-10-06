@@ -14,6 +14,7 @@ import { PortalHost } from '@tallyui/primitives';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
+import { CREATE_CUSTOMERS_DENIED } from '../lib/auth/capabilities';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
@@ -50,6 +51,39 @@ function openPicker(customer: Customer | null = null) {
 function typeQuery(value: string) {
   fireEvent.change(screen.getByPlaceholderText('Search name, email or phone'), { target: { value } });
 }
+
+test('blocks new customers and shows the supplied reason', () => {
+  render(<CustomerPicker source={source} customer={null} onChange={onChange} createBlockedReason="Locked because" />);
+  fireEvent.click(screen.getByRole('button', { name: 'Change customer' }));
+  const button = screen.getByRole('button', { name: 'New customer' });
+  expect(button.getAttribute('aria-disabled')).toBe('true');
+  fireEvent.click(button);
+  expect(screen.queryByPlaceholderText('email@example.com')).toBeNull();
+  expect(screen.getByText('Locked because')).not.toBeNull();
+});
+
+test('SaleScreen closes creation when cashier permissions have not been read', () => {
+  render(<SaleScreen storeSettings={noTaxSettings} {...saleProps} customers={source} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Change customer' }));
+  expect(screen.getByRole('button', { name: 'New customer' }).getAttribute('aria-disabled')).toBe('true');
+  expect(screen.getByText('Your permissions have not been read from the store.')).not.toBeNull();
+});
+
+test('SaleScreen allows a cashier with create_customers to open the form', () => {
+  render(<SaleScreen storeSettings={noTaxSettings} {...saleProps} customers={source} cashier={{ known: true, granted: ['create_customers'] }} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Change customer' }));
+  const button = screen.getByRole('button', { name: 'New customer' });
+  expect(button.getAttribute('aria-disabled')).toBeNull();
+  fireEvent.click(button);
+  expect(screen.getByPlaceholderText('email@example.com')).not.toBeNull();
+});
+
+test('SaleScreen explains how to grant customer creation when the known list denies it', () => {
+  render(<SaleScreen storeSettings={noTaxSettings} {...saleProps} customers={source} cashier={{ known: true, granted: [] }} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Change customer' }));
+  expect(screen.getByRole('button', { name: 'New customer' }).getAttribute('aria-disabled')).toBe('true');
+  expect(screen.getByText(CREATE_CUSTOMERS_DENIED)).not.toBeNull();
+});
 
 test('searches from two trimmed characters and attaches the selected summary', async () => {
   openPicker();

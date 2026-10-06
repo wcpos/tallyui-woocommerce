@@ -6,10 +6,11 @@ import type { CustomerSummary } from '@tallyui/pos';
 import { Button, CustomerForm, CustomerSelect, Text } from '@tallyui/components';
 import type { CustomerSource } from '../lib/customers/customer-source';
 
-export function CustomerPicker({ source, customer, onChange }: {
+export function CustomerPicker({ source, customer, onChange, createBlockedReason }: {
   source: CustomerSource;
   customer: CustomerSummary | null;
   onChange(customer: CustomerSummary | null): void;
+  createBlockedReason?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -80,12 +81,13 @@ export function CustomerPicker({ source, customer, onChange }: {
         <>
           <CustomerSelect customers={results} selected={null} onSelect={pick} onSearch={search}
             placeholder="Search name, email or phone" traits={customerTraits} />
-          <Button onPress={() => {
+          <Button disabled={createBlockedReason !== undefined} onPress={() => {
             request.current++;
             setError(undefined);
             setValues({ firstName: '', lastName: '', email: '', phone: '', address: '' });
             setCreating(true);
           }}><Text>New customer</Text></Button>
+          {createBlockedReason !== undefined ? <Text>{createBlockedReason}</Text> : null}
         </>
       )}
       {error ? <Text>{error}</Text> : null}

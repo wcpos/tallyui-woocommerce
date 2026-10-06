@@ -33,6 +33,7 @@ function fakeStore({ status = 200, advertised = [], site }: { status?: number; a
   return vi.fn<typeof fetch>(async input => {
     const url = new URL(String(input));
     if (url.pathname.endsWith('/stores')) return Response.json(stores);
+    if (url.pathname.endsWith('/cashier/2')) return Response.json({ id: 2, capabilities: ['create_customers'] });
     if (url.pathname.endsWith('/status')) return Response.json({ capabilities: advertised }, { status });
     if (url.pathname.endsWith('/site') && site) return typeof site === 'function' ? site() : site;
     if (url.pathname.endsWith('/variations')) {
@@ -50,6 +51,20 @@ function fakeStore({ status = 200, advertised = [], site }: { status?: number; a
     return Response.json(ordered.slice(offset, offset + limit), { headers: { 'X-WP-Total': String(matching.length) } });
   });
 }
+
+test('reads cashier capabilities with the connector authorization headers', async () => {
+  const fetchImpl = fakeStore({});
+  vi.stubGlobal('fetch', fetchImpl);
+  const catalogue = await startCatalogue(session, { storage: getRxStorageMemory(), fetchImpl: fetchImpl as unknown as typeof fetch });
+  try {
+    expect(catalogue.cashier).toEqual({ known: true, granted: ['create_customers'] });
+    const cashierRequests = fetchImpl.mock.calls.filter(([url]) => String(url).endsWith('/cashier/2'));
+    expect(cashierRequests).toHaveLength(1);
+    expect(new Headers(cashierRequests[0][1]?.headers).get('Authorization')).toBe('Bearer t1');
+  } finally {
+    await catalogue.stop();
+  }
+});
 
 test('database names use stable FNV-1a hashes and valid RxDB characters', () => {
   const name = databaseName(session);
