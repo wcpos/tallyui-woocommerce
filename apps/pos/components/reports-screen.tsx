@@ -9,6 +9,7 @@ import { useSession } from '../lib/auth/session-context';
 import { useRegister } from '../lib/register/register-context';
 import { closuresCsv } from '../lib/reports/closures-csv';
 import { salesRoom } from '../lib/reports/sales-room';
+import { salesTableCsv } from '../lib/reports/sales-table-csv';
 import { ordersTable, paymentsTable, taxesTable } from '../lib/reports/sales-tables';
 import { dayRange } from '../lib/reports/today-sales';
 import { useOutbox } from '../lib/sale/outbox-context';
@@ -50,13 +51,15 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const signedCount = (n: number) => n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0';
   const percent = delta.percentTenths === null ? '—'
     : `${delta.percentTenths > 0 ? '+' : delta.percentTenths < 0 ? '−' : ''}${(Math.abs(delta.percentTenths) / 10).toFixed(1)}%`;
-  const downloadCsv = () => {
+  const table = openTable === 'payments' ? paymentsTable(room.today, money)
+    : openTable === 'taxes' ? taxesTable(room.today, money)
+    : openTable === 'orders' ? ordersTable(sales, { now: new Date(), currency, money }) : null;
+  const downloadCsv = (csv: string, filename: string) => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
-    const csv = closuresCsv(closures, currency, session?.tokens.user, storeName);
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `closures-${today}.csv`;
+    anchor.download = filename;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
@@ -118,13 +121,12 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
           </Pressable>
           {room.today.taxRates.map(row => <Text key={row.ratePpm}>{`${row.label} — Net ${money(row.netMinor)} — Tax ${money(row.taxMinor)} — Gross ${money(row.grossMinor)}`}</Text>)}
         </View>}
-        {openTable && <SalesTable table={openTable === 'payments' ? paymentsTable(room.today, money)
-          : openTable === 'taxes' ? taxesTable(room.today, money)
-          : ordersTable(sales, { now: new Date(), currency, money })} scope="Today · This till" onClose={() => setOpenTable(null)} />}
+        {openTable && table && <SalesTable table={table} scope="Today · This till" onClose={() => setOpenTable(null)}
+          onExport={() => downloadCsv(salesTableCsv(table), `sales-${openTable}-${today}-${today}.csv`)} />}
         <View testID="reports-closures" className="gap-2 rounded-lg border border-border p-4">
           <View className="flex-row items-center justify-between">
             <Text accessibilityRole="header">Closures</Text>
-            {closures.length > 0 && <Button testID="closures-csv" onPress={downloadCsv}><Text>Download CSV</Text></Button>}
+            {closures.length > 0 && <Button testID="closures-csv" onPress={() => downloadCsv(closuresCsv(closures, currency, session?.tokens.user, storeName), `closures-${today}.csv`)}><Text>Download CSV</Text></Button>}
           </View>
           {closures.length === 0 && <Text>No closures yet. A closure appears here when a register session closes.</Text>}
           {closures.map(closure => (
