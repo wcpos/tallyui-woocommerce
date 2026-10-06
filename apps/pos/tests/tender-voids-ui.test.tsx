@@ -84,8 +84,25 @@ test('Remove journals the cash leg before it leaves the sale', async () => {
   expect(rows).toHaveLength(1);
   expect(rows[0].toJSON()).toMatchObject({
     reason: 'removed', method: 'cash', amountMinor: 200, currency: 'USD', cashierRef: '2',
-    registerId: expect.any(String), type: 'void', saleId: expect.stringMatching(/\S/),
+    registerId: 'web', type: 'void', saleId: expect.stringMatching(/\S/),
   });
+}, 20_000);
+
+test("a void carries the register id of the sale's order row", async () => {
+  await renderSale(true);
+  addCash();
+  fireEvent.click(screen.getByTestId(/^split-tender-remove-/));
+  await waitFor(() => expect(screen.queryByTestId(/^split-tender-row-/)).toBeNull());
+  fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '6.00' } });
+  fireEvent.click(screen.getByTestId('split-tender-add-button'));
+  fireEvent.click(screen.getByTestId('split-tender-complete'));
+  await waitFor(async () => expect(await orders!.find().exec()).toHaveLength(1));
+  const [order] = await orders!.find().exec();
+  const rows = await collection.find().exec();
+  expect(rows).toHaveLength(1);
+  expect(order.registerId).toBe('web');
+  expect(rows[0].registerId).toBe(order.registerId);
+  expect(rows[0].registerId).not.toBe('');
 }, 20_000);
 
 test('Cancel and void journals every leg with the same sale id', async () => {

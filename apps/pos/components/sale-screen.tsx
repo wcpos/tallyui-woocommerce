@@ -79,7 +79,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       const collection = (outbox.enabled && outbox.orders!.database.collections.tender_voids) as TenderVoidCollection;
       await recordTenderVoids(collection, payments, {
         saleId: sale.order.id, currency: sale.order.currency, reason,
-        registerId: register?.boundRegisterId ?? '', sessionId: register?.saleSession?.id,
+        registerId: REGISTER_ID, sessionId: register?.saleSession?.id,
         cashierRef: props.cashierRef, deviceTime: new Date().toISOString(),
         deviceTz: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
