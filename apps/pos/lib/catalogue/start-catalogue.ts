@@ -1,5 +1,5 @@
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
-import type { SyncContext, TallyConnector } from '@tallyui/core';
+import type { ServerCapabilities, SyncContext, TallyConnector } from '@tallyui/core';
 import { createTallyDatabase, startCatalogueReconcile, startReplication } from '@tallyui/database';
 import type { TallyDatabase, TallyReplicationState } from '@tallyui/database';
 import { appStorage } from '../app-storage';
@@ -15,6 +15,7 @@ export interface Catalogue {
   receiptEmails: ReceiptEmailCollection;
   connector: TallyConnector;
   store: StoreInfo;
+  capabilities?: ServerCapabilities;
   replication: TallyReplicationState<any>;
   setAccessToken(token: string): void;
   stop(): Promise<void>;
@@ -38,6 +39,7 @@ export async function startCatalogue(
     headers: { ...connector.auth.getHeaders({ token: session.tokens.accessToken }) },
   };
   const store = await fetchStoreInfo(session, context.headers, options.fetchImpl);
+  const capabilities = await connector.capabilities?.(context);
   const db = await createTallyDatabase({
     connector, name: databaseName(session),
     // SQLite-wasm per ADR 0004; tests pass memory storage explicitly.
@@ -56,7 +58,7 @@ export async function startCatalogue(
     reSync: () => replication.reSync(),
   });
   return {
-    db, parkedCarts, receiptEmails, connector, store, replication,
+    db, parkedCarts, receiptEmails, connector, store, capabilities, replication,
     setAccessToken(token) {
       Object.assign(context.headers, connector.auth.getHeaders({ token }));
       void replication.resume();

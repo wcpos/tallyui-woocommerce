@@ -42,6 +42,7 @@ export default function Catalogue() {
       currency={catalogue.store.currency}
       locale={catalogue.store.locale}
       chargesTax={catalogue.store.chargesTax}
+      multiplePayments={catalogue.capabilities?.multiplePayments === true}
       products={products}
       storeName={catalogue.store.name}
       cashierName={session.tokens.user.displayName}
