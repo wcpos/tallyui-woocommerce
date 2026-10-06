@@ -26,6 +26,7 @@ import { ReceiptEmail } from './receipt-email';
 import { ReceiptIdentity } from './receipt-identity';
 import { RegisterControls, RegisterSwitch } from './register-controls';
 import { CancelPaymentView } from './cancel-payment-view';
+import { CashierSheet, type CashierOption } from './cashier-sheet';
 
 // The till id; the bound register is the drawer.
 const REGISTER_ID = 'web';
@@ -39,6 +40,10 @@ export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | '
   multiplePayments?: boolean;
   capabilities?: ServerCapabilities;
   cashier?: CashierCapabilities;
+  cashiers?: CashierOption[];
+  onSwitchCashier?(uuid: string): Promise<string | null>;
+  onAddCashier?(): void;
+  heldCartKey?: string;
 }
 
 export function SaleScreen(props: SaleScreenProps): JSX.Element {
@@ -71,6 +76,12 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const [restoring, setRestoring] = useState<ParkedCart>();
   const restoreSteps = useRef<ReturnType<typeof restoreCart> | null>(null);
   const restoreResolve = useRef<((result: string | null) => void) | null>(null);
+  const currentOrder = useRef<typeof sale.order | null>(sale.order);
+  currentOrder.current = sale.order;
+  const heldAtMount = useRef<string | null>(null);
+  useEffect(() => {
+    try { heldAtMount.current = props.heldCartKey ? localStorage.getItem(props.heldCartKey) : null; } catch {}
+  }, []);
   useEffect(() => {
     register?.setTenderInProgress(sale.stage.kind === 'tender');
   }, [register?.setTenderInProgress, sale.stage.kind]);
@@ -162,8 +173,12 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     if (props.status !== 'ready') {
       return 'The catalogue is still syncing. Try again in a moment.';
     }
-    const selected = parked.find(cart => cart.id === id)!;
-    const current = sale.order.lineItems.length ? parkCart(sale.order) : undefined;
+    return resumeCart(parked.find(cart => cart.id === id)!);
+  }
+
+  async function resumeCart(selected: ParkedCart): Promise<string | null> {
+    const { id } = selected;
+    const current = currentOrder.current?.lineItems.length ? parkCart(currentOrder.current) : undefined;
     try {
       if (parkedCarts) {
         if (current) await parkedCarts.insert(current);
@@ -178,6 +193,42 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       setRestoring(selected);
     });
   }
+
+  async function changeCashier(uuid?: string) {
+    let held: ParkedCart | undefined;
+    if (sale.order.lineItems.length) {
+      held = parkCart(sale.order);
+      try {
+        if (parkedCarts) await parkedCarts.insert(held);
+        else setParked(carts => [held!, ...carts]);
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : String(error));
+        return;
+      }
+      try { if (props.heldCartKey) localStorage.setItem(props.heldCartKey, held.id); } catch {}
+      sale.newSale();
+      currentOrder.current = null;
+    }
+    if (uuid === undefined) { props.onAddCashier?.(); return; }
+    const error = await props.onSwitchCashier!(uuid);
+    if (typeof error === 'string') {
+      setMessage(error);
+      if (held) {
+        try { if (props.heldCartKey) localStorage.removeItem(props.heldCartKey); } catch {}
+        setMessage(await resumeCart(held) ?? error);
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (!props.heldCartKey || !heldAtMount.current || props.status !== 'ready'
+      || sale.stage.kind !== 'cart' || sale.order.lineItems.length || restoring) return;
+    const cart = parked.find(cart => cart.id === heldAtMount.current);
+    if (!cart) return;
+    heldAtMount.current = null;
+    try { localStorage.removeItem(props.heldCartKey); } catch {}
+    void resumeCart(cart).then(error => { if (typeof error === 'string') setMessage(error); });
+  }, [parked, props.status, sale.stage.kind, sale.order.lineItems.length, restoring]);
 
   async function onDiscard(id: string) {
     try {
@@ -244,7 +295,11 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
 
   const browse = variants ? (
     <VariantChooser entries={variants} currency={currency} onSelect={onAdd} onClose={() => setVariants(undefined)} />
-  ) : <CatalogueView {...props} onSelect={onSelect} onScan={onScan} message={message} />;
+  ) : <CatalogueView {...props} onSelect={onSelect} onScan={onScan} message={message}
+    cashierControl={props.onSwitchCashier ? <CashierSheet name={props.cashierName} cashiers={props.cashiers ?? []}
+      onSwitch={changeCashier} onAddAnother={() => changeCashier()} onSignOut={props.onSignOut}
+      blockedReason={sale.stage.kind === 'tender' || sale.saving ? 'Finish or cancel the payment first.' : undefined}
+    /> : props.cashierControl} />;
   const cartPane = (
     <View className="flex-1 bg-background p-4">
       {width < 900 && message ? <Text>{message}</Text> : null}

@@ -9,9 +9,14 @@ import { useSession } from '../lib/auth/session-context';
 import { useCatalogue } from '../lib/catalogue/catalogue-context';
 import { customerSource } from '../lib/customers/customer-source';
 import { receiptMailer } from '../lib/receipts/receipt-mailer';
+import { SessionExpiredError } from '../lib/auth/session';
+import { databaseName } from '../lib/catalogue/start-catalogue';
+
+// The localStorage key for a cashier's cart held across a switch.
+const HELD_CART_PREFIX = 'tallywoo.held-cart.';
 
 export default function Catalogue() {
-  const { session, ready, signOut } = useSession();
+  const { session, ready, signOut, cashiers, switchCashier, startAddCashier } = useSession();
   const store = useTillStoreSettings(session);
   const { catalogue, products, status, notice, error } = useCatalogue();
   const router = useRouter();
@@ -52,6 +57,20 @@ export default function Catalogue() {
       storeName={catalogue.store.name}
       cashierName={session.tokens.user.displayName}
       cashierRef={String(session.tokens.user.id)}
+      cashiers={cashiers.map(c => ({ uuid: c.tokens.user.uuid, name: c.tokens.user.displayName }))}
+      onSwitchCashier={async uuid => {
+        const name = cashiers.find(c => c.tokens.user.uuid === uuid)!.tokens.user.displayName;
+        try {
+          await switchCashier(uuid);
+          return null;
+        } catch (error) {
+          return error instanceof SessionExpiredError
+            ? `${name}'s sign-in has expired. Use Another account to sign them in again.`
+            : 'Could not switch cashier. Check the connection and try again.';
+        }
+      }}
+      onAddCashier={startAddCashier}
+      heldCartKey={`${HELD_CART_PREFIX}${databaseName(session)}`}
       status={status}
       notice={notice}
       onSignOut={() => { signOut(); router.replace('/connect'); }}

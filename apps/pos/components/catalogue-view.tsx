@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { JSX } from 'react';
+import type { JSX, ReactNode } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import { ConnectorProvider } from '@tallyui/core';
 import type { TallyConnector } from '@tallyui/core';
@@ -16,6 +16,7 @@ export interface CatalogueViewProps {
   products: any[];
   storeName: string;
   cashierName: string;
+  cashierControl?: ReactNode;
   status: 'idle' | 'starting' | 'syncing' | 'ready' | 'error';
   notice?: { code: string; message?: string };
   onSelect?(doc: any): void;
@@ -26,7 +27,7 @@ export interface CatalogueViewProps {
 }
 
 export function CatalogueView({
-  connector, currency, products, storeName, cashierName, status, notice, onSignOut, onOpenReports, onSelect, onScan, message,
+  connector, currency, products, storeName, cashierName, cashierControl, status, notice, onSignOut, onOpenReports, onSelect, onScan, message,
 }: CatalogueViewProps): JSX.Element {
   const [term, setTerm] = useState('');
   function scan(code: string) {
@@ -62,11 +63,11 @@ export function CatalogueView({
       <View className="flex-1 bg-background p-4">
         <View className="flex-row flex-wrap items-center justify-between gap-4">
           <Text>{storeName}</Text>
-          <Text>{`Cashier: ${cashierName}`}</Text>
+          {cashierControl ?? <Text>{`Cashier: ${cashierName}`}</Text>}
           <ViewToggle value={viewState.view} onChange={view => setViewState({ ...viewState, view })} />
           <CatalogueDisplayOptions state={viewState} onChange={setViewState} />
           {onOpenReports && <Button onPress={onOpenReports}><Text>Reports</Text></Button>}
-          <Button onPress={onSignOut}><Text>Sign out</Text></Button>
+          {cashierControl == null && <Button onPress={onSignOut}><Text>Sign out</Text></Button>}
         </View>
         <Text>{statusLine}</Text>
         {message ? <Text>{message}</Text> : null}
