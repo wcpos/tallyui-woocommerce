@@ -7,6 +7,8 @@ import 'react-native';
 declare module 'react-native' {
   interface ViewProps {
     className?: string;
+    // react-native-web's dataSet, used for print visibility as in TallyUI's Receipt.
+    dataSet?: { [key: string]: string | number };
   }
   interface TextProps {
     className?: string;

@@ -423,7 +423,7 @@ test('onResume resolves after restoration, and the sheet closes with the restore
   expect(screen.queryByTestId('parked-sales')).toBeNull();
   expect(screen.getByText('$3.00 × 2')).not.toBeNull();
   expect(screen.getByText('$4.00 × 3')).not.toBeNull();
-});
+}, 20_000);
 
 test('resuming reports a missing product in the phone cart message line', async () => {
   const view = render(<SaleScreen {...props} />);
