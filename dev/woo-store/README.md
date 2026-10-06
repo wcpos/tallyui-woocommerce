@@ -26,6 +26,11 @@ subject, headers (count them from the array), attachment count and body metadata
 but no body. Read it with
 `tail ~/.local/share/tallyui-woocommerce/dev-store/log/mail.log`.
 
+The dev store turns off WCPOS → Settings → Checkout → Customer emails, so
+WooCommerce's own order emails (completed, processing, …) are not sent for POS
+orders. The till's "Email receipt" sends WooCommerce's order-details email on
+request. On a real store, leave the setting on and customers get both emails.
+
 HTTP listens on `127.0.0.1:8480`, MariaDB on `127.0.0.1:3306`, and the Caddy
 admin endpoint on `127.0.0.1:2480`. PHP FPM uses `run/php-fpm.sock`, never a
 TCP port. The public filter listener uses `127.0.0.1:8481`.
