@@ -11,7 +11,8 @@ import * as TallyComponents from '@tallyui/components';
 import { catalogueEntries, TaxProvider, useSale } from '@tallyui/pos';
 import type { CommandTransport } from '@tallyui/pos';
 import type { OrderCreateEnvelope } from '@tallyui/core';
-import { SaleScreen } from '../components/sale-screen';
+import { SaleScreen as SaleScreenWithoutHost } from '../components/sale-screen';
+import { PortalHost } from '@tallyui/primitives';
 import type { SaleScreenProps } from '../components/sale-screen';
 import { parkedCartSchema, parkedCartMigrationStrategies, type ParkedCartCollection } from '../lib/sale/parked-carts';
 import { SessionProvider } from '../lib/auth/session-context';
@@ -20,6 +21,10 @@ import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import variations from './fixtures/variations.json';
+
+function SaleScreen(props: SaleScreenProps) {
+  return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
+}
 
 addRxPlugin(RxDBMigrationSchemaPlugin);
 

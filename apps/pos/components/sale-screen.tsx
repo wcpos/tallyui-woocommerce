@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import { Button, Cart, CartBar, ParkedSales, POSLayout, Receipt, SyncStatus, Tender, Text } from '@tallyui/components';
-import { catalogueEntries, TaxProvider, useSale } from '@tallyui/pos';
+import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, useSale } from '@tallyui/pos';
 import type { CatalogueEntry, ParkedOrderSummary } from '@tallyui/pos';
-import { PortalHost } from '@tallyui/primitives';
+import { useRegister } from '../lib/register/register-context';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { parkCart, restoreCart } from '../lib/sale/parked-carts';
 import type { ParkedCart, ParkedCartCollection } from '../lib/sale/parked-carts';
@@ -17,7 +17,7 @@ import type { ReceiptMailer } from '../lib/receipts/receipt-mailer';
 import { useReceiptEmailSender, type ReceiptEmailCollection } from '../lib/receipts/receipt-emails';
 import { ReceiptEmail } from './receipt-email';
 
-// One web till until the register job (M8).
+// The till id; the bound register is the drawer.
 const REGISTER_ID = 'web';
 // order.create v3 carries the customer id (customer.customerId) and the till's figures. The WooCommerce
 // transport (createWooCommandTransport) reads v3; the connector has no capabilities() probe yet (G3 follow-up).
@@ -40,11 +40,13 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     ? 'This store charges tax. Taking payment on taxed stores arrives in the next update.'
     : "Could not confirm this store's tax settings, so the till cannot take payment.";
   const outbox = useOutbox();
+  const register = useRegister();
   useReceiptEmailSender({ collection: mailer ? receiptEmails ?? null : null, mailer: mailer ?? null,
     orders: outbox.enabled ? outbox.orders : null });
   const sale = useSale({ currency }, {
     registerId: REGISTER_ID, cashierRef: props.cashierRef,
     capabilities: ORDER_CAPABILITIES,
+    session: register?.saleSession,
     onSaleCompleted: outbox.enabled ? outbox.record : undefined,
     isStored: outbox.enabled ? outbox.isStored : undefined,
   });
@@ -57,6 +59,20 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const [restoring, setRestoring] = useState<ParkedCart>();
   const restoreSteps = useRef<ReturnType<typeof restoreCart> | null>(null);
   const restoreResolve = useRef<((result: string | null) => void) | null>(null);
+  useEffect(() => {
+    register?.setTenderInProgress(sale.stage.kind === 'tender');
+  }, [register?.setTenderInProgress, sale.stage.kind]);
+
+  async function gatedStartTender(method: 'cash' | 'external') {
+    if (!register?.enabled) return sale.startTender(method);
+    try {
+      const session = await register.requireSaleSession();
+      sale.startTender(method, { session: session ?? undefined });
+    } catch (error) {
+      if (!(error instanceof RegisterSessionRequiredError)) throw error;
+      setMessage('Open the register to take payment.');
+    }
+  }
   const summaries: ParkedOrderSummary[] = parked.map(cart => ({
     id: cart.id, customerName: cart.customer?.name, itemCount: cart.itemCount,
     totalMinor: cart.totalMinor, parkedAt: cart.parkedAt, source: 'local',
@@ -165,9 +181,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           </View>
           <ParkedSales sale={sale} parked={summaries} onPark={onPark} onResume={onResume}
             onDiscard={onDiscard} currency={currency} open={parkedOpen} onOpenChange={setParkedOpen} />
-          <PortalHost />
           {/* M6's order notes can take the price-change reason via onPriceChange. */}
-          <Cart sale={sale} canEditPrice />
+          <Cart sale={{ ...sale, startTender: gatedStartTender }} canEditPrice />
         </>
       ) : sale.stage.kind === 'tender' ? chargesTax !== 'no' ? (
         <>

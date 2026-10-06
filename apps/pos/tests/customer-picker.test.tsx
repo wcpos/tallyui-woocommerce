@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
@@ -7,13 +8,18 @@ import { ConnectorUnauthorizedError, CustomerServiceError } from '@tallyui/core'
 import type { Customer, OrderCreateEnvelope } from '@tallyui/core';
 import type { CommandTransport } from '@tallyui/pos';
 import { CustomerPicker } from '../components/customer-picker';
-import { SaleScreen } from '../components/sale-screen';
+import { SaleScreen as SaleScreenWithoutHost } from '../components/sale-screen';
+import { PortalHost } from '@tallyui/primitives';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+
+function SaleScreen(props: ComponentProps<typeof SaleScreenWithoutHost>) {
+  return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
+}
 
 const gee: Customer = { id: '7', name: 'Gee Four', email: 'gee@example.invalid', phone: '123' };
 const summary = { id: '7', name: 'Gee Four', email: 'gee@example.invalid' };

@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { act, cleanup, fireEvent, render, renderHook, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
@@ -11,7 +12,8 @@ import type { OrderCreateEnvelope } from '@tallyui/core';
 import { addPosOrderCollection } from '@tallyui/pos';
 import type { CommandTransport, PosOrder } from '@tallyui/pos';
 import { ReceiptEmail } from '../components/receipt-email';
-import { SaleScreen } from '../components/sale-screen';
+import { SaleScreen as SaleScreenWithoutHost } from '../components/sale-screen';
+import { PortalHost } from '@tallyui/primitives';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
@@ -20,6 +22,10 @@ import type { ReceiptEmailCollection } from '../lib/receipts/receipt-emails';
 import type { ReceiptMailer } from '../lib/receipts/receipt-mailer';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+
+function SaleScreen(props: ComponentProps<typeof SaleScreenWithoutHost>) {
+  return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
+}
 
 const email = 'gee@example.invalid';
 const queuedText = 'Receipt email queued. It sends when this sale has synced and the till is online.';

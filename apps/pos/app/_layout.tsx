@@ -1,9 +1,11 @@
 import '../global.css';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { PortalHost } from '@tallyui/primitives';
 import { SessionProvider } from '../lib/auth/session-context';
 import { CatalogueProvider } from '../lib/catalogue/catalogue-context';
 import { OutboxProvider } from '../lib/sale/outbox-context';
+import { RegisterProvider } from '../lib/register/register-context';
 
 export default function RootLayout() {
   return (
@@ -12,7 +14,10 @@ export default function RootLayout() {
       <SessionProvider>
         <CatalogueProvider>
           <OutboxProvider>
-            <Stack screenOptions={{ headerShown: false }} />
+            <RegisterProvider>
+              <Stack screenOptions={{ headerShown: false }} />
+              <PortalHost />
+            </RegisterProvider>
           </OutboxProvider>
         </CatalogueProvider>
       </SessionProvider>
