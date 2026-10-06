@@ -64,11 +64,6 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   }, [register?.setTenderInProgress, sale.stage.kind]);
 
   async function gatedStartTender(method: 'cash' | 'external') {
-    if (props.storeSettings.pricesIncludeTax &&
-      (sale.order.discounts.length > 0 || sale.order.lineItems.some(line => line.discounts.length > 0))) {
-      setMessage("Discounts can't be sold on a tax-inclusive store yet. Remove the discount to take payment.");
-      return;
-    }
     if (!register?.enabled) { register?.setTenderInProgress(true); return sale.startTender(method); }
     try {
       const session = await register.requireSaleSession();
