@@ -170,8 +170,10 @@ it needs an open session (wiki `architecture/client/register-sessions.md`).
 
 - **Tester:** sees the day's sales in Reports and the closures room;
   voids and refunds produce their own records; every receipt carries the
-  register, the software and a QR; the WCPOS receipt templates render on
-  the device.
+  register, the software and a copy marking on reprints (no QR on a plain
+  sale, as in WCPOS v2 Free, where `fiscal.qr_payload` is filled only by a
+  fiscal module; ruled by the front desk 2026-10-06); the WCPOS receipt
+  templates render on the device.
 - **TallyUI:** G11, reports, fiscal records, receipt templates and receipt
   schema 1.4.
 
