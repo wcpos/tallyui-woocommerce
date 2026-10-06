@@ -4,7 +4,7 @@ import { createTallyDatabase, startCatalogueReconcile, startReplication } from '
 import type { TallyDatabase, TallyReplicationState } from '@tallyui/database';
 import { appStorage } from '../app-storage';
 import type { Session } from '../auth/session';
-import { parkedCartSchema, type ParkedCartCollection } from '../sale/parked-carts';
+import { parkedCartSchema, parkedCartMigrationStrategies, type ParkedCartCollection } from '../sale/parked-carts';
 import { fetchStoreInfo } from './store-info';
 import type { StoreInfo } from './store-info';
 
@@ -43,7 +43,7 @@ export async function startCatalogue(
   });
   // House rule: a local-only collection, never replicated.
   const { parked_carts: parkedCarts } = await db.addCollections<{ parked_carts: ParkedCartCollection }>({
-    parked_carts: { schema: parkedCartSchema },
+    parked_carts: { schema: parkedCartSchema, migrationStrategies: parkedCartMigrationStrategies },
   });
   const replication = startReplication({ collection: db.products, adapter: connector.replication!.products!, context });
   const reconcile = startCatalogueReconcile({

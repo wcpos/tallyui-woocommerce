@@ -8,14 +8,20 @@ export interface ParkedLine {
 }
 export interface ParkedCart {
   id: string; parkedAt: string; lines: ParkedLine[]; orderDiscounts: Discount[]; itemCount: number; totalMinor: number;
+  customer?: { id: string; name: string; email?: string };
 }
 
 export type ParkedCartCollection = RxCollection<ParkedCart>;
 export const parkedCartSchema: RxJsonSchema<ParkedCart> = {
-  version: 0, primaryKey: 'id', type: 'object',
+  version: 1, primaryKey: 'id', type: 'object',
   properties: {
     id: { type: 'string', maxLength: 64 },
     parkedAt: { type: 'string', maxLength: 32 },
+    customer: {
+      type: 'object', properties: {
+        id: { type: 'string' }, name: { type: 'string' }, email: { type: 'string' },
+      }, required: ['id', 'name'], additionalProperties: false,
+    },
     lines: { type: 'array', items: {
       type: 'object', properties: {
         productId: { type: 'string' }, variantId: { type: 'string' },
@@ -40,6 +46,9 @@ export const parkedCartSchema: RxJsonSchema<ParkedCart> = {
   indexes: ['parkedAt'],
 };
 
+// v0 carts have no customer, and they restore as guest carts.
+export const parkedCartMigrationStrategies = { 1: (doc: any) => doc };
+
 function discountFields({ type, value, label, couponCode }: Discount): Discount {
   return { type, value, ...(label !== undefined ? { label } : {}), ...(couponCode !== undefined ? { couponCode } : {}) };
 }
@@ -47,6 +56,10 @@ function discountFields({ type, value, label, couponCode }: Discount): Discount 
 export function parkCart(order: Order, now = new Date()): ParkedCart {
   return {
     id: crypto.randomUUID(), parkedAt: now.toISOString(),
+    ...(order.customer ? { customer: {
+      id: order.customer.id, name: order.customer.name,
+      ...(order.customer.email ? { email: order.customer.email } : {}),
+    } } : {}),
     lines: order.lineItems.map(({ productId, variantId, quantity, name, discounts }) => ({
       productId, variantId, quantity, name, discounts: discounts.map(discountFields),
     })),
@@ -56,13 +69,14 @@ export function parkCart(order: Order, now = new Date()): ParkedCart {
   };
 }
 
-type RestoreSale = Pick<ReturnType<typeof useSale>, 'add' | 'setQuantity' | 'applyDiscount' | 'order'>;
+type RestoreSale = Pick<ReturnType<typeof useSale>, 'add' | 'setQuantity' | 'applyDiscount' | 'order' | 'setCustomer'>;
 
 // Start with an empty sale; after each yield, pass the sale from the next order render to next(sale).
 export function* restoreCart(
   sale: RestoreSale, parked: ParkedCart, products: any[], traits: ProductTraits<any>, currency: string,
 ): Generator<void, string[], RestoreSale> {
   const problems: string[] = [];
+  sale.setCustomer(parked.customer ?? null);
   for (const line of parked.lines) {
     const product = products.find(doc => traits.getId(doc) === line.productId);
     if (!product) {
