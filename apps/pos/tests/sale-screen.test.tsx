@@ -27,7 +27,8 @@ function SaleScreen(props: SaleScreenProps) {
 
 addRxPlugin(RxDBMigrationSchemaPlugin);
 
-const shirt = { ...products[2], variation_docs: variations.documents.filter(doc => doc.parent_id === products[2].id).map(doc => doc.payload) };
+const shirt = { ...products[2], variation_docs: variations.documents.filter(doc => doc.parent_id === products[2].id)
+  .map(doc => ({ ...doc.payload, barcode: doc.payload.global_unique_id })) };
 
 const props: SaleScreenProps = {
   storeSettings: noTaxSettings,
@@ -44,6 +45,93 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+test('barcode Enter adds Espresso, shows feedback and clears search', () => {
+  render(<SaleScreen {...props} products={[products[0], products[1], shirt]} />);
+  const input = screen.getByPlaceholderText('Search name, SKU or barcode') as HTMLInputElement;
+  fireEvent.change(input, { target: { value: '2000000000015' } });
+  fireEvent.keyDown(input, { key: 'Enter' });
+  expect(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' })).not.toBeNull();
+  expect(screen.getByText('Espresso added to cart')).not.toBeNull();
+  expect(input.value).toBe('');
+});
+
+test('submitting the same barcode twice adds two items', () => {
+  render(<SaleScreen {...props} products={[products[0], products[1], shirt]} />);
+  const input = screen.getByPlaceholderText('Search name, SKU or barcode');
+  for (let i = 0; i < 2; i++) {
+    fireEvent.change(input, { target: { value: '2000000000015' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+  }
+  expect(screen.getByRole('button', { name: 'Open cart, 2 items, $6.00' })).not.toBeNull();
+});
+
+test('a variation barcode adds the exact option without opening the chooser', () => {
+  render(<SaleScreen {...props} products={[products[0], products[1], shirt]} />);
+  const input = screen.getByPlaceholderText('Search name, SKU or barcode');
+  fireEvent.change(input, { target: { value: '2000000000138' } });
+  fireEvent.keyDown(input, { key: 'Enter' });
+  expect(screen.queryByText('Choose an option')).toBeNull();
+  expect(screen.getByText('T-Shirt · S / Black added to cart')).not.toBeNull();
+  expect(screen.getByRole('button', { name: 'Open cart, 1 item, $25.00' })).not.toBeNull();
+});
+
+test('a variable parent barcode opens the chooser without adding', () => {
+  render(<SaleScreen {...props} products={[products[0], products[1], shirt]} />);
+  const input = screen.getByPlaceholderText('Search name, SKU or barcode');
+  fireEvent.change(input, { target: { value: '2000000000121' } });
+  fireEvent.keyDown(input, { key: 'Enter' });
+  expect(screen.getByText('Choose an option')).not.toBeNull();
+  expect(screen.getByRole('button', { name: 'Cart is empty' })).not.toBeNull();
+});
+
+test('an unknown barcode stays in search and reports no match', () => {
+  render(<SaleScreen {...props} products={[products[0], products[1], shirt]} />);
+  const input = screen.getByPlaceholderText('Search name, SKU or barcode') as HTMLInputElement;
+  fireEvent.change(input, { target: { value: '999999999' } });
+  fireEvent.keyDown(input, { key: 'Enter' });
+  expect(screen.getByText('Barcode not found — 999999999')).not.toBeNull();
+  expect(input.value).toBe('999999999');
+  expect(screen.getByRole('button', { name: 'Cart is empty' })).not.toBeNull();
+});
+
+test('an out-of-stock barcode reports stock and adds nothing', () => {
+  render(<SaleScreen {...props} products={[{ ...products[0], stock_status: 'outofstock', stock_quantity: 0 }]} />);
+  const input = screen.getByPlaceholderText('Search name, SKU or barcode') as HTMLInputElement;
+  fireEvent.change(input, { target: { value: '2000000000015' } });
+  fireEvent.keyDown(input, { key: 'Enter' });
+  expect(screen.getByText('Espresso out of stock')).not.toBeNull();
+  expect(input.value).toBe('2000000000015');
+  expect(screen.getByRole('button', { name: 'Cart is empty' })).not.toBeNull();
+});
+
+test('several barcode matches report the count and keep the code in search', () => {
+  render(<SaleScreen {...props} products={[products[0], { ...products[0], id: 980, name: 'Espresso Twin' }]} />);
+  const input = screen.getByPlaceholderText('Search name, SKU or barcode') as HTMLInputElement;
+  fireEvent.change(input, { target: { value: '2000000000015' } });
+  fireEvent.keyDown(input, { key: 'Enter' });
+  expect(screen.getByText('Several matches: 2 products found — 2000000000015')).not.toBeNull();
+  expect(input.value).toBe('2000000000015');
+  expect(screen.getByRole('button', { name: 'Cart is empty' })).not.toBeNull();
+});
+
+test('a document wedge burst adds Espresso and shows feedback', () => {
+  vi.useFakeTimers();
+  try {
+    render(<SaleScreen {...props} products={[products[0], products[1], shirt]} />);
+    act(() => {
+      for (const key of [...'2000000000015', 'Enter']) {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+        vi.advanceTimersByTime(5);
+      }
+    });
+    expect(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' })).not.toBeNull();
+    expect(screen.getByText('Espresso added to cart')).not.toBeNull();
+  } finally {
+    cleanup();
+    vi.useRealTimers();
+  }
 });
 
 test('narrow: adds, opens, changes quantity, removes and returns to products', () => {

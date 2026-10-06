@@ -6,6 +6,7 @@ import type { TallyConnector } from '@tallyui/core';
 import { Button, defaultProductColumns, ProductGrid, ProductTable, SearchInput, Text, ViewToggle } from '@tallyui/components';
 import { productSortValue, resolveGridColumns, searchProducts, sortProducts } from '@tallyui/pos';
 import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
+import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { CatalogueDisplayOptions } from './catalogue-display-options';
 import { ProductTile } from './product-tile';
 
@@ -18,15 +19,22 @@ export interface CatalogueViewProps {
   status: 'idle' | 'starting' | 'syncing' | 'ready' | 'error';
   notice?: { code: string; message?: string };
   onSelect?(doc: any): void;
+  onScan?(code: string): 'clear' | 'search' | 'keep';
   message?: string;
   onSignOut(): void;
   onOpenReports?(): void;
 }
 
 export function CatalogueView({
-  connector, currency, products, storeName, cashierName, status, notice, onSignOut, onOpenReports, onSelect, message,
+  connector, currency, products, storeName, cashierName, status, notice, onSignOut, onOpenReports, onSelect, onScan, message,
 }: CatalogueViewProps): JSX.Element {
   const [term, setTerm] = useState('');
+  function scan(code: string) {
+    const result = onScan?.(code);
+    if (result === 'clear') setTerm('');
+    else if (result === 'search') setTerm(code);
+  }
+  useWedgeScanner(scan, Boolean(onScan));
   const [viewState, setViewState] = useCatalogueView();
   const { width } = useWindowDimensions();
   // Phones keep 2 tiles a row whatever the setting.
@@ -43,7 +51,8 @@ export function CatalogueView({
       return column ? [column] : [];
     });
   }, [connector.traits.product, currency, viewState.columns]);
-  const searchSlot = <SearchInput value={term} onChangeText={setTerm} placeholder="Search name, SKU or barcode" />;
+  const searchSlot = <SearchInput value={term} onChangeText={setTerm} placeholder="Search name, SKU or barcode"
+    onSubmitEditing={() => { const code = term.trim(); if (code && onScan) scan(code); }} />;
   const emptyState = <Text>{searching ? 'No products match' : 'No products yet'}</Text>;
   const statusLine = status === 'error' ? 'Sync failed' : notice ? notice.message ?? notice.code
     : status === 'syncing' ? 'Syncing products…' : status === 'ready' ? `${products.length} products` : '';

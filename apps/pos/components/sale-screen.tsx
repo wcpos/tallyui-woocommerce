@@ -11,6 +11,7 @@ import { useReceiptPrintCount } from '../lib/receipts/use-receipt-print-count';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { parkCart, restoreCart } from '../lib/sale/parked-carts';
 import { taxClassOptions } from '../lib/sale/tax-classes';
+import { lookupCode } from '../lib/scan/lookup';
 import { recordTenderVoids, type TenderVoidCollection } from '../lib/sale/tender-voids';
 import type { ParkedCart, ParkedCartCollection } from '../lib/sale/parked-carts';
 import { VariantChooser } from './variant-chooser';
@@ -30,7 +31,7 @@ const REGISTER_ID = 'web';
 // Stores without a capabilities read stay on order.create v3 (no fees, shipping or custom lines).
 const DEFAULT_CAPABILITIES = { orderCreate: 3 } as const;
 
-export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | 'message'> {
+export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | 'message' | 'onScan'> {
   cashierRef: string; parkedCarts?: ParkedCartCollection; customers?: CustomerSource | null;
   mailer?: ReceiptMailer | null; receiptEmails?: ReceiptEmailCollection;
   storeSettings: StoreSettings; locale?: string;
@@ -198,19 +199,49 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     }
   }
 
-  function onAdd(entry: CatalogueEntry<any>) {
+  function onAdd(entry: CatalogueEntry<any>): boolean {
     try {
       sale.add(entry, connector.traits.product);
       setVariants(undefined);
       setMessage(undefined);
+      return true;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
+      return false;
+    }
+  }
+
+  function onScan(code: string): 'clear' | 'search' | 'keep' {
+    try {
+      const result = lookupCode(props.products, connector.traits.product, code, { currency });
+      if (result.kind === 'entry') {
+        const { product, variant } = result.entry;
+        const name = connector.traits.product.getName(product);
+        const label = variant.title ? `${name} · ${variant.title}` : name;
+        if (variant.stock.status === 'out_of_stock') {
+          setMessage(`${label} out of stock`);
+          return 'keep';
+        }
+        if (onAdd(result.entry)) setMessage(`${label} added to cart`);
+        return 'clear';
+      }
+      if (result.kind === 'product') {
+        onSelect(result.product);
+        return 'clear';
+      }
+      setMessage(result.kind === 'several'
+        ? `Several matches: ${result.count} products found — ${code}`
+        : `Barcode not found — ${code}`);
+      return 'search';
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+      return 'keep';
     }
   }
 
   const browse = variants ? (
     <VariantChooser entries={variants} currency={currency} onSelect={onAdd} onClose={() => setVariants(undefined)} />
-  ) : <CatalogueView {...props} onSelect={onSelect} message={message} />;
+  ) : <CatalogueView {...props} onSelect={onSelect} onScan={onScan} message={message} />;
   const cartPane = (
     <View className="flex-1 bg-background p-4">
       {width < 900 && message ? <Text>{message}</Text> : null}
