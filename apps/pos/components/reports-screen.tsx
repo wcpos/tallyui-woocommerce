@@ -8,7 +8,8 @@ import { Portal } from '@tallyui/primitives';
 import { useSession } from '../lib/auth/session-context';
 import { useRegister } from '../lib/register/register-context';
 import { closuresCsv } from '../lib/reports/closures-csv';
-import { dayRange, summarizeSales } from '../lib/reports/today-sales';
+import { salesRoom } from '../lib/reports/sales-room';
+import { dayRange } from '../lib/reports/today-sales';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { ordersDatabaseName } from '../lib/sale/order-store';
 import { ClosurePrint } from './closure-print';
@@ -23,6 +24,11 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const resolveCashierName = (id: string) => user && id === String(user.id) ? user.displayName : id;
   const register = useRegister();
   const [range] = useState(() => dayRange(new Date()));
+  const [yesterday] = useState(() => {
+    const now = new Date(range.startIso);
+    const [y, m, d] = [now.getFullYear(), now.getMonth(), now.getDate()];
+    return dayRange(new Date(y, m, d - 1));
+  });
   const [sales, setSales] = useState<PosOrder[]>([]);
   const [rows, setRows] = useState<Closure[]>([]);
   const [reprint, setReprint] = useState<Closure | 'x' | null>(null);
@@ -33,8 +39,13 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const closures = selectClosureRows(rows, clampClosureScope({
     from: '0000-01-01', to: today, registerId: register.boundRegisterId ?? '', storeKey,
   }, today), 'device');
-  const summary = summarizeSales(sales, currency);
+  const room = salesRoom(sales, { now: new Date(), currency });
+  const { yesterdaySoFar, delta } = room;
   const money = (amount: number) => formatMoney({ amount, currency }, locale);
+  const signedMoney = (n: number) => n > 0 ? '+' + money(n) : n < 0 ? '−' + money(-n) : money(0);
+  const signedCount = (n: number) => n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0';
+  const percent = delta.percentTenths === null ? '—'
+    : `${delta.percentTenths > 0 ? '+' : delta.percentTenths < 0 ? '−' : ''}${(Math.abs(delta.percentTenths) / 10).toFixed(1)}%`;
   const downloadCsv = () => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
     const csv = closuresCsv(closures, currency, session?.tokens.user, storeName);
@@ -50,12 +61,12 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
 
   useEffect(() => {
     if (!orders) return;
-    const salesSubscription = orders.find({ selector: { createdAt: { $gte: range.startIso, $lt: range.endIso } } }).$
+    const salesSubscription = orders.find({ selector: { createdAt: { $gte: yesterday.startIso, $lt: range.endIso } } }).$
       .subscribe(docs => setSales(docs.map(doc => doc.toMutableJSON())));
     const collection: RxCollection<Closure> = orders.database.collections.closures;
     const closuresSubscription = collection.find().$.subscribe(docs => setRows(docs.map(doc => doc.toMutableJSON())));
     return () => { salesSubscription.unsubscribe(); closuresSubscription.unsubscribe(); };
-  }, [orders, range]);
+  }, [orders, range, yesterday]);
 
   useEffect(() => {
     if (!reprint) return;
@@ -76,14 +87,26 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
         {register.session?.status === 'open' && <Button testID="x-report-print" onPress={() => { setReprint('x'); setPrintRequest(value => value + 1); }}><Text>Print X report</Text></Button>}
         <View testID="reports-today" className="gap-2 rounded-lg border border-border p-4">
           <Text accessibilityRole="header">Today</Text>
-          <Text>{`Sales today: ${summary.count}`}</Text>
-          <Text>{`Total: ${money(summary.totalMinor)}`}</Text>
-          {summary.taxMinor !== 0 && <Text>{`Tax: ${money(summary.taxMinor)}`}</Text>}
-          {summary.byMethod.map(row => <Text key={row.method}>{`${row.label} — ${row.count} — ${money(row.totalMinor)}`}</Text>)}
-          {summary.pending > 0 && <Text>{`Waiting to sync: ${summary.pending}`}</Text>}
-          {summary.rejected > 0 && <Text>{`Not accepted by the store: ${summary.rejected}`}</Text>}
-          {summary.count === 0 && <Text>No sales yet today.</Text>}
+          <Text>{`Total: ${money(room.today.totalMinor)}`}</Text>
+          <Text>{`Yesterday by now: ${money(yesterdaySoFar.totalMinor)}`}</Text>
+          <Text className={delta.totalMinor < 0 ? 'text-destructive' : delta.totalMinor === 0 ? 'text-muted-foreground' : undefined}>
+            {`Change: ${signedMoney(delta.totalMinor)} · ${percent}`}
+          </Text>
+          <Text>{`Orders: ${room.today.count} (${signedCount(delta.count)})`}</Text>
+          <Text>{`Average order: ${money(room.today.averageMinor)} (${signedMoney(delta.averageMinor)})`}</Text>
+          {room.today.pending > 0 && <Text>{`Waiting to sync: ${room.today.pending}`}</Text>}
+          {room.today.rejected > 0 && <Text>{`Not accepted by the store: ${room.today.rejected}`}</Text>}
+          {room.today.count === 0 && <Text>No sales yet today.</Text>}
         </View>
+        {room.today.byMethod.length > 0 && <View testID="sales-room-payments" className="gap-2 rounded-lg border border-border p-4">
+          <Text accessibilityRole="header">Payments</Text>
+          {room.today.byMethod.map(row => <Text key={row.method}>{`${row.label} · ${row.count} ${row.count === 1 ? 'order' : 'orders'} · ${money(row.totalMinor)}`}</Text>)}
+          {room.today.splitCount > 0 && <Text>{`Split tenders: ${room.today.splitCount}`}</Text>}
+        </View>}
+        {room.today.taxMinor !== 0 && <View testID="sales-room-taxes" className="gap-2 rounded-lg border border-border p-4">
+          <Text accessibilityRole="header">Taxes</Text>
+          {room.today.taxRates.map(row => <Text key={row.ratePpm}>{`${row.label} — Net ${money(row.netMinor)} — Tax ${money(row.taxMinor)} — Gross ${money(row.grossMinor)}`}</Text>)}
+        </View>}
         <View testID="reports-closures" className="gap-2 rounded-lg border border-border p-4">
           <View className="flex-row items-center justify-between">
             <Text accessibilityRole="header">Closures</Text>

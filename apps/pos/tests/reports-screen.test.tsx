@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
-import type { OrderCreateEnvelope } from '@tallyui/core';
+import type { OrderCreateEnvelope, StoreSettings } from '@tallyui/core';
 import type { CommandTransport } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
 import { CatalogueView } from '../components/catalogue-view';
@@ -35,7 +35,7 @@ beforeEach(() => {
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-async function setup() {
+async function setup({ multiplePayments, storeSettings = noTaxSettings }: { multiplePayments?: boolean; storeSettings?: StoreSettings } = {}) {
   let register!: ReturnType<typeof useRegister>;
   let outbox!: ReturnType<typeof useOutbox>;
   function Probe() { register = useRegister(); outbox = useOutbox(); return null; }
@@ -48,7 +48,7 @@ async function setup() {
       <OutboxProvider transportFor={() => ({ send })} storage={getRxStorageMemory()}>
         <RegisterProvider>
           <Probe />
-          <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
+          <SaleScreen multiplePayments={multiplePayments} storeSettings={storeSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
             storeName={stores[0].name} locale={stores[0].locale} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}} />
           <ReportsScreen storeName={stores[0].name} currency={stores[0].currency} locale={stores[0].locale} onBack={onBack} />
           <PortalHost />
@@ -93,15 +93,18 @@ test('Today starts empty and observes an Espresso cash sale', async () => {
   const app = await setup();
   const today = within(screen.getByTestId('reports-today'));
   expect(today.getByText('No sales yet today.')).not.toBeNull();
+  expect(screen.queryByTestId('sales-room-payments')).toBeNull();
   expect(within(screen.getByTestId('reports-closures')).getByText('No closures yet. A closure appears here when a register session closes.')).not.toBeNull();
   expect(screen.queryByTestId('x-report-print')).toBeNull();
   expect(screen.queryByTestId('closures-csv')).toBeNull();
   await payCash();
-  await waitFor(() => expect(today.getByText('Sales today: 1')).not.toBeNull());
-  expect(today.getByText('Total: $3.00')).not.toBeNull();
-  expect(today.getByText('Cash — 1 — $3.00')).not.toBeNull();
+  await waitFor(() => expect(today.getByText('Total: $3.00')).not.toBeNull());
+  expect(today.getByText('Orders: 1 (+1)')).not.toBeNull();
+  expect(today.getByText('Average order: $3.00 (+$3.00)')).not.toBeNull();
+  expect(within(screen.getByTestId('sales-room-payments')).getByText('Cash · 1 order · $3.00')).not.toBeNull();
+  expect(screen.queryByText(/^Split tenders/)).toBeNull();
   expect(today.queryByText('No sales yet today.')).toBeNull();
-  expect(today.queryByText(/^Tax:/)).toBeNull();
+  expect(screen.queryByTestId('sales-room-taxes')).toBeNull();
   fireEvent.click(screen.getByTestId('reports-back'));
   expect(app.onBack).toHaveBeenCalledOnce();
 }, 20_000);
@@ -110,13 +113,81 @@ test('Today removes a sale when its createdAt moves to yesterday', async () => {
   const app = await setup();
   await payCash();
   const today = within(screen.getByTestId('reports-today'));
-  await waitFor(() => expect(today.getByText('Sales today: 1')).not.toBeNull());
+  await waitFor(() => expect(today.getByText('Total: $3.00')).not.toBeNull());
   const [order] = await app.orders.find().exec();
   const createdAt = new Date(Date.parse(dayRange(new Date()).startIso) - 60_000).toISOString();
   await act(async () => { await order.incrementalPatch({ createdAt }); });
-  await waitFor(() => expect(today.getByText('Sales today: 0')).not.toBeNull());
+  await waitFor(() => expect(today.getByText('Total: $0.00')).not.toBeNull());
   expect(today.getByText('No sales yet today.')).not.toBeNull();
-  expect(today.queryByText(/^Cash —/)).toBeNull();
+  expect(screen.queryByTestId('sales-room-payments')).toBeNull();
+}, 20_000);
+
+test('the hero compares with yesterday up to the same time', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 9, 6, 14, 30));
+  try {
+    const app = await setup();
+    await payCash();
+    const today = within(screen.getByTestId('reports-today'));
+    await waitFor(() => expect(today.getByText('Total: $3.00')).not.toBeNull());
+    const [order] = await app.orders.find().exec();
+    await act(async () => { await order.incrementalPatch({ createdAt: new Date(2026, 9, 5, 10, 0).toISOString() }); });
+    await waitFor(() => expect(today.getByText('Total: $0.00')).not.toBeNull());
+    expect(today.getByText('Yesterday by now: $3.00')).not.toBeNull();
+    expect(today.getByText('Change: −$3.00 · −100.0%')).not.toBeNull();
+    expect(today.getByText('Orders: 0 (−1)')).not.toBeNull();
+    expect(today.getByText('Average order: $0.00 (−$3.00)')).not.toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
+}, 20_000);
+
+test("yesterday's sales after this time are not compared", async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 9, 6, 14, 30));
+  try {
+    const app = await setup();
+    await payCash();
+    const today = within(screen.getByTestId('reports-today'));
+    await waitFor(() => expect(today.getByText('Total: $3.00')).not.toBeNull());
+    const [order] = await app.orders.find().exec();
+    await act(async () => { await order.incrementalPatch({ createdAt: new Date(2026, 9, 5, 16, 0).toISOString() }); });
+    await waitFor(() => expect(today.getByText('Total: $0.00')).not.toBeNull());
+    expect(today.getByText('Yesterday by now: $0.00')).not.toBeNull();
+    expect(today.getByText('Change: $0.00 · —')).not.toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
+}, 20_000);
+
+test('a split tender counts once per method', async () => {
+  await setup({ multiplePayments: true });
+  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '2.00' } });
+  fireEvent.click(screen.getByTestId('split-tender-add-button'));
+  fireEvent.click(screen.getByTestId('split-tender-method-card'));
+  expect((screen.getByLabelText('Tender amount') as HTMLInputElement).value).toBe('4.00');
+  fireEvent.click(screen.getByTestId('split-tender-add-button'));
+  fireEvent.click(screen.getByRole('button', { name: 'Complete sale' }));
+  expect(await screen.findByTestId('receipt-order')).not.toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'New sale' }));
+  await screen.findByText('Scan or tap a product to start a sale.');
+  const today = within(screen.getByTestId('reports-today'));
+  await waitFor(() => expect(today.getByText('Total: $6.00')).not.toBeNull());
+  const payments = within(screen.getByTestId('sales-room-payments'));
+  expect(payments.getByText('Cash · 1 order · $2.00')).not.toBeNull();
+  expect(payments.getByText('Card terminal · 1 order · $4.00')).not.toBeNull();
+  expect(payments.getByText('Split tenders: 1')).not.toBeNull();
+}, 20_000);
+
+test('taxes by rate', async () => {
+  await setup({ storeSettings: { ...noTaxSettings, taxRatesPpm: { default: 100000 } } });
+  await payCash();
+  const today = within(screen.getByTestId('reports-today'));
+  await waitFor(() => expect(today.getByText('Total: $3.30')).not.toBeNull());
+  expect(within(screen.getByTestId('sales-room-taxes')).getByText('Tax 10% — Net $3.00 — Tax $0.30 — Gross $3.30')).not.toBeNull();
 }, 20_000);
 
 test('Closures lists real counted closures newest first', async () => {
