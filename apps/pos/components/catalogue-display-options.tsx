@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { JSX } from 'react';
 import { View } from 'react-native';
-import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, SettingsGroup, SettingsRow, Switch, Text } from '@tallyui/components';
+import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, SettingsGroup, SettingsRow, Slider, Switch, Text } from '@tallyui/components';
 import { CATALOGUE_COLUMNS, CATALOGUE_TILE_FIELDS, CATALOGUE_VIEW_DEFAULTS } from '../lib/catalogue/catalogue-view-state';
 import type { AppCatalogueViewState } from '../lib/catalogue/catalogue-view-state';
 
@@ -13,12 +13,11 @@ export function CatalogueDisplayOptions({ state, onChange }: { state: AppCatalog
       <DialogContent testID="catalogue-settings">
         <DialogHeader><DialogTitle>Product settings</DialogTitle></DialogHeader>
         {state.view === 'grid' ? <><SettingsGroup title="Tile size" description="Tiles in each row. Phones show 2.">
-          <View role="radiogroup" aria-label="Tile size" className="flex-row flex-wrap gap-2">
-            {([2, 3, 4, 5, 6, 7, 8] as const).map(n => <Button
-              key={n} testID={`tile-size-${n}`} role="radio" aria-checked={state.gridColumns === n}
-              variant={state.gridColumns === n ? 'default' : 'outline'}
-              onPress={() => onChange({ ...state, gridColumns: n })}
-            ><Text>{String(n)}</Text></Button>)}
+          <View className="flex-row items-center gap-4">
+            <Slider testID="tile-size" aria-label="Tile size" className="flex-1" min={2} max={8} step={1}
+              value={typeof state.gridColumns === 'number' ? state.gridColumns : 4}
+              onValueChange={n => onChange({ ...state, gridColumns: n as AppCatalogueViewState['gridColumns'] })} />
+            <Text testID="tile-size-value">{String(typeof state.gridColumns === 'number' ? state.gridColumns : 4)}</Text>
           </View>
         </SettingsGroup>
         <SettingsGroup title="Tile fields">
