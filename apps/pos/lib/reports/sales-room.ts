@@ -53,7 +53,9 @@ export function salesRoom(orders: readonly PosOrder[], options: { now: Date; cur
         tile.totalMinor += payment.amountMinor;
       }
       const lines = order.lines.map(line => ({ ...line, taxInclusive: line.taxInclusive ?? order.pricesIncludeTax }));
-      for (const { ratePpm, netMinor, amountMinor } of taxLinesByRate(lines, order.taxMinor, undefined, order.taxRounding)) {
+      for (const { ratePpm, netMinor, amountMinor } of taxLinesByRate([
+        ...lines, ...[...order.fees ?? [], ...order.shipping ?? []].map(c => ({ ...c, taxInclusive: order.pricesIncludeTax })),
+      ], order.taxMinor, undefined, order.taxRounding)) {
         let row = period.taxRates.find(row => row.ratePpm === ratePpm);
         if (!row) {
           row = { ratePpm, label: `Tax ${ratePpm / 1e4}%`, netMinor: 0, taxMinor: 0, grossMinor: 0 };

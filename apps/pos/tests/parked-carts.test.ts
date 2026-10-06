@@ -8,7 +8,7 @@ import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
-import { createOrderBuilder, TaxProvider, useSale } from '@tallyui/pos';
+import { catalogueEntries, createOrderBuilder, TaxProvider, useSale } from '@tallyui/pos';
 import { parkCart, parkedCartSchema, parkedCartMigrationStrategies, restoreCart } from '../lib/sale/parked-carts';
 import type { ParkedCart } from '../lib/sale/parked-carts';
 import products from './fixtures/products.json';
@@ -38,7 +38,7 @@ function orderFixture(withOrderDiscount = false) {
   return builder.getSnapshot();
 }
 
-function restore(parked: ParkedCart, catalogue = products, orderCreate: 1 | 2 = 2, customer?: ParkedCart['customer']) {
+function restore(parked: ParkedCart, catalogue = products, orderCreate: 1 | 2 | 5 = 2, customer?: ParkedCart['customer']) {
   const { result } = renderHook(() => useSale({ currency: 'USD' }, {
     registerId: 'web', cashierRef: '2', capabilities: { orderCreate },
   }), {
@@ -85,13 +85,13 @@ test('parks the customer summary and omits the customer key for guests', () => {
   expect(parkCart(order)).not.toHaveProperty('customer');
 });
 
-test.each([undefined, gee])('the v1 schema stores a real parked cart with optional customer %j, variants and discount fields', async customer => {
+test.each([undefined, gee])('the v2 schema stores a real parked cart with optional customer %j, variants and discount fields', async customer => {
   const db = await createRxDatabase({
     name: `parked_${crypto.randomUUID()}`, multiInstance: false,
     storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }),
   });
   try {
-    expect(parkedCartSchema.version).toBe(1);
+    expect(parkedCartSchema.version).toBe(2);
     const { parked_carts } = await db.addCollections({
       parked_carts: { schema: parkedCartSchema, migrationStrategies: parkedCartMigrationStrategies },
     });
@@ -120,7 +120,7 @@ test.each([undefined, gee])('the v1 schema stores a real parked cart with option
 });
 
 test('migrates a v0 cart unchanged, without a customer, after reopening the database', async () => {
-  const v0Schema: RxJsonSchema<Omit<ParkedCart, 'customer'>> = {
+  const v0Schema: RxJsonSchema<Omit<ParkedCart, 'customer' | 'fees' | 'shipping'>> = {
     version: 0, primaryKey: 'id', type: 'object',
     properties: {
       id: { type: 'string', maxLength: 64 },
@@ -176,6 +176,105 @@ test('restores the parked customer through real useSale', () => {
   const { order, problems } = restore({ ...parkCart(orderFixture()), customer: gee });
   expect(problems).toEqual([]);
   expect(order.customer).toEqual(gee);
+});
+
+test('parks and restores a fee, shipping and a custom line with an equal total', () => {
+  const { result } = renderHook(() => useSale({ currency: 'USD' }, {
+    registerId: 'web', cashierRef: '2', capabilities: { orderCreate: 5 },
+  }), {
+    wrapper: ({ children }: { children: ReactNode }) => createElement(TaxProvider, {
+      ratesPpm: {}, pricesIncludeTax: false, children,
+    }),
+  });
+  act(() => result.current.add(catalogueEntries([products[0]], traits, { currency: 'USD' })[0], traits));
+  act(() => {
+    result.current.setQuantity(result.current.order.lineItems[0].id, 2);
+    result.current.addCustomLine({ name: 'Gift wrap', priceMinor: 300, taxStatus: 'none' });
+    result.current.addFee({ name: 'Bag', amountMinor: 20 });
+    result.current.addShipping({ name: 'Delivery', amountMinor: 500 });
+  });
+  const parked = parkCart(result.current.order);
+  expect(parked.fees).toEqual([{ name: 'Bag', amountMinor: 20, taxStatus: 'taxable' }]);
+  expect(parked.shipping).toEqual([{ name: 'Delivery', amountMinor: 500, taxStatus: 'taxable' }]);
+  expect(parked.lines.find(line => line.name === 'Gift wrap')!.custom).toEqual({ priceMinor: 300, taxStatus: 'none' });
+  expect(parked.totalMinor).toBe(1420);
+  const { order, problems } = restore(parked, products, 5);
+  expect(problems).toEqual([]);
+  expect(order.totalMinor).toBe(1420);
+  expect(order.fees).toHaveLength(1);
+  expect(order.fees![0]).toMatchObject({ name: 'Bag', amountMinor: 20 });
+  expect(order.shipping).toHaveLength(1);
+  expect(order.shipping![0]).toMatchObject({ name: 'Delivery', amountMinor: 500 });
+  expect(order.lineItems).toContainEqual(expect.objectContaining({
+    custom: true, name: 'Gift wrap', unitPriceMinor: 300, taxStatus: 'none',
+  }));
+  expect(order.lineItems.find(line => line.productId === '80')!.quantity).toBe(2);
+});
+
+test('migrates a v1 cart unchanged and restores it', async () => {
+  const v1Schema: RxJsonSchema<Omit<ParkedCart, 'fees' | 'shipping'>> = {
+    version: 1, primaryKey: 'id', type: 'object',
+    properties: {
+      id: { type: 'string', maxLength: 64 },
+      parkedAt: { type: 'string', maxLength: 32 },
+      customer: {
+        type: 'object', properties: {
+          id: { type: 'string' }, name: { type: 'string' }, email: { type: 'string' },
+        }, required: ['id', 'name'], additionalProperties: false,
+      },
+      lines: { type: 'array', items: {
+        type: 'object', properties: {
+          productId: { type: 'string' }, variantId: { type: 'string' },
+          quantity: { type: 'number' }, name: { type: 'string' },
+          discounts: { type: 'array', items: {
+            type: 'object', properties: {
+              type: { type: 'string', enum: ['percentage', 'fixed'] }, value: { type: 'number' },
+              label: { type: 'string' }, couponCode: { type: 'string' },
+            }, required: ['type', 'value'],
+          } },
+        }, required: ['productId', 'quantity', 'name', 'discounts'],
+      } },
+      orderDiscounts: { type: 'array', items: {
+        type: 'object', properties: {
+          type: { type: 'string', enum: ['percentage', 'fixed'] }, value: { type: 'number' },
+          label: { type: 'string' }, couponCode: { type: 'string' },
+        }, required: ['type', 'value'],
+      } },
+      itemCount: { type: 'integer' }, totalMinor: { type: 'integer' },
+    },
+    required: ['id', 'parkedAt', 'lines', 'orderDiscounts', 'itemCount', 'totalMinor'],
+    indexes: ['parkedAt'],
+  };
+  const storage = wrappedValidateAjvStorage({ storage: getRxStorageMemory() });
+  const options = { name: 'parked_charges_migration', multiInstance: false, storage };
+  const parked = parkCart(orderFixture(true));
+  const oldDb = await createRxDatabase(options);
+  try {
+    const { parked_carts } = await oldDb.addCollections({
+      parked_carts: { schema: v1Schema, migrationStrategies: { 1: (doc: any) => doc } },
+    });
+    await parked_carts.insert(parked);
+  } finally {
+    await oldDb.close();
+  }
+  const db = await createRxDatabase(options);
+  try {
+    const { parked_carts } = await db.addCollections({
+      parked_carts: { schema: parkedCartSchema, migrationStrategies: parkedCartMigrationStrategies },
+    });
+    const carts = await parked_carts.find().exec();
+    expect(carts).toHaveLength(1);
+    const migrated = carts[0].toJSON();
+    expect(migrated).toEqual(parked);
+    expect(migrated).not.toHaveProperty('fees');
+    expect(migrated).not.toHaveProperty('shipping');
+    for (const line of migrated.lines) expect(line).not.toHaveProperty('custom');
+    const { order, problems } = restore(migrated);
+    expect(problems).toEqual([]);
+    expect(order.totalMinor).toBe(parked.totalMinor);
+  } finally {
+    await db.remove();
+  }
 });
 
 test.each([undefined, gee])('restores a guest cart through real useSale with previous customer %j', customer => {

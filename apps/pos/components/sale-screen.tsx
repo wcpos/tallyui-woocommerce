@@ -3,11 +3,12 @@ import type { JSX } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import { Button, Cart, CartBar, ParkedSales, POSLayout, Receipt, SplitTender, SyncStatus, Tender, Text } from '@tallyui/components';
 import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, taxProviderProps, useSale } from '@tallyui/pos';
-import type { StoreSettings } from '@tallyui/core';
+import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
 import type { CatalogueEntry, ParkedOrderSummary } from '@tallyui/pos';
 import { useRegister } from '../lib/register/register-context';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { parkCart, restoreCart } from '../lib/sale/parked-carts';
+import { taxClassOptions } from '../lib/sale/tax-classes';
 import type { ParkedCart, ParkedCartCollection } from '../lib/sale/parked-carts';
 import { VariantChooser } from './variant-chooser';
 import { CatalogueView } from './catalogue-view';
@@ -21,15 +22,15 @@ import { RegisterControls, RegisterSwitch } from './register-controls';
 
 // The till id; the bound register is the drawer.
 const REGISTER_ID = 'web';
-// order.create v3 carries the customer id (customer.customerId) and the till's figures. The WooCommerce
-// transport (createWooCommandTransport) reads v3; the connector has no capabilities() probe yet (G3 follow-up).
-const ORDER_CAPABILITIES = { orderCreate: 3 } as const;
+// Stores without a capabilities read stay on order.create v3 (no fees, shipping or custom lines).
+const DEFAULT_CAPABILITIES = { orderCreate: 3 } as const;
 
 export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | 'message'> {
   cashierRef: string; parkedCarts?: ParkedCartCollection; customers?: CustomerSource | null;
   mailer?: ReceiptMailer | null; receiptEmails?: ReceiptEmailCollection;
   storeSettings: StoreSettings; locale?: string;
   multiplePayments?: boolean;
+  capabilities?: ServerCapabilities;
 }
 
 export function SaleScreen(props: SaleScreenProps): JSX.Element {
@@ -44,7 +45,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     orders: outbox.enabled ? outbox.orders : null });
   const sale = useSale({ currency }, {
     registerId: REGISTER_ID, cashierRef: props.cashierRef,
-    capabilities: ORDER_CAPABILITIES,
+    capabilities: props.capabilities ?? DEFAULT_CAPABILITIES,
     session: register?.saleSession,
     onSaleCompleted: outbox.enabled ? outbox.record : undefined,
     isStored: outbox.enabled ? outbox.isStored : undefined,
@@ -190,7 +191,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           <ParkedSales sale={sale} parked={summaries} onPark={onPark} onResume={onResume}
             onDiscard={onDiscard} currency={currency} open={parkedOpen} onOpenChange={setParkedOpen} />
           {/* M6's order notes can take the price-change reason via onPriceChange. */}
-          <Cart sale={{ ...sale, startTender: gatedStartTender }} canEditPrice />
+          <Cart sale={{ ...sale, startTender: gatedStartTender }} canEditPrice taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)} />
         </>
       ) : sale.stage.kind === 'tender' ? outbox.enabled ? (props.multiplePayments === true ? <SplitTender sale={sale} /> : <Tender sale={sale} />) : (
         <>
