@@ -16,8 +16,8 @@ const labels: Record<keyof typeof labelKeys, string> = {
   paid_in: 'Paid in', paid_out: 'Paid out', no_sale: 'No sale', void: 'Void', copy: 'Copy',
 };
 
-export function ClosurePrint({ closure, storeName, currency, locale = 'en-US' }: {
-  closure: Closure; storeName: string; currency: string; locale?: string;
+export function ClosurePrint({ closure, storeName, currency, locale = 'en-US', copy }: {
+  closure: Closure; storeName: string; currency: string; locale?: string; copy?: boolean;
 }) {
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
@@ -40,6 +40,7 @@ export function ClosurePrint({ closure, storeName, currency, locale = 'en-US' }:
   return (
     <View testID="closure-print-document" dataSet={{ print: 'closure' }} style={{ display: 'none' }} className="gap-2 p-4">
       <Text accessibilityRole="header">{`${String(store.name)} — ${i18n.closure} #${report.number}`}</Text>
+      {copy && <Text>{i18n.copy}</Text>}
       <Text>{`Register: ${String(register.name || register.id)}`}</Text>
       <Text>{`${i18n.opened}: ${report.opened_at.datetime} ${String(breakdowns.labels.opened_by_name)}`}</Text>
       <Text>{`${i18n.closed}: ${report.closed_at.datetime} ${String(breakdowns.labels.closed_by_name)}`}</Text>
