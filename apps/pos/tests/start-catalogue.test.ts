@@ -93,13 +93,14 @@ test.each([
   expect(catalogue.db.closed).toBe(true);
 });
 
-// The 1.10.20 row pins TallyUI's version fallback: that store gets v5 without the capability.
+// TallyUI 3.5.3 reads order.create v5 only from order_create_v5 in /status: a 1.10.20 store stays on v3, and order_payments_list alone gives split payments, not v5.
 test.each([
   { advertised: [], site: '404', siteResponse: new Response(null, { status: 404 }), orderCreate: 3, multiplePayments: false },
   { advertised: [], site: '1.10.19', siteResponse: Response.json({ wcpos_version: '1.10.19' }), orderCreate: 3, multiplePayments: false },
-  { advertised: [], site: '1.10.20', siteResponse: Response.json({ wcpos_version: '1.10.20' }), orderCreate: 5, multiplePayments: false },
+  { advertised: [], site: '1.10.20', siteResponse: Response.json({ wcpos_version: '1.10.20' }), orderCreate: 3, multiplePayments: false },
   { advertised: ['order_create_v5'], site: 'none', orderCreate: 5, multiplePayments: false },
-  { advertised: ['order_payments_list'], site: 'none', orderCreate: 5, multiplePayments: true },
+  { advertised: ['order_payments_list'], site: 'none', orderCreate: 3, multiplePayments: true },
+  { advertised: ['order_create_v5', 'order_payments_list'], site: 'none', orderCreate: 5, multiplePayments: true },
 ])('reads order.create $orderCreate from status $advertised and site $site', async ({ advertised, siteResponse, orderCreate, multiplePayments }) => {
   vi.stubGlobal('fetch', fakeStore({ advertised, site: siteResponse }));
   const catalogue = await startCatalogue(session, { storage: getRxStorageMemory() });

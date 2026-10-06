@@ -96,8 +96,8 @@ front desk before the milestone that needs it ([PLAN.md](PLAN.md)).
 | Per-line quick discount | Percentage buttons in the line's number pad | stable | Woo | pos: discounts |
 | Order-level quick discount | "Add Discount" writes an on-the-fly quick-discount coupon line; negative fees removed | v2-only (#1934, roadmap#91) | Free | gap (coupon line) |
 | Coupons | Apply WooCommerce coupons with client-side validation mirroring Woo; Free on next | in flux (#1934 moves coupons to Free) | Free | gap |
-| Fees and shipping lines | Fee and shipping lines on the cart | stable | Woo | pos: order builder |
-| Miscellaneous product | Ad-hoc line with a name and price | stable | Woo | pos: order builder |
+| Fees and shipping lines | Fee and shipping lines on the cart | stable | Woo | app: Add charge (fee or shipping, with tax status and class) when the store's `/status` lists `order_create_v5`, which only the TallyUI fork of the plugin does. A stock store stays on order.create v3 with no charges (TallyUI 3.5.3 is capability-only) |
+| Miscellaneous product | Ad-hoc line with a name and price | stable | Woo | app: Add charge → Custom item, under the same `order_create_v5` gate as fees and shipping |
 | Tax calculation | On-device port of WooCommerce's rate matcher and rounding | stable (tax settings locked to store values on next, #1970) | Woo | pos: tax maths; gap: rate data, Woo rounding parity |
 | Customers at the till | Search by name, email, company, phone, tax ID; attach; guest orders | stable | Woo / Free | gap |
 | Customer create and edit | Create and edit customers at the register, including tax IDs | stable | Pro | gap |
