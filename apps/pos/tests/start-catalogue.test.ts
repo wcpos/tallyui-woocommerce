@@ -3,6 +3,7 @@ import type { Session } from '../lib/auth/session';
 import { databaseName, startCatalogue } from '../lib/catalogue/start-catalogue';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import variations from './fixtures/variations.json';
 
 let session: Session;
 
@@ -39,6 +40,11 @@ test('replicates the real fixtures in memory, updates auth headers and stops', a
   const fetchImpl = vi.fn<typeof fetch>(async input => {
     const url = new URL(String(input));
     if (url.pathname.endsWith('/stores')) return Response.json(stores);
+    if (url.pathname.endsWith('/variations')) {
+      const included = new Set(url.searchParams.get('include')?.split(',').map(Number) ?? []);
+      const documents = variations.documents.filter(variation => included.has(variation.id));
+      return Response.json({ documents, meta: {} });
+    }
     if (!url.pathname.endsWith('/products')) throw new Error(`Unexpected request: ${url.pathname}`);
     const modifiedAfter = url.searchParams.get('modified_after');
     const matching = products.filter(product => !modifiedAfter || product.date_modified_gmt > modifiedAfter);
