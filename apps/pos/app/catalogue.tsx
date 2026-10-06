@@ -1,14 +1,24 @@
+import { useMemo, useRef } from 'react';
 import { View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { Text } from '@tallyui/components';
 import { SaleScreen } from '../components/sale-screen';
 import { useSession } from '../lib/auth/session-context';
 import { useCatalogue } from '../lib/catalogue/catalogue-context';
+import { customerSource } from '../lib/customers/customer-source';
 
 export default function Catalogue() {
   const { session, ready, signOut } = useSession();
   const { catalogue, products, status, notice, error } = useCatalogue();
   const router = useRouter();
+  const latest = useRef(session);
+  latest.current = session;
+  const connector = catalogue?.connector;
+  const customers = useMemo(() => connector ? customerSource(connector, () => ({
+    connectorId: connector.id,
+    baseUrl: latest.current!.site.wcposApiUrl,
+    headers: connector.auth.getHeaders({ token: latest.current!.tokens.accessToken }),
+  })) : null, [connector]);
   if (!ready) return null;
   if (!session) return <Redirect href="/connect" />;
   if (!catalogue) return (
@@ -19,6 +29,7 @@ export default function Catalogue() {
   return (
     <SaleScreen
       connector={catalogue.connector}
+      customers={customers}
       parkedCarts={catalogue.parkedCarts}
       currency={catalogue.store.currency}
       products={products}
