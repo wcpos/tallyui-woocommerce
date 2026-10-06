@@ -6,8 +6,8 @@ import { customerSource } from '../lib/customers/customer-source';
 const customer: Customer = { id: '7', name: 'Gee Four', email: 'gee@example.invalid' };
 const context: SyncContext = { connectorId: 'woocommerce', baseUrl: 'https://shop.example', headers: { Authorization: 'Bearer first' } };
 
-test('the installed WooCommerce connector has no customer source', () => {
-  expect(customerSource(createWooCommerceConnector(), () => context)).toBeNull();
+test('the installed WooCommerce connector gives a customer source', () => {
+  expect(customerSource(createWooCommerceConnector(), () => context)).not.toBeNull();
 });
 
 test.each(['searchCustomers', 'createCustomer'] as const)('no source without %s', missing => {

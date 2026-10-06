@@ -5,8 +5,7 @@ export interface CustomerSource {
   create(input: CustomerInput): Promise<Customer>;
 }
 
-// G4, the customer methods in @tallyui/connector-woocommerce, plugs in here;
-// until then the till sells to guests only (handoff M4-G4-customers-gap.md).
+// The WooCommerce connector provides these methods from TallyUI 3.1.1 (G4).
 export function customerSource(connector: TallyConnector, context: () => SyncContext): CustomerSource | null {
   if (!connector.searchCustomers || !connector.createCustomer) return null;
   return {

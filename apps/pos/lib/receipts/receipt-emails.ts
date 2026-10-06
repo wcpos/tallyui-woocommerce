@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { ConnectorUnauthorizedError } from '@tallyui/core';
+import { ConnectorUnauthorizedError, CustomerServiceError } from '@tallyui/core';
 import type { PosOrder } from '@tallyui/pos';
 import type { RxCollection, RxJsonSchema } from 'rxdb';
 import type { ReceiptMailer } from './receipt-mailer';
@@ -57,7 +57,13 @@ export function useReceiptEmailSender({ collection, mailer, orders }: {
             await doc.incrementalPatch({ status: 'sent', sentAt: new Date().toISOString() });
           } catch (cause) {
             await doc.incrementalPatch({ status: 'failed', error: cause instanceof ConnectorUnauthorizedError
-              ? 'Sign in again to send the receipt' : cause instanceof Error ? cause.message : String(cause) });
+              ? 'Sign in again to send the receipt'
+              : cause instanceof CustomerServiceError && cause.code === 'invalid' ? `The store refused the email: ${cause.message}`
+              : cause instanceof CustomerServiceError && cause.code === 'network'
+                ? 'Could not reach the store. The email may not have been sent; send again to retry.'
+              : cause instanceof CustomerServiceError && cause.code === 'server'
+                ? `The store could not send the email (${cause.message}). Send again to retry.`
+              : cause instanceof Error ? cause.message : String(cause) });
           }
         }
       } finally {

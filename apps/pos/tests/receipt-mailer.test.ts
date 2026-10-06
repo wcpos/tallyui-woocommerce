@@ -5,9 +5,12 @@ import { receiptMailer } from '../lib/receipts/receipt-mailer';
 
 const context: SyncContext = { connectorId: 'woocommerce', baseUrl: 'https://shop.example', headers: { Authorization: 'Bearer first' } };
 
-test('no mailer without emailReceipt, including the installed WooCommerce connector', () => {
+test('no mailer without emailReceipt', () => {
   expect(receiptMailer({} as TallyConnector, () => context)).toBeNull();
-  expect(receiptMailer(createWooCommerceConnector(), () => context)).toBeNull();
+});
+
+test('the installed WooCommerce connector gives a mailer', () => {
+  expect(receiptMailer(createWooCommerceConnector(), () => context)).not.toBeNull();
 });
 
 test('forwards the order and email with the latest context on every send', async () => {

@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, renderHook, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { createRxDatabase } from 'rxdb';
@@ -67,12 +67,12 @@ test('waits for sync, then the orders change sends once using the server order i
   await queueReceiptEmail(collection, 'sale', email);
   const readOrder = vi.spyOn(orders, 'findOne');
   start();
-  await waitFor(() => expect(readOrder).toHaveBeenCalledWith('sale'));
+  await vi.waitFor(() => expect(readOrder).toHaveBeenCalledWith('sale'));
   await tick();
   expect(send).not.toHaveBeenCalled();
   expect((await request())?.status).toBe('queued');
   await act(async () => { await sale.incrementalPatch({ syncStatus: 'applied', serverRefs: { orderId: '115', totalMinor: 300 } }); });
-  await waitFor(async () => expect((await request())?.status).toBe('sent'));
+  await vi.waitFor(async () => expect((await request())?.status).toBe('sent'));
   expect(send).toHaveBeenCalledExactlyOnceWith('115', email);
   expect((await request())?.sentAt).toEqual(expect.any(String));
   await tick();
@@ -90,7 +90,7 @@ test('waits offline and sends once on the online event', async () => {
   expect((await request())?.status).toBe('queued');
   vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true);
   act(() => window.dispatchEvent(new Event('online')));
-  await waitFor(async () => expect((await request())?.status).toBe('sent'));
+  await vi.waitFor(async () => expect((await request())?.status).toBe('sent'));
   expect(send).toHaveBeenCalledExactlyOnceWith('115', email);
 });
 
@@ -100,7 +100,7 @@ test('a failed send is not retried by ticks; Send again queues exactly one more 
   start();
   render(<ReceiptEmail collection={collection} orderId="sale" defaultEmail={email} />);
   fireEvent.click(screen.getByRole('button', { name: 'Email receipt' }));
-  await screen.findByText('Store is offline');
+  await vi.waitFor(() => expect(screen.getByText('Could not reach the store. The email may not have been sent; send again to retry.')).not.toBeNull());
   expect((await request())?.status).toBe('failed');
   await tick();
   await tick();
@@ -108,7 +108,7 @@ test('a failed send is not retried by ticks; Send again queues exactly one more 
   await settle();
   expect(send).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole('button', { name: 'Send again' }));
-  await screen.findByText(`Receipt emailed to ${email}`);
+  await vi.waitFor(() => expect(screen.getByText(`Receipt emailed to ${email}`)).not.toBeNull());
   expect(send).toHaveBeenNthCalledWith(2, '115', email);
   expect(send).toHaveBeenCalledTimes(2);
   expect((await request())?.error).toBeUndefined();
@@ -120,7 +120,7 @@ test('recovers sending as failed without attempting delivery', async () => {
   await order('sale', true);
   await collection.insert({ id: 'sale', email, status: 'sending', queuedAt: new Date().toISOString() });
   start();
-  await waitFor(async () => expect((await request())?.status).toBe('failed'));
+  await vi.waitFor(async () => expect((await request())?.status).toBe('failed'));
   expect((await request())?.error).toBe('This email may not have been sent. Send again to retry.');
   await tick();
   expect(send).not.toHaveBeenCalled();
@@ -130,7 +130,7 @@ test('validates addresses and shows the refusal without queuing', async () => {
   await expect(queueReceiptEmail(collection, 'sale', 'nobody')).rejects.toThrow('Enter an email address');
   render(<ReceiptEmail collection={collection} orderId="sale" defaultEmail="nobody" />);
   fireEvent.click(screen.getByRole('button', { name: 'Email receipt' }));
-  await screen.findByText('Enter an email address');
+  await vi.waitFor(() => expect(screen.getByText('Enter an email address')).not.toBeNull());
   expect(await request()).toBeNull();
 });
 
@@ -148,8 +148,27 @@ test('unauthorized errors ask the cashier to sign in again', async () => {
   send.mockRejectedValueOnce(new ConnectorUnauthorizedError('Expired token', 401));
   await queueReceiptEmail(collection, 'sale', email);
   start();
-  await waitFor(async () => expect((await request())?.error).toBe('Sign in again to send the receipt'));
+  await vi.waitFor(async () => expect((await request())?.error).toBe('Sign in again to send the receipt'));
   expect((await request())?.status).toBe('failed');
+});
+
+test.each([
+  ['invalid', 'Invalid order ID', 'The store refused the email: Invalid order ID'],
+  ['network', 'Store is offline', 'Could not reach the store. The email may not have been sent; send again to retry.'],
+  ['server', 'Mail service failed', 'The store could not send the email (Mail service failed). Send again to retry.'],
+] as const)('%s errors fail once with the receipt message', async (code, message, expected) => {
+  await order('sale', true);
+  send.mockRejectedValueOnce(new CustomerServiceError(code, message));
+  await queueReceiptEmail(collection, 'sale', email);
+  start();
+  await vi.waitFor(async () => expect((await request())?.status).toBe('failed'));
+  expect((await request())?.error).toBe(expected);
+  await tick();
+  act(() => window.dispatchEvent(new Event('online')));
+  await settle();
+  expect((await request())?.status).toBe('failed');
+  expect((await request())?.error).toBe(expected);
+  expect(send).toHaveBeenCalledExactlyOnceWith('115', email);
 });
 
 test('sends oldest first, persists sending before the call and stays single-flight', async () => {
@@ -161,7 +180,7 @@ test('sends oldest first, persists sending before the call and stays single-flig
   const delivered = new Promise<void>(resolve => { finish = resolve; });
   send.mockImplementationOnce(async () => { await delivered; });
   start();
-  await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+  await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
   expect(send).toHaveBeenNthCalledWith(1, '115', 'older@example.invalid');
   expect((await collection.findOne('other').exec())?.status).toBe('sending');
   expect((await request())?.status).toBe('queued');
@@ -170,7 +189,7 @@ test('sends oldest first, persists sending before the call and stays single-flig
   await settle();
   expect(send).toHaveBeenCalledTimes(1);
   await act(async () => { finish(); });
-  await waitFor(async () => expect((await request())?.status).toBe('sent'));
+  await vi.waitFor(async () => expect((await request())?.status).toBe('sent'));
   expect(send).toHaveBeenNthCalledWith(2, '115', email);
   expect(send).toHaveBeenCalledTimes(2);
 });
@@ -238,26 +257,26 @@ test.each([true, false])('completed sale receipt UI, mailer available: %s', asyn
       </OutboxProvider>
     </SessionProvider>,
   );
-  await screen.findByText('Order store ready');
+  await vi.waitFor(() => expect(screen.getByText('Order store ready')).not.toBeNull());
   fireEvent.click(screen.getByRole('button', { name: 'Change customer' }));
   fireEvent.change(screen.getByPlaceholderText('Search name, email or phone'), { target: { value: 'gee' } });
-  fireEvent.click(await screen.findByLabelText('Gee Four, gee@example.invalid'));
+  fireEvent.click(await vi.waitFor(() => screen.getByLabelText('Gee Four, gee@example.invalid')));
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
   const complete = screen.getByRole('button', { name: 'Complete sale' });
   fireEvent.change(within(complete.parentElement!).getByRole('textbox'), { target: { value: '3.00' } });
   fireEvent.click(complete);
-  await screen.findByTestId('receipt-order');
+  await vi.waitFor(() => expect(screen.getByTestId('receipt-order')).not.toBeNull());
   if (available) {
     expect((screen.getByPlaceholderText('Email address') as HTMLInputElement).value).toBe(email);
     fireEvent.click(screen.getByRole('button', { name: 'Email receipt' }));
-    await screen.findByText(queuedText);
+    await vi.waitFor(() => expect(screen.getByText(queuedText)).not.toBeNull());
     expect(send).not.toHaveBeenCalled();
     await act(async () => { sync(); });
-    await screen.findByText('Sending the receipt…');
+    await vi.waitFor(() => expect(screen.getByText('Sending the receipt…')).not.toBeNull());
     expect(send).toHaveBeenCalledExactlyOnceWith('115', email);
     await act(async () => { finish(); });
-    await screen.findByText(`Receipt emailed to ${email}`);
+    await vi.waitFor(() => expect(screen.getByText(`Receipt emailed to ${email}`)).not.toBeNull());
   } else {
     expect(screen.queryByPlaceholderText('Email address')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Email receipt' })).toBeNull();
@@ -265,5 +284,5 @@ test.each([true, false])('completed sale receipt UI, mailer available: %s', asyn
     expect(await collection.find().exec()).toEqual([]);
     expect(send).not.toHaveBeenCalled();
   }
-  await screen.findByText('Sales are up to date.');
+  await vi.waitFor(() => expect(screen.getByText('Sales are up to date.')).not.toBeNull());
 }, 20_000);
