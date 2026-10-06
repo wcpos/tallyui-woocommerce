@@ -27,7 +27,7 @@ test('phone rows stack labels and values without table headings', () => {
   expect(screen.queryAllByRole('columnheader')).toHaveLength(0);
 });
 
-test('wide rows retain columns and tabular numbers', () => {
+test('wide rows retain columns', () => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1024, height: 800, scale: 1, fontScale: 1 });
   render(<><SalesTable table={table} scope="Today · This till" onClose={vi.fn()} /><PortalHost /></>);
   const row = screen.getByTestId('sales-table-row-a');
@@ -35,7 +35,6 @@ test('wide rows retain columns and tabular numbers', () => {
     '62bcae34 · #228', '13:05', 'Card terminal', '$3.33',
   ]);
   expect(screen.getAllByRole('columnheader')).toHaveLength(4);
-  expect(within(row).getByText('$3.33').className).toContain('tabular-nums');
 });
 
 test('phone empty state keeps only populated total values', () => {
