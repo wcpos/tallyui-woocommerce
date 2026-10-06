@@ -70,6 +70,24 @@ All modes print JSON status. Taxes stay off by default: `on` is for tests and
 captures; `off` restores the demo state (taxes off). Run `off` after tests or
 captures, before smoke or demos.
 
+## WCPOS fork overlay
+
+Pro loads its bundled Free plugin; TallyUI needs the fork's `tally` branch for
+order.create v5. Run from the repository root:
+
+```sh
+dev/woo-store/wcpos-fork.sh apply
+dev/woo-store/wcpos-fork.sh status
+dev/woo-store/wcpos-fork.sh restore
+```
+
+The fork checkout lives in `wcpos-fork/checkout` and the stock backup in
+`wcpos-fork/stock` under the shared dev-store state directory. A Pro update
+overwrites the overlay: run `apply` again; smoke fails until then. The overlay
+copies only the fork's changes since the commit Pro bundles. It refuses if the
+fork changes PHP dependencies or built files (`vendor`, `vendor_prefixed`,
+`assets`, or `packages`).
+
 ## Public URL and smoke
 
 Public URL: `https://claudes-mac-mini.tail6a20e3.ts.net:10000` (Funnel to `127.0.0.1:8481`).
@@ -84,4 +102,5 @@ Static GET/HEAD requests under `/wp-content/uploads/*`, `/wp-includes/*`, and
 `/wp-content/plugins/*` are exposed, excluding `*.php`; refund DELETE stays blocked
 and everything else returns 403.
 Do admin work through WP-CLI (`wp_cli` from `dev/woo-store/lib.sh`).
-Run `dev/woo-store/smoke.sh` to check public blocking, cashier sign-in and 12 products.
+Run `dev/woo-store/smoke.sh` to check public blocking, cashier sign-in, 12 products,
+the fork overlay and `order_create_v5`.

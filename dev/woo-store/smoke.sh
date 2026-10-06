@@ -154,3 +154,14 @@ total="$(awk 'tolower($1) == "x-wp-total:" { gsub("\r", "", $2); print $2 }' "$t
 jq -e 'type == "array" and all(.[]; [.meta_data[]? | select(.key == "_woocommerce_pos_uuid") | .value | strings | select(length > 0)] | length == 1)' \
     "$tmp_dir/products" > /dev/null
 printf 'ok products 12\n'
+
+check='WCPOS Free in Pro is the tally overlay'
+overlay_status="$("$script_dir/wcpos-fork.sh" status)"
+[[ "$overlay_status" =~ ^tally\ [0-9a-f]{40}$ ]]
+printf 'ok %s (%s)\n' "$check" "${overlay_status#tally }"
+
+check='status advertises order_create_v5'
+curl -fsS -H "Authorization: Bearer $access_token" -H 'X-WCPOS: 1' \
+    -o "$tmp_dir/status" "$DEV_STORE_URL/wp-json/wcpos/v2/status"
+jq -e '.capabilities | index("order_create_v5") != null' "$tmp_dir/status" > /dev/null
+printf 'ok %s\n' "$check"
