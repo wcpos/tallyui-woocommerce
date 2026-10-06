@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { OrderCreateEnvelope } from '@tallyui/core';
 import { createOrderBuilder, finalizeOrder, toOrderCreateEnvelope } from '@tallyui/pos';
 import type { Session } from '../lib/auth/session';
-import { orderTransport } from '../lib/sale/order-transport';
+import { CashierChangedError, orderTransport, ownerToken } from '../lib/sale/order-transport';
 
 const session: Session = {
   site: {
@@ -34,6 +34,30 @@ beforeEach(() => {
 });
 
 afterEach(() => { vi.unstubAllGlobals(); });
+
+test('ownerToken returns the live token while the owner is the live cashier', () => {
+  const live = { ...session, tokens: { ...session.tokens, accessToken: 't9' } };
+  expect(ownerToken(session, () => live)()).toBe('t9');
+});
+
+test('ownerToken refuses another cashier, another site, or no session', () => {
+  const cases = [
+    { ...session, tokens: { ...session.tokens, user: { ...session.tokens.user, uuid: 'other' } } },
+    { ...session, site: { ...session.site, home: 'https://other.example' } },
+    null,
+  ];
+  for (const live of cases) {
+    expect(ownerToken(session, () => live)).toThrow(CashierChangedError);
+  }
+});
+
+test('a transport whose cashier is no longer live sends nothing and asks to retry', async () => {
+  const liveB = { ...session, tokens: { ...session.tokens, user: { ...session.tokens.user, uuid: 'other' } } };
+  const transport = orderTransport(session, ownerToken(session, () => liveB));
+
+  await expect(transport.send([envelope])).resolves.toMatchObject({ kind: 'retry' });
+  expect(fetchStub).not.toHaveBeenCalled();
+});
 
 test('posts an order.create envelope to the WCPOS push endpoint with authenticated headers', async () => {
   await orderTransport(session, () => 't1').send([envelope]);
