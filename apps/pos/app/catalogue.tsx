@@ -40,6 +40,7 @@ export default function Catalogue() {
       receiptEmails={catalogue.receiptEmails}
       parkedCarts={catalogue.parkedCarts}
       currency={catalogue.store.currency}
+      chargesTax={catalogue.store.chargesTax}
       products={products}
       storeName={catalogue.store.name}
       cashierName={session.tokens.user.displayName}

@@ -26,15 +26,19 @@ const ORDER_CAPABILITIES = { orderCreate: 3 } as const;
 export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | 'message'> {
   cashierRef: string; parkedCarts?: ParkedCartCollection; customers?: CustomerSource | null;
   mailer?: ReceiptMailer | null; receiptEmails?: ReceiptEmailCollection;
+  chargesTax?: 'no' | 'yes' | 'unknown';
 }
 
 export function SaleScreen(props: SaleScreenProps): JSX.Element {
-  // The dev store runs with taxes off until M5 (docs/PLAN.md).
   return <TaxProvider ratesPpm={{}} pricesIncludeTax={false}><SaleScreenInner {...props} /></TaxProvider>;
 }
 
 function SaleScreenInner(props: SaleScreenProps): JSX.Element {
-  const { connector, currency, parkedCarts, mailer, receiptEmails } = props;
+  const { connector, currency, parkedCarts, mailer, receiptEmails, chargesTax = 'no' } = props;
+  // Stopgap until G5 (TallyUI 3.3.0); remove when TaxProvider takes the store's rates.
+  const taxMessage = chargesTax === 'no' ? null : chargesTax === 'yes'
+    ? 'This store charges tax. Taking payment on taxed stores arrives in the next update.'
+    : "Could not confirm this store's tax settings, so the till cannot take payment.";
   const outbox = useOutbox();
   useReceiptEmailSender({ collection: mailer ? receiptEmails ?? null : null, mailer: mailer ?? null,
     orders: outbox.enabled ? outbox.orders : null });
@@ -142,6 +146,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       {width < 900 && message ? <Text>{message}</Text> : null}
       {sale.stage.kind === 'cart' ? (
         <>
+          {taxMessage ? <Text>{taxMessage}</Text> : null}
           {props.customers ? <CustomerPicker source={props.customers} customer={sale.order.customer ?? null} onChange={sale.setCustomer} /> : null}
           <View className="flex-row gap-2">
             <Button disabled={!sale.order.lineItems.length} onPress={onPark}><Text>Park cart</Text></Button>
@@ -156,7 +161,12 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             <Cart sale={sale} canEditPrice />
           )}
         </>
-      ) : sale.stage.kind === 'tender' ? outbox.enabled ? <Tender sale={sale} /> : (
+      ) : sale.stage.kind === 'tender' ? chargesTax !== 'no' ? (
+        <>
+          <Text>{taxMessage}</Text>
+          <Button onPress={() => sale.cancelTender()}><Text>Back to cart</Text></Button>
+        </>
+      ) : outbox.enabled ? <Tender sale={sale} /> : (
         <>
           <Text>Taking payment arrives in the next update</Text>
           <Button onPress={() => sale.cancelTender()}><Text>Back to cart</Text></Button>
