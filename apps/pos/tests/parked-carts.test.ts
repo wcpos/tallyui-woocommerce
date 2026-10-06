@@ -2,12 +2,14 @@ import { createElement } from 'react';
 import type { ReactNode } from 'react';
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, expect, test } from 'vitest';
-import { createRxDatabase } from 'rxdb';
+import { addRxPlugin, createRxDatabase } from 'rxdb';
+import type { RxJsonSchema } from 'rxdb';
+import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { createOrderBuilder, TaxProvider, useSale } from '@tallyui/pos';
-import { parkCart, parkedCartSchema, restoreCart } from '../lib/sale/parked-carts';
+import { parkCart, parkedCartSchema, parkedCartMigrationStrategies, restoreCart } from '../lib/sale/parked-carts';
 import type { ParkedCart } from '../lib/sale/parked-carts';
 import products from './fixtures/products.json';
 import variations from './fixtures/variations.json';
@@ -15,6 +17,9 @@ import variations from './fixtures/variations.json';
 const traits = createWooCommerceConnector().traits.product;
 const lineDiscount = { type: 'fixed' as const, value: 50, label: 'Staff', couponCode: 'STAFF' };
 const orderDiscount = { type: 'percentage' as const, value: 10, label: 'Ten percent' };
+const gee = { id: '7', name: 'Gee Four', email: 'gee@example.invalid' };
+
+addRxPlugin(RxDBMigrationSchemaPlugin);
 
 afterEach(cleanup);
 
@@ -33,7 +38,7 @@ function orderFixture(withOrderDiscount = false) {
   return builder.getSnapshot();
 }
 
-function restore(parked: ParkedCart, catalogue = products, orderCreate: 1 | 2 = 2) {
+function restore(parked: ParkedCart, catalogue = products, orderCreate: 1 | 2 = 2, customer?: ParkedCart['customer']) {
   const { result } = renderHook(() => useSale({ currency: 'USD' }, {
     registerId: 'web', cashierRef: '2', capabilities: { orderCreate },
   }), {
@@ -41,6 +46,7 @@ function restore(parked: ParkedCart, catalogue = products, orderCreate: 1 | 2 = 
       ratesPpm: {}, pricesIncludeTax: false, children,
     }),
   });
+  if (customer) act(() => result.current.setCustomer(customer));
   const steps = restoreCart(result.current, parked, catalogue, traits, 'USD');
   let done = false;
   let problems: string[] = [];
@@ -71,13 +77,24 @@ test('parks a real order with quantities, totals and only Discount fields', () =
   expect(parkCart(orderFixture(true)).orderDiscounts).toEqual([orderDiscount]);
 });
 
-test('the schema stores a real parked cart with optional variants and discount fields', async () => {
+test('parks the customer summary and omits the customer key for guests', () => {
+  const order = orderFixture();
+  expect(parkCart({ ...order, customer: gee }).customer).toEqual(gee);
+  expect(parkCart({ ...order, customer: { id: '7', name: 'Gee Four', email: '' } }).customer)
+    .toEqual({ id: '7', name: 'Gee Four' });
+  expect(parkCart(order)).not.toHaveProperty('customer');
+});
+
+test.each([undefined, gee])('the v1 schema stores a real parked cart with optional customer %j, variants and discount fields', async customer => {
   const db = await createRxDatabase({
     name: `parked_${crypto.randomUUID()}`, multiInstance: false,
     storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }),
   });
   try {
-    const { parked_carts } = await db.addCollections({ parked_carts: { schema: parkedCartSchema } });
+    expect(parkedCartSchema.version).toBe(1);
+    const { parked_carts } = await db.addCollections({
+      parked_carts: { schema: parkedCartSchema, migrationStrategies: parkedCartMigrationStrategies },
+    });
     const builder = createOrderBuilder({
       currency: 'USD', taxContext: { getTaxRatePpm: () => 0, pricesIncludeTax: false },
     });
@@ -90,7 +107,7 @@ test('the schema stores a real parked cart with optional variants and discount f
     builder.applyLineDiscount(espresso, { type: 'fixed', value: 50 });
     builder.applyLineDiscount(coldBrew, lineDiscount);
     builder.applyOrderDiscount({ type: 'percentage', value: 10 });
-    const parked = parkCart(builder.getSnapshot());
+    const parked = { ...parkCart(builder.getSnapshot()), ...(customer ? { customer } : {}) };
     expect(parked.lines[0].variantId).toBe('80');
     expect(parked.lines[1].variantId).toBeUndefined();
     expect(parked.lines[0].discounts).toEqual([{ type: 'fixed', value: 50 }]);
@@ -100,6 +117,71 @@ test('the schema stores a real parked cart with optional variants and discount f
   } finally {
     await db.remove();
   }
+});
+
+test('migrates a v0 cart unchanged, without a customer, after reopening the database', async () => {
+  const v0Schema: RxJsonSchema<Omit<ParkedCart, 'customer'>> = {
+    version: 0, primaryKey: 'id', type: 'object',
+    properties: {
+      id: { type: 'string', maxLength: 64 },
+      parkedAt: { type: 'string', maxLength: 32 },
+      lines: { type: 'array', items: {
+        type: 'object', properties: {
+          productId: { type: 'string' }, variantId: { type: 'string' },
+          quantity: { type: 'number' }, name: { type: 'string' },
+          discounts: { type: 'array', items: {
+            type: 'object', properties: {
+              type: { type: 'string', enum: ['percentage', 'fixed'] }, value: { type: 'number' },
+              label: { type: 'string' }, couponCode: { type: 'string' },
+            }, required: ['type', 'value'],
+          } },
+        }, required: ['productId', 'quantity', 'name', 'discounts'],
+      } },
+      orderDiscounts: { type: 'array', items: {
+        type: 'object', properties: {
+          type: { type: 'string', enum: ['percentage', 'fixed'] }, value: { type: 'number' },
+          label: { type: 'string' }, couponCode: { type: 'string' },
+        }, required: ['type', 'value'],
+      } },
+      itemCount: { type: 'integer' }, totalMinor: { type: 'integer' },
+    },
+    required: ['id', 'parkedAt', 'lines', 'orderDiscounts', 'itemCount', 'totalMinor'],
+    indexes: ['parkedAt'],
+  };
+  const storage = wrappedValidateAjvStorage({ storage: getRxStorageMemory() });
+  const options = { name: 'parked_customer_migration', multiInstance: false, storage };
+  const parked = parkCart(orderFixture(true));
+  const oldDb = await createRxDatabase(options);
+  try {
+    const { parked_carts } = await oldDb.addCollections({ parked_carts: { schema: v0Schema } });
+    await parked_carts.insert(parked);
+  } finally {
+    await oldDb.close();
+  }
+  const db = await createRxDatabase(options);
+  try {
+    const { parked_carts } = await db.addCollections({
+      parked_carts: { schema: parkedCartSchema, migrationStrategies: parkedCartMigrationStrategies },
+    });
+    const carts = await parked_carts.find().exec();
+    expect(carts).toHaveLength(1);
+    expect(carts[0].toJSON()).toEqual(parked);
+    expect(carts[0].toJSON()).not.toHaveProperty('customer');
+  } finally {
+    await db.remove();
+  }
+});
+
+test('restores the parked customer through real useSale', () => {
+  const { order, problems } = restore({ ...parkCart(orderFixture()), customer: gee });
+  expect(problems).toEqual([]);
+  expect(order.customer).toEqual(gee);
+});
+
+test.each([undefined, gee])('restores a guest cart through real useSale with previous customer %j', customer => {
+  const { order, problems } = restore(parkCart(orderFixture()), products, 2, customer);
+  expect(problems).toEqual([]);
+  expect(order.customer).toBeNull();
 });
 
 test.each([false, true])('restores quantities and discounts through real useSale (order discount: %s)', withOrderDiscount => {

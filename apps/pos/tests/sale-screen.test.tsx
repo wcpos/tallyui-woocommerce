@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { createRxDatabase } from 'rxdb';
+import { addRxPlugin, createRxDatabase } from 'rxdb';
+import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import * as ReactNative from 'react-native';
@@ -9,13 +10,15 @@ import { catalogueEntries, TaxProvider, useSale } from '@tallyui/pos';
 import { SaleScreen } from '../components/sale-screen';
 import { PriceEdit } from '../components/price-edit';
 import type { SaleScreenProps } from '../components/sale-screen';
-import { parkedCartSchema, type ParkedCartCollection } from '../lib/sale/parked-carts';
+import { parkedCartSchema, parkedCartMigrationStrategies, type ParkedCartCollection } from '../lib/sale/parked-carts';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import variations from './fixtures/variations.json';
+
+addRxPlugin(RxDBMigrationSchemaPlugin);
 
 const shirt = { ...products[2], variation_docs: variations.documents.filter(doc => doc.parent_id === products[2].id).map(doc => doc.payload) };
 
@@ -134,6 +137,23 @@ test('invalid prices leave the form open and Cancel preserves the original price
   expect(screen.getByText('$3.00 × 2')).not.toBeNull();
   expect(within(screen.getByText('Subtotal').parentElement!).getByText('$6.00')).not.toBeNull();
 }, 20_000);
+
+test('shows the parked customer in the list and restores them to the cart', async () => {
+  vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
+  const gee = { id: '7', name: 'Gee Four', email: 'gee@example.invalid' };
+  const customers = { search: vi.fn().mockResolvedValue([gee]), create: vi.fn().mockResolvedValue(gee) };
+  render(<SaleScreen {...props} customers={customers} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Change customer' }));
+  fireEvent.change(screen.getByPlaceholderText('Search name, email or phone'), { target: { value: 'gee' } });
+  fireEvent.click(await screen.findByLabelText('Gee Four, gee@example.invalid'));
+  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(screen.getByRole('button', { name: 'Park cart' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Parked (1)' }));
+  expect(screen.getByText('Gee Four · 1 item · $3.00')).not.toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+  expect(await screen.findByText('Customer: Gee Four')).not.toBeNull();
+  expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
+});
 
 test('Edit price is only shown when the cart has lines', () => {
   vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
@@ -281,7 +301,7 @@ test('persisted carts survive a new screen, restore, swap and delete', async () 
   });
   try {
     const { parked_carts: parkedCarts } = await db.addCollections<{ parked_carts: ParkedCartCollection }>({
-      parked_carts: { schema: parkedCartSchema },
+      parked_carts: { schema: parkedCartSchema, migrationStrategies: parkedCartMigrationStrategies },
     });
     const view = render(<SaleScreen {...props} parkedCarts={parkedCarts} />);
     fireEvent.click(screen.getByText('Espresso'));
