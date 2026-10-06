@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { View } from 'react-native';
-import { ConnectorUnauthorizedError, customerTraits } from '@tallyui/core';
+import { ConnectorUnauthorizedError, CustomerServiceError, customerTraits } from '@tallyui/core';
 import type { Customer } from '@tallyui/core';
 import type { CustomerSummary } from '@tallyui/pos';
 import { Button, CustomerForm, CustomerSelect, Text } from '@tallyui/components';
@@ -33,6 +33,7 @@ export function CustomerPicker({ source, customer, onChange }: {
 
   function showError(cause: unknown) {
     setError(cause instanceof ConnectorUnauthorizedError ? 'Sign in again to search customers'
+      : cause instanceof CustomerServiceError && cause.code === 'invalid' ? `The store refused: ${cause.message}`
       : `Could not reach the store's customers: ${(cause as Error).message}`);
   }
 

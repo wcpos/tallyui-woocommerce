@@ -120,6 +120,16 @@ test.each(['search', 'create'] as const)('failed %s keeps the attached customer 
   expect(screen.getByText('Customer: Gee Four')).not.toBeNull();
 });
 
+test('a refused create shows the store message without changing the customer', async () => {
+  create.mockRejectedValueOnce(new CustomerServiceError('invalid', 'An account is already registered with your email address.'));
+  openPicker();
+  fireEvent.click(screen.getByRole('button', { name: 'New customer' }));
+  fireEvent.change(screen.getByPlaceholderText('email@example.com'), { target: { value: 'gee@example.invalid' } });
+  fireEvent.click(screen.getByText('Create customer'));
+  expect(await screen.findByText('The store refused: An account is already registered with your email address.')).not.toBeNull();
+  expect(onChange).not.toHaveBeenCalled();
+});
+
 test('unauthorized search asks for sign-in without showing the underlying error', async () => {
   search.mockRejectedValueOnce(new ConnectorUnauthorizedError('Private error detail', 401));
   openPicker(gee);
