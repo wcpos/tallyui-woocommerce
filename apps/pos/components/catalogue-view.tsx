@@ -42,7 +42,7 @@ export function CatalogueView({
   return (
     <ConnectorProvider connector={connector} traitContext={{ currency }}>
       <View className="flex-1 bg-background p-4">
-        <View className="flex-row items-center justify-between gap-4">
+        <View className="flex-row flex-wrap items-center justify-between gap-4">
           <Text>{storeName}</Text>
           <Text>{`Cashier: ${cashierName}`}</Text>
           <ViewToggle value={viewState.view} onChange={view => setViewState({ ...viewState, view })} />
