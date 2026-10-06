@@ -23,6 +23,11 @@ customer_emails_off="$(wp_cli eval 'echo (int) (get_option("woocommerce_pos_sett
 [[ "$customer_emails_off" == 1 ]]
 printf 'ok %s\n' "$check"
 
+check='taxes off'
+calc_taxes="$(wp_cli eval 'echo get_option("woocommerce_calc_taxes");')"
+[[ "$calc_taxes" == no ]]
+printf 'ok %s\n' "$check"
+
 for blocked_path in /wp-admin/ /wp-login.php /xmlrpc.php \
     /wp-json/wc/v3/products '/?rest_route=/wc/v3/products' \
     /wp-content/plugins/woocommerce-pos/woocommerce-pos.php; do
