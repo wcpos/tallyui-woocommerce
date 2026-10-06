@@ -29,23 +29,12 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals());
 
-test('database names use stable FNV-1a hashes and valid RxDB characters', () => {
-  const name = databaseName(session);
-  expect(name).toBe(databaseName(session));
-  expect(name).toMatch(/^[a-z][_$a-z0-9-]*$/);
-  expect(databaseName({ ...session, site: { ...session.site, home: 'hello' } })).toBe('tallywoo_4f9f2cab_2');
-  expect(databaseName({ ...session, tokens: { ...session.tokens, user: { ...session.tokens.user, id: 3 } } })).not.toBe(name);
-});
-
-test.each([
-  { status: 200, advertised: ['order_payments_list'], multiplePayments: true },
-  { status: 200, advertised: [], multiplePayments: false },
-  { status: 503, advertised: [], multiplePayments: false },
-])('replicates, updates auth and stops with status $status and payments list $multiplePayments', async ({ status, advertised, multiplePayments }) => {
-  const fetchImpl = vi.fn<typeof fetch>(async input => {
+function fakeStore({ status = 200, advertised = [], site }: { status?: number; advertised?: string[]; site?: Response | (() => Response) }) {
+  return vi.fn<typeof fetch>(async input => {
     const url = new URL(String(input));
     if (url.pathname.endsWith('/stores')) return Response.json(stores);
     if (url.pathname.endsWith('/status')) return Response.json({ capabilities: advertised }, { status });
+    if (url.pathname.endsWith('/site') && site) return typeof site === 'function' ? site() : site;
     if (url.pathname.endsWith('/variations')) {
       const included = new Set(url.searchParams.get('include')?.split(',').map(Number) ?? []);
       const documents = variations.documents.filter(variation => included.has(variation.id));
@@ -60,6 +49,22 @@ test.each([
     const limit = Number(url.searchParams.get('per_page'));
     return Response.json(ordered.slice(offset, offset + limit), { headers: { 'X-WP-Total': String(matching.length) } });
   });
+}
+
+test('database names use stable FNV-1a hashes and valid RxDB characters', () => {
+  const name = databaseName(session);
+  expect(name).toBe(databaseName(session));
+  expect(name).toMatch(/^[a-z][_$a-z0-9-]*$/);
+  expect(databaseName({ ...session, site: { ...session.site, home: 'hello' } })).toBe('tallywoo_4f9f2cab_2');
+  expect(databaseName({ ...session, tokens: { ...session.tokens, user: { ...session.tokens.user, id: 3 } } })).not.toBe(name);
+});
+
+test.each([
+  { status: 200, advertised: ['order_payments_list'], multiplePayments: true },
+  { status: 200, advertised: [], multiplePayments: false },
+  { status: 503, advertised: [], multiplePayments: false },
+])('replicates, updates auth and stops with status $status and payments list $multiplePayments', async ({ status, advertised, multiplePayments }) => {
+  const fetchImpl = fakeStore({ status, advertised });
   vi.stubGlobal('fetch', fetchImpl);
   const catalogue = await startCatalogue(session, { storage: getRxStorageMemory() });
   try {
@@ -86,6 +91,24 @@ test.each([
     await expect(catalogue.stop()).resolves.toBeUndefined();
   }
   expect(catalogue.db.closed).toBe(true);
+});
+
+// The 1.10.20 row pins TallyUI's version fallback: that store gets v5 without the capability.
+test.each([
+  { advertised: [], site: '404', siteResponse: new Response(null, { status: 404 }), orderCreate: 3, multiplePayments: false },
+  { advertised: [], site: '1.10.19', siteResponse: Response.json({ wcpos_version: '1.10.19' }), orderCreate: 3, multiplePayments: false },
+  { advertised: [], site: '1.10.20', siteResponse: Response.json({ wcpos_version: '1.10.20' }), orderCreate: 5, multiplePayments: false },
+  { advertised: ['order_create_v5'], site: 'none', orderCreate: 5, multiplePayments: false },
+  { advertised: ['order_payments_list'], site: 'none', orderCreate: 5, multiplePayments: true },
+])('reads order.create $orderCreate from status $advertised and site $site', async ({ advertised, siteResponse, orderCreate, multiplePayments }) => {
+  vi.stubGlobal('fetch', fakeStore({ advertised, site: siteResponse }));
+  const catalogue = await startCatalogue(session, { storage: getRxStorageMemory() });
+  try {
+    expect(catalogue.capabilities?.orderCreate).toBe(orderCreate);
+    expect(catalogue.capabilities?.multiplePayments).toBe(multiplePayments);
+  } finally {
+    await catalogue.stop();
+  }
 });
 
 test.each([401, 403])('surfaces a capability read refused with HTTP %s', async status => {

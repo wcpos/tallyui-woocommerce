@@ -16,6 +16,8 @@ import stores from './fixtures/stores.json';
 
 const CHARGES: ServerCapabilities = { orderCreate: 5, lineTax: { none: true, classes: true },
   taxRounding: { granularity: 'woocommerce', roundAtSubtotal: false } };
+const NO_V5: ServerCapabilities = { orderCreate: 3, multiplePayments: false, lineTax: { none: true, classes: true },
+  taxRounding: { granularity: 'woocommerce', roundAtSubtotal: false } };
 let fetchStub: ReturnType<typeof vi.fn<typeof fetch>>;
 
 function SaleScreen(props: ComponentProps<typeof SaleScreenWithoutHost>) {
@@ -113,6 +115,40 @@ test('sells a fee, a shipping charge and a custom item and pushes them to WooCom
   ]);
   expect(payload.fee_lines).toEqual([{ name: 'Bag', total: '0.20', tax_status: 'taxable', tax_class: '' }]);
   expect(payload.shipping_lines).toEqual([{ method_id: 'pos', method_title: 'Delivery', total: '5.00' }]);
+}, 20_000);
+
+test('a store without order_create_v5 sells on the v3 fallback: no charges, one cash payment, no fee or shipping lines', async () => {
+  fetchStub.mockImplementation(async (input, init) => {
+    const url = new URL(String(input));
+    if (init?.method === 'POST' && url.pathname.endsWith('/push/orders')) {
+      return Response.json({ document: { id: 301, number: '301', status: 'completed', total: '3.000000' } }, { status: 201 });
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  });
+  render(
+    <SessionProvider>
+      <OutboxProvider storage={getRxStorageMemory()}>
+        <OrderStoreReady />
+        <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency="USD" products={products}
+          storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}}
+          capabilities={NO_V5} multiplePayments={false} />
+      </OutboxProvider>
+    </SessionProvider>,
+  );
+  await screen.findByText('Order store ready');
+  fireEvent.click(screen.getByText('Espresso'));
+  expect(screen.queryByRole('button', { name: 'Add charge' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  const complete = screen.getByRole('button', { name: 'Complete sale' });
+  fireEvent.change(within(complete.parentElement!).getByRole('textbox'), { target: { value: '5.00' } });
+  fireEvent.click(complete);
+  await waitFor(() => expect(screen.getByText('Sales are up to date.')).not.toBeNull());
+  expect(fetchStub).toHaveBeenCalledTimes(1);
+  const payload = JSON.parse(String(fetchStub.mock.calls[0][1]?.body)).payload;
+  expect(payload.line_items).toEqual([{ product_id: 80, quantity: 1, subtotal: '3.00', total: '3.00' }]);
+  expect(payload.fee_lines ?? []).toEqual([]);
+  expect(payload.shipping_lines ?? []).toEqual([]);
+  expect(payload.payment_method).toBe('pos_cash');
 }, 20_000);
 
 test('offers no charges when the store has no capabilities read', async () => {
