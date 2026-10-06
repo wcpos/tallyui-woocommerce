@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import { Button, Cart, CartBar, POSLayout, Text } from '@tallyui/components';
-import { TaxProvider, useSale } from '@tallyui/pos';
-import { simpleEntry } from '../lib/sale/simple-entry';
+import { catalogueEntries, TaxProvider, useSale } from '@tallyui/pos';
+import type { CatalogueEntry } from '@tallyui/pos';
 import { parkCart, restoreCart } from '../lib/sale/parked-carts';
 import type { ParkedCart } from '../lib/sale/parked-carts';
 import { ParkedCartsList } from './parked-carts';
+import { VariantChooser } from './variant-chooser';
+import { PriceEdit } from './price-edit';
 import { CatalogueView } from './catalogue-view';
 import type { CatalogueViewProps } from './catalogue-view';
 
@@ -28,6 +30,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const [message, setMessage] = useState<string>();
   const [parked, setParked] = useState<ParkedCart[]>([]);
   const [parkedOpen, setParkedOpen] = useState(false);
+  const [variants, setVariants] = useState<CatalogueEntry<any>[]>();
+  const [priceOpen, setPriceOpen] = useState(false);
   const [restoring, setRestoring] = useState<ParkedCart>();
   const restoreSteps = useRef<ReturnType<typeof restoreCart> | null>(null);
 
@@ -46,6 +50,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     const cart = parkCart(sale.order);
     setParked(carts => [cart, ...carts]);
     sale.newSale();
+    setPriceOpen(false);
   }
 
   function onOpen(id: string) {
@@ -55,23 +60,36 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     sale.newSale();
     setRestoring(selected);
     setParkedOpen(false);
+    setPriceOpen(false);
   }
 
   function onSelect(doc: any) {
     try {
-      const entry = simpleEntry(doc, connector.traits.product, currency);
-      if (!entry) {
-        setMessage(`Options for ${connector.traits.product.getName(doc)} are coming soon`);
+      const entries = catalogueEntries([doc], connector.traits.product, { currency });
+      if (!entries.length) {
+        setMessage(`${connector.traits.product.getName(doc)} has no options to sell`);
         return;
       }
+      if (entries.length === 1) onAdd(entries[0]);
+      else { setVariants(entries); setMessage(undefined); }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  function onAdd(entry: CatalogueEntry<any>) {
+    try {
       sale.add(entry, connector.traits.product);
+      setVariants(undefined);
       setMessage(undefined);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     }
   }
 
-  const browse = <CatalogueView {...props} onSelect={onSelect} message={message} />;
+  const browse = variants ? (
+    <VariantChooser entries={variants} currency={currency} onSelect={onAdd} onClose={() => setVariants(undefined)} />
+  ) : <CatalogueView {...props} onSelect={onSelect} message={message} />;
   const cart = (
     <View className="flex-1 bg-background p-4">
       {width < 900 && message ? <Text>{message}</Text> : null}
@@ -80,11 +98,17 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           <View className="flex-row gap-2">
             <Button disabled={!sale.order.lineItems.length} onPress={onPark}><Text>Park cart</Text></Button>
             <Button onPress={() => setParkedOpen(true)}><Text>{`Parked (${parked.length})`}</Text></Button>
+            {sale.order.lineItems.length > 0 ? (
+              <Button onPress={() => { setPriceOpen(true); setParkedOpen(false); }}><Text>Edit price</Text></Button>
+            ) : null}
           </View>
           {parkedOpen ? (
             <ParkedCartsList carts={parked} currency={currency} onOpen={onOpen}
               onDelete={id => setParked(carts => carts.filter(cart => cart.id !== id))}
               onClose={() => setParkedOpen(false)} />
+          ) : priceOpen && sale.order.lineItems.length > 0 ? (
+            <PriceEdit lines={sale.order.lineItems} currency={currency} onSave={sale.setUnitPrice}
+              onClose={() => setPriceOpen(false)} />
           ) : <Cart sale={sale} />}
         </>
       ) : sale.stage.kind === 'tender' ? (
