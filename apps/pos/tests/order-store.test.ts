@@ -26,7 +26,7 @@ test('opens pos_orders and register collections in its own memory database and c
   const db = store.orders.database;
   try {
     expect(db.name).toBe(name);
-    expect(Object.keys(db.collections)).toEqual(['pos_orders', 'register_sessions', 'cash_movements', 'closures']);
+    expect(Object.keys(db.collections)).toEqual(['pos_orders', 'register_sessions', 'cash_movements', 'closures', 'tender_voids']);
     expect(store.orders.name).toBe('pos_orders');
     expect(await store.orders.find().exec()).toEqual([]);
     expect(db.closed).toBe(false);

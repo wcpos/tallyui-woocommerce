@@ -1,10 +1,11 @@
 import { createRxDatabase } from 'rxdb';
 import type { RxCollection, RxStorage } from 'rxdb';
-import { addPosOrderCollection, cashMovementSchema, closureSchema, ensureRegister, registerSessionCollection } from '@tallyui/pos';
+import { addPosOrderCollection, cashMovementSchema, closureSchema, ensureRegister, registerSessionCollection, tenderVoidCollection } from '@tallyui/pos';
 import type { PosOrder } from '@tallyui/pos';
 import { appStorage } from '../app-storage';
 import type { Session } from '../auth/session';
 import { databaseName } from '../catalogue/start-catalogue';
+import { guardTenderVoids } from './tender-voids';
 
 export function ordersDatabaseName(session: Session): string {
   return databaseName(session).replace('tallywoo_', 'tallywoo_orders_');
@@ -19,7 +20,9 @@ export async function openOrderStore(
     register_sessions: registerSessionCollection(),
     cash_movements: { schema: cashMovementSchema },
     closures: { schema: closureSchema },
+    tender_voids: tenderVoidCollection(),
   });
+  guardTenderVoids(db.tender_voids);
   await ensureRegister(db.register_sessions, 'web');
   return { orders, async close() { await db.close(); } };
 }

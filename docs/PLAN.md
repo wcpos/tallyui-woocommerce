@@ -176,17 +176,19 @@ it needs an open session (wiki `architecture/client/register-sessions.md`).
   templates render on the device.
 - **TallyUI:** G11, reports, fiscal records, receipt templates and receipt
   schema 1.4.
-- **Hold (front desk, 2026-10-06):** there is no local journal of voided
-  payments yet. A voided payment here is a split-tender leg that is removed,
-  or abandoned with Back, after the money changed hands.
-  - **Condition:** TallyUI fixes the voided-tender shape (gap G-F2,
-    TallyUI#479) and exports its `TenderVoid` type and schema from
-    `@tallyui/pos` (TallyUI#482, open). The journal's `tender_voids`
-    collection is created from that package's `tenderVoidCollection()` in
-    the release that ships it, not from a local copy, so it needs no
-    migration.
-  - **Until then:** the "Cancel this payment?" step tells the cashier what to
-    hand back or void.
+- **Voided-payment journal (done, TallyUI 3.6.0):** a voided payment here
+  is a split-tender leg that is removed, or abandoned with Back > Cancel and
+  void, after the money changed hands. Each one is written to the
+  `tender_voids` collection in the orders database before the leg leaves the
+  sale.
+  - The collection comes from `tenderVoidCollection()` in `@tallyui/pos`
+    3.6.0 (the G-F2 shape, TallyUI#479 and #482), not from a local copy.
+  - Rows are write-once: the app's RxDB hooks refuse a change or a delete, and
+    replaying a payment keeps its first row.
+  - If the write fails, the leg stays on the sale and the cashier sees the
+    error.
+  - The journal stays on the device. Nothing reads it back and nothing sends
+    it.
   - In v2, the records themselves are written by the server, through routes
     that exist only on plugin `next`. They arrive when the fork rebases onto
     it, not from this app. There is no Reports read-back, because v2 has
