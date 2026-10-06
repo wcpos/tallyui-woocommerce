@@ -202,6 +202,9 @@ it needs an open session (wiki `architecture/client/register-sessions.md`).
   into the cart.
 - **TallyUI:** G12, printer and scanner packages, which TallyUI does not
   have yet.
+- **Done early:** keyboard-wedge scanning on the web. Enter in search or a
+  fast burst of keys adds the match to the cart (#72). Serial, HID, Bluetooth
+  and camera scanners wait on G12.
 
 ### M12: Remaining v2 surface
 

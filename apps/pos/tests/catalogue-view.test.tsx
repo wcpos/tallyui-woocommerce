@@ -163,15 +163,28 @@ function gridCellWidth(): number {
   return parseFloat(cell!.style.width);
 }
 
-test('tile size changes the wide grid immediately and saves the selection', () => {
+test('the tile size slider changes the wide grid immediately and saves the selection', () => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1280, height: 800, scale: 1, fontScale: 1 });
   render(<><CatalogueView {...props} /><PortalHost /></>);
   expect(gridCellWidth()).toBeCloseTo(25);
   fireEvent.click(screen.getByTestId('catalogue-settings-button'));
-  fireEvent.click(screen.getByTestId('tile-size-6'));
+  const thumb = screen.getByRole('slider');
+  expect(thumb.getAttribute('aria-valuenow')).toBe('4');
+  fireEvent.keyDown(thumb, { key: 'ArrowRight' });
+  fireEvent.keyDown(thumb, { key: 'ArrowRight' });
   expect(gridCellWidth()).toBeCloseTo(100 / 6);
-  expect(screen.getByTestId('tile-size-6').getAttribute('aria-checked')).toBe('true');
+  expect(thumb.getAttribute('aria-valuenow')).toBe('6');
+  expect(screen.getByTestId('tile-size-value').textContent).toBe('6');
   expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!).gridColumns).toBe(6);
+  fireEvent.keyDown(thumb, { key: 'End' });
+  expect(thumb.getAttribute('aria-valuenow')).toBe('8');
+  expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!).gridColumns).toBe(8);
+  fireEvent.keyDown(thumb, { key: 'ArrowRight' });
+  expect(thumb.getAttribute('aria-valuenow')).toBe('8');
+  fireEvent.keyDown(thumb, { key: 'Home' });
+  expect(thumb.getAttribute('aria-valuenow')).toBe('2');
+  expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!).gridColumns).toBe(2);
+  expect(gridCellWidth()).toBeCloseTo(50);
 });
 
 test('phones keep two tiles per row with a stored size of six', () => {
@@ -220,11 +233,12 @@ test.each(['grid', 'table'])('%s settings show only the relevant controls and cl
   fireEvent.click(screen.getByTestId('catalogue-settings-button'));
   if (view === 'grid') {
     expect(screen.getByText('Tile size')).not.toBeNull();
+    expect(screen.getByRole('slider').getAttribute('aria-valuenow')).toBe('4');
     expect(screen.queryAllByTestId(/^column-toggle-/)).toHaveLength(0);
     expect(screen.getAllByTestId(/^tile-field-toggle-/).map(node => node.getAttribute('data-testid'))).toEqual(CATALOGUE_TILE_FIELDS.map(({ id }) => `tile-field-toggle-${id}`));
   } else {
     expect(screen.getByTestId('column-toggle-name')).not.toBeNull();
-    expect(screen.queryAllByTestId(/^tile-size-/)).toHaveLength(0);
+    expect(screen.queryAllByRole('slider')).toHaveLength(0);
     expect(screen.queryAllByTestId(/^tile-field-toggle-/)).toHaveLength(0);
   }
   fireEvent.click(screen.getByTestId('catalogue-settings-close'));
@@ -239,7 +253,7 @@ test('restore resets the whole catalogue and keeps the settings dialog open', ()
   expect(screen.getByTestId('view-toggle-grid').getAttribute('aria-checked')).toBe('true');
   expect(localStorage.getItem(CATALOGUE_VIEW_KEY)).toBe(JSON.stringify(CATALOGUE_VIEW_DEFAULTS));
   expect(screen.getByTestId('catalogue-settings')).not.toBeNull();
-  expect(screen.getByTestId('tile-size-4').getAttribute('aria-checked')).toBe('true');
+  expect(screen.getByRole('slider').getAttribute('aria-valuenow')).toBe('4');
 });
 
 test('default tiles show name and price without optional fields', () => {
