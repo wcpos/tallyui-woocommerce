@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
+import type { ServerCapabilities } from '@tallyui/core';
 import { PortalHost } from '@tallyui/primitives';
 import { SaleScreen } from '../components/sale-screen';
 import { StoreSettingsGate } from '../components/store-settings-gate';
@@ -16,6 +17,8 @@ import classes from './fixtures/taxes/tax-classes.json';
 import taxes from './fixtures/taxes/taxes.json';
 
 const connector = createWooCommerceConnector();
+const CHARGES: ServerCapabilities = { orderCreate: 5, lineTax: { none: true, classes: true },
+  taxRounding: { granularity: 'woocommerce', roundAtSubtotal: false } };
 const basket = [
   { ...products[0], tax_class: '', tax_status: 'taxable' },
   { ...products[0], id: 86, name: 'Croissant', price: '3.50', regular_price: '3.50', tax_class: 'reduced-rate', tax_status: 'taxable' },
@@ -27,21 +30,21 @@ let inclusive: boolean;
 let readTaxes: () => Response | Promise<Response>;
 let fetchStub: ReturnType<typeof vi.fn<typeof fetch>>;
 
-function Till({ currentSession = session }: { currentSession?: Session }) {
+function Till({ currentSession = session, capabilities }: { currentSession?: Session; capabilities?: ServerCapabilities }) {
   const store = useTillStoreSettings(currentSession);
   const outbox = useOutbox();
   return <>
     {outbox.enabled && outbox.orders ? <span>Order store ready</span> : null}
     <StoreSettingsGate store={store}>{settings => <SaleScreen storeSettings={settings}
       connector={connector} currency="USD" products={basket} storeName={stores[0].name}
-      cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}} />}</StoreSettingsGate>
+      cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}} capabilities={capabilities} />}</StoreSettingsGate>
     <PortalHost />
   </>;
 }
 
-function renderTill() {
+function renderTill(capabilities?: ServerCapabilities) {
   return render(<SessionProvider><OutboxProvider storage={getRxStorageMemory()}>
-    <Till />
+    <Till capabilities={capabilities} />
   </OutboxProvider></SessionProvider>);
 }
 
@@ -93,6 +96,39 @@ test('matches WooCommerce order #136: tax 1.16 and total 32.91', async () => {
   }, 0);
   expect(taxMinor).toBe(116);
   expect(within(footer.getByText('Total').parentElement!).getByText('$32.91')).not.toBeNull();
+});
+
+test('taxes a reduced-rate fee, leaves a No-tax fee and inherited shipping untaxed, as WooCommerce does', async () => {
+  renderTill(CHARGES);
+  fireEvent.click(await screen.findByText('Croissant'));
+  fireEvent.click(screen.getByRole('button', { name: 'Add charge' }));
+  const bag = within(screen.getByTestId('charge-form'));
+  fireEvent.change(bag.getByLabelText('Name'), { target: { value: 'Bag' } });
+  fireEvent.change(bag.getByLabelText('Amount'), { target: { value: '2.00' } });
+  fireEvent.click(within(bag.getByRole('group', { name: 'Tax class' })).getByRole('button', { name: 'Reduced rate' }));
+  fireEvent.click(bag.getByRole('button', { name: 'Apply' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add charge' }));
+  const service = within(screen.getByTestId('charge-form'));
+  fireEvent.change(service.getByLabelText('Name'), { target: { value: 'Service' } });
+  fireEvent.change(service.getByLabelText('Amount'), { target: { value: '1.00' } });
+  fireEvent.click(service.getByRole('switch', { name: 'No tax' }));
+  fireEvent.click(service.getByRole('button', { name: 'Apply' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add charge' }));
+  const shipping = within(screen.getByTestId('charge-form'));
+  fireEvent.click(shipping.getByRole('button', { name: 'Shipping' }));
+  fireEvent.change(shipping.getByLabelText('Name'), { target: { value: 'Delivery' } });
+  fireEvent.change(shipping.getByLabelText('Amount'), { target: { value: '5.00' } });
+  fireEvent.click(shipping.getByRole('button', { name: 'Apply' }));
+  // WooCommerce: Croissant 3.50 × 5.5% = 0.1925 → 0.19; Bag 2.00 × 5.5% = 0.11.
+  // Service is untaxed; shipping inherits reduced-rate, whose only rate (CA Reduced) has shipping: false, so tax is 0.
+  // Total = 3.50 + 2.00 + 1.00 + 5.00 + 0.30 = 11.80.
+  const footer = within(screen.getByTestId('cart-footer'));
+  const taxMinor = footer.getAllByText(/^Tax /).reduce((sum, label) => {
+    const amount = within(label.parentElement!).getByText(/^\$/).textContent!;
+    return sum + Math.round(Number(amount.slice(1)) * 100);
+  }, 0);
+  expect(taxMinor).toBe(30);
+  expect(within(footer.getByText('Total').parentElement!).getByText('$11.80')).not.toBeNull();
 });
 
 test('does not mount the sale while taxes are pending', async () => {

@@ -83,6 +83,23 @@ test('tax rows mirror the Z report', () => {
   expect(today.taxRates.reduce((sum, row) => sum + row.taxMinor, 0)).toBe(today.taxMinor);
 }, 20_000);
 
+test('tax rates include fee and shipping tax', () => {
+  const list: PosOrder[] = [{ ...base, id: 'C1', createdAt: new Date(2026, 9, 6, 9, 15).toISOString(), syncStatus: 'applied',
+    lines: [{ id: 'l1', productId: 'product1', name: 'Item 1', sku: 'sku1', quantity: 1,
+      unitPriceMinor: 800, discountMinor: 0, netMinor: 800,
+      taxLines: [{ ratePpm: 72500, taxMicros: '58000000' }] }],
+    fees: [{ id: 'f1', name: 'Bag', amountMinor: 400, taxStatus: 'taxable', netMinor: 400, taxMicros: '29000000',
+      taxLines: [{ ratePpm: 72500, taxMicros: '29000000' }] }],
+    shipping: [{ id: 's1', name: 'Delivery', amountMinor: 200, taxStatus: 'taxable', netMinor: 200, taxMicros: '14500000',
+      taxLines: [{ ratePpm: 72500, taxMicros: '14500000' }] }],
+    subtotalMinor: 800, taxMinor: 102, totalMinor: 1502,
+    payments: [{ id: 'p1', method: 'cash', amountMinor: 1502 }],
+  }];
+  expect(salesRoom(list, { now, currency: 'USD' }).today.taxRates).toMatchObject([
+    { ratePpm: 72500, netMinor: 1400, taxMinor: 102, grossMinor: 1502 },
+  ]);
+});
+
 test('yesterday excludes the day before and tomorrow', () => {
   const result = salesRoom(orders, { now, currency: 'USD' });
   expect(result.yesterday).toMatchObject({ count: 2, totalMinor: 1000 });
