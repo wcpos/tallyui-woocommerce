@@ -10,7 +10,7 @@ test('register collections and the local register survive reopening with their b
   let registerId: string;
   try {
     const collections = first.orders.database.collections;
-    expect(Object.keys(collections).sort()).toEqual(['cash_movements', 'closures', 'pos_orders', 'register_sessions']);
+    expect(Object.keys(collections).sort()).toEqual(['cash_movements', 'closures', 'pos_orders', 'register_sessions', 'tender_voids']);
     const doc = await readRegister(collections.register_sessions);
     expect(doc).toMatchObject({ id: expect.any(String), platform: 'web', stores: {} });
     registerId = doc!.id;

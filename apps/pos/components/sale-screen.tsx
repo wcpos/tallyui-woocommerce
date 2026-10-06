@@ -4,13 +4,14 @@ import { View, useWindowDimensions } from 'react-native';
 import { Button, Cart, CartBar, ParkedSales, POSLayout, Receipt, SplitTender, SyncStatus, Tender, Text } from '@tallyui/components';
 import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, taxProviderProps, useSale } from '@tallyui/pos';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
-import type { CatalogueEntry, ParkedOrderSummary } from '@tallyui/pos';
+import type { CatalogueEntry, ParkedOrderSummary, Payment, TenderVoid } from '@tallyui/pos';
 import { useRegister } from '../lib/register/register-context';
 import { buildReceiptIdentity } from '../lib/receipts/receipt-identity';
 import { useReceiptPrintCount } from '../lib/receipts/use-receipt-print-count';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { parkCart, restoreCart } from '../lib/sale/parked-carts';
 import { taxClassOptions } from '../lib/sale/tax-classes';
+import { recordTenderVoids, type TenderVoidCollection } from '../lib/sale/tender-voids';
 import type { ParkedCart, ParkedCartCollection } from '../lib/sale/parked-carts';
 import { VariantChooser } from './variant-chooser';
 import { CatalogueView } from './catalogue-view';
@@ -58,6 +59,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const { width } = useWindowDimensions();
   const [cartOpen, setCartOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [voidError, setVoidError] = useState<string>();
   const [message, setMessage] = useState<string>();
   const [parked, setParked] = useState<ParkedCart[]>([]);
   const [parkedOpen, setParkedOpen] = useState(false);
@@ -69,8 +71,33 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     register?.setTenderInProgress(sale.stage.kind === 'tender');
   }, [register?.setTenderInProgress, sale.stage.kind]);
   useEffect(() => {
-    if (sale.stage.kind !== 'tender') setCancelling(false);
+    if (sale.stage.kind !== 'tender') { setCancelling(false); setVoidError(undefined); }
   }, [sale.stage.kind]);
+
+  async function voidTenders(payments: readonly Payment[], reason: TenderVoid['reason']): Promise<boolean> {
+    try {
+      const collection = (outbox.enabled && outbox.orders!.database.collections.tender_voids) as TenderVoidCollection;
+      await recordTenderVoids(collection, payments, {
+        saleId: sale.order.id, currency: sale.order.currency, reason,
+        registerId: register?.boundRegisterId ?? '', sessionId: register?.saleSession?.id,
+        cashierRef: props.cashierRef, deviceTime: new Date().toISOString(),
+        deviceTz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      });
+      setVoidError(undefined);
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setVoidError(`The void was not recorded, so the payment was kept: ${message}`);
+      return false;
+    }
+  }
+
+  async function removeLeg(id: string) {
+    if (sale.saving) { sale.removeTender(id); return; }
+    const payment = sale.order.payments.find(payment => payment.id === id);
+    if (!payment) return;
+    if (await voidTenders([payment], 'removed')) sale.removeTender(id);
+  }
 
   function requestCancel() {
     if (sale.order.payments.length > 0 && !sale.saving) setCancelling(true);
@@ -204,12 +231,20 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         </>
       ) : sale.stage.kind === 'tender' ? outbox.enabled ? (props.multiplePayments === true ? (
         cancelling && sale.order.payments.length > 0 ? (
-          <CancelPaymentView payments={sale.order.payments} currency={currency} onKeep={() => setCancelling(false)}
-            onConfirm={() => { setCancelling(false); sale.cancelTender(); }} />
+          <>
+            {voidError ? <Text testID="tender-void-error" accessibilityRole="alert" className="text-destructive">{voidError}</Text> : null}
+            <CancelPaymentView payments={sale.order.payments} currency={currency} onKeep={() => setCancelling(false)}
+              onConfirm={async () => {
+                if (sale.saving) { setCancelling(false); sale.cancelTender(); return; }
+                if (!(await voidTenders(sale.order.payments, 'cancelled'))) return;
+                setCancelling(false); sale.cancelTender();
+              }} />
+          </>
         ) : (
           <>
+            {voidError ? <Text testID="tender-void-error" accessibilityRole="alert" className="text-destructive">{voidError}</Text> : null}
             {sale.order.payments.length > 0 ? <Button variant="ghost" testID="checkout-cancel-payment" onPress={requestCancel}><Text>Cancel payment</Text></Button> : null}
-            <SplitTender sale={{ ...sale, cancelTender: requestCancel }} />
+            <SplitTender sale={{ ...sale, cancelTender: requestCancel, removeTender: id => { void removeLeg(id); } }} />
           </>
         )
       ) : <Tender sale={sale} />) : (

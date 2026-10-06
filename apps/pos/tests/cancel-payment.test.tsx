@@ -1,5 +1,5 @@
 import { noTaxSettings } from './fixtures/store-settings';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
@@ -75,7 +75,7 @@ test('Back with a cash leg asks before cancelling, and Keep taking payment retur
   expect(screen.queryAllByTestId(/^split-tender-row-/)).toHaveLength(1);
 }, 20_000);
 
-test('Cancel and void lists cash and card legs, then returns to the cart with nothing paid', () => {
+test('Cancel and void lists cash and card legs, then returns to the cart with nothing paid', async () => {
   fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '2.00' } });
   fireEvent.click(screen.getByTestId('split-tender-add-button'));
   fireEvent.click(screen.getByTestId('split-tender-method-card'));
@@ -87,7 +87,7 @@ test('Cancel and void lists cash and card legs, then returns to the cart with no
     'Return $2.00 cash to the customer', 'Void $1.00 on Card',
   ]);
   fireEvent.click(screen.getByTestId('checkout-cancel-confirm'));
-  expect(screen.queryByTestId('cancel-payment')).toBeNull();
+  await waitFor(() => expect(screen.queryByTestId('cancel-payment')).toBeNull());
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
   expect(screen.getByTestId('split-tender-summary').textContent).toContain('Paid: $0.00');
   expect(screen.queryAllByTestId(/^split-tender-row-/)).toHaveLength(0);
@@ -110,12 +110,12 @@ test('The Cancel payment button opens the same view', () => {
   expect(screen.queryAllByTestId(/^checkout-cancel-leg-/).map(element => element.textContent)).toEqual(['Return $2.00 cash to the customer']);
 }, 20_000);
 
-test('A new tender after cancelling does not reopen the view', () => {
+test('A new tender after cancelling does not reopen the view', async () => {
   fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '2.00' } });
   fireEvent.click(screen.getByTestId('split-tender-add-button'));
   fireEvent.click(screen.getByRole('button', { name: 'Back' }));
   fireEvent.click(screen.getByTestId('checkout-cancel-confirm'));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Cash' }));
   fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '3.00' } });
   fireEvent.click(screen.getByTestId('split-tender-add-button'));
   expect(screen.queryByTestId('cancel-payment')).toBeNull();
