@@ -461,6 +461,40 @@ test('toolbar park failure shows the error and keeps the cart line', async () =>
   }
 });
 
+test('a parked cart stays parked while syncing and resumes once the catalogue is ready', async () => {
+  const db = await createRxDatabase({
+    name: `parked_${crypto.randomUUID()}`, multiInstance: false,
+    storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }),
+  });
+  try {
+    const { parked_carts: parkedCarts } = await db.addCollections<{ parked_carts: ParkedCartCollection }>({
+      parked_carts: { schema: parkedCartSchema, migrationStrategies: parkedCartMigrationStrategies },
+    });
+    const cart = await parkedCarts.insert({
+      id: crypto.randomUUID(), parkedAt: new Date().toISOString(), itemCount: 2, totalMinor: 600,
+      lines: [{ productId: '80', variantId: '80', name: 'Espresso', quantity: 2, discounts: [] }], orderDiscounts: [],
+    });
+    const view = render(<SaleScreen {...props} parkedCarts={parkedCarts} products={[]} status="syncing" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Parked (1)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' }));
+    expect(await within(screen.getByTestId('parked-sales')).findByText(
+      'The catalogue is still syncing. Try again in a moment.',
+    )).not.toBeNull();
+    expect((await parkedCarts.find().exec()).map(doc => doc.toJSON())).toEqual([cart.toJSON()]);
+    expect(screen.getByText('Scan or tap a product to start a sale.')).not.toBeNull();
+
+    view.rerender(<SaleScreen {...props} parkedCarts={parkedCarts} status="ready" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' }));
+    await screen.findByText('$3.00 × 2');
+    await waitFor(() => expect(screen.queryByTestId('parked-sales')).toBeNull());
+    expect(await parkedCarts.find().exec()).toEqual([]);
+    expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
+  } finally {
+    cleanup();
+    await db.remove();
+  }
+});
+
 test('persisted carts survive a new screen, restore, swap and discard', async () => {
   vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
   const db = await createRxDatabase({

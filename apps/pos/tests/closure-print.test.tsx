@@ -144,7 +144,7 @@ test('the closure sheet prints once with the complete document already in the DO
   await waitFor(() => expect(screen.queryByTestId('closure-print-document')).toBeNull());
 }, 20_000);
 
-test('a closure without sales keeps the zero sales figures returned by the document builder', async () => {
+test('a closure without sales prints no Sales section', async () => {
   const app = await setup();
   await openRegister();
   await closeRegister('100.00');
@@ -152,11 +152,12 @@ test('a closure without sales keeps the zero sales figures returned by the docum
   app.unmount();
   render(<ClosurePrint closure={closure} storeName={stores[0].name} currency="USD" />);
   const report = within(screen.getByTestId('closure-print-document'));
-  expect(report.getByText('Sales')).not.toBeNull();
-  expect(report.getByText('Period sales: $0.00')).not.toBeNull();
-  expect(report.getByText('Period refunds: $0.00')).not.toBeNull();
-  expect(report.getByText('Transactions: 0')).not.toBeNull();
-  expect(report.getByText('Refunds: 0')).not.toBeNull();
+  expect(report.queryByText('Sales')).toBeNull();
+  expect(report.queryByText(/^Period sales:/)).toBeNull();
+  expect(report.queryByText(/^Period refunds:/)).toBeNull();
+  expect(report.queryByText(/^Transactions:/)).toBeNull();
+  expect(report.queryByText(/^Refunds:/)).toBeNull();
+  expect(report.queryAllByText(/^Payment method:/)).toHaveLength(0);
   expect(report.getByText('Perpetual sales: $0.00')).not.toBeNull();
   expect(report.getByText('Perpetual refunds: $0.00')).not.toBeNull();
   expect(report.queryByText(/^Approver:/)).toBeNull();
