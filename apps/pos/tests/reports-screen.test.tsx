@@ -91,6 +91,7 @@ async function closeRegister(counted: string) {
 
 test('Today starts empty and observes an Espresso cash sale', async () => {
   const app = await setup();
+  expect(screen.queryByTestId('sales-room-hours')).toBeNull();
   const today = within(screen.getByTestId('reports-today'));
   expect(today.getByText('No sales yet today.')).not.toBeNull();
   expect(screen.queryByTestId('sales-room-payments')).toBeNull();
@@ -137,6 +138,8 @@ test('the hero compares with yesterday up to the same time', async () => {
     expect(today.getByText('Change: −$3.00 · −100.0%')).not.toBeNull();
     expect(today.getByText('Orders: 0 (−1)')).not.toBeNull();
     expect(today.getByText('Average order: $0.00 (−$3.00)')).not.toBeNull();
+    expect(screen.getByTestId('sales-hour-10').getAttribute('aria-label')).toBe('10:00 — today $0.00, 0 orders; yesterday $3.00');
+    expect(screen.queryByText(/^Busiest hour/)).toBeNull();
   } finally {
     vi.useRealTimers();
   }
