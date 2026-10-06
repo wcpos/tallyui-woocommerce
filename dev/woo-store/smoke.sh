@@ -75,6 +75,35 @@ status="$(curl -sS -o /dev/null -w '%{http_code}' \
 [[ "$status" == 403 ]]
 printf 'ok %s\n' "$check"
 
+check='401 POST /wp-json/wcpos/v2/orders/1/refunds without a token'
+status="$(curl -sS -o "$tmp_dir/refunds" -w '%{http_code}' \
+    -H 'Content-Type: application/json' -H 'X-WCPOS: 1' -d '{}' \
+    "$DEV_STORE_URL/wp-json/wcpos/v2/orders/1/refunds")"
+[[ "$status" == 401 ]]
+jq -e '.code == "woocommerce_pos_rest_unauthorized"' "$tmp_dir/refunds" > /dev/null
+printf 'ok %s\n' "$check"
+
+check='401 POST /wp-json/wcpos/v1/orders/1/refunds/preview without a token'
+status="$(curl -sS -o "$tmp_dir/refunds-preview" -w '%{http_code}' \
+    -H 'Content-Type: application/json' -H 'X-WCPOS: 1' -d '{}' \
+    "$DEV_STORE_URL/wp-json/wcpos/v1/orders/1/refunds/preview")"
+[[ "$status" == 401 ]]
+jq -e '.code == "woocommerce_pos_rest_unauthorized"' "$tmp_dir/refunds-preview" > /dev/null
+printf 'ok %s\n' "$check"
+
+check='403 DELETE /wp-json/wcpos/v2/orders/1/refunds/1'
+status="$(curl -sS -X DELETE -o /dev/null -w '%{http_code}' \
+    "$DEV_STORE_URL/wp-json/wcpos/v2/orders/1/refunds/1")"
+[[ "$status" == 403 ]]
+printf 'ok %s\n' "$check"
+
+check='403 POST /wp-json/wcpos/v2/orders/1/refunds/1'
+status="$(curl -sS -o /dev/null -w '%{http_code}' \
+    -H 'Content-Type: application/json' -H 'X-WCPOS: 1' -d '{}' \
+    "$DEV_STORE_URL/wp-json/wcpos/v2/orders/1/refunds/1")"
+[[ "$status" == 403 ]]
+printf 'ok %s\n' "$check"
+
 check='rest index'
 status="$(curl -fsS -H 'X-WCPOS: 1' -o "$tmp_dir/index" -w '%{http_code}' \
     "$DEV_STORE_URL/wp-json/?wcpos=1")"

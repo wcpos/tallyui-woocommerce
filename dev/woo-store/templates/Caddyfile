@@ -50,6 +50,10 @@ http://:@PUBLIC_PORT@ {
         path_regexp ^/wp-json/wcpos/v2/orders/[0-9]+/email$
         method POST OPTIONS
     }
+    @wcpos_refunds {
+        path_regexp ^/wp-json/wcpos/v[12]/orders/[0-9]+/refunds(/preview)?$
+        method POST OPTIONS
+    }
     @wcpos_auth {
         path /wcpos-auth /wcpos-auth/*
         method GET POST
@@ -81,6 +85,11 @@ http://:@PUBLIC_PORT@ {
         }
     }
     handle @wcpos_order_email {
+        php_fastcgi unix/@FPM_SOCKET@ {
+            env HTTPS on
+        }
+    }
+    handle @wcpos_refunds {
         php_fastcgi unix/@FPM_SOCKET@ {
             env HTTPS on
         }
