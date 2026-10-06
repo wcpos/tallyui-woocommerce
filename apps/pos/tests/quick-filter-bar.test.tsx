@@ -40,7 +40,7 @@ const props: CatalogueViewProps = {
 
 const quickFilters: QuickFilter[] = [
   { id: 'sale', type: 'quick', label: 'On sale', conditions: [{ field: 'on_sale', value: true }] },
-  { id: 'coffee', type: 'quick', label: 'Coffee by price', conditions: [{ field: 'categories', value: [25] }], sort: { field: 'price', dir: 'desc' } },
+  { id: 'coffee', type: 'quick', label: 'Coffee cheapest first', conditions: [{ field: 'categories', value: [25] }], sort: { field: 'price', dir: 'asc' } },
   { id: 'cheap', type: 'quick', label: 'Under 5', conditions: [{ field: 'price', value: { max: 5 } }, { field: 'search', value: 'Esp' }] },
 ];
 
@@ -54,7 +54,7 @@ test('no saved quick filters shows no filter bar', () => {
 test('saved quick filters show as buttons in order', () => {
   render(<CatalogueView {...props} />);
   const buttons = within(screen.getByTestId('quick-filter-bar')).getAllByRole('button');
-  expect(buttons.map(button => button.textContent)).toEqual(['On sale', 'Coffee by price', 'Under 5']);
+  expect(buttons.map(button => button.textContent)).toEqual(['On sale', 'Coffee cheapest first', 'Under 5']);
   expect(buttons.map(button => button.getAttribute('data-testid'))).toEqual(['quick-filter-sale', 'quick-filter-coffee', 'quick-filter-cheap']);
   for (const button of buttons) expect(button.getAttribute('aria-pressed')).toBe('false');
 });
@@ -85,7 +85,7 @@ test('pressing another quick filter replaces the first', () => {
   expect(screen.getByText('Espresso')).not.toBeNull();
   expect(screen.getByText('Cold Brew')).not.toBeNull();
   expect(screen.queryByText('T-Shirt')).toBeNull();
-  expect(container.textContent!.indexOf('Cold Brew')).toBeLessThan(container.textContent!.indexOf('Espresso'));
+  expect(container.textContent!.indexOf('Espresso')).toBeLessThan(container.textContent!.indexOf('Cold Brew'));
   expect(screen.getByTestId('quick-filter-sale').getAttribute('aria-pressed')).toBe('false');
   expect(screen.getByTestId('quick-filter-coffee').getAttribute('aria-pressed')).toBe('true');
   expect(screen.getByTestId('quick-filter-cheap').getAttribute('aria-pressed')).toBe('false');
@@ -116,6 +116,17 @@ test('the quick filter sort does not change the saved sort', () => {
   render(<CatalogueView {...props} />);
   fireEvent.click(screen.getByTestId('quick-filter-coffee'));
   expect(localStorage.getItem(CATALOGUE_VIEW_KEY)).toBe(saved);
+});
+
+test('a table header sort replaces the quick filter sort', () => {
+  const { container } = render(<CatalogueView {...props} />);
+  fireEvent.click(screen.getByTestId('view-toggle-table'));
+  fireEvent.click(screen.getByTestId('quick-filter-coffee'));
+  expect(container.textContent!.indexOf('Espresso')).toBeLessThan(container.textContent!.indexOf('Cold Brew'));
+  fireEvent.click(screen.getByTestId('product-table-sort-name'));
+  expect(container.textContent!.indexOf('Cold Brew')).toBeLessThan(container.textContent!.indexOf('Espresso'));
+  expect(screen.getByTestId('quick-filter-coffee').getAttribute('aria-pressed')).toBe('false');
+  expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!).sort).toEqual({ field: 'name', dir: 'asc' });
 });
 
 test('a filter that matches nothing shows No products match', () => {
