@@ -9,7 +9,7 @@ import { useSession } from '../lib/auth/session-context';
 import { useRegister } from '../lib/register/register-context';
 import { closuresCsv } from '../lib/reports/closures-csv';
 import { salesRoom } from '../lib/reports/sales-room';
-import { paymentsTable, taxesTable } from '../lib/reports/sales-tables';
+import { ordersTable, paymentsTable, taxesTable } from '../lib/reports/sales-tables';
 import { dayRange } from '../lib/reports/today-sales';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { ordersDatabaseName } from '../lib/sale/order-store';
@@ -35,7 +35,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const [sales, setSales] = useState<PosOrder[]>([]);
   const [rows, setRows] = useState<Closure[]>([]);
   const [reprint, setReprint] = useState<Closure | 'x' | null>(null);
-  const [openTable, setOpenTable] = useState<'payments' | 'taxes' | null>(null);
+  const [openTable, setOpenTable] = useState<'payments' | 'taxes' | 'orders' | null>(null);
   const [printRequest, setPrintRequest] = useState(0);
   locale = locale.replaceAll('_', '-');
   const today = formatClosureDate(new Date().toISOString(), { timezone: 'device', locale }).date_ymd;
@@ -96,7 +96,9 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
           <Text className={delta.totalMinor < 0 ? 'text-destructive' : delta.totalMinor === 0 ? 'text-muted-foreground' : undefined}>
             {`Change: ${signedMoney(delta.totalMinor)} · ${percent}`}
           </Text>
-          <Text>{`Orders: ${room.today.count} (${signedCount(delta.count)})`}</Text>
+          <Pressable testID="sales-room-orders-open" accessibilityRole="button" accessibilityLabel="Open Orders table" onPress={() => setOpenTable('orders')}>
+            <Text>{`Orders: ${room.today.count} (${signedCount(delta.count)})`}</Text>
+          </Pressable>
           <Text>{`Average order: ${money(room.today.averageMinor)} (${signedMoney(delta.averageMinor)})`}</Text>
           {room.today.pending > 0 && <Text>{`Waiting to sync: ${room.today.pending}`}</Text>}
           {room.today.rejected > 0 && <Text>{`Not accepted by the store: ${room.today.rejected}`}</Text>}
@@ -116,7 +118,9 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
           </Pressable>
           {room.today.taxRates.map(row => <Text key={row.ratePpm}>{`${row.label} — Net ${money(row.netMinor)} — Tax ${money(row.taxMinor)} — Gross ${money(row.grossMinor)}`}</Text>)}
         </View>}
-        {openTable && <SalesTable table={openTable === 'payments' ? paymentsTable(room.today, money) : taxesTable(room.today, money)} scope="Today · This till" onClose={() => setOpenTable(null)} />}
+        {openTable && <SalesTable table={openTable === 'payments' ? paymentsTable(room.today, money)
+          : openTable === 'taxes' ? taxesTable(room.today, money)
+          : ordersTable(sales, { now: new Date(), currency, money })} scope="Today · This till" onClose={() => setOpenTable(null)} />}
         <View testID="reports-closures" className="gap-2 rounded-lg border border-border p-4">
           <View className="flex-row items-center justify-between">
             <Text accessibilityRole="header">Closures</Text>

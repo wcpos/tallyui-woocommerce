@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
+import { orderReference } from '@tallyui/components';
 import type { OrderCreateEnvelope, StoreSettings } from '@tallyui/core';
 import type { CommandTransport } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
@@ -382,4 +383,44 @@ test('the Taxes tile opens a table of rates', async () => {
   ]);
   fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
   await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
+}, 20_000);
+
+test("the hero's Orders line opens a table of today's orders", async () => {
+  const app = await setup();
+  await payCash();
+  const today = within(screen.getByTestId('reports-today'));
+  await waitFor(() => expect(today.getByText('Total: $3.00')).not.toBeNull());
+  const [order] = await app.orders.find().exec();
+  const date = new Date(order.createdAt);
+  const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  fireEvent.click(screen.getByTestId('sales-room-orders-open'));
+  const table = within(await screen.findByTestId('sales-table'));
+  expect(table.getByText('Orders')).not.toBeNull();
+  expect(table.getAllByTestId(/^sales-table-row-/)).toHaveLength(1);
+  expect(within(table.getByTestId(`sales-table-row-${order.id}`)).getAllByText(/./).map(cell => cell.textContent)).toEqual([
+    orderReference(order), time, 'Cash', '$3.00',
+  ]);
+  expect(within(table.getByTestId('sales-table-total')).getAllByText(/./).map(cell => cell.textContent)).toEqual([
+    'Total', '$3.00',
+  ]);
+  expect(table.getByTestId('sales-table-status').textContent).toBe('1 order · $3.00');
+  fireEvent.click(table.getByTestId('sales-table-close'));
+  await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
+  expect(today.getByText('Orders: 1 (+1)')).not.toBeNull();
+}, 20_000);
+
+test('an open Orders table follows live data', async () => {
+  const app = await setup();
+  await payCash();
+  await waitFor(() => expect(within(screen.getByTestId('reports-today')).getByText('Total: $3.00')).not.toBeNull());
+  fireEvent.click(screen.getByTestId('sales-room-orders-open'));
+  const [order] = await app.orders.find().exec();
+  expect(within(await screen.findByTestId('sales-table')).getByTestId(`sales-table-row-${order.id}`)).not.toBeNull();
+  const createdAt = new Date(Date.parse(dayRange(new Date()).startIso) - 60_000).toISOString();
+  await act(async () => { await order.incrementalPatch({ createdAt }); });
+  await waitFor(() => {
+    const table = within(screen.getByTestId('sales-table'));
+    expect(table.getByText('No sales yet today.')).not.toBeNull();
+    expect(table.getByTestId('sales-table-status').textContent).toBe('0 orders · $0.00');
+  });
 }, 20_000);

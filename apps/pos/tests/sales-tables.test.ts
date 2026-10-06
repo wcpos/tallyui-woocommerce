@@ -5,7 +5,7 @@ import { afterAll, expect, test } from 'vitest';
 import { formatMoney } from '@tallyui/core';
 import type { PosOrder } from '@tallyui/pos';
 import { salesRoom } from '../lib/reports/sales-room';
-import { paymentsTable, taxesTable } from '../lib/reports/sales-tables';
+import { ordersTable, paymentsTable, taxesTable } from '../lib/reports/sales-tables';
 
 afterAll(() => {
   if (savedTimezone === undefined) delete process.env.TZ;
@@ -92,4 +92,41 @@ test('heads and alignment', () => {
   expect(taxes.head).toEqual(['Rate', 'Net', 'Tax', 'Gross']);
   expect(payments.align).toEqual(['left', 'right', 'right', 'right']);
   expect(taxes.align).toEqual(['left', 'right', 'right', 'right']);
+}, 20_000);
+
+test("orders table lists today's orders newest first in the store currency", () => {
+  const table = ordersTable(orders, { now, currency: 'USD', money });
+  expect(table.rows.map(row => row.cells)).toEqual([
+    ['T4', '13:50', 'Cash', '$1.00'],
+    ['T3', '13:05', 'Card terminal', '$17.38'],
+    ['T2', '09:40', 'Cash + Card terminal', '$8.58'],
+    ['T1', '09:15', 'Cash', '$3.00'],
+  ]);
+  expect(table.total).toEqual(['Total', '', '', '$29.96']);
+  expect(table.status).toBe('4 orders · $29.96');
+  expect(table.title).toBe('Orders');
+  expect(table.head).toEqual(['Order', 'Time', 'Paid by', 'Total']);
+  expect(table.align).toEqual(['left', 'left', 'left', 'right']);
+}, 20_000);
+
+test('orders table names a method once however many legs it has', () => {
+  const extra: PosOrder = { ...base, id: 'C1', createdAt: new Date(2026, 9, 6, 11, 0).toISOString(),
+    totalMinor: 500, syncStatus: 'applied',
+    payments: [{ id: 'cash-1', method: 'cash', amountMinor: 300 }, { id: 'cash-2', method: 'cash', amountMinor: 200 }] };
+  const table = ordersTable([...orders, extra], { now, currency: 'USD', money });
+  expect(table.rows.find(row => row.key === 'C1')?.cells[2]).toBe('Cash');
+}, 20_000);
+
+test("orders table shows the store's display id once synced", () => {
+  const synced = orders.map(order => order.id === 'T3'
+    ? { ...order, serverRefs: { orderId: '115', displayId: '115', totalMinor: 1738 } } : order);
+  const table = ordersTable(synced, { now, currency: 'USD', money });
+  expect(table.rows.find(row => row.key === 'T3')?.cells[0]).toBe('T3 · #115');
+}, 20_000);
+
+test('orders table with no orders today', () => {
+  const table = ordersTable([], { now, currency: 'USD', money });
+  expect(table.rows).toEqual([]);
+  expect(table.total).toEqual(['Total', '', '', '$0.00']);
+  expect(table.status).toBe('0 orders · $0.00');
 }, 20_000);
