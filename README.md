@@ -1,6 +1,10 @@
 # tallyui-woocommerce
 WooCommerce point of sale built on TallyUI, aiming at WCPOS v2 feature parity
 
+## Demo notes
+
+WooCommerce sends its own order emails unless WCPOS → Settings → Checkout → Customer emails is off.
+
 ## CI
 
 CI never saves the pnpm store to the GitHub Actions cache, and pnpm never caches side effects (local installs always use a local store). This is enforced by `sideEffectsCache: false` in `pnpm-workspace.yaml`, `package-manager-cache: false` on setup-node, and a CI step that fails if the side-effects cache is enabled.

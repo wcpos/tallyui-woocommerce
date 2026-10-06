@@ -171,6 +171,15 @@ foreach ($items as $index => $item) {
     $item->save();
 }
 
+// The app explicitly sends the receipt; WooCommerce's own POS-order emails would duplicate it.
+// WCPOS → Settings → Checkout → Customer emails controls those emails.
+$checkout_settings = get_option('woocommerce_pos_settings_checkout', array());
+if (!is_array($checkout_settings)) {
+    $checkout_settings = array();
+}
+$checkout_settings['customer_emails']['enabled'] = false;
+update_option('woocommerce_pos_settings_checkout', $checkout_settings);
+
 update_option('tallyui_dev_seeded', gmdate('c'));
 printf(
     "seeded %d products (%d published, %d draft) and %d variations\n",

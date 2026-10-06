@@ -18,6 +18,11 @@ mail_filter="$(wp_cli eval 'echo (int) has_filter("pre_wp_mail");')"
 [[ "$mail_filter" -ne 0 ]]
 printf 'ok %s\n' "$check"
 
+check='WCPOS customer emails off for POS orders'
+customer_emails_off="$(wp_cli eval 'echo (int) (get_option("woocommerce_pos_settings_checkout")["customer_emails"]["enabled"] === false);')"
+[[ "$customer_emails_off" == 1 ]]
+printf 'ok %s\n' "$check"
+
 for blocked_path in /wp-admin/ /wp-login.php /xmlrpc.php \
     /wp-json/wc/v3/products '/?rest_route=/wc/v3/products' \
     /wp-content/plugins/woocommerce-pos/woocommerce-pos.php; do
