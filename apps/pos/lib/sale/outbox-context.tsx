@@ -8,7 +8,7 @@ import type { Session } from '../auth/session';
 import { useSession } from '../auth/session-context';
 import { useCatalogue } from '../catalogue/catalogue-context';
 import { openOrderStore, ordersDatabaseName } from './order-store';
-import { orderTransport } from './order-transport';
+import { orderTransport, ownerToken } from './order-transport';
 
 // The key this device's id is kept under in web storage, sent on every order command (getDeviceId)
 const DEVICE_ID_KEY = 'tallywoo.device_id';
@@ -29,7 +29,7 @@ export function OutboxProvider({ children, transportFor, storage }: {
   latestCatalogue.current = catalogue;
   const storeKey = session ? ordersDatabaseName(session) : null;
   const transport = useMemo(() => {
-    const createTransport = transportFor ?? (s => orderTransport(s, () => latest.current?.tokens.accessToken ?? '',
+    const createTransport = transportFor ?? (s => orderTransport(s, ownerToken(s, () => latest.current),
       () => latestCatalogue.current?.capabilities?.multiplePayments === true));
     return session ? createTransport(session) : null;
   }, [storeKey]);
