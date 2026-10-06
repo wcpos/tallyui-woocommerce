@@ -9,7 +9,6 @@ import { parkCart, restoreCart } from '../lib/sale/parked-carts';
 import type { ParkedCart, ParkedCartCollection } from '../lib/sale/parked-carts';
 import { ParkedCartsList } from './parked-carts';
 import { VariantChooser } from './variant-chooser';
-import { PriceEdit } from './price-edit';
 import { CatalogueView } from './catalogue-view';
 import type { CatalogueViewProps } from './catalogue-view';
 import type { CustomerSource } from '../lib/customers/customer-source';
@@ -51,7 +50,6 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const [parked, setParked] = useState<ParkedCart[]>([]);
   const [parkedOpen, setParkedOpen] = useState(false);
   const [variants, setVariants] = useState<CatalogueEntry<any>[]>();
-  const [priceOpen, setPriceOpen] = useState(false);
   const [restoring, setRestoring] = useState<ParkedCart>();
   const restoreSteps = useRef<ReturnType<typeof restoreCart> | null>(null);
 
@@ -84,7 +82,6 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       return;
     }
     sale.newSale();
-    setPriceOpen(false);
   }
 
   async function onOpen(id: string) {
@@ -102,7 +99,6 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     sale.newSale();
     setRestoring(selected);
     setParkedOpen(false);
-    setPriceOpen(false);
   }
 
   async function onDelete(id: string) {
@@ -150,18 +146,15 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           <View className="flex-row gap-2">
             <Button disabled={!sale.order.lineItems.length} onPress={onPark}><Text>Park cart</Text></Button>
             <Button onPress={() => setParkedOpen(true)}><Text>{`Parked (${parked.length})`}</Text></Button>
-            {sale.order.lineItems.length > 0 ? (
-              <Button onPress={() => { setPriceOpen(true); setParkedOpen(false); }}><Text>Edit price</Text></Button>
-            ) : null}
           </View>
           {parkedOpen ? (
             <ParkedCartsList carts={parked} currency={currency} onOpen={onOpen}
               onDelete={onDelete}
               onClose={() => setParkedOpen(false)} />
-          ) : priceOpen && sale.order.lineItems.length > 0 ? (
-            <PriceEdit lines={sale.order.lineItems} currency={currency} onSave={sale.setUnitPrice}
-              onClose={() => setPriceOpen(false)} />
-          ) : <Cart sale={sale} />}
+          ) : (
+            // M6's order notes can take the price-change reason via onPriceChange.
+            <Cart sale={sale} canEditPrice />
+          )}
         </>
       ) : sale.stage.kind === 'tender' ? outbox.enabled ? <Tender sale={sale} /> : (
         <>
