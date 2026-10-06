@@ -5,6 +5,7 @@ import { Text } from '@tallyui/components';
 import { SaleScreen } from '../components/sale-screen';
 import { StoreSettingsGate } from '../components/store-settings-gate';
 import { useTillStoreSettings } from '../lib/sale/use-till-store-settings';
+import { holdCharges } from '../lib/sale/charge-capabilities';
 import { useSession } from '../lib/auth/session-context';
 import { useCatalogue } from '../lib/catalogue/catalogue-context';
 import { customerSource } from '../lib/customers/customer-source';
@@ -46,7 +47,7 @@ export default function Catalogue() {
       currency={catalogue.store.currency}
       locale={catalogue.store.locale}
       multiplePayments={catalogue.capabilities?.multiplePayments === true}
-      capabilities={catalogue.capabilities}
+      capabilities={holdCharges(catalogue.capabilities)}
       products={products}
       storeName={catalogue.store.name}
       cashierName={session.tokens.user.displayName}
