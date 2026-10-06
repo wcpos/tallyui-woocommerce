@@ -9,6 +9,9 @@ import { useSession } from '../auth/session-context';
 import { openOrderStore, ordersDatabaseName } from './order-store';
 import { orderTransport } from './order-transport';
 
+// The key this device's id is kept under in web storage, sent on every order command (getDeviceId)
+const DEVICE_ID_KEY = 'tallywoo.device_id';
+
 type Outbox = (ReturnType<typeof useOrderOutbox> & { enabled: true }) | { enabled: false };
 const OutboxContext = createContext<Outbox>({ enabled: false });
 
@@ -23,7 +26,7 @@ export function OutboxProvider({ children, transportFor = orderTransport, storag
     storeKey: session && transport ? ordersDatabaseName(session) : null,
     open: name => openOrderStore(name, storage),
     transport: () => transport!,
-    deviceId: transport ? getDeviceId(localStorage) : '',
+    deviceId: transport ? getDeviceId(typeof localStorage === 'undefined' ? null : localStorage, DEVICE_ID_KEY) : '',
   });
   return <OutboxContext.Provider value={transport ? { ...outbox, enabled: true } : { enabled: false }}>{children}</OutboxContext.Provider>;
 }
