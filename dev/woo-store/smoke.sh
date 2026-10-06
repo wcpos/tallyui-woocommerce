@@ -37,6 +37,29 @@ status="$(curl -sS -o /dev/null -w '%{http_code}' \
 [[ "$status" == 403 ]]
 printf 'ok %s\n' "$check"
 
+check='401 POST /wp-json/wcpos/v2/push/customers without a token'
+status="$(curl -sS -o "$tmp_dir/push-customers" -w '%{http_code}' \
+    -H 'Content-Type: application/json' -H 'X-WCPOS: 1' -d '{}' \
+    "$DEV_STORE_URL/wp-json/wcpos/v2/push/customers")"
+[[ "$status" == 401 ]]
+jq -e '.code == "woocommerce_pos_rest_unauthorized"' "$tmp_dir/push-customers" > /dev/null
+printf 'ok %s\n' "$check"
+
+check='401 POST /wp-json/wcpos/v2/orders/1/email without a token'
+status="$(curl -sS -o "$tmp_dir/order-email" -w '%{http_code}' \
+    -H 'Content-Type: application/json' -H 'X-WCPOS: 1' -d '{}' \
+    "$DEV_STORE_URL/wp-json/wcpos/v2/orders/1/email")"
+[[ "$status" == 401 ]]
+jq -e '.code | type == "string" and length > 0' "$tmp_dir/order-email" > /dev/null
+printf 'ok %s\n' "$check"
+
+check='403 POST /wp-json/wcpos/v2/orders/1'
+status="$(curl -sS -o /dev/null -w '%{http_code}' \
+    -H 'Content-Type: application/json' -H 'X-WCPOS: 1' -d '{}' \
+    "$DEV_STORE_URL/wp-json/wcpos/v2/orders/1")"
+[[ "$status" == 403 ]]
+printf 'ok %s\n' "$check"
+
 check='rest index'
 status="$(curl -fsS -H 'X-WCPOS: 1' -o "$tmp_dir/index" -w '%{http_code}' \
     "$DEV_STORE_URL/wp-json/?wcpos=1")"

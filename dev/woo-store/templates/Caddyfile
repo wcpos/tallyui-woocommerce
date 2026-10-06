@@ -43,7 +43,11 @@ http://:@PUBLIC_PORT@ {
         method POST OPTIONS
     }
     @wcpos_push {
-        path /wp-json/wcpos/v2/push/orders
+        path /wp-json/wcpos/v2/push/orders /wp-json/wcpos/v2/push/customers
+        method POST OPTIONS
+    }
+    @wcpos_order_email {
+        path_regexp ^/wp-json/wcpos/v2/orders/[0-9]+/email$
         method POST OPTIONS
     }
     @wcpos_auth {
@@ -72,6 +76,11 @@ http://:@PUBLIC_PORT@ {
         }
     }
     handle @wcpos_push {
+        php_fastcgi unix/@FPM_SOCKET@ {
+            env HTTPS on
+        }
+    }
+    handle @wcpos_order_email {
         php_fastcgi unix/@FPM_SOCKET@ {
             env HTTPS on
         }
