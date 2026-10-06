@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { Text } from '@tallyui/components';
-import { CatalogueView } from '../components/catalogue-view';
+import { SaleScreen } from '../components/sale-screen';
 import { useSession } from '../lib/auth/session-context';
 import { useCatalogue } from '../lib/catalogue/catalogue-context';
 
@@ -17,12 +17,13 @@ export default function Catalogue() {
     </View>
   );
   return (
-    <CatalogueView
+    <SaleScreen
       connector={catalogue.connector}
       currency={catalogue.store.currency}
       products={products}
       storeName={catalogue.store.name}
       cashierName={session.tokens.user.displayName}
+      cashierRef={String(session.tokens.user.id)}
       status={status}
       notice={notice}
       onSignOut={() => { signOut(); router.replace('/connect'); }}

@@ -14,11 +14,13 @@ export interface CatalogueViewProps {
   cashierName: string;
   status: 'idle' | 'starting' | 'syncing' | 'ready' | 'error';
   notice?: { code: string; message?: string };
+  onSelect?(doc: any): void;
+  message?: string;
   onSignOut(): void;
 }
 
 export function CatalogueView({
-  connector, currency, products, storeName, cashierName, status, notice, onSignOut,
+  connector, currency, products, storeName, cashierName, status, notice, onSignOut, onSelect, message,
 }: CatalogueViewProps): JSX.Element {
   const [term, setTerm] = useState('');
   const { width } = useWindowDimensions();
@@ -36,10 +38,11 @@ export function CatalogueView({
           <Button onPress={onSignOut}><Text>Sign out</Text></Button>
         </View>
         <Text>{statusLine}</Text>
+        {message ? <Text>{message}</Text> : null}
         <ProductGrid
           items={items}
           numColumns={width < 600 ? 2 : width >= 900 ? 4 : 3}
-          renderItem={doc => <ProductCard doc={doc} />}
+          renderItem={doc => <ProductCard doc={doc} onPress={onSelect ? () => onSelect(doc) : undefined} />}
           searchSlot={<SearchInput value={term} onChangeText={setTerm} placeholder="Search name, SKU or barcode" />}
           emptyState={<Text>{searching ? 'No products match' : 'No products yet'}</Text>}
         />
