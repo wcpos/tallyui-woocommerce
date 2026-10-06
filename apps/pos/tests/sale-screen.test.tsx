@@ -8,12 +8,14 @@ import * as ReactNative from 'react-native';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { Cart } from '@tallyui/components';
 import { catalogueEntries, TaxProvider, useSale } from '@tallyui/pos';
+import type { CommandTransport } from '@tallyui/pos';
+import type { OrderCreateEnvelope } from '@tallyui/core';
 import { SaleScreen } from '../components/sale-screen';
 import type { SaleScreenProps } from '../components/sale-screen';
 import { parkedCartSchema, parkedCartMigrationStrategies, type ParkedCartCollection } from '../lib/sale/parked-carts';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
-import { OutboxProvider } from '../lib/sale/outbox-context';
+import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import variations from './fixtures/variations.json';
@@ -228,6 +230,68 @@ test('wide: the grid and cart render together at 900px and Cold Brew costs $4.00
   expect(screen.getByRole('button', { name: 'Remove Cold Brew' })).not.toBeNull();
   expect(within(screen.getByText('Subtotal').parentElement!).getByText('$4.00')).not.toBeNull();
 });
+
+test.each([
+  ['yes', 'This store charges tax. Taking payment on taxed stores arrives in the next update.'],
+  ['unknown', "Could not confirm this store's tax settings, so the till cannot take payment."],
+] as const)('tax setting %s replaces the payment placeholder without an outbox', (chargesTax, message) => {
+  render(<SaleScreen {...props} chargesTax={chargesTax} />);
+  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' }));
+  expect(screen.getByText(message)).not.toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  expect(screen.getByText(message)).not.toBeNull();
+  expect(screen.queryByText('Taking payment arrives in the next update')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Complete sale' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Back to cart' }));
+  expect(screen.getByText(message)).not.toBeNull();
+  expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
+  expect(screen.getByRole('button', { name: 'Cash' })).not.toBeNull();
+});
+
+test.each([
+  ['yes', 'This store charges tax. Taking payment on taxed stores arrives in the next update.'],
+  ['unknown', "Could not confirm this store's tax settings, so the till cannot take payment."],
+  ['no', null],
+  [undefined, null],
+] as const)('tax setting %s gates the tender with an enabled outbox', async (chargesTax, message) => {
+  const data = new Map<string, string>();
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => data.get(key) ?? null,
+    setItem: (key: string, value: string) => { data.set(key, value); },
+  });
+  const home = `https://shop.example/${crypto.randomUUID()}`;
+  saveSession({
+    site: { name: 'Store', home, wpApiUrl: `${home}/wp-json`, wcposApiUrl: `${home}/wp-json/wcpos/v2`, authUrl: `${home}/wcpos-auth/` },
+    tokens: { accessToken: 'test', refreshToken: 'test', expiresAt: 2000000000,
+      user: { id: 2, uuid: 'cashier', displayName: 'Paul' } },
+  });
+  const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => ({
+    kind: 'results', results: batch.map(envelope => ({ id: envelope.id, status: 'applied' })),
+  }));
+  const { result } = renderHook(useOutbox, { wrapper: ({ children }) => (
+    <SessionProvider><OutboxProvider transportFor={() => ({ send })} storage={getRxStorageMemory()}>
+      {children}<SaleScreen {...props} chargesTax={chargesTax} />
+    </OutboxProvider></SessionProvider>
+  ) });
+  await waitFor(() => expect(result.current.enabled && result.current.orders).toBeTruthy());
+  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' }));
+  if (message) expect(screen.getByText(message)).not.toBeNull();
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Cash' })); });
+  if (message) {
+    expect(screen.getByText(message)).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Complete sale' })).toBeNull();
+    expect(screen.queryByText('Cash Tendered')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to cart' }));
+    expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Cash' })).not.toBeNull();
+  } else {
+    expect(screen.getByRole('button', { name: 'Complete sale' })).not.toBeNull();
+    expect(screen.getByText('Cash Tendered')).not.toBeNull();
+  }
+  expect(send).not.toHaveBeenCalled();
+}, 20_000);
 
 test('with no order transport, Cash shows the payment placeholder and Back to cart keeps the cart', () => {
   const data = new Map<string, string>();

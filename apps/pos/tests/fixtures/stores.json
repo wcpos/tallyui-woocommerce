@@ -5,6 +5,9 @@
     "currency": "USD",
     "currency_pos": "left",
     "locale": "en_US",
+    "calc_taxes": "no",
+    "prices_include_tax": "no",
+    "tax_round_at_subtotal": "no",
     "price_num_decimals": 2,
     "price_decimal_sep": ".",
     "price_thousand_sep": ","
