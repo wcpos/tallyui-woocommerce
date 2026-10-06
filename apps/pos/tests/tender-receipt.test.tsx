@@ -1,6 +1,6 @@
 import { noTaxSettings } from './fixtures/store-settings';
 import type { ComponentProps } from 'react';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
@@ -79,6 +79,11 @@ test('cash tender records and sends one sale, prints a final receipt, and starts
   expect(identity.getByText('Sales receipt')).not.toBeNull();
   expect(identity.getByText('Register: This till')).not.toBeNull();
   expect(identity.getByText('TallyUI WooCommerce POS 0.1.0')).not.toBeNull();
+  expect(screen.queryByTestId('receipt-copy')).toBeNull();
+  act(() => { window.dispatchEvent(new Event('afterprint')); });
+  expect(screen.getByTestId('receipt-copy').textContent).toBe('COPY 1');
+  act(() => { window.dispatchEvent(new Event('afterprint')); });
+  expect(screen.getByTestId('receipt-copy').textContent).toBe('COPY 2');
   expect(receipt.queryByText(/\(draft\)/)).toBeNull();
   await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
   expect(send.mock.calls.flatMap(([batch]) => batch)).toEqual([expect.objectContaining({ type: 'order.create' })]);
@@ -89,4 +94,11 @@ test('cash tender records and sends one sale, prints a final receipt, and starts
   expect(screen.queryByTestId('receipt-identity')).toBeNull();
   expect(screen.queryByRole('button', { name: 'Remove Espresso' })).toBeNull();
   expect(send).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  const secondComplete = screen.getByRole('button', { name: 'Complete sale' });
+  fireEvent.change(within(secondComplete.parentElement!).getByRole('textbox'), { target: { value: '10.00' } });
+  fireEvent.click(secondComplete);
+  await screen.findByTestId('receipt-order');
+  expect(screen.queryByTestId('receipt-copy')).toBeNull();
 }, 20_000);

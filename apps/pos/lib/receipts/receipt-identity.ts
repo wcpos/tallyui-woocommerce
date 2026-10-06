@@ -12,11 +12,12 @@ export function buildReceiptIdentity(input: {
   posOrder: Pick<PosOrder, 'createdAt'>;
   register: { id: string; name: string } | null;
   timeZone: string;
+  copies?: number;
 }): ReceiptIdentity {
   return {
     software: { name: SOFTWARE_NAME, plugin_version: '', app_version: SOFTWARE_VERSION, app_build: '' },
     register: input.register ?? { id: '', name: 'This till' },
     fiscal: { document_type: 'sale', sale_time: input.posOrder.createdAt, sale_tz: input.timeZone,
-      is_reprint: false, reprint_count: 0, qr_payload: '' },
+      is_reprint: (input.copies ?? 0) > 0, reprint_count: input.copies ?? 0, qr_payload: '' },
   };
 }
