@@ -2,7 +2,7 @@ import { ScrollView } from 'react-native';
 import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow, Text } from '@tallyui/components';
 import type { SalesTable as SalesTableData } from '../lib/reports/sales-tables';
 
-export function SalesTable({ table, scope, onClose }: { table: SalesTableData; scope: string; onClose: () => void }) {
+export function SalesTable({ table, scope, onClose, onExport }: { table: SalesTableData; scope: string; onClose: () => void; onExport?: () => void }) {
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
       <DialogContent testID="sales-table" className="max-h-[80%] overflow-hidden">
@@ -38,6 +38,7 @@ export function SalesTable({ table, scope, onClose }: { table: SalesTableData; s
         </ScrollView>
         <Text testID="sales-table-status">{table.status}</Text>
         <DialogFooter>
+          {onExport && <Button testID="sales-table-export" variant="outline" onPress={onExport}><Text>Export CSV</Text></Button>}
           <Button testID="sales-table-close" onPress={onClose}><Text>Close</Text></Button>
         </DialogFooter>
       </DialogContent>

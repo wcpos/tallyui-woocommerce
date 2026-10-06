@@ -424,3 +424,56 @@ test('an open Orders table follows live data', async () => {
     expect(table.getByTestId('sales-table-status').textContent).toBe('0 orders · $0.00');
   });
 }, 20_000);
+
+test('Export CSV downloads the open table', async () => {
+  await setup();
+  vi.stubGlobal('URL', class extends URL {
+    static createObjectURL = vi.fn(() => 'blob:payments-test');
+    static revokeObjectURL = vi.fn();
+  });
+  const anchors: HTMLAnchorElement[] = [];
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+    anchors.push(this);
+    expect(this.isConnected).toBe(true);
+  });
+  await payCash();
+  await waitFor(() => expect(within(screen.getByTestId('reports-today')).getByText('Total: $3.00')).not.toBeNull());
+  fireEvent.click(screen.getByTestId('sales-room-payments-open'));
+  const table = within(await screen.findByTestId('sales-table'));
+  const button = table.getByTestId('sales-table-export');
+  expect(button.textContent).toBe('Export CSV');
+  fireEvent.click(button);
+  expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+  const blob = vi.mocked(URL.createObjectURL).mock.calls[0][0] as Blob;
+  expect(blob).toBeInstanceOf(Blob);
+  expect(blob.type).toBe('text/csv;charset=utf-8');
+  expect(await blob.text()).toBe('"Method","Orders","Amount","Share"\r\n"Cash","1","$3.00","100.0%"\r\n"Total","1","$3.00",""');
+  expect(click).toHaveBeenCalledTimes(1);
+  expect(anchors[0].download).toMatch(/^sales-payments-(\d{4}-\d{2}-\d{2})-\1\.csv$/);
+  expect(URL.revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:payments-test');
+  expect(screen.getByTestId('sales-table')).not.toBeNull();
+}, 20_000);
+
+test('Export CSV names the Orders table and carries its rows', async () => {
+  const app = await setup();
+  vi.stubGlobal('URL', class extends URL {
+    static createObjectURL = vi.fn(() => 'blob:orders-test');
+    static revokeObjectURL = vi.fn();
+  });
+  const anchors: HTMLAnchorElement[] = [];
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+    anchors.push(this);
+    expect(this.isConnected).toBe(true);
+  });
+  await payCash();
+  await waitFor(() => expect(within(screen.getByTestId('reports-today')).getByText('Total: $3.00')).not.toBeNull());
+  const [order] = await app.orders.find().exec();
+  const date = new Date(order.createdAt);
+  const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  fireEvent.click(screen.getByTestId('sales-room-orders-open'));
+  const table = within(await screen.findByTestId('sales-table'));
+  fireEvent.click(table.getByTestId('sales-table-export'));
+  const blob = vi.mocked(URL.createObjectURL).mock.calls[0][0] as Blob;
+  expect((await blob.text()).split('\r\n')[1]).toBe(`"${orderReference(order)}","${time}","Cash","$3.00"`);
+  expect(anchors[0].download).toMatch(/^sales-orders-(\d{4}-\d{2}-\d{2})-\1\.csv$/);
+}, 20_000);
