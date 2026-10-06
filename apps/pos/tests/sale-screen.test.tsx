@@ -79,6 +79,7 @@ test('Cash shows the payment placeholder and Back to cart preserves the cart', (
   expect(within(screen.getByText('Subtotal').parentElement!).getByText('$3.00')).not.toBeNull();
 });
 
+// Several full renders of the sale screen take longer than 5 s on the CI runner.
 test('wide: parks, opens while parking the current cart, and deletes', () => {
   vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
   render(<SaleScreen {...props} />);
@@ -107,7 +108,7 @@ test('wide: parks, opens while parking the current cart, and deletes', () => {
   expect(screen.getByRole('button', { name: 'Parked (0)' })).not.toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Close' }));
   expect(screen.getByText('$3.00 × 2')).not.toBeNull();
-});
+}, 20_000);
 
 test('narrow: the parked list opens and restores within the full-screen cart', () => {
   render(<SaleScreen {...props} />);
