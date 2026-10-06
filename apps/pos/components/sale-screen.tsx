@@ -114,6 +114,10 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   }
 
   async function onResume(id: string) {
+    // The 3.3.0 product schema v2 resyncs the catalogue once; resuming before it finishes would drop lines.
+    if (props.status !== 'ready') {
+      return 'The catalogue is still syncing. Try again in a moment.';
+    }
     const selected = parked.find(cart => cart.id === id)!;
     const current = sale.order.lineItems.length ? parkCart(sale.order) : undefined;
     try {
