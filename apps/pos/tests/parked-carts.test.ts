@@ -7,6 +7,7 @@ import { createOrderBuilder, TaxProvider, useSale } from '@tallyui/pos';
 import { parkCart, restoreCart } from '../lib/sale/parked-carts';
 import type { ParkedCart } from '../lib/sale/parked-carts';
 import products from './fixtures/products.json';
+import variations from './fixtures/variations.json';
 
 const traits = createWooCommerceConnector().traits.product;
 const lineDiscount = { type: 'fixed' as const, value: 50, label: 'Staff', couponCode: 'STAFF' };
@@ -87,10 +88,33 @@ test('reports and skips a product missing from the catalogue', () => {
   expect(order.totalMinor).toBe(400);
 });
 
-test('reports and skips a product that is no longer simple', () => {
+test('reports and skips a product whose parked variant is no longer available', () => {
   const { order, problems } = restore(parkCart(orderFixture()), [{ ...products[0], type: 'variable' }, products[1]]);
-  expect(problems).toEqual(['Espresso is not a simple product.']);
+  expect(problems).toEqual(['Espresso is no longer available.']);
   expect(order.lineItems.map(line => line.productId)).toEqual(['84']);
+});
+
+test('restores the matching synced variation with its quantity, price and discount', () => {
+  const shirt = { ...products[2], variation_docs: variations.documents.filter(doc => doc.parent_id === products[2].id).map(doc => doc.payload) };
+  const builder = createOrderBuilder({ currency: 'USD', taxContext: { getTaxRatePpm: () => 0, pricesIncludeTax: false } });
+  const lineId = builder.addLine({
+    productId: '102', variantId: '106', name: 'T-Shirt · M / Black', quantity: 2, unitPrice: { amount: 2500, currency: 'USD' },
+  });
+  builder.applyLineDiscount(lineId, lineDiscount);
+  const parked = parkCart(builder.getSnapshot());
+  const { order, problems } = restore(parked, [shirt]);
+  expect(problems).toEqual([]);
+  expect(order.lineItems).toHaveLength(1);
+  expect(order.lineItems[0]).toMatchObject({
+    productId: '102', variantId: '106', name: 'T-Shirt · M / Black', quantity: 2, unitPriceMinor: 2500,
+  });
+  expect(order.subtotalMinor).toBe(builder.getSnapshot().subtotalMinor);
+  expect(order.totalMinor).toBe(4950);
+  expect(parkCart(order).lines).toEqual(parked.lines);
+  const missingShirt = { ...shirt, variation_docs: shirt.variation_docs.slice(0, 2) };
+  const missing = restore(parked, [missingShirt]);
+  expect(missing.problems).toEqual(['T-Shirt · M / Black is no longer available.']);
+  expect(missing.order.lineItems).toEqual([]);
 });
 
 test('reports refused line and order discounts without applying them', () => {

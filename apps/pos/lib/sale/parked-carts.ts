@@ -1,6 +1,6 @@
 import type { ProductTraits } from '@tallyui/core';
 import type { Discount, Order, useSale } from '@tallyui/pos';
-import { simpleEntry } from './simple-entry';
+import { catalogueEntries } from '@tallyui/pos';
 
 export interface ParkedLine {
   productId: string; variantId?: string; quantity: number; name: string; discounts: Discount[];
@@ -38,9 +38,9 @@ export function* restoreCart(
       problems.push(`${line.name} is no longer in the catalogue.`);
       continue;
     }
-    const entry = simpleEntry(product, traits, currency);
+    const entry = catalogueEntries([product], traits, { currency }).find(entry => entry.variant.id === line.variantId);
     if (!entry) {
-      problems.push(`${line.name} is not a simple product.`);
+      problems.push(`${line.name} is no longer available.`);
       continue;
     }
     sale.add(entry, traits);
