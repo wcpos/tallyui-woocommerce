@@ -1,3 +1,4 @@
+import { noTaxSettings } from './fixtures/store-settings';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
@@ -43,7 +44,7 @@ async function setup() {
       <OutboxProvider transportFor={() => ({ send })} storage={getRxStorageMemory()}>
         <RegisterProvider>
           <Probe />
-          <SaleScreen connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
+          <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
             storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}} />
           <PortalHost />
         </RegisterProvider>

@@ -1,3 +1,4 @@
+import { noTaxSettings } from './fixtures/store-settings';
 import type { ComponentProps } from 'react';
 import { act, cleanup, fireEvent, render, renderHook, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
@@ -257,7 +258,7 @@ test.each([true, false])('completed sale receipt UI, mailer available: %s', asyn
     <SessionProvider>
       <OutboxProvider transportFor={() => transport} storage={getRxStorageMemory()}>
         <OrderStoreReady />
-        <SaleScreen connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
+        <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
           storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}}
           customers={customers} mailer={available ? mailer : null} receiptEmails={collection} />
       </OutboxProvider>

@@ -13,20 +13,9 @@ const headers = { Authorization: 'Bearer t1' };
 test('maps the first fixture store and sends the supplied headers', async () => {
   const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(Response.json(stores));
   expect(await fetchStoreInfo(session, headers, fetchImpl as unknown as typeof fetch)).toEqual({
-    id: 0, name: stores[0].name, currency: 'USD', locale: 'en_US', chargesTax: 'no',
+    id: 0, name: stores[0].name, currency: 'USD', locale: 'en_US',
   });
   expect(fetchImpl).toHaveBeenCalledWith(`${session.site.wcposApiUrl}/stores`, { headers });
-});
-
-test.each([
-  [{ calc_taxes: 'yes' }, 'yes'],
-  [{}, 'unknown'],
-  [{ calc_taxes: true }, 'unknown'],
-] as const)('maps tax settings %j to %s', async (taxSettings, expected) => {
-  const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(Response.json([
-    { id: 0, name: 'Store', currency: 'USD', ...taxSettings },
-  ]));
-  expect((await fetchStoreInfo(session, headers, fetchImpl as unknown as typeof fetch)).chargesTax).toBe(expected);
 });
 
 test('uppercases the currency', async () => {

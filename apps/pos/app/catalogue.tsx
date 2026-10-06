@@ -3,6 +3,8 @@ import { View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { Text } from '@tallyui/components';
 import { SaleScreen } from '../components/sale-screen';
+import { StoreSettingsGate } from '../components/store-settings-gate';
+import { useTillStoreSettings } from '../lib/sale/use-till-store-settings';
 import { useSession } from '../lib/auth/session-context';
 import { useCatalogue } from '../lib/catalogue/catalogue-context';
 import { customerSource } from '../lib/customers/customer-source';
@@ -10,6 +12,7 @@ import { receiptMailer } from '../lib/receipts/receipt-mailer';
 
 export default function Catalogue() {
   const { session, ready, signOut } = useSession();
+  const store = useTillStoreSettings(session);
   const { catalogue, products, status, notice, error } = useCatalogue();
   const router = useRouter();
   const latest = useRef(session);
@@ -33,7 +36,8 @@ export default function Catalogue() {
     </View>
   );
   return (
-    <SaleScreen
+    <StoreSettingsGate store={store}>{(settings) => <SaleScreen
+      storeSettings={settings}
       connector={catalogue.connector}
       customers={customers}
       mailer={mailer}
@@ -41,7 +45,6 @@ export default function Catalogue() {
       parkedCarts={catalogue.parkedCarts}
       currency={catalogue.store.currency}
       locale={catalogue.store.locale}
-      chargesTax={catalogue.store.chargesTax}
       multiplePayments={catalogue.capabilities?.multiplePayments === true}
       products={products}
       storeName={catalogue.store.name}
@@ -51,6 +54,6 @@ export default function Catalogue() {
       notice={notice}
       onSignOut={() => { signOut(); router.replace('/connect'); }}
       onOpenReports={() => router.push('/reports')}
-    />
+    />}</StoreSettingsGate>
   );
 }

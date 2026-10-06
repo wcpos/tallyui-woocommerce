@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import { Button, Cart, CartBar, ParkedSales, POSLayout, Receipt, SplitTender, SyncStatus, Tender, Text } from '@tallyui/components';
-import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, useSale } from '@tallyui/pos';
+import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, taxProviderProps, useSale } from '@tallyui/pos';
+import type { StoreSettings } from '@tallyui/core';
 import type { CatalogueEntry, ParkedOrderSummary } from '@tallyui/pos';
 import { useRegister } from '../lib/register/register-context';
 import { useOutbox } from '../lib/sale/outbox-context';
@@ -27,20 +28,16 @@ const ORDER_CAPABILITIES = { orderCreate: 3 } as const;
 export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | 'message'> {
   cashierRef: string; parkedCarts?: ParkedCartCollection; customers?: CustomerSource | null;
   mailer?: ReceiptMailer | null; receiptEmails?: ReceiptEmailCollection;
-  chargesTax?: 'no' | 'yes' | 'unknown'; locale?: string;
+  storeSettings: StoreSettings; locale?: string;
   multiplePayments?: boolean;
 }
 
 export function SaleScreen(props: SaleScreenProps): JSX.Element {
-  return <TaxProvider ratesPpm={{}} pricesIncludeTax={false}><SaleScreenInner {...props} /></TaxProvider>;
+  return <TaxProvider {...taxProviderProps(props.storeSettings)}><SaleScreenInner {...props} /></TaxProvider>;
 }
 
 function SaleScreenInner(props: SaleScreenProps): JSX.Element {
-  const { connector, currency, parkedCarts, mailer, receiptEmails, chargesTax = 'no' } = props;
-  // Stopgap until G5 (TallyUI 3.3.0); remove when TaxProvider takes the store's rates.
-  const taxMessage = chargesTax === 'no' ? null : chargesTax === 'yes'
-    ? 'This store charges tax. Taking payment on taxed stores arrives in the next update.'
-    : "Could not confirm this store's tax settings, so the till cannot take payment.";
+  const { connector, currency, parkedCarts, mailer, receiptEmails } = props;
   const outbox = useOutbox();
   const register = useRegister();
   useReceiptEmailSender({ collection: mailer ? receiptEmails ?? null : null, mailer: mailer ?? null,
@@ -66,6 +63,11 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   }, [register?.setTenderInProgress, sale.stage.kind]);
 
   async function gatedStartTender(method: 'cash' | 'external') {
+    if (props.storeSettings.pricesIncludeTax &&
+      (sale.order.discounts.length > 0 || sale.order.lineItems.some(line => line.discounts.length > 0))) {
+      setMessage("Discounts can't be sold on a tax-inclusive store yet. Remove the discount to take payment.");
+      return;
+    }
     if (!register?.enabled) { register?.setTenderInProgress(true); return sale.startTender(method); }
     try {
       const session = await register.requireSaleSession();
@@ -177,7 +179,6 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       {width < 900 && message ? <Text>{message}</Text> : null}
       {sale.stage.kind === 'cart' ? (
         <>
-          {taxMessage ? <Text>{taxMessage}</Text> : null}
           {props.customers ? <CustomerPicker source={props.customers} customer={sale.order.customer ?? null} onChange={sale.setCustomer} /> : null}
           <View className="flex-row gap-2">
             <Button disabled={!sale.order.lineItems.length} onPress={async () => {
@@ -191,12 +192,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           {/* M6's order notes can take the price-change reason via onPriceChange. */}
           <Cart sale={{ ...sale, startTender: gatedStartTender }} canEditPrice />
         </>
-      ) : sale.stage.kind === 'tender' ? chargesTax !== 'no' ? (
-        <>
-          <Text>{taxMessage}</Text>
-          <Button onPress={() => sale.cancelTender()}><Text>Back to cart</Text></Button>
-        </>
-      ) : outbox.enabled ? (props.multiplePayments === true ? <SplitTender sale={sale} /> : <Tender sale={sale} />) : (
+      ) : sale.stage.kind === 'tender' ? outbox.enabled ? (props.multiplePayments === true ? <SplitTender sale={sale} /> : <Tender sale={sale} />) : (
         <>
           <Text>Taking payment arrives in the next update</Text>
           <Button onPress={() => sale.cancelTender()}><Text>Back to cart</Text></Button>
