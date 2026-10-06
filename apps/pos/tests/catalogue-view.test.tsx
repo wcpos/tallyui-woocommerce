@@ -1,9 +1,11 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import * as ReactNative from 'react-native';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
+import { PortalHost } from '@tallyui/primitives';
 import { CatalogueView } from '../components/catalogue-view';
 import type { CatalogueViewProps } from '../components/catalogue-view';
-import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { CATALOGUE_VIEW_DEFAULTS, CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 
@@ -13,6 +15,7 @@ afterEach(() => {
   cleanup();
   localStorage.clear();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 function memoryStorage(): Storage {
@@ -151,4 +154,88 @@ test('search text survives toggling views', () => {
   expect(screen.getAllByTestId(/^product-row-/).map(node => node.getAttribute('data-testid'))).toEqual(['product-row-80']);
   fireEvent.click(screen.getByTestId('view-toggle-grid'));
   expect(screen.getAllByText(/^(Espresso|Cold Brew|T-Shirt)$/).map(node => node.textContent)).toEqual(['Espresso']);
+});
+
+function gridCellWidth(): number {
+  let cell = screen.getByText(products[0].name).parentElement;
+  while (cell && !cell.style.width.endsWith('%')) cell = cell.parentElement;
+  expect(cell, document.body.innerHTML).not.toBeNull();
+  return parseFloat(cell!.style.width);
+}
+
+test('tile size changes the wide grid immediately and saves the selection', () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1280, height: 800, scale: 1, fontScale: 1 });
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  expect(gridCellWidth()).toBeCloseTo(25);
+  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
+  fireEvent.click(screen.getByTestId('tile-size-6'));
+  expect(gridCellWidth()).toBeCloseTo(100 / 6);
+  expect(screen.getByTestId('tile-size-6').getAttribute('aria-checked')).toBe('true');
+  expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!).gridColumns).toBe(6);
+});
+
+test('phones keep two tiles per row with a stored size of six', () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 800, scale: 1, fontScale: 1 });
+  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"gridColumns":6}');
+  render(<CatalogueView {...props} />);
+  expect(gridCellWidth()).toBeCloseTo(50);
+});
+
+test('column switches update the table immediately and survive a remount', () => {
+  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"view":"table"}');
+  const { unmount } = render(<><CatalogueView {...props} /><PortalHost /></>);
+  expect(screen.queryByTestId('product-table-sort-sku')).toBeNull();
+  expect(screen.getByTestId('product-table-sort-category')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
+  fireEvent.click(screen.getByRole('switch', { name: 'Show SKU' }));
+  fireEvent.click(screen.getByRole('switch', { name: 'Show Category' }));
+  expect(screen.getByTestId('product-table-sort-sku')).not.toBeNull();
+  expect(screen.queryByTestId('product-table-sort-category')).toBeNull();
+  expect(screen.getByText(products[0].sku)).not.toBeNull();
+  expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!).columns).toEqual([
+    { id: 'name', visible: true }, { id: 'price', visible: true }, { id: 'stock', visible: true },
+    { id: 'category', visible: false }, { id: 'sku', visible: true }, { id: 'barcode', visible: false },
+  ]);
+  unmount();
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  expect(screen.getByTestId('product-table-sort-sku')).not.toBeNull();
+  expect(screen.queryByTestId('product-table-sort-category')).toBeNull();
+  expect(screen.getByText(products[0].sku)).not.toBeNull();
+});
+
+test('the name column switch is disabled and cannot hide the name', () => {
+  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"view":"table"}');
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
+  const toggle = screen.getByRole('switch', { name: 'Show Name' });
+  expect(toggle.getAttribute('aria-disabled')).toBe('true');
+  fireEvent.click(toggle);
+  expect(toggle.getAttribute('aria-checked')).toBe('true');
+  expect(screen.getByTestId('product-table-sort-name')).not.toBeNull();
+});
+
+test.each(['grid', 'table'])('%s settings show only the relevant controls and close', view => {
+  localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ view }));
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
+  if (view === 'grid') {
+    expect(screen.getByText('Tile size')).not.toBeNull();
+    expect(screen.queryAllByTestId(/^column-toggle-/)).toHaveLength(0);
+  } else {
+    expect(screen.getByTestId('column-toggle-name')).not.toBeNull();
+    expect(screen.queryAllByTestId(/^tile-size-/)).toHaveLength(0);
+  }
+  fireEvent.click(screen.getByTestId('catalogue-settings-close'));
+  expect(screen.queryByTestId('catalogue-settings')).toBeNull();
+});
+
+test('restore resets the whole catalogue and keeps the settings dialog open', () => {
+  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"view":"table","gridColumns":7,"sort":{"field":"price","dir":"desc"},"categoryId":null,"columns":[{"id":"sku","visible":true}]}');
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
+  fireEvent.click(screen.getByTestId('catalogue-settings-restore'));
+  expect(screen.getByTestId('view-toggle-grid').getAttribute('aria-checked')).toBe('true');
+  expect(localStorage.getItem(CATALOGUE_VIEW_KEY)).toBe(JSON.stringify(CATALOGUE_VIEW_DEFAULTS));
+  expect(screen.getByTestId('catalogue-settings')).not.toBeNull();
+  expect(screen.getByTestId('tile-size-4').getAttribute('aria-checked')).toBe('true');
 });

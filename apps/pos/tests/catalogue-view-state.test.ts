@@ -1,6 +1,6 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import type { CatalogueViewState } from '@tallyui/pos';
+import type { AppCatalogueViewState } from '../lib/catalogue/catalogue-view-state';
 import { CATALOGUE_VIEW_DEFAULTS, CATALOGUE_VIEW_KEY, loadCatalogueView, saveCatalogueView, useCatalogueView } from '../lib/catalogue/catalogue-view-state';
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
@@ -25,17 +25,25 @@ function memoryStorage(): Storage {
 
 test('empty storage loads the defaults', () => {
   expect(loadCatalogueView(memoryStorage())).toEqual(CATALOGUE_VIEW_DEFAULTS);
+  expect(CATALOGUE_VIEW_DEFAULTS.columns).toEqual([
+    { id: 'name', visible: true }, { id: 'price', visible: true },
+    { id: 'stock', visible: true }, { id: 'category', visible: true },
+    { id: 'sku', visible: false }, { id: 'barcode', visible: false },
+  ]);
 });
 
 test('saves the exact JSON and round-trips a table state', () => {
   const storage = memoryStorage();
-  const state: CatalogueViewState = { view: 'table', gridColumns: 6, sort: { field: 'price', dir: 'desc' }, categoryId: null };
+  const state: AppCatalogueViewState = {
+    view: 'table', gridColumns: 6, sort: { field: 'price', dir: 'desc' }, categoryId: null,
+    columns: CATALOGUE_VIEW_DEFAULTS.columns.map(c => ({ ...c, visible: c.id === 'sku' ? true : c.id === 'category' ? false : c.visible })),
+  };
   saveCatalogueView(state, storage);
   expect(storage.getItem(CATALOGUE_VIEW_KEY)).toBe(JSON.stringify(state));
   expect(loadCatalogueView(storage)).toEqual(state);
 });
 
-test.each(['{not json', '{"view":"list","gridColumns":99,"sort":{"field":"","dir":"up"}}'])('invalid stored value %s loads the defaults', raw => {
+test.each(['{not json', 'null', '42', '{"view":"list","gridColumns":99,"sort":{"field":"","dir":"up"}}'])('invalid stored value %s loads the defaults', raw => {
   const storage = memoryStorage();
   storage.setItem(CATALOGUE_VIEW_KEY, raw);
   expect(loadCatalogueView(storage)).toEqual(CATALOGUE_VIEW_DEFAULTS);
@@ -60,7 +68,27 @@ test('updates in-memory state even when saving fails', () => {
   storage.setItem = () => { throw new Error('unwritable'); };
   vi.stubGlobal('localStorage', storage);
   const { result } = renderHook(() => useCatalogueView());
-  const next: CatalogueViewState = { ...CATALOGUE_VIEW_DEFAULTS, view: 'table' };
+  const next: AppCatalogueViewState = { ...CATALOGUE_VIEW_DEFAULTS, view: 'table' };
   act(() => result.current[1](next));
   expect(result.current[0]).toEqual(next);
+});
+
+test('normalizes stored columns in order, keeping name visible and appending missing defaults', () => {
+  const storage = memoryStorage();
+  storage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ columns: [
+    { id: 'sku', visible: true }, { id: 'bogus', visible: true }, { id: 'name', visible: false },
+    { id: 'price', visible: 'yes' }, { id: 'sku', visible: false },
+  ] }));
+  expect(loadCatalogueView(storage).columns).toEqual([
+    { id: 'sku', visible: true }, { id: 'name', visible: true }, { id: 'price', visible: true },
+    { id: 'stock', visible: true }, { id: 'category', visible: true }, { id: 'barcode', visible: false },
+  ]);
+});
+
+test('invalid columns fall back independently of the stored view', () => {
+  const storage = memoryStorage();
+  storage.setItem(CATALOGUE_VIEW_KEY, '{"view":"table","columns":"x"}');
+  const state = loadCatalogueView(storage);
+  expect(state).toEqual({ ...CATALOGUE_VIEW_DEFAULTS, view: 'table' });
+  expect(state.columns).not.toBe(CATALOGUE_VIEW_DEFAULTS.columns);
 });
