@@ -60,6 +60,16 @@ The catalogue has 11 simple products (one draft), T-Shirt and Hoodie variable
 products, and 9 variations across Coffee, Bakery and Merch, with stock and SKUs.
 Product images are generated locally; barcodes use the WooCommerce GTIN field.
 
+## Taxes and coupons
+
+Run `dev/woo-store/taxes.sh on|off|status` with MariaDB running. `on` and `off`
+idempotently set the San Francisco base address, five tax rates (including reduced,
+zero and compound rates), product tax classes/statuses, and TEN, FIVEOFF, MUG2,
+EXPIRED and ONCE coupons. It never touches the product list or renumbers products.
+All modes print JSON status. Taxes stay off by default: `on` is for tests and
+captures; `off` restores the demo state because the till refuses payment while
+the store charges tax. Run `off` after tests or captures, before smoke or demos.
+
 ## Public URL and smoke
 
 Public URL: `https://claudes-mac-mini.tail6a20e3.ts.net:10000` (Funnel to `127.0.0.1:8481`).
