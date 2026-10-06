@@ -6,6 +6,7 @@ import { getDeviceId, useOrderOutbox } from '@tallyui/pos';
 import type { CommandTransport } from '@tallyui/pos';
 import type { Session } from '../auth/session';
 import { useSession } from '../auth/session-context';
+import { useCatalogue } from '../catalogue/catalogue-context';
 import { openOrderStore, ordersDatabaseName } from './order-store';
 import { orderTransport } from './order-transport';
 
@@ -21,11 +22,15 @@ export function OutboxProvider({ children, transportFor, storage }: {
   storage?: RxStorage<any, any>;
 }): JSX.Element {
   const { session } = useSession();
+  const { catalogue } = useCatalogue();
   const latest = useRef(session);
+  const latestCatalogue = useRef(catalogue);
   latest.current = session;
+  latestCatalogue.current = catalogue;
   const storeKey = session ? ordersDatabaseName(session) : null;
   const transport = useMemo(() => {
-    const createTransport = transportFor ?? (s => orderTransport(s, () => latest.current?.tokens.accessToken ?? ''));
+    const createTransport = transportFor ?? (s => orderTransport(s, () => latest.current?.tokens.accessToken ?? '',
+      () => latestCatalogue.current?.capabilities?.multiplePayments === true));
     return session ? createTransport(session) : null;
   }, [storeKey]);
   const outbox = useOrderOutbox({

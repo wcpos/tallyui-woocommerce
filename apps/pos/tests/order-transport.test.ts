@@ -68,3 +68,29 @@ test('maps a real-shaped WCPOS 1.10.20 push response to the applied envelope id'
     results: [{ id: envelope.id, status: 'applied', serverRefs: { orderId: '115', displayId: '115', totalMinor: 600 } }],
   });
 });
+
+test.each([true, false])('sends two tenders only with acceptsPaymentsList=%s', async acceptsPaymentsList => {
+  envelope.payload.payments = [
+    { clientPaymentId: 'cash', method: 'cash', amountMinor: 200 },
+    { clientPaymentId: 'card', method: 'external', amountMinor: 400 },
+  ];
+  const result = await orderTransport(session, () => 't1', acceptsPaymentsList).send([envelope]);
+  if (!acceptsPaymentsList) {
+    expect(result).toEqual({ kind: 'results', results: [{ id: envelope.id, status: 'rejected', error: {
+      code: 'invalid_payload', message: 'WooCommerce orders take one payment.',
+    } }] });
+    expect(fetchStub).not.toHaveBeenCalled();
+    return;
+  }
+  expect(result).toEqual({ kind: 'results', results: [{ id: envelope.id, status: 'applied',
+    serverRefs: { orderId: '115', displayId: '115', totalMinor: 600 },
+  }] });
+  expect(fetchStub).toHaveBeenCalledTimes(1);
+  const { payload } = JSON.parse(fetchStub.mock.calls[0][1]!.body as string);
+  expect(payload.payment_method).toBe('pos_card');
+  const payments = payload.meta_data.find((entry: { key: string }) => entry.key === '_woocommerce_pos_payments');
+  expect(JSON.parse(payments.value)).toEqual([
+    { method: 'pos_cash', title: 'Cash', amount: '2.00' },
+    { method: 'pos_card', title: 'Card', amount: '4.00' },
+  ]);
+});

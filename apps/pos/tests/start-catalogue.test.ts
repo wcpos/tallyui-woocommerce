@@ -37,10 +37,15 @@ test('database names use stable FNV-1a hashes and valid RxDB characters', () => 
   expect(databaseName({ ...session, tokens: { ...session.tokens, user: { ...session.tokens.user, id: 3 } } })).not.toBe(name);
 });
 
-test('replicates the real fixtures in memory, updates auth headers and stops', async () => {
+test.each([
+  { status: 200, advertised: ['order_payments_list'], multiplePayments: true },
+  { status: 200, advertised: [], multiplePayments: false },
+  { status: 503, advertised: [], multiplePayments: false },
+])('replicates, updates auth and stops with status $status and payments list $multiplePayments', async ({ status, advertised, multiplePayments }) => {
   const fetchImpl = vi.fn<typeof fetch>(async input => {
     const url = new URL(String(input));
     if (url.pathname.endsWith('/stores')) return Response.json(stores);
+    if (url.pathname.endsWith('/status')) return Response.json({ capabilities: advertised }, { status });
     if (url.pathname.endsWith('/variations')) {
       const included = new Set(url.searchParams.get('include')?.split(',').map(Number) ?? []);
       const documents = variations.documents.filter(variation => included.has(variation.id));
@@ -58,6 +63,8 @@ test('replicates the real fixtures in memory, updates auth headers and stops', a
   vi.stubGlobal('fetch', fetchImpl);
   const catalogue = await startCatalogue(session, { storage: getRxStorageMemory() });
   try {
+    expect(catalogue.capabilities?.multiplePayments).toBe(multiplePayments);
+    expect(fetchImpl.mock.calls.filter(([url]) => String(url).endsWith('/status'))).toHaveLength(1);
     expect(catalogue.parkedCarts.name).toBe('parked_carts');
     expect(catalogue.parkedCarts.database).toBe(catalogue.db);
     expect(await catalogue.parkedCarts.find().exec()).toEqual([]);
@@ -79,4 +86,12 @@ test('replicates the real fixtures in memory, updates auth headers and stops', a
     await expect(catalogue.stop()).resolves.toBeUndefined();
   }
   expect(catalogue.db.closed).toBe(true);
+});
+
+test.each([401, 403])('surfaces a capability read refused with HTTP %s', async status => {
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => String(input).endsWith('/stores')
+    ? Response.json(stores) : new Response(null, { status })));
+  await expect(startCatalogue(session, { storage: getRxStorageMemory() })).rejects.toMatchObject({
+    code: status === 401 ? 'unauthorized' : 'forbidden', status,
+  });
 });

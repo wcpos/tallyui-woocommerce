@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { View, useWindowDimensions } from 'react-native';
-import { Button, Cart, CartBar, ParkedSales, POSLayout, Receipt, SyncStatus, Tender, Text } from '@tallyui/components';
+import { Button, Cart, CartBar, ParkedSales, POSLayout, Receipt, SplitTender, SyncStatus, Tender, Text } from '@tallyui/components';
 import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, useSale } from '@tallyui/pos';
 import type { CatalogueEntry, ParkedOrderSummary } from '@tallyui/pos';
 import { useRegister } from '../lib/register/register-context';
@@ -28,6 +28,7 @@ export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | '
   cashierRef: string; parkedCarts?: ParkedCartCollection; customers?: CustomerSource | null;
   mailer?: ReceiptMailer | null; receiptEmails?: ReceiptEmailCollection;
   chargesTax?: 'no' | 'yes' | 'unknown'; locale?: string;
+  multiplePayments?: boolean;
 }
 
 export function SaleScreen(props: SaleScreenProps): JSX.Element {
@@ -195,7 +196,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           <Text>{taxMessage}</Text>
           <Button onPress={() => sale.cancelTender()}><Text>Back to cart</Text></Button>
         </>
-      ) : outbox.enabled ? <Tender sale={sale} /> : (
+      ) : outbox.enabled ? (props.multiplePayments === true ? <SplitTender sale={sale} /> : <Tender sale={sale} />) : (
         <>
           <Text>Taking payment arrives in the next update</Text>
           <Button onPress={() => sale.cancelTender()}><Text>Back to cart</Text></Button>
