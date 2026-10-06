@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 import { ClosureSheet, RegisterBar, RegisterColumn, RegisterCount, RegisterPanel, Switch, Text } from '@tallyui/components';
+import { Portal } from '@tallyui/primitives';
 import { useRegister } from '../lib/register/register-context';
 import { useOutbox } from '../lib/sale/outbox-context';
+import { ClosurePrint } from './closure-print';
 
 export function RegisterSwitch() {
   const register = useRegister();
@@ -18,8 +20,8 @@ export function RegisterSwitch() {
   );
 }
 
-export function RegisterControls({ currency, cartEmpty, children }: {
-  currency: string; cartEmpty: boolean; children: ReactNode;
+export function RegisterControls({ currency, storeName, locale, cartEmpty, children }: {
+  currency: string; storeName: string; locale?: string; cartEmpty: boolean; children: ReactNode;
 }) {
   const register = useRegister();
   const outbox = useOutbox();
@@ -39,7 +41,7 @@ export function RegisterControls({ currency, cartEmpty, children }: {
   }, [register?.enabled, register?.session?.status, register?.lastClosure]);
   if (!register?.enabled) return <>{children}</>;
   return (
-    <View className="flex-1">
+    <View className="flex-1" dataSet={showClosure ? { print: 'hide' } : undefined}>
       <RegisterBar register={register} registerId={register.boundRegisterId} registerName="This till"
         online={!outbox.enabled || outbox.state.lastRetryReason !== 'network'} multiRegister={false}
         onOpenPanel={() => setPanelOpen(true)} onPressPill={() => setPanelOpen(true)} />
@@ -48,7 +50,14 @@ export function RegisterControls({ currency, cartEmpty, children }: {
         {children}
       </RegisterColumn>
       <RegisterPanel register={register} currency={currency} registerName="This till" open={panelOpen} onOpenChange={setPanelOpen} />
-      {showClosure && <ClosureSheet register={register} currency={currency} onDone={() => setShowClosure(false)} />}
+      {showClosure && register.lastClosure && <>
+        <ClosureSheet register={register} currency={currency} onDone={() => setShowClosure(false)} onPrint={() => {
+          if (typeof window !== 'undefined' && typeof window.print === 'function') window.print();
+        }} />
+        <Portal name="closure-print">
+          <ClosurePrint closure={register.lastClosure} storeName={storeName} currency={currency} locale={locale} />
+        </Portal>
+      </>}
     </View>
   );
 }

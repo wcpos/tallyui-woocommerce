@@ -27,7 +27,7 @@ const ORDER_CAPABILITIES = { orderCreate: 3 } as const;
 export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | 'message'> {
   cashierRef: string; parkedCarts?: ParkedCartCollection; customers?: CustomerSource | null;
   mailer?: ReceiptMailer | null; receiptEmails?: ReceiptEmailCollection;
-  chargesTax?: 'no' | 'yes' | 'unknown';
+  chargesTax?: 'no' | 'yes' | 'unknown'; locale?: string;
 }
 
 export function SaleScreen(props: SaleScreenProps): JSX.Element {
@@ -210,7 +210,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
 
   const cart = (
     <View className="flex-1">
-      <RegisterControls currency={currency} cartEmpty={!sale.order.lineItems.length}>{cartPane}</RegisterControls>
+      <RegisterControls currency={currency} storeName={props.storeName} locale={props.locale} cartEmpty={!sale.order.lineItems.length}>{cartPane}</RegisterControls>
       <RegisterSwitch />
     </View>
   );

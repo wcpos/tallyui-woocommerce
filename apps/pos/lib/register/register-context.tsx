@@ -49,6 +49,10 @@ export function RegisterProvider({ children }: { children: ReactNode }) {
     closures: collections?.closures ?? null, orders, register: host, storeKey,
     registerId: boundRegisterId, enabled,
     actor: { id: user ? String(user.id) : '', name: user?.displayName ?? '' },
+    labels: {
+      registerName: 'This till',
+      resolveCashierName: id => user && id === String(user.id) ? user.displayName : id,
+    },
     timezone: 'device', softwareVersion: SOFTWARE_VERSION, tenderInProgress,
   });
   return <RegisterContext.Provider value={{ ...hookResult, enabled, boundRegisterId, setTenderInProgress, setting, setSetting }}>{children}</RegisterContext.Provider>;
