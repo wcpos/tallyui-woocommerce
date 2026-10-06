@@ -20,13 +20,13 @@ test('order database names reuse the stable FNV-1a hash with a separate prefix',
   expect(ordersDatabaseName({ ...session, tokens: { ...session.tokens, user: { ...session.tokens.user, id: 3 } } })).not.toBe(name);
 });
 
-test('opens only pos_orders in its own memory database and closes it', async () => {
+test('opens pos_orders and register collections in its own memory database and closes it', async () => {
   const name = `tallywoo_orders_${crypto.randomUUID()}`;
   const store = await openOrderStore(name, getRxStorageMemory());
   const db = store.orders.database;
   try {
     expect(db.name).toBe(name);
-    expect(Object.keys(db.collections)).toEqual(['pos_orders']);
+    expect(Object.keys(db.collections)).toEqual(['pos_orders', 'register_sessions', 'cash_movements', 'closures']);
     expect(store.orders.name).toBe('pos_orders');
     expect(await store.orders.find().exec()).toEqual([]);
     expect(db.closed).toBe(false);

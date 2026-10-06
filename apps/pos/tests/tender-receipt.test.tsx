@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
@@ -5,12 +6,17 @@ import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import type { OrderCreateEnvelope } from '@tallyui/core';
 import type { CommandTransport } from '@tallyui/pos';
-import { SaleScreen } from '../components/sale-screen';
+import { SaleScreen as SaleScreenWithoutHost } from '../components/sale-screen';
+import { PortalHost } from '@tallyui/primitives';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+
+function SaleScreen(props: ComponentProps<typeof SaleScreenWithoutHost>) {
+  return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
+}
 
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
