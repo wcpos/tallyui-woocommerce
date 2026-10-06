@@ -13,6 +13,7 @@ import { dayRange } from '../lib/reports/today-sales';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { ordersDatabaseName } from '../lib/sale/order-store';
 import { ClosurePrint } from './closure-print';
+import { HourlyBars } from './hourly-bars';
 
 export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }: {
   storeName: string; currency: string; locale?: string; onBack(): void;
@@ -98,6 +99,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
           {room.today.rejected > 0 && <Text>{`Not accepted by the store: ${room.today.rejected}`}</Text>}
           {room.today.count === 0 && <Text>No sales yet today.</Text>}
         </View>
+        <HourlyBars hours={room.hours} currency={currency} locale={locale} />
         {room.today.byMethod.length > 0 && <View testID="sales-room-payments" className="gap-2 rounded-lg border border-border p-4">
           <Text accessibilityRole="header">Payments</Text>
           {room.today.byMethod.map(row => <Text key={row.method}>{`${row.label} · ${row.count} ${row.count === 1 ? 'order' : 'orders'} · ${money(row.totalMinor)}`}</Text>)}
