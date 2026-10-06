@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { View, useWindowDimensions } from 'react-native';
-import { Button, Cart, CartBar, POSLayout, Receipt, SyncStatus, Tender, Text } from '@tallyui/components';
+import { Button, Cart, CartBar, ParkedSales, POSLayout, Receipt, SyncStatus, Tender, Text } from '@tallyui/components';
 import { catalogueEntries, TaxProvider, useSale } from '@tallyui/pos';
-import type { CatalogueEntry } from '@tallyui/pos';
+import type { CatalogueEntry, ParkedOrderSummary } from '@tallyui/pos';
+import { PortalHost } from '@tallyui/primitives';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { parkCart, restoreCart } from '../lib/sale/parked-carts';
 import type { ParkedCart, ParkedCartCollection } from '../lib/sale/parked-carts';
-import { ParkedCartsList } from './parked-carts';
 import { VariantChooser } from './variant-chooser';
 import { CatalogueView } from './catalogue-view';
 import type { CatalogueViewProps } from './catalogue-view';
@@ -56,6 +56,11 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const [variants, setVariants] = useState<CatalogueEntry<any>[]>();
   const [restoring, setRestoring] = useState<ParkedCart>();
   const restoreSteps = useRef<ReturnType<typeof restoreCart> | null>(null);
+  const restoreResolve = useRef<((result: string | null) => void) | null>(null);
+  const summaries: ParkedOrderSummary[] = parked.map(cart => ({
+    id: cart.id, customerName: cart.customer?.name, itemCount: cart.itemCount,
+    totalMinor: cart.totalMinor, parkedAt: cart.parkedAt, source: 'local',
+  }));
 
   useEffect(() => {
     if (!parkedCarts) return;
@@ -73,6 +78,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       restoreSteps.current = null;
       setRestoring(undefined);
       setMessage(step.value.join(' ') || undefined);
+      restoreResolve.current?.(null);
+      restoreResolve.current = null;
     }
   }, [sale.order, restoring]);
 
@@ -82,13 +89,13 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       if (parkedCarts) await parkedCarts.insert(cart);
       else setParked(carts => [cart, ...carts]);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
-      return;
+      return error instanceof Error ? error.message : String(error);
     }
     sale.newSale();
+    return null;
   }
 
-  async function onOpen(id: string) {
+  async function onResume(id: string) {
     const selected = parked.find(cart => cart.id === id)!;
     const current = sale.order.lineItems.length ? parkCart(sale.order) : undefined;
     try {
@@ -97,15 +104,16 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         await parkedCarts.findOne(id).remove();
       } else setParked(carts => [...(current ? [current] : []), ...carts.filter(cart => cart.id !== id)]);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
-      return;
+      return error instanceof Error ? error.message : String(error);
     }
-    sale.newSale();
-    setRestoring(selected);
-    setParkedOpen(false);
+    return new Promise<string | null>(resolve => {
+      restoreResolve.current = resolve;
+      sale.newSale();
+      setRestoring(selected);
+    });
   }
 
-  async function onDelete(id: string) {
+  async function onDiscard(id: string) {
     try {
       if (parkedCarts) await parkedCarts.findOne(id).remove();
       else setParked(carts => carts.filter(cart => cart.id !== id));
@@ -149,17 +157,17 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           {taxMessage ? <Text>{taxMessage}</Text> : null}
           {props.customers ? <CustomerPicker source={props.customers} customer={sale.order.customer ?? null} onChange={sale.setCustomer} /> : null}
           <View className="flex-row gap-2">
-            <Button disabled={!sale.order.lineItems.length} onPress={onPark}><Text>Park cart</Text></Button>
+            <Button disabled={!sale.order.lineItems.length} onPress={async () => {
+              const result = await onPark();
+              if (typeof result === 'string') setMessage(result);
+            }}><Text>Park cart</Text></Button>
             <Button onPress={() => setParkedOpen(true)}><Text>{`Parked (${parked.length})`}</Text></Button>
           </View>
-          {parkedOpen ? (
-            <ParkedCartsList carts={parked} currency={currency} onOpen={onOpen}
-              onDelete={onDelete}
-              onClose={() => setParkedOpen(false)} />
-          ) : (
-            // M6's order notes can take the price-change reason via onPriceChange.
-            <Cart sale={sale} canEditPrice />
-          )}
+          <ParkedSales sale={sale} parked={summaries} onPark={onPark} onResume={onResume}
+            onDiscard={onDiscard} currency={currency} open={parkedOpen} onOpenChange={setParkedOpen} />
+          <PortalHost />
+          {/* M6's order notes can take the price-change reason via onPriceChange. */}
+          <Cart sale={sale} canEditPrice />
         </>
       ) : sale.stage.kind === 'tender' ? chargesTax !== 'no' ? (
         <>
