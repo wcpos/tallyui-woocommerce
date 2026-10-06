@@ -29,7 +29,9 @@ e2e store in Colima). Funnel accepts only ports 443, 8443 and 10000.
     and it forwards only what the app needs: the REST index, `wcpos/*`
     routes, the WCPOS browser login (`/wcpos-auth/`), uploads (product
     images), and core WordPress assets the login page loads. Writes to
-    `wcpos/*` are refused, except the order push (`POST /wp-json/wcpos/v2/push/orders`), opened for M3 (2026-10-06). `wp-admin`,
+    `wcpos/*` are refused, except the order push (`POST /wp-json/wcpos/v2/push/orders`), opened for M3 (2026-10-06),
+    and customer push (`POST /wp-json/wcpos/v2/push/customers`) and order email
+    (`POST /wp-json/wcpos/v2/orders/<digits>/email`), opened for M4 (2026-10-06). `wp-admin`,
     `wp-login.php`, `xmlrpc.php`, `wc/*` and everything else answer 403.
 - The demo cashier is a dedicated user. Its password lives in the dev
   store's state directory, outside the repository, and the front desk
