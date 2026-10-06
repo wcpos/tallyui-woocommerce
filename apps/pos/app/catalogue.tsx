@@ -49,6 +49,7 @@ export default function Catalogue() {
       status={status}
       notice={notice}
       onSignOut={() => { signOut(); router.replace('/connect'); }}
+      onOpenReports={() => router.push('/reports')}
     />
   );
 }

@@ -17,10 +17,11 @@ export interface CatalogueViewProps {
   onSelect?(doc: any): void;
   message?: string;
   onSignOut(): void;
+  onOpenReports?(): void;
 }
 
 export function CatalogueView({
-  connector, currency, products, storeName, cashierName, status, notice, onSignOut, onSelect, message,
+  connector, currency, products, storeName, cashierName, status, notice, onSignOut, onOpenReports, onSelect, message,
 }: CatalogueViewProps): JSX.Element {
   const [term, setTerm] = useState('');
   const { width } = useWindowDimensions();
@@ -35,6 +36,7 @@ export function CatalogueView({
         <View className="flex-row items-center justify-between gap-4">
           <Text>{storeName}</Text>
           <Text>{`Cashier: ${cashierName}`}</Text>
+          {onOpenReports && <Button onPress={onOpenReports}><Text>Reports</Text></Button>}
           <Button onPress={onSignOut}><Text>Sign out</Text></Button>
         </View>
         <Text>{statusLine}</Text>
