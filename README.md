@@ -44,3 +44,7 @@ set -o pipefail
 ```
 
 `pipefail` keeps pnpm's exit status and `|| true` stops grep failing when every line is filtered; CI's install step uses the same form.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
