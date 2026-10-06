@@ -1,6 +1,6 @@
-import { createElement } from 'react';
+import { createElement, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { act, cleanup, renderHook } from '@testing-library/react';
+import { act, cleanup, render, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { CASHIERS_KEY, loadCashiers, loadSession, PENDING_KEY, saveCashiers, saveSession, SessionExpiredError } from '../lib/auth/session';
 import type { Session } from '../lib/auth/session';
@@ -65,6 +65,32 @@ test('adding a cashier keeps the active cashier and lists the new one', async ()
   expect(loadCashiers()[home]).toEqual([b]);
   expect(sessionStorage.getItem(PENDING_KEY)).toBeNull();
   expect(fetch).not.toHaveBeenCalled();
+});
+
+test('an add completed before the provider has mounted keeps the active cashier and the stored roster', async () => {
+  const c: Session = {
+    site,
+    tokens: {
+      accessToken: 'access-c', refreshToken: 'refresh-c', expiresAt: now + 86400,
+      user: { id: 3, uuid: '12345678-1234-1234-1234-123456789ccc', displayName: 'Cashier C' },
+    },
+  };
+  saveSession(a);
+  saveCashiers({ [home]: [c] });
+  sessionStorage.setItem(PENDING_KEY, JSON.stringify({ state: 's', site, mode: 'add' }));
+  let value: ReturnType<typeof useSession>;
+  function Callback() {
+    value = useSession();
+    const { completeSignIn } = value;
+    useEffect(() => { completeSignIn(bSearch); }, [completeSignIn]);
+    return null;
+  }
+  render(createElement(SessionProvider, { children: createElement(Callback) }));
+  await act(async () => {});
+  expect(value!.session).toEqual(a);
+  expect(value!.cashiers).toEqual([c, b]);
+  expect(loadSession()).toEqual(a);
+  expect(loadCashiers()[home]).toEqual([c, b]);
 });
 
 test('adding the active cashier again renews them and lists no one', async () => {

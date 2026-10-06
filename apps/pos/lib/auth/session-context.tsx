@@ -80,51 +80,54 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
     } catch {}
     if (!pending) throw new LoginError('no_pending', 'No sign-in is pending. Try again.');
     const next = { site: pending.site, tokens: parseCallback(search, pending.state) };
-    const active = current.current;
+    const active = current.current ?? loadSession();
     const add = pending.mode === 'add' && active && active.site.home === next.site.home && active.tokens.user.uuid !== next.tokens.user.uuid;
     if (!add) {
       saveSession(next);
       updateSession(next);
     }
-    setRoster(entries => {
+    {
+      const entries = loadCashiers();
       const others = entries[next.site.home] ?? [];
       const index = others.findIndex(entry => entry.tokens.user.uuid === next.tokens.user.uuid);
       const updated = { ...entries, [next.site.home]: add
         ? index === -1 ? [...others, next] : others.map((entry, i) => i === index ? next : entry)
         : others.filter(entry => entry.tokens.user.uuid !== next.tokens.user.uuid) };
       saveCashiers(updated);
-      return updated;
-    });
+      setRoster(updated);
+    }
     try { globalThis.sessionStorage.removeItem(PENDING_KEY); } catch {}
     return next;
   }, [updateSession]);
 
   async function switchCashier(uuid: string): Promise<void> {
     const active = current.current;
-    const target = active && (roster[active.site.home] ?? []).find(entry => entry.tokens.user.uuid === uuid);
+    const target = active && (loadCashiers()[active.site.home] ?? []).find(entry => entry.tokens.user.uuid === uuid);
     if (!target) throw new Error('No such cashier');
     let next;
     try {
       next = await refreshSession(target);
     } catch (error) {
       if (error instanceof SessionExpiredError) {
-        setRoster(entries => {
+        {
+          const entries = loadCashiers();
           const updated = { ...entries, [target.site.home]: (entries[target.site.home] ?? []).filter(entry => entry.tokens.user.uuid !== uuid) };
           saveCashiers(updated);
-          return updated;
-        });
+          setRoster(updated);
+        }
       }
       throw error;
     }
     const previous = current.current;
     saveSession(next);
     updateSession(next);
-    setRoster(entries => {
+    {
+      const entries = loadCashiers();
       const others = (entries[target.site.home] ?? []).filter(entry => entry.tokens.user.uuid !== uuid);
       const updated = { ...entries, [target.site.home]: previous ? [...others, previous] : others };
       saveCashiers(updated);
-      return updated;
-    });
+      setRoster(updated);
+    }
   }
 
   function signOut(): void {
