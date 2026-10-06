@@ -13,6 +13,11 @@ source "$DEV_STORE_CREDENTIALS"
 umask 077
 tmp_dir="$(mktemp -d)"
 
+check='mail log plugin installed'
+mail_filter="$(wp_cli eval 'echo (int) has_filter("pre_wp_mail");')"
+[[ "$mail_filter" -ne 0 ]]
+printf 'ok %s\n' "$check"
+
 for blocked_path in /wp-admin/ /wp-login.php /xmlrpc.php \
     /wp-json/wc/v3/products '/?rest_route=/wc/v3/products' \
     /wp-content/plugins/woocommerce-pos/woocommerce-pos.php; do

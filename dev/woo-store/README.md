@@ -20,6 +20,12 @@ dev/woo-store/down.sh
 running services and reload Caddy. `down.sh` stops them without deleting data.
 `status.sh` prints each service's state and exits 0 only when all three run.
 
+The dev store never sends mail: every `wp_mail` call is logged as one JSON line in
+`~/.local/share/tallyui-woocommerce/dev-store/log/mail.log`, with recipients,
+subject, headers (count them from the array), attachment count and body metadata,
+but no body. Read it with
+`tail ~/.local/share/tallyui-woocommerce/dev-store/log/mail.log`.
+
 HTTP listens on `127.0.0.1:8480`, MariaDB on `127.0.0.1:3306`, and the Caddy
 admin endpoint on `127.0.0.1:2480`. PHP FPM uses `run/php-fpm.sock`, never a
 TCP port. The public filter listener uses `127.0.0.1:8481`.
