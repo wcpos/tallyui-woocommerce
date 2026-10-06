@@ -22,6 +22,7 @@ import { useReceiptEmailSender, type ReceiptEmailCollection } from '../lib/recei
 import { ReceiptEmail } from './receipt-email';
 import { ReceiptIdentity } from './receipt-identity';
 import { RegisterControls, RegisterSwitch } from './register-controls';
+import { CancelPaymentView } from './cancel-payment-view';
 
 // The till id; the bound register is the drawer.
 const REGISTER_ID = 'web';
@@ -56,6 +57,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const printCount = useReceiptPrintCount(sale.stage.kind === 'receipt' ? sale.stage.posOrder.id : null);
   const { width } = useWindowDimensions();
   const [cartOpen, setCartOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [message, setMessage] = useState<string>();
   const [parked, setParked] = useState<ParkedCart[]>([]);
   const [parkedOpen, setParkedOpen] = useState(false);
@@ -66,6 +68,14 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   useEffect(() => {
     register?.setTenderInProgress(sale.stage.kind === 'tender');
   }, [register?.setTenderInProgress, sale.stage.kind]);
+  useEffect(() => {
+    if (sale.stage.kind !== 'tender') setCancelling(false);
+  }, [sale.stage.kind]);
+
+  function requestCancel() {
+    if (sale.order.payments.length > 0 && !sale.saving) setCancelling(true);
+    else sale.cancelTender();
+  }
 
   async function gatedStartTender(method: 'cash' | 'external') {
     if (!register?.enabled) { register?.setTenderInProgress(true); return sale.startTender(method); }
@@ -192,7 +202,17 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           {/* M6's order notes can take the price-change reason via onPriceChange. */}
           <Cart sale={{ ...sale, startTender: gatedStartTender }} canEditPrice taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)} />
         </>
-      ) : sale.stage.kind === 'tender' ? outbox.enabled ? (props.multiplePayments === true ? <SplitTender sale={sale} /> : <Tender sale={sale} />) : (
+      ) : sale.stage.kind === 'tender' ? outbox.enabled ? (props.multiplePayments === true ? (
+        cancelling && sale.order.payments.length > 0 ? (
+          <CancelPaymentView payments={sale.order.payments} currency={currency} onKeep={() => setCancelling(false)}
+            onConfirm={() => { setCancelling(false); sale.cancelTender(); }} />
+        ) : (
+          <>
+            {sale.order.payments.length > 0 ? <Button variant="ghost" testID="checkout-cancel-payment" onPress={requestCancel}><Text>Cancel payment</Text></Button> : null}
+            <SplitTender sale={{ ...sale, cancelTender: requestCancel }} />
+          </>
+        )
+      ) : <Tender sale={sale} />) : (
         <>
           <Text>Taking payment arrives in the next update</Text>
           <Button onPress={() => sale.cancelTender()}><Text>Back to cart</Text></Button>
