@@ -49,10 +49,11 @@ core REST API), `Free` (the `woocommerce-pos` plugin), `Pro`
 (`woocommerce-pos-pro`). This app uses those contracts as they ship and
 never changes them ([ADR 0001](adr/0001-repo-place-and-boundaries.md)).
 
-**TallyUI** is what `@tallyui/*@2.0.0` already provides. `conn` is
-`@tallyui/connector-woocommerce`, which has products only: one schema
-keyed on the WCPOS plugin's `uuid`, a pull sync and a replication, with
-consumer-key auth. `pos` is `@tallyui/pos`, which already has the
+**TallyUI** is what `@tallyui/*@3.7.1` already provides, and `app` is
+what this app builds on it. `conn` is `@tallyui/connector-woocommerce`:
+products (one schema keyed on the WCPOS plugin's `uuid`, a pull sync and
+a replication), customer search and create, order push and the store's
+capabilities, signed in with the plugin's access and refresh tokens. `pos` is `@tallyui/pos`, which already has the
 commerce-agnostic domain: cart and sale, order builder and parked orders,
 tax maths, tender, register sessions and closure documents, receipt data,
 and an order outbox with a pluggable transport. So most gaps are
@@ -63,8 +64,8 @@ front desk before the milestone that needs it ([PLAN.md](PLAN.md)).
 
 | Feature | WCPOS behaviour | Status | Server | TallyUI |
 |---|---|---|---|---|
-| Connect a store | Site → cashier → store; each site lists its authorised cashiers | in flux (plugin floor raised, #1949, #2220) | Free | conn: consumer keys only |
-| Browser-based login | Browser authorisation endpoint issuing access/refresh tokens (JWT) | stable | Free | gap |
+| Connect a store | Site → cashier → store; each site lists its authorised cashiers | in flux (plugin floor raised, #1949, #2220) | Free | app: one store URL, then the plugin's sign-in page; no cashier or store picker |
+| Browser-based login | Browser authorisation endpoint issuing access/refresh tokens (JWT) | stable | Free | app: `/wcpos-auth` sign-in, tokens kept and refreshed |
 | Session management | List and revoke a user's sessions across devices | stable | Free | gap |
 | Switch cashier at the till | Change cashier without reconnecting; on next, from the register's user sheet | in flux (#1996, roadmap#268) | Free | gap |
 | Capability gating | Controls lock by the cashier's WordPress capabilities; unknown fails open | stable | Free | gap |
@@ -76,11 +77,11 @@ front desk before the milestone that needs it ([PLAN.md](PLAN.md)).
 | Feature | WCPOS behaviour | Status | Server | TallyUI |
 |---|---|---|---|---|
 | Product sync, offline | Catalogue stored on device, browsable offline, background sync | stable (engine reworked under the hood: sync-engine +2.9k lines) | Free (uuid) | conn: products, pull only |
-| Grid and table views | Grid default, 2–8 columns, configurable tile fields; table toggle | stable for grid and table (#1785 closed 2026-09-03; the panel side moved to Configurable register layout); tile visuals still moving | Woo | app: grid by default at 4 a row, tile size 2–8 in Product settings (phones keep 2); tile fields Name, Price, Category, SKU, Barcode and Stock (Name and Price on); a sortable table with column switches; Restore default settings; saved per device. Differences: tile size is buttons, not a slider (G-G6); no column reorder (G-G5); stock and category are table columns, not sub-fields under the name; no Tax or On Sale tile field (G-G4) and no Cost of Goods Sold (G-G3) |
-| Variations | Variations popover with attribute pickers and stock badge | stable | Woo / Free | gap |
+| Grid and table views | Grid default, 2–8 columns, configurable tile fields; table toggle | stable for grid and table (#1785 closed 2026-09-03; the panel side moved to Configurable register layout); tile visuals still moving | Woo | app: grid by default at 4 a row, a 2–8 tile-size slider in Product settings (phones keep 2); tile fields Name, Price, Category, SKU, Barcode and Stock (Name and Price on); a sortable table with column switches; Restore default settings; saved per device. Differences: no column reorder (G-G5); stock and category are table columns, not sub-fields under the name; no Tax or On Sale tile field (G-G4) and no Cost of Goods Sold (G-G3) |
+| Variations | Variations popover with attribute pickers and stock badge | stable | Woo / Free | app (partial): a variable product opens Choose an option, a flat list of variations with price and stock; no attribute pickers |
 | Product search | Any-order substring over name, SKU, barcode | stable | Woo | pos: `searchProducts` |
 | Quick filters | Merchant-built quick-filter buttons with an editor; price and type filters | v2-only (#1839) | Woo | gap |
-| Barcode scanning | Scanner input adds products (`@wcpos/scanner`); the barcode field is the plugin's, Woo core's is `global_unique_id` | stable | Free | gap (scanner) |
+| Barcode scanning | Scanner input adds products (`@wcpos/scanner`); the barcode field is the plugin's, Woo core's is `global_unique_id` | in flux (scanning reworked on next: scan hub, online resolve, sounds, scanner profiles) | Free | app (partial): Enter in search or a web keyboard-wedge burst adds the match; lookup is barcode, then SKU, then a variable parent (opens Choose an option); an unknown or ambiguous code stays in search with a message; out of stock is refused. Differences: a scanned variable parent opens the variation choice where v2 adds the parent; feedback is the message line, no toasts, sounds or haptics; web keyboard wedge only; timing constants, no prefix, suffix or settings page; no UPC/EAN equivalence, online resolve or custom barcode meta field; works while the catalogue is on screen. Gaps G-B1–G-B8 in the barcode survey |
 | Decimal quantities | Fractional quantities on POS requests | stable | Free | check pos cart |
 | Stock and overselling guard | Stock shown; optional block on over-quantity adds and at checkout | stable | Free (setting) | pos: `stock` |
 | Products admin screen | Edit stock, price, COGS inline | stable | Pro | gap (writes) |
@@ -99,8 +100,8 @@ front desk before the milestone that needs it ([PLAN.md](PLAN.md)).
 | Fees and shipping lines | Fee and shipping lines on the cart | stable | Woo | app: Add charge (fee or shipping, with tax status and class) when the store's `/status` lists `order_create_v5`, which only the TallyUI fork of the plugin does. A stock store stays on order.create v3 with no charges (TallyUI 3.5.3 is capability-only) |
 | Miscellaneous product | Ad-hoc line with a name and price | stable | Woo | app: Add charge → Custom item, under the same `order_create_v5` gate as fees and shipping |
 | Tax calculation | On-device port of WooCommerce's rate matcher and rounding | stable (tax settings locked to store values on next, #1970) | Woo | pos: tax maths; gap: rate data, Woo rounding parity |
-| Customers at the till | Search by name, email, company, phone, tax ID; attach; guest orders | stable | Woo / Free | gap |
-| Customer create and edit | Create and edit customers at the register, including tax IDs | stable | Pro | gap |
+| Customers at the till | Search by name, email, company, phone, tax ID; attach; guest orders | stable | Woo / Free | app: search the store's customers, attach one, or sell as guest |
+| Customer create and edit | Create and edit customers at the register, including tax IDs | stable | Pro | app (partial): create with email, name and phone; no edit and no tax IDs |
 | Order notes and meta | Add a note; edit order meta | in flux (`add-note` removed, `edit-order-meta` reworked on next) | Woo | gap |
 
 ## Checkout and payments
