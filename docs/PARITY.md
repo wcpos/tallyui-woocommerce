@@ -147,7 +147,7 @@ front desk before the milestone that needs it ([PLAN.md](PLAN.md)).
 | Receipt screen | Optimistic local render then server upgrade; zoom; template switcher; PDF | in flux (+3k lines: identity blocks, print intent, offline copies) | Free | pos: receipt data |
 | Receipt templates | Logicless (Mustache) and thermal XML templates synced to the device; legacy PHP via server | stable | Free | gap |
 | Browser print | System print dialog fallback | stable | none | app |
-| Email receipt, offline queue | Send when online; retry with back-off; health panel | stable | Free (Woo core can also send order details) | gap |
+| Email receipt, offline queue | Send when online; retry with back-off; health panel | stable | Free (Woo core can also send order details) | app, partial: a receipt email is queued on this device and sent once the sale has synced and the till is online (on change, on `online` and every 30 s). A send that fails stops and shows the reason. Send again is available from the sale's receipt, or from Store health's "receipt emails waiting" panel, which also removes a waiting or failed email. Differences: no automatic retry with back-off and no try count; a send cut off mid-flight is marked failed at next start rather than retried |
 | Thermal printing | ESC/POS, StarPRNT, ePOS; Epson and Star on web; raw TCP, USB, Bluetooth on native and desktop | in flux (`@wcpos/printer` +1.1k lines) | none | gap (printer) |
 | Label printer formats | ZPL, CPCL, TSPL outputs | stable | Free | gap (printer) |
 | Multi-printer routing | Manual, per-template override, auto-match by type and width | stable | none | gap (printer) |
@@ -168,7 +168,7 @@ front desk before the milestone that needs it ([PLAN.md](PLAN.md)).
 | Feature | WCPOS behaviour | Status | Server | TallyUI |
 |---|---|---|---|---|
 | Platforms | Web, iOS, Android, desktop (Electron) | stable | none | app (Expo) |
-| Store health | Performance, database coverage, storage footprint, logs; Registers panel on next | in flux (additive, #1969) | Free | gap |
+| Store health | Performance, database coverage, storage footprint, logs; Registers panel on next | in flux (additive, #1969) | Free | app, partial: a Store health screen (`health-navigation` in the catalogue header) with v2's queued receipt emails panel: hidden when empty, v2's callout title and failed or pending body, and one row per waiting or failed email with its order number once synced. Each row has a failed or waiting badge, the time it was queued and the last error. Send again appears on failed rows and Remove on all rows; Remove refuses an email already being sent, with v2's in-flight message. Messages show inline (no toast). No performance, database coverage, storage footprint, logs or Registers panels |
 | Logs | Level-filtered log ledger; register and checkout events on next | in flux (#2009, #2034) | Free | pos: logging |
 | Settings | General, tax, theme, barcode, printing, printers; customer display on next | in flux (+1.5k lines) | Free | pos: store settings |
 | Translations and RTL | i18next, RTL | stable | none | gap |
