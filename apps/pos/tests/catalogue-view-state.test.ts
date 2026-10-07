@@ -1,7 +1,7 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { AppCatalogueViewState } from '../lib/catalogue/catalogue-view-state';
-import { CATALOGUE_VIEW_DEFAULTS, CATALOGUE_VIEW_KEY, loadCatalogueView, saveCatalogueView, useCatalogueView } from '../lib/catalogue/catalogue-view-state';
+import { CATALOGUE_VIEW_DEFAULTS, CATALOGUE_VIEW_KEY, dragProductsWidth, loadCatalogueView, moveProductsWidth, saveCatalogueView, useCatalogueView } from '../lib/catalogue/catalogue-view-state';
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 
@@ -41,6 +41,7 @@ test('saves the exact JSON and round-trips a table state', () => {
     columns: CATALOGUE_VIEW_DEFAULTS.columns.map(c => ({ ...c, visible: c.id === 'sku' ? true : c.id === 'category' ? false : c.visible })),
     tileFields: { ...CATALOGUE_VIEW_DEFAULTS.tileFields, sku: true, price: false },
     position: 'right',
+    width: 37.5,
   };
   saveCatalogueView(state, storage);
   expect(storage.getItem(CATALOGUE_VIEW_KEY)).toBe(JSON.stringify(state));
@@ -123,4 +124,37 @@ test.each(['{"view":"table","tileFields":[true]}', '{"view":"table","tileFields"
   const state = loadCatalogueView(storage);
   expect(state).toEqual({ ...CATALOGUE_VIEW_DEFAULTS, view: 'table' });
   expect(state.tileFields).not.toBe(CATALOGUE_VIEW_DEFAULTS.tileFields);
+});
+
+test('a stored value without width loads 60', () => {
+  const storage = memoryStorage();
+  storage.setItem(CATALOGUE_VIEW_KEY, '{"view":"table"}');
+  expect(loadCatalogueView(storage).width).toBe(60);
+});
+
+test.each([[40, 40], [37.25, 37.25], [10, 25], [90, 75], ['50', 60], [null, 60], [Number.NaN, 60]])('width %s normalises to %s', (width, expected) => {
+  const storage = memoryStorage();
+  storage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ width }));
+  expect(loadCatalogueView(storage).width).toBe(expected);
+});
+
+test('moveProductsWidth moves the handle and clamps', () => {
+  expect(moveProductsWidth(60, 5, 'left')).toBe(65);
+  expect(moveProductsWidth(60, -5, 'left')).toBe(55);
+  expect(moveProductsWidth(72, 5, 'left')).toBe(75);
+  expect(moveProductsWidth(60, -100, 'left')).toBe(25);
+  expect(moveProductsWidth(60, 5, 'right')).toBe(55);
+  expect(moveProductsWidth(60, 100, 'right')).toBe(25);
+});
+
+test('dragProductsWidth turns pixels into points', () => {
+  expect(dragProductsWidth(60, 100, 1000, 'left')).toBe(70);
+  expect(dragProductsWidth(60, 100, 1000, 'right')).toBe(50);
+  expect(dragProductsWidth(60, -1000, 1000, 'left')).toBe(25);
+  expect(dragProductsWidth(60, 50, 0, 'left')).toBe(60);
+  expect(dragProductsWidth(80, 0, 1000, 'left')).toBe(75);
+});
+
+test('Restore defaults include the default width', () => {
+  expect(CATALOGUE_VIEW_DEFAULTS.width).toBe(60);
 });

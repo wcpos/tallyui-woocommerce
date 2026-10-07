@@ -8,7 +8,13 @@ export interface CatalogueColumnSetting { id: CatalogueColumnId; visible: boolea
 export type CatalogueTileFieldId = 'name' | 'price' | 'category' | 'sku' | 'barcode' | 'stock';
 export type CatalogueTileFields = Record<CatalogueTileFieldId, boolean>;
 export type PanelPosition = 'left' | 'right';
-export interface AppCatalogueViewState extends CatalogueViewState { columns: CatalogueColumnSetting[]; tileFields: CatalogueTileFields; position: PanelPosition }
+// WCPOS v2's pos-products.width: the products pane's share of the till in percent. Both panes keep at least 25%,
+// and the resize handle's arrow keys move it 5 points.
+export const PRODUCTS_WIDTH_DEFAULT = 60;
+export const PRODUCTS_WIDTH_MIN = 25;
+export const PRODUCTS_WIDTH_MAX = 75;
+export const PRODUCTS_WIDTH_STEP = 5;
+export interface AppCatalogueViewState extends CatalogueViewState { columns: CatalogueColumnSetting[]; tileFields: CatalogueTileFields; position: PanelPosition; width: number }
 // Stock and categories are columns here because ProductTable has no name sub-fields.
 export const CATALOGUE_COLUMNS: { id: CatalogueColumnId; label: string; visible: boolean }[] = [
   { id: 'name', label: 'Name', visible: true },
@@ -35,10 +41,32 @@ export const CATALOGUE_VIEW_DEFAULTS: AppCatalogueViewState = {
   tileFields: Object.fromEntries(CATALOGUE_TILE_FIELDS.map(({ id, visible }) => [id, visible])) as CatalogueTileFields,
   // v2's pos-products.position: the side the products pane takes, with the cart on the other side.
   position: 'left',
+  // v2's pos-products.width.
+  width: PRODUCTS_WIDTH_DEFAULT,
 };
 
 export function normalizePanelPosition(raw: unknown): PanelPosition {
   return raw === 'right' ? 'right' : 'left';
+}
+
+export function clampProductsWidth(width: number): number {
+  return Math.min(PRODUCTS_WIDTH_MAX, Math.max(PRODUCTS_WIDTH_MIN, width));
+}
+
+export function normalizeProductsWidth(raw: unknown): number {
+  return typeof raw === 'number' && Number.isFinite(raw) ? clampProductsWidth(raw) : PRODUCTS_WIDTH_DEFAULT;
+}
+
+// Moves the handle between the panes by `delta` points (positive is rightwards). With the products on the right,
+// moving the handle right narrows them.
+export function moveProductsWidth(width: number, delta: number, position: PanelPosition): number {
+  return clampProductsWidth(width + (position === 'right' ? -delta : delta));
+}
+
+// The products width after dragging the handle `dx` pixels across a till `groupWidth` pixels wide.
+export function dragProductsWidth(start: number, dx: number, groupWidth: number, position: PanelPosition): number {
+  if (!(groupWidth > 0)) return clampProductsWidth(start);
+  return moveProductsWidth(start, (dx / groupWidth) * 100, position);
 }
 
 export function normalizeCatalogueColumns(raw: unknown): CatalogueColumnSetting[] {
@@ -73,6 +101,7 @@ export function loadCatalogueView(storage?: Storage): AppCatalogueViewState {
       columns: normalizeCatalogueColumns(typeof parsed === 'object' && parsed !== null ? parsed.columns : undefined),
       tileFields: normalizeCatalogueTileFields(typeof parsed === 'object' && parsed !== null ? parsed.tileFields : undefined),
       position: normalizePanelPosition(typeof parsed === 'object' && parsed !== null ? parsed.position : undefined),
+      width: normalizeProductsWidth(typeof parsed === 'object' && parsed !== null ? parsed.width : undefined),
     };
   } catch { return CATALOGUE_VIEW_DEFAULTS; }
 }
