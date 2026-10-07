@@ -84,11 +84,17 @@ export function CatalogueView({
       setSortOverride(qf.sort ?? null);
     }
   }
+  function changeQuickFilters(next: QuickFilter[]) {
+    // Without v2's filter pills nothing would show the filters of an applied quick filter that was deleted or changed, so reset.
+    const applied = quickFilters.find(isActive);
+    if (applied && !next.some(qf => qf.id === applied.id && isActive(qf))) { setFilters({}); setTerm(''); setSortOverride(null); }
+    setQuickFilters(next);
+  }
   const searchSlot = <View className="gap-2"><SearchInput value={term} onChangeText={setTerm} placeholder="Search name, SKU or barcode"
     onSubmitEditing={() => { const code = term.trim(); if (code && onScan) scan(code); }} />
     <View className="flex-row items-start gap-2">
       <View className="flex-1"><QuickFilterBar quickFilters={quickFilters} isActive={isActive} onPress={pressQuickFilter} /></View>
-      <FilterBarDialog quickFilters={quickFilters} onChange={setQuickFilters} products={products} connector={connector} currency={currency} baselineSort={viewState.sort} />
+      <FilterBarDialog quickFilters={quickFilters} onChange={changeQuickFilters} products={products} connector={connector} currency={currency} baselineSort={viewState.sort} />
     </View>
   </View>;
   const emptyState = <Text>{searching || filtered ? 'No products match' : 'No products yet'}</Text>;

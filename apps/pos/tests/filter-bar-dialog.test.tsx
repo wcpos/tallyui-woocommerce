@@ -172,3 +172,62 @@ test('close shuts the dialog', () => {
   fireEvent.click(screen.getByTestId('filter-bar-modal-close'));
   expect(screen.queryByTestId('filter-bar-modal')).toBeNull();
 });
+
+test('deleting the applied quick filter clears its filters', () => {
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('quick-filter-sale'));
+  expect(screen.queryByText('T-Shirt')).toBeNull();
+  fireEvent.click(screen.getByTestId('filter-bar-customize'));
+  fireEvent.click(screen.getByTestId('filter-bar-delete-sale'));
+  fireEvent.click(screen.getByTestId('filter-bar-delete-confirm'));
+  fireEvent.click(screen.getByTestId('filter-bar-modal-close'));
+  expect(screen.getByText('Espresso')).not.toBeNull();
+  expect(screen.getByText('Cold Brew')).not.toBeNull();
+  expect(screen.getByText('T-Shirt')).not.toBeNull();
+});
+
+test('changing the applied quick filter conditions clears its filters', () => {
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('quick-filter-sale'));
+  fireEvent.click(screen.getByTestId('filter-bar-customize'));
+  fireEvent.click(screen.getByTestId('filter-bar-edit-sale'));
+  fireEvent.click(screen.getByTestId('quick-filter-toggle-on_sale-no'));
+  fireEvent.click(screen.getByTestId('quick-filter-save'));
+  fireEvent.click(screen.getByTestId('filter-bar-modal-close'));
+  expect(screen.getByText('Espresso')).not.toBeNull();
+  expect(screen.getByText('Cold Brew')).not.toBeNull();
+  expect(screen.getByText('T-Shirt')).not.toBeNull();
+  expect(screen.getByTestId('quick-filter-sale').getAttribute('aria-pressed')).toBe('false');
+});
+
+test('renaming the applied quick filter keeps it applied', () => {
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('quick-filter-sale'));
+  fireEvent.click(screen.getByTestId('filter-bar-customize'));
+  fireEvent.click(screen.getByTestId('filter-bar-edit-sale'));
+  fireEvent.change(screen.getByTestId('quick-filter-name'), { target: { value: 'Sale items' } });
+  fireEvent.click(screen.getByTestId('quick-filter-save'));
+  fireEvent.click(screen.getByTestId('filter-bar-modal-close'));
+  expect(screen.getByTestId('quick-filter-sale').getAttribute('aria-pressed')).toBe('true');
+  expect(screen.getByTestId('quick-filter-sale').textContent).toContain('Sale items');
+  expect(screen.queryByText('T-Shirt')).toBeNull();
+});
+
+test('reordering keeps the applied quick filter applied', () => {
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('quick-filter-sale'));
+  fireEvent.click(screen.getByTestId('filter-bar-customize'));
+  fireEvent.click(screen.getByTestId('filter-bar-move-down-sale'));
+  fireEvent.click(screen.getByTestId('filter-bar-modal-close'));
+  expect(screen.getByTestId('quick-filter-sale').getAttribute('aria-pressed')).toBe('true');
+  expect(screen.queryByText('T-Shirt')).toBeNull();
+});
+
+test('editing another quick filter loads it into the editor', () => {
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('filter-bar-customize'));
+  fireEvent.click(screen.getByTestId('filter-bar-edit-sale'));
+  expect((screen.getByTestId('quick-filter-name') as HTMLInputElement).value).toBe('On sale');
+  fireEvent.click(screen.getByTestId('filter-bar-edit-cheap'));
+  expect((screen.getByTestId('quick-filter-name') as HTMLInputElement).value).toBe('Under 5');
+});
