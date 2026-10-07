@@ -54,11 +54,12 @@ export function FilterBarDialog({ quickFilters, onChange, products, connector, c
         <ScrollView style={{ maxHeight: Math.round(height * 0.7) }}>
           <View className="flex-col gap-4 md:flex-row">
             <View className="gap-2 md:w-2/5">
-              {quickFilters.map((qf, index) => <View key={qf.id} testID={`filter-bar-item-${qf.id}`} className="flex-row items-center gap-2">
-                <View className="flex-1">
+              {quickFilters.map((qf, index) => <View key={qf.id} testID={`filter-bar-item-${qf.id}`} className="gap-1">
+                <View>
                   <Text>{qf.label}</Text>
-                  <Text>{describeQuickFilter(qf, formatPrice)}</Text>
+                  <Text className="text-sm text-muted-foreground">{describeQuickFilter(qf, formatPrice)}</Text>
                 </View>
+                <View className="flex-row flex-wrap items-center gap-2">
                 {/* v2 reorders by drag; buttons work the same on touch and keyboard. */}
                 <Button variant="ghost" testID={`filter-bar-move-up-${qf.id}`} accessibilityLabel={`Move ${qf.label} up`}
                   disabled={index === 0} onPress={() => move(index, index - 1)}><Text>↑</Text></Button>
@@ -67,6 +68,7 @@ export function FilterBarDialog({ quickFilters, onChange, products, connector, c
                 <Button variant="ghost" testID={`filter-bar-edit-${qf.id}`}
                   onPress={() => setEditing({ mode: 'edit', quickFilter: qf })}><Text>Edit</Text></Button>
                 <Button variant="ghost" testID={`filter-bar-delete-${qf.id}`} onPress={() => setDeleting(qf)}><Text>Delete</Text></Button>
+                </View>
               </View>)}
               <Button variant="outline" testID="filter-bar-add-quick-filter" onPress={() => setEditing({ mode: 'new' })}>
                 <Text>Add quick filter</Text>
@@ -92,12 +94,16 @@ export function FilterBarDialog({ quickFilters, onChange, products, connector, c
           <AlertDialogDescription>This removes the quick filter from the filter bar.</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel testID="filter-bar-delete-cancel" onPress={() => setDeleting(null)}><Text>Cancel</Text></AlertDialogCancel>
-          <AlertDialogAction testID="filter-bar-delete-confirm" onPress={() => {
+          <AlertDialogCancel asChild onPress={() => setDeleting(null)}>
+            <Button variant="outline" testID="filter-bar-delete-cancel"><Text>Cancel</Text></Button>
+          </AlertDialogCancel>
+          <AlertDialogAction asChild onPress={() => {
             onChange(quickFilters.filter(qf => qf.id !== deleting.id));
             if (editing?.mode === 'edit' && editing.quickFilter.id === deleting.id) setEditing(null);
             setDeleting(null);
-          }}><Text>Delete</Text></AlertDialogAction>
+          }}>
+            <Button variant="destructive" testID="filter-bar-delete-confirm"><Text>Delete</Text></Button>
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>}
