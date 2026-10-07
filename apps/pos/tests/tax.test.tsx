@@ -48,6 +48,13 @@ function renderTill(capabilities?: ServerCapabilities) {
   </OutboxProvider></SessionProvider>);
 }
 
+// The sale screen mounts outside act() once taxes resolve, so useSale may subscribe to the order after a tile
+// click; wait for the product's cart line before the next step depends on it (issue #81).
+async function addToCart(name: string) {
+  fireEvent.click(await screen.findByText(name));
+  await screen.findByRole('button', { name: `Increase ${name}` });
+}
+
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
   const data = new Map<string, string>();
@@ -85,7 +92,7 @@ afterEach(() => {
 
 test('matches WooCommerce order #136: tax 1.16 and total 32.91', async () => {
   renderTill();
-  fireEvent.click(await screen.findByText('Espresso'));
+  await addToCart('Espresso');
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
   for (const name of ['Croissant', 'Tote Bag', 'Banana Bread']) fireEvent.click(screen.getByText(name));
@@ -100,7 +107,7 @@ test('matches WooCommerce order #136: tax 1.16 and total 32.91', async () => {
 
 test('taxes a reduced-rate fee, leaves a No-tax fee and inherited shipping untaxed, as WooCommerce does', async () => {
   renderTill(CHARGES);
-  fireEvent.click(await screen.findByText('Croissant'));
+  await addToCart('Croissant');
   fireEvent.click(screen.getByRole('button', { name: 'Add charge' }));
   const bag = within(screen.getByTestId('charge-form'));
   fireEvent.change(bag.getByLabelText('Name'), { target: { value: 'Bag' } });
@@ -141,7 +148,7 @@ test('does not mount the sale while taxes are pending', async () => {
   expect(screen.queryByRole('button', { name: 'Cash' })).toBeNull();
   expect(screen.queryByText('Espresso')).toBeNull();
   await act(async () => { release(Response.json(taxes)); });
-  fireEvent.click(await screen.findByText('Espresso'));
+  await addToCart('Espresso');
   await screen.findByText('Order store ready');
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
   expect(await screen.findByText('Cash Tendered')).not.toBeNull();
@@ -155,7 +162,7 @@ test('a taxes failure blocks the sale until Retry succeeds', async () => {
   expect(screen.queryByText('Espresso')).toBeNull();
   readTaxes = () => Response.json(taxes);
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-  fireEvent.click(await screen.findByText('Espresso'));
+  await addToCart('Espresso');
   await screen.findByText('Order store ready');
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
   expect(await screen.findByText('Cash Tendered')).not.toBeNull();
@@ -164,7 +171,7 @@ test('a taxes failure blocks the sale until Retry succeeds', async () => {
 test.each(['Order discount', 'Discount'])('inclusive stores take a sale with %s to tender', async control => {
   inclusive = true;
   renderTill();
-  fireEvent.click(await screen.findByText('Espresso'));
+  await addToCart('Espresso');
   await screen.findByText('Order store ready');
   fireEvent.click(screen.getByText(control, { exact: true }));
   fireEvent.change(screen.getByLabelText('Discount value'), { target: { value: '10' } });
