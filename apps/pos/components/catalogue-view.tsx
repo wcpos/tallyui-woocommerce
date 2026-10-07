@@ -30,12 +30,13 @@ export interface CatalogueViewProps {
   message?: string;
   onSignOut(): void;
   onOpenReports?(): void;
+  onOpenHealth?(): void;
   viewState?: AppCatalogueViewState;
   onViewStateChange?(next: AppCatalogueViewState): void;
 }
 
 export function CatalogueView({
-  connector, currency, products, storeName, cashierName, cashierControl, status, notice, onSignOut, onOpenReports, onSelect, onScan, message,
+  connector, currency, products, storeName, cashierName, cashierControl, status, notice, onSignOut, onOpenReports, onOpenHealth, onSelect, onScan, message,
   viewState: controlledViewState, onViewStateChange,
 }: CatalogueViewProps): JSX.Element {
   const [term, setTerm] = useState('');
@@ -110,6 +111,7 @@ export function CatalogueView({
           <ViewToggle value={viewState.view} onChange={view => setViewState({ ...viewState, view })} />
           <CatalogueDisplayOptions state={viewState} onChange={setViewState} />
           {onOpenReports && <Button onPress={onOpenReports}><Text>Reports</Text></Button>}
+          {onOpenHealth && <Button testID="health-navigation" onPress={onOpenHealth}><Text>Store health</Text></Button>}
           {cashierControl == null && <Button onPress={onSignOut}><Text>Sign out</Text></Button>}
         </View>
         <Text>{statusLine}</Text>
