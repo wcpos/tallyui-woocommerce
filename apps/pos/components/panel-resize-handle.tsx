@@ -72,7 +72,7 @@ export function PanelResizeHandle(props: PanelResizeHandleProps): JSX.Element {
       testID="pos-resize-handle" role="separator" aria-label="Resize products and cart"
       aria-valuemin={PRODUCTS_WIDTH_MIN} aria-valuemax={PRODUCTS_WIDTH_MAX}
       aria-valuenow={Math.round(props.width)} focusable tabIndex={0}
-      className="w-2 items-center justify-center cursor-ew-resize">
+      className="w-2 items-center justify-center cursor-ew-resize select-none">
       <View className="h-8 w-1 rounded-full bg-border" />
     </View>
   );
