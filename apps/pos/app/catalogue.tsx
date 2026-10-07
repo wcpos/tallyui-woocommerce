@@ -16,7 +16,7 @@ import { databaseName } from '../lib/catalogue/start-catalogue';
 const HELD_CART_PREFIX = 'tallywoo.held-cart.';
 
 export default function Catalogue() {
-  const { session, ready, signOut, cashiers, switchCashier, startAddCashier } = useSession();
+  const { session, ready, signOut, cashiers, switchCashier, removeCashier, startAddCashier } = useSession();
   const store = useTillStoreSettings(session);
   const { catalogue, products, status, notice, error } = useCatalogue();
   const router = useRouter();
@@ -70,6 +70,7 @@ export default function Catalogue() {
         }
       }}
       onAddCashier={startAddCashier}
+      onRemoveCashier={removeCashier}
       heldCartKey={`${HELD_CART_PREFIX}${databaseName(session)}`}
       status={status}
       notice={notice}

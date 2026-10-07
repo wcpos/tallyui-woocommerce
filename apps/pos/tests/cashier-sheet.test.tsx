@@ -78,6 +78,48 @@ test('the sheet lists the other cashiers and switches to the chosen one', async 
   });
 });
 
+test('Remove in the sheet asks first, then removes the chosen cashier', async () => {
+  await withParkedCarts(async parkedCarts => {
+    const onRemoveCashier = vi.fn();
+    const onSwitchCashier = vi.fn(async () => null);
+    render(<SaleScreen {...props} parkedCarts={parkedCarts} onRemoveCashier={onRemoveCashier} onSwitchCashier={onSwitchCashier} />);
+    fireEvent.click(screen.getByText('Espresso'));
+    fireEvent.click(screen.getByTestId('register-bar-avatar'));
+    fireEvent.click(screen.getByTestId('user-sheet-remove-b'));
+    expect(screen.getByText('Remove Sam')).not.toBeNull();
+    expect(screen.getByText('Are you sure you want to remove this user? Removing a user from the POS will not affect any data on the server.')).not.toBeNull();
+    expect(onRemoveCashier).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('user-sheet-remove-confirm'));
+    expect(onRemoveCashier).toHaveBeenCalledExactlyOnceWith('b');
+    expect(onSwitchCashier).not.toHaveBeenCalled();
+    expect(screen.getByTestId('user-sheet')).not.toBeNull();
+    expect(screen.queryByTestId('user-sheet-remove-confirm')).toBeNull();
+    expect(await parkedCarts.find().exec()).toEqual([]);
+    expect(localStorage.getItem('held-test')).toBeNull();
+  });
+});
+
+test('cancelling a remove keeps the cashier', async () => {
+  await withParkedCarts(async parkedCarts => {
+    const onRemoveCashier = vi.fn();
+    render(<SaleScreen {...props} parkedCarts={parkedCarts} onRemoveCashier={onRemoveCashier} />);
+    fireEvent.click(screen.getByTestId('register-bar-avatar'));
+    fireEvent.click(screen.getByTestId('user-sheet-remove-b'));
+    fireEvent.click(screen.getByTestId('user-sheet-remove-cancel'));
+    expect(onRemoveCashier).not.toHaveBeenCalled();
+    expect(screen.queryByText('Are you sure you want to remove this user? Removing a user from the POS will not affect any data on the server.')).toBeNull();
+    expect(screen.getByText('Switch to Sam')).not.toBeNull();
+  });
+});
+
+test('without onRemoveCashier the sheet shows no remove button', async () => {
+  await withParkedCarts(async parkedCarts => {
+    render(<SaleScreen {...props} parkedCarts={parkedCarts} />);
+    fireEvent.click(screen.getByTestId('register-bar-avatar'));
+    expect(screen.queryByTestId('user-sheet-remove-b')).toBeNull();
+  });
+});
+
 test('switching with a cart parks it under the held-cart key before switching', async () => {
   await withParkedCarts(async parkedCarts => {
     const onSwitchCashier = vi.fn(async () => {

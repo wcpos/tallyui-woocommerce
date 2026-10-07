@@ -180,6 +180,32 @@ test('signing out keeps the other cashiers, and signing one of them in again rem
   expect(fetch).not.toHaveBeenCalled();
 });
 
+test('removing a cashier forgets their sign-in and keeps the active cashier and other sites', async () => {
+  const bOther = { ...b, site: { ...b.site, home: 'https://other.example' } };
+  saveSession(a);
+  saveCashiers({ [home]: [b], 'https://other.example': [bOther] });
+  const { result } = renderHook(useSession, { wrapper });
+  await act(async () => {});
+  act(() => result.current.removeCashier(b.tokens.user.uuid));
+  expect(result.current.cashiers).toEqual([]);
+  expect(loadCashiers()).toEqual({ [home]: [], 'https://other.example': [bOther] });
+  expect(loadSession()).toEqual(a);
+  expect(result.current.session).toEqual(a);
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+test('removing the active cashier or an unknown one changes nothing', async () => {
+  saveSession(a);
+  saveCashiers({ [home]: [b] });
+  const { result } = renderHook(useSession, { wrapper });
+  await act(async () => {});
+  act(() => result.current.removeCashier(a.tokens.user.uuid));
+  act(() => result.current.removeCashier('nobody'));
+  expect(result.current.cashiers).toEqual([b]);
+  expect(loadCashiers()[home]).toEqual([b]);
+  expect(loadSession()).toEqual(a);
+});
+
 test('startAddCashier records an add for the active site', async () => {
   saveSession(a);
   const { result } = renderHook(useSession, { wrapper });

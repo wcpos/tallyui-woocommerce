@@ -44,6 +44,7 @@ export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | '
   cashier?: CashierCapabilities;
   cashiers?: CashierOption[];
   onSwitchCashier?(uuid: string): Promise<string | null>;
+  onRemoveCashier?(uuid: string): void;
   onAddCashier?(): void;
   heldCartKey?: string;
 }
@@ -304,6 +305,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     viewState={viewState} onViewStateChange={setViewState}
     cashierControl={props.onSwitchCashier ? <CashierSheet name={props.cashierName} cashiers={props.cashiers ?? []}
       onSwitch={changeCashier} onAddAnother={() => changeCashier()} onSignOut={props.onSignOut}
+      onRemove={props.onRemoveCashier}
       blockedReason={sale.stage.kind === 'tender' || sale.saving ? 'Finish or cancel the payment first.' : undefined}
     /> : props.cashierControl} />;
   const cartPane = (

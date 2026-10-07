@@ -10,6 +10,7 @@ interface SessionContextValue {
   cashiers: Session[];
   startAddCashier(): void;
   switchCashier(uuid: string): Promise<void>;
+  removeCashier(uuid: string): void;
   ready: boolean;
   startSignIn(siteInput: string): Promise<void>;
   completeSignIn(search: string): Session;
@@ -130,6 +131,16 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
     }
   }
 
+  function removeCashier(uuid: string): void {
+    const active = current.current;
+    if (!active || uuid === active.tokens.user.uuid) return;
+    const home = active.site.home;
+    const entries = loadCashiers();
+    const updated = { ...entries, [home]: (entries[home] ?? []).filter(entry => entry.tokens.user.uuid !== uuid) };
+    saveCashiers(updated);
+    setRoster(updated);
+  }
+
   function signOut(): void {
     clearSession();
     updateSession(null);
@@ -137,7 +148,7 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
 
   const cashiers = session ? (roster[session.site.home] ?? []).filter(entry => entry.tokens.user.uuid !== session.tokens.user.uuid) : [];
   return (
-    <SessionContext.Provider value={{ session, ready, cashiers, startSignIn, startAddCashier, switchCashier, completeSignIn, signOut }}>
+    <SessionContext.Provider value={{ session, ready, cashiers, startSignIn, startAddCashier, switchCashier, removeCashier, completeSignIn, signOut }}>
       {children}
     </SessionContext.Provider>
   );
