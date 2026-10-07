@@ -79,9 +79,11 @@ export function QueuedEmailsPanel({ collection, orders, now = () => new Date() }
         <Text className="font-semibold">{`${rows.length} receipt email${rows.length === 1 ? '' : 's'} waiting to go out`}</Text>
         <Text>{body}</Text>
         {rows.map(row => <View key={row.id} testID={`db-queued-email-row-${row.id}`} className="gap-2">
+          <View className="flex-row flex-wrap items-center gap-2">
           <Text>{`${row.email} · ${orderNumbers[row.id] !== undefined ? `#${orderNumbers[row.id]}` : `order ${row.id}`}`}</Text>
           <Badge variant={row.status === 'failed' ? 'destructive' : 'warning'} label={row.status === 'failed' ? 'failed' : 'waiting'}
             testID={`db-queued-email-${row.status === 'failed' ? 'failed' : 'pending'}-${row.id}`} />
+          </View>
           <Text>{`queued ${queuedAgo(row.queuedAt, now())}`}</Text>
           {row.error && <Text>{row.error}</Text>}
           <View className="flex-row gap-2">
