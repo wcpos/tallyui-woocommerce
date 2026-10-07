@@ -14,7 +14,7 @@ export interface PanelResizeHandleProps {
   width: number;
   position: PanelPosition;
   groupWidth: number;
-  onResize: (width: number) => void;
+  onResize: (width: number | null) => void; // null drops the preview
   onCommit: (width: number) => void;
 }
 
@@ -49,7 +49,7 @@ export function PanelResizeHandle(props: PanelResizeHandleProps): JSX.Element {
           onCommit(dragProductsWidth(start.current, gesture.dx, groupWidth, position));
         }
       },
-      onPanResponderTerminate: () => { latest.current.onResize(start.current); },
+      onPanResponderTerminate: () => { latest.current.onResize(null); },
     });
   }
   const webProps: WebViewProps = {
