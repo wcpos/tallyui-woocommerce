@@ -28,6 +28,7 @@ import { ReceiptIdentity } from './receipt-identity';
 import { RegisterControls, RegisterSwitch } from './register-controls';
 import { CancelPaymentView } from './cancel-payment-view';
 import { CashierSheet, type CashierOption } from './cashier-sheet';
+import { PanelResizeHandle } from './panel-resize-handle';
 
 // The till id; the bound register is the drawer.
 const REGISTER_ID = 'web';
@@ -54,6 +55,8 @@ export function SaleScreen(props: SaleScreenProps): JSX.Element {
 function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const { connector, currency, parkedCarts, mailer, receiptEmails } = props;
   const [viewState, setViewState] = useCatalogueView();
+  const [liveWidth, setLiveWidth] = useState<number | null>(null);
+  const [groupWidth, setGroupWidth] = useState(0);
   const effective: CashierCapabilities = props.cashier ?? { known: false, reason: 'Your permissions have not been read from the store.' };
   const outbox = useOutbox();
   const register = useRegister();
@@ -371,13 +374,19 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   );
 
   if (width >= 900) {
-    const productsPanel = <View key="products" testID="pos-products-panel" className="flex-[3]">{browse}</View>;
+    const shown = liveWidth ?? viewState.width;
+    const productsPanel = <View key="products" testID="pos-products-panel"
+      style={{ flexGrow: shown, flexShrink: 1, flexBasis: 0 }}>{browse}</View>;
     const cartPanel = <View key="cart" testID="pos-cart-panel"
-      className={`flex-[2] ${viewState.position === 'right' ? 'border-r' : 'border-l'} border-border`}>{cart}</View>;
+      style={{ flexGrow: 100 - shown, flexShrink: 1, flexBasis: 0 }}
+      className={`${viewState.position === 'right' ? 'border-r' : 'border-l'} border-border`}>{cart}</View>;
+    const handle = <PanelResizeHandle key="handle" width={shown} position={viewState.position}
+      groupWidth={groupWidth} onResize={setLiveWidth}
+      onCommit={w => { setViewState({ ...viewState, width: w }); setLiveWidth(null); }} />;
     return (
       <View className="flex-1 bg-bg bg-background">
-        <View className="flex-1 flex-row">
-          {viewState.position === 'right' ? [cartPanel, productsPanel] : [productsPanel, cartPanel]}
+        <View className="flex-1 flex-row" onLayout={event => setGroupWidth(event.nativeEvent.layout.width)}>
+          {viewState.position === 'right' ? [cartPanel, handle, productsPanel] : [productsPanel, handle, cartPanel]}
         </View>
       </View>
     );
