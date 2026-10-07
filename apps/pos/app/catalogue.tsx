@@ -76,6 +76,7 @@ export default function Catalogue() {
       notice={notice}
       onSignOut={() => { signOut(); router.replace('/connect'); }}
       onOpenReports={() => router.push('/reports')}
+      onOpenHealth={() => router.push('/health')}
     />}</StoreSettingsGate>
   );
 }
