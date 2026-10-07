@@ -181,3 +181,23 @@ test('a cancelled drag drops the preview so Restore shows 60', () => {
   expect(productsPanel.style.flexGrow).toBe('60');
   expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!).width).toBe(60);
 });
+
+test('a finished drag drops the preview so Restore shows 60', () => {
+  render(<><SaleScreen {...props} /><PortalHost /></>);
+  const handle = screen.getByTestId('pos-resize-handle');
+  const productsPanel = screen.getByTestId('pos-products-panel');
+  const row = handle.parentElement as HTMLElement & {
+    __reactLayoutHandler: (event: { nativeEvent: { layout: { width: number } } }) => void;
+  };
+  act(() => row.__reactLayoutHandler({ nativeEvent: { layout: { width: 900 } } }));
+  fireEvent.mouseDown(handle, { clientX: 540, clientY: 100, buttons: 1 });
+  fireEvent.mouseMove(handle, { clientX: 640, clientY: 100, buttons: 1 });
+  fireEvent.mouseUp(handle, { clientX: 640, clientY: 100 });
+  expect(handle.getAttribute('aria-valuenow')).toBe('71');
+  expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!).width).toBeCloseTo(60 + 100 / 9);
+  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
+  fireEvent.click(screen.getByTestId('catalogue-settings-restore'));
+  expect(handle.getAttribute('aria-valuenow')).toBe('60');
+  expect(productsPanel.style.flexGrow).toBe('60');
+  expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!).width).toBe(60);
+});
