@@ -12,6 +12,7 @@ import { isQuickFilterActive, matchesCatalogueFilters, quickFilterToQueryPatch, 
 import type { CatalogueFilters, QuickFilter } from '../lib/catalogue/quick-filters';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { CatalogueDisplayOptions } from './catalogue-display-options';
+import { FilterBarDialog } from './filter-bar-dialog';
 import { ProductTile } from './product-tile';
 import { QuickFilterBar } from './quick-filter-bar';
 
@@ -38,7 +39,7 @@ export function CatalogueView({
   viewState: controlledViewState, onViewStateChange,
 }: CatalogueViewProps): JSX.Element {
   const [term, setTerm] = useState('');
-  const [quickFilters] = useQuickFilters();
+  const [quickFilters, setQuickFilters] = useQuickFilters();
   const [filters, setFilters] = useState<CatalogueFilters>({});
   const [sortOverride, setSortOverride] = useState<ProductSort | null>(null);
   function scan(code: string) {
@@ -85,7 +86,10 @@ export function CatalogueView({
   }
   const searchSlot = <View className="gap-2"><SearchInput value={term} onChangeText={setTerm} placeholder="Search name, SKU or barcode"
     onSubmitEditing={() => { const code = term.trim(); if (code && onScan) scan(code); }} />
-    <QuickFilterBar quickFilters={quickFilters} isActive={isActive} onPress={pressQuickFilter} />
+    <View className="flex-row items-start gap-2">
+      <View className="flex-1"><QuickFilterBar quickFilters={quickFilters} isActive={isActive} onPress={pressQuickFilter} /></View>
+      <FilterBarDialog quickFilters={quickFilters} onChange={setQuickFilters} products={products} connector={connector} currency={currency} baselineSort={viewState.sort} />
+    </View>
   </View>;
   const emptyState = <Text>{searching || filtered ? 'No products match' : 'No products yet'}</Text>;
   const statusLine = status === 'error' ? 'Sync failed' : notice ? notice.message ?? notice.code

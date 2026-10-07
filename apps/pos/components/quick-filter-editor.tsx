@@ -33,7 +33,7 @@ export function QuickFilterEditor({ initial, products, connector, currency, base
   products: any[];
   connector: TallyConnector;
   currency: string;
-  baselineSort: ProductSort;
+  baselineSort: ProductSort | null;
   onSave(quickFilter: QuickFilter): void;
   onCancel(): void;
 }): JSX.Element {
