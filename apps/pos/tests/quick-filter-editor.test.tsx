@@ -274,3 +274,22 @@ test('cancel calls onCancel and does not save', () => {
   expect(onCancel).toHaveBeenCalledOnce();
   expect(onSave).not.toHaveBeenCalled();
 });
+
+test('the preview applies the search condition', () => {
+  renderEditor({ id: 'brew', type: 'quick', label: 'Brew', conditions: [{ field: 'search', value: 'Brew' }] });
+  act(() => vi.advanceTimersByTime(250));
+  expect(screen.getByTestId('quick-filter-preview-count').textContent).toBe('1 products match on this device');
+  expect(screen.getByTestId('quick-filter-preview-item-0').textContent).toBe('Cold Brew');
+  expect(screen.queryByTestId('quick-filter-preview-item-1')).toBeNull();
+});
+
+test('the preview lists at most five names', () => {
+  const manyProducts = Array.from({ length: 7 }, (_, i) => ({ ...products[0], id: 9000 + i, name: `Product ${i + 1}` }));
+  render(<><QuickFilterEditor initial={{ id: 'many', type: 'quick', label: 'Many', conditions: [{ field: 'search', value: 'Product' }] }}
+    products={manyProducts} connector={createWooCommerceConnector()} currency={stores[0].currency}
+    baselineSort={{ field: 'name', dir: 'asc' }} onSave={vi.fn()} onCancel={vi.fn()} /><PortalHost /></>);
+  act(() => vi.advanceTimersByTime(250));
+  expect(screen.getByTestId('quick-filter-preview-count').textContent).toBe('7 products match on this device');
+  expect(screen.getByTestId('quick-filter-preview-item-4').textContent).toBe('Product 5');
+  expect(screen.queryByTestId('quick-filter-preview-item-5')).toBeNull();
+});
