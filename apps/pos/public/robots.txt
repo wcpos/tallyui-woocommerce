@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+# No Sitemap line: the app has no public pages, every route needs a store sign-in (marketing backlog item 90).
