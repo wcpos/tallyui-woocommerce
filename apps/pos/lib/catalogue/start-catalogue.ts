@@ -2,6 +2,7 @@ import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import type { ServerCapabilities, SyncContext, TallyConnector } from '@tallyui/core';
 import { createTallyDatabase, startCatalogueReconcile, startReplication } from '@tallyui/database';
 import type { TallyDatabase, TallyReplicationState } from '@tallyui/database';
+import type { RxCollection } from 'rxdb';
 import { appStorage } from '../app-storage';
 import type { Session } from '../auth/session';
 import { fetchCashierCapabilities, type CashierCapabilities } from '../auth/capabilities';
@@ -10,8 +11,12 @@ import { receiptEmailSchema, type ReceiptEmailCollection } from '../receipts/rec
 import { fetchStoreInfo } from './store-info';
 import type { StoreInfo } from './store-info';
 
+// Reconcile is the coupons' only source: start at once so a coupon made in WooCommerce reaches the till within 15 minutes.
+const COUPON_RECONCILE_INTERVAL_MS = 15 * 60_000;
+
 export interface Catalogue {
   db: TallyDatabase;
+  coupons: RxCollection;
   parkedCarts: ParkedCartCollection;
   receiptEmails: ReceiptEmailCollection;
   connector: TallyConnector;
@@ -56,19 +61,28 @@ export async function startCatalogue(
     receipt_emails: { schema: receiptEmailSchema },
   });
   const replication = startReplication({ collection: db.products, adapter: connector.replication!.products!, context });
+  const couponReplication = startReplication({ collection: db.coupons, adapter: connector.replication!.coupons!, context });
   const reconcile = startCatalogueReconcile({
     collection: db.products, adapter: connector.reconcile!.catalogue!, context,
     reSync: () => replication.reSync(),
   });
+  const couponReconcile = startCatalogueReconcile({
+    collection: db.coupons, adapter: connector.reconcile!.coupons!, context,
+    reSync: () => couponReplication.reSync(), stateId: 'coupons-reconcile',
+    startDelayMs: 0, intervalMs: COUPON_RECONCILE_INTERVAL_MS,
+  });
   return {
-    db, parkedCarts, receiptEmails, connector, store, cashier, capabilities, replication,
+    db, coupons: db.coupons, parkedCarts, receiptEmails, connector, store, cashier, capabilities, replication,
     setAccessToken(token) {
       Object.assign(context.headers, connector.auth.getHeaders({ token }));
       void replication.resume();
+      void couponReplication.resume();
     },
     async stop() {
       reconcile.stop();
+      couponReconcile.stop();
       await replication.cancel();
+      await couponReplication.cancel();
       await db.close();
     },
   };

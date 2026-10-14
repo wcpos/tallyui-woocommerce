@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { OrderCreateEnvelope } from '@tallyui/core';
+import { woocommerceCoupons } from '@tallyui/core';
 import { createOrderBuilder, finalizeOrder, toOrderCreateEnvelope } from '@tallyui/pos';
 import type { Session } from '../lib/auth/session';
 import { CashierChangedError, orderTransport, ownerToken } from '../lib/sale/order-transport';
@@ -16,6 +17,7 @@ const session: Session = {
 };
 const fetchStub = vi.fn<typeof fetch>();
 let envelope: OrderCreateEnvelope;
+let couponEnvelope: OrderCreateEnvelope;
 
 beforeEach(() => {
   const builder = createOrderBuilder({
@@ -26,6 +28,16 @@ beforeEach(() => {
   });
   builder.addPayment({ method: 'cash', amountMinor: 600 });
   envelope = toOrderCreateEnvelope(finalizeOrder(builder.getSnapshot()), 'test-device');
+  builder.removePayment(builder.getSnapshot().payments[0].id);
+  const coupon = { id: 7, code: 'save10', discount_type: 'percent' as const, amount: '10' };
+  builder.setCoupons(['save10'], {
+    configs: woocommerceCoupons.toCouponConfigs(['save10'], new Map([['save10', coupon]])),
+    couponIds: new Map([['save10', '7']]), productCategories: new Map(), calcDiscountsSequentially: false,
+  });
+  builder.addPayment({ method: 'cash', amountMinor: builder.getSnapshot().totalMinor });
+  couponEnvelope = toOrderCreateEnvelope(
+    finalizeOrder(builder.getSnapshot(), { capabilities: { orderCreate: 6, coupons: true } }), 'test-device',
+  );
   fetchStub.mockReset().mockImplementation(async () => new Response(JSON.stringify({
     document: { id: 115, status: 'completed', total: (envelope.payload.totalMinor / 100).toFixed(6) },
     currentRevision: 'r1',
@@ -34,6 +46,39 @@ beforeEach(() => {
 });
 
 afterEach(() => { vi.unstubAllGlobals(); });
+
+test('acceptsCoupons true sends coupon_lines with the coupon code', async () => {
+  envelope = couponEnvelope;
+  await orderTransport(session, () => 't1', undefined, true).send([envelope]);
+  expect(fetchStub).toHaveBeenCalledTimes(1);
+  const { payload } = JSON.parse(fetchStub.mock.calls[0][1]!.body as string);
+  expect(payload.coupon_lines).toEqual([{ code: 'save10' }]);
+});
+
+test.each([undefined, () => false])('without acceptsCoupons a coupon order is rejected as coupons_unsupported and nothing is sent', async acceptsCoupons => {
+  envelope = couponEnvelope;
+  const transport = acceptsCoupons === undefined
+    ? orderTransport(session, () => 't1') : orderTransport(session, () => 't1', undefined, acceptsCoupons);
+  await expect(transport.send([envelope])).resolves.toMatchObject({
+    kind: 'results', results: [{ id: envelope.id, status: 'rejected', error: {
+      code: 'coupon_invalid', data: { storeCode: 'coupons_unsupported' },
+    } }],
+  });
+  expect(fetchStub).not.toHaveBeenCalled();
+});
+
+test('a 400 woocommerce_rest_invalid_coupon is rejected as coupon_invalid with the decoded message and the code', async () => {
+  envelope = couponEnvelope;
+  fetchStub.mockResolvedValue(Response.json({
+    code: 'woocommerce_rest_invalid_coupon', message: 'Coupon &quot;save10&quot; has <strong>expired</strong>.',
+  }, { status: 400 }));
+  await expect(orderTransport(session, () => 't1', undefined, true).send([envelope])).resolves.toMatchObject({
+    kind: 'results', results: [{ id: envelope.id, status: 'rejected', error: {
+      code: 'coupon_invalid', message: 'Coupon "save10" has expired.',
+      data: { storeCode: 'woocommerce_rest_invalid_coupon', couponCode: 'save10' },
+    } }],
+  });
+});
 
 test('ownerToken returns the live token while the owner is the live cashier', () => {
   const live = { ...session, tokens: { ...session.tokens, accessToken: 't9' } };

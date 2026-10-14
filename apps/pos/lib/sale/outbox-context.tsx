@@ -30,7 +30,8 @@ export function OutboxProvider({ children, transportFor, storage }: {
   const storeKey = session ? ordersDatabaseName(session) : null;
   const transport = useMemo(() => {
     const createTransport = transportFor ?? (s => orderTransport(s, ownerToken(s, () => latest.current),
-      () => latestCatalogue.current?.capabilities?.multiplePayments === true));
+      () => latestCatalogue.current?.capabilities?.multiplePayments === true,
+      () => latestCatalogue.current?.capabilities?.coupons === true));
     return session ? createTransport(session) : null;
   }, [storeKey]);
   const outbox = useOrderOutbox({
