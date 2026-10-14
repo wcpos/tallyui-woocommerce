@@ -85,13 +85,13 @@ test('parks the customer summary and omits the customer key for guests', () => {
   expect(parkCart(order)).not.toHaveProperty('customer');
 });
 
-test.each([undefined, gee])('the v2 schema stores a real parked cart with optional customer %j, variants and discount fields', async customer => {
+test.each([undefined, gee])('the v3 schema stores a real parked cart with optional customer %j, variants and discount fields', async customer => {
   const db = await createRxDatabase({
     name: `parked_${crypto.randomUUID()}`, multiInstance: false,
     storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }),
   });
   try {
-    expect(parkedCartSchema.version).toBe(2);
+    expect(parkedCartSchema.version).toBe(3);
     const { parked_carts } = await db.addCollections({
       parked_carts: { schema: parkedCartSchema, migrationStrategies: parkedCartMigrationStrategies },
     });
@@ -119,8 +119,49 @@ test.each([undefined, gee])('the v2 schema stores a real parked cart with option
   }
 });
 
+test("parkCart keeps the order's coupon codes in order", () => {
+  const order = orderFixture();
+  const coupons = [
+    { code: 'a', couponId: '1', discountMinor: 50, discountTaxMinor: 0 },
+    { code: 'b', couponId: '2', discountMinor: 20, discountTaxMinor: 0 },
+  ];
+  expect(parkCart({ ...order, coupons }).coupons).toEqual(['a', 'b']);
+  expect(parkCart({ ...order, coupons: [] })).not.toHaveProperty('coupons');
+  expect(parkCart(order)).not.toHaveProperty('coupons');
+});
+
+test('a v2 parked cart migrates to v3 unchanged', async () => {
+  const v2Properties: Record<string, unknown> = { ...parkedCartSchema.properties };
+  delete v2Properties.coupons;
+  const v2Schema = { ...parkedCartSchema, version: 2, properties: v2Properties } as RxJsonSchema<ParkedCart>;
+  const storage = wrappedValidateAjvStorage({ storage: getRxStorageMemory() });
+  const options = { name: 'parked_coupons_migration', multiInstance: false, storage };
+  const parked = parkCart(orderFixture(true));
+  const oldDb = await createRxDatabase(options);
+  try {
+    const { parked_carts } = await oldDb.addCollections({
+      parked_carts: { schema: v2Schema, migrationStrategies: { 1: (doc: any) => doc, 2: (doc: any) => doc } },
+    });
+    await parked_carts.insert(parked);
+  } finally {
+    await oldDb.close();
+  }
+  const db = await createRxDatabase(options);
+  try {
+    const { parked_carts } = await db.addCollections({
+      parked_carts: { schema: parkedCartSchema, migrationStrategies: parkedCartMigrationStrategies },
+    });
+    const carts = await parked_carts.find().exec();
+    expect(carts).toHaveLength(1);
+    expect(carts[0].toJSON()).toEqual(parked);
+    expect(carts[0].toJSON()).not.toHaveProperty('coupons');
+  } finally {
+    await db.remove();
+  }
+});
+
 test('migrates a v0 cart unchanged, without a customer, after reopening the database', async () => {
-  const v0Schema: RxJsonSchema<Omit<ParkedCart, 'customer' | 'fees' | 'shipping'>> = {
+  const v0Schema: RxJsonSchema<Omit<ParkedCart, 'customer' | 'fees' | 'shipping' | 'coupons'>> = {
     version: 0, primaryKey: 'id', type: 'object',
     properties: {
       id: { type: 'string', maxLength: 64 },
@@ -212,7 +253,7 @@ test('parks and restores a fee, shipping and a custom line with an equal total',
 });
 
 test('migrates a v1 cart unchanged and restores it', async () => {
-  const v1Schema: RxJsonSchema<Omit<ParkedCart, 'fees' | 'shipping'>> = {
+  const v1Schema: RxJsonSchema<Omit<ParkedCart, 'fees' | 'shipping' | 'coupons'>> = {
     version: 1, primaryKey: 'id', type: 'object',
     properties: {
       id: { type: 'string', maxLength: 64 },

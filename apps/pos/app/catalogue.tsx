@@ -33,6 +33,7 @@ export default function Catalogue() {
     baseUrl: latest.current!.site.wcposApiUrl,
     headers: connector.auth.getHeaders({ token: latest.current!.tokens.accessToken }),
   })) : null, [connector]);
+  const couponCollections = useMemo(() => catalogue ? { coupons: catalogue.coupons, products: catalogue.db.products } : undefined, [catalogue]);
   if (!ready) return null;
   if (!session) return <Redirect href="/connect" />;
   if (!catalogue) return (
@@ -52,6 +53,7 @@ export default function Catalogue() {
       locale={catalogue.store.locale}
       multiplePayments={catalogue.capabilities?.multiplePayments === true}
       capabilities={catalogue.capabilities}
+      couponCollections={couponCollections}
       cashier={catalogue.cashier}
       products={products}
       storeName={catalogue.store.name}

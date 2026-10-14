@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { View, useWindowDimensions } from 'react-native';
+import type { RxCollection } from 'rxdb';
 import { Button, Cart, CartBar, ParkedSales, Receipt, SplitTender, SyncStatus, Tender, Text } from '@tallyui/components';
-import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, taxProviderProps, useSale } from '@tallyui/pos';
+import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
+import { formatMoney } from '@tallyui/core';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
 import type { CatalogueEntry, ParkedOrderSummary, Payment, TenderVoid } from '@tallyui/pos';
 import { createCustomersBlockedReason, type CashierCapabilities } from '../lib/auth/capabilities';
@@ -12,6 +14,7 @@ import { buildReceiptIdentity } from '../lib/receipts/receipt-identity';
 import { useReceiptPrintCount } from '../lib/receipts/use-receipt-print-count';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { parkCart, restoreCart } from '../lib/sale/parked-carts';
+import { saleDiscountCodes } from '../lib/sale/discount-codes';
 import { taxClassOptions } from '../lib/sale/tax-classes';
 import { lookupCode } from '../lib/scan/lookup';
 import { recordTenderVoids, type TenderVoidCollection } from '../lib/sale/tender-voids';
@@ -28,6 +31,7 @@ import { ReceiptIdentity } from './receipt-identity';
 import { RegisterControls, RegisterSwitch } from './register-controls';
 import { CancelPaymentView } from './cancel-payment-view';
 import { CashierSheet, type CashierOption } from './cashier-sheet';
+import { CouponEntry } from './coupon-entry';
 import { PanelResizeHandle } from './panel-resize-handle';
 
 // The till id; the bound register is the drawer.
@@ -41,6 +45,7 @@ export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | '
   storeSettings: StoreSettings; locale?: string;
   multiplePayments?: boolean;
   capabilities?: ServerCapabilities;
+  couponCollections?: { coupons: RxCollection; products: RxCollection };
   cashier?: CashierCapabilities;
   cashiers?: CashierOption[];
   onSwitchCashier?(uuid: string): Promise<string | null>;
@@ -63,12 +68,21 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const register = useRegister();
   useReceiptEmailSender({ collection: mailer ? receiptEmails ?? null : null, mailer: mailer ?? null,
     orders: outbox.enabled ? outbox.orders : null });
-  const sale = useSale({ currency }, {
+  const outboxOrders = outbox.enabled ? outbox.orders : null;
+  const discountCodes = useMemo(() => props.couponCollections && outboxOrders
+    ? saleDiscountCodes({ ...props.couponCollections, orders: outboxOrders }) : undefined, [props.couponCollections, outboxOrders]);
+  const capabilities: ServerCapabilities = props.capabilities ?? DEFAULT_CAPABILITIES;
+  const { rounding } = useTax();
+  // useSale's own coupon gate (codesFor): the UI shows only when applyCoupon can succeed.
+  const couponsOffered = capabilities.coupons === true && (capabilities.orderCreate ?? 0) >= 6
+    && !!discountCodes && discountCodes.supports({ capabilities, rounding });
+  const sale = useSale({ currency, calcDiscountsSequentially: props.storeSettings.calcDiscountsSequentially }, {
     registerId: REGISTER_ID, cashierRef: props.cashierRef,
-    capabilities: props.capabilities ?? DEFAULT_CAPABILITIES,
+    capabilities,
     session: register?.saleSession,
     onSaleCompleted: outbox.enabled ? outbox.record : undefined,
     isStored: outbox.enabled ? outbox.isStored : undefined,
+    discountCodes,
   });
   const printCount = useReceiptPrintCount(sale.stage.kind === 'receipt' ? sale.stage.posOrder.id : null);
   const { width } = useWindowDimensions();
@@ -156,9 +170,17 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     if (step.done) {
       restoreSteps.current = null;
       setRestoring(undefined);
-      setMessage(step.value.join(' ') || undefined);
-      restoreResolve.current?.(null);
+      const problems = step.value;
+      const resolve = restoreResolve.current;
       restoreResolve.current = null;
+      void (async () => {
+        for (const code of restoring.coupons ?? []) {
+          const refusal = await sale.applyCoupon(code);
+          if (refusal !== null) problems.push(`Coupon ${code} was removed: ${refusal}.`);
+        }
+        setMessage(problems.join(' ') || undefined);
+        resolve?.(null);
+      })();
     }
   }, [sale.order, restoring]);
 
@@ -324,6 +346,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           </View>
           <ParkedSales sale={sale} parked={summaries} onPark={onPark} onResume={onResume}
             onDiscard={onDiscard} currency={currency} open={parkedOpen} onOpenChange={setParkedOpen} />
+          {/* WCPOS v2 lists coupons under Subtotal; TallyUI's Cart has no slot for them yet, so they sit above it. */}
+          {couponsOffered && props.couponCollections ? <CouponEntry sale={sale} coupons={props.couponCollections.coupons} currency={currency} /> : null}
           {/* M6's order notes can take the price-change reason via onPriceChange. */}
           <Cart sale={{ ...sale, startTender: gatedStartTender }} canEditPrice taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)} />
         </>
@@ -353,10 +377,21 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       ) : sale.stage.kind === 'receipt' ? (() => {
         const orderId = sale.stage.posOrder.id;
         const receiptOrder = (outbox.enabled && outbox.recent.find(o => o.id === orderId)) || sale.stage.posOrder;
+        const receiptCoupons = sale.stage.order.display.coupons ?? [], receiptCurrency = sale.stage.order.currency;
         return (
         <>
           <Receipt order={sale.stage.order} posOrder={receiptOrder} store={{ name: props.storeName }}
             cashier={props.cashierName} registerId={REGISTER_ID} newSale={sale.newSale} />
+          {receiptCoupons.length ? (
+            <View testID="receipt-coupons" className="gap-1 py-2">
+              {receiptCoupons.map(coupon => (
+                <View key={coupon.code} className="flex-row justify-between">
+                  <Text>{`Coupon ${coupon.code}`}</Text>
+                  <Text>{`-${formatMoney({ amount: coupon.amountMinor, currency: receiptCurrency }) ?? coupon.amountMinor}`}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
           <ReceiptIdentity identity={buildReceiptIdentity({
             posOrder: receiptOrder,
             register: register?.boundRegisterId && register.registerName ? { id: register.boundRegisterId, name: register.registerName } : null,

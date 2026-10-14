@@ -14,11 +14,12 @@ export interface ParkedCart {
   id: string; parkedAt: string; lines: ParkedLine[]; orderDiscounts: Discount[]; itemCount: number; totalMinor: number;
   customer?: { id: string; name: string; email?: string };
   fees?: ParkedCharge[]; shipping?: Array<ParkedCharge & { methodId?: string }>;
+  coupons?: string[];
 }
 
 export type ParkedCartCollection = RxCollection<ParkedCart>;
 export const parkedCartSchema: RxJsonSchema<ParkedCart> = {
-  version: 2, primaryKey: 'id', type: 'object',
+  version: 3, primaryKey: 'id', type: 'object',
   properties: {
     id: { type: 'string', maxLength: 64 },
     parkedAt: { type: 'string', maxLength: 32 },
@@ -61,6 +62,7 @@ export const parkedCartSchema: RxJsonSchema<ParkedCart> = {
         label: { type: 'string' }, couponCode: { type: 'string' },
       }, required: ['type', 'value'],
     } },
+    coupons: { type: 'array', items: { type: 'string' } },
     itemCount: { type: 'integer' }, totalMinor: { type: 'integer' },
   },
   required: ['id', 'parkedAt', 'lines', 'orderDiscounts', 'itemCount', 'totalMinor'],
@@ -69,7 +71,8 @@ export const parkedCartSchema: RxJsonSchema<ParkedCart> = {
 
 // v0 carts have no customer, and they restore as guest carts.
 // v1 carts have no charges or custom lines.
-export const parkedCartMigrationStrategies = { 1: (doc: any) => doc, 2: (doc: any) => doc };
+// v2 carts have no coupons.
+export const parkedCartMigrationStrategies = { 1: (doc: any) => doc, 2: (doc: any) => doc, 3: (doc: any) => doc };
 
 function discountFields({ type, value, label, couponCode }: Discount): Discount {
   return { type, value, ...(label !== undefined ? { label } : {}), ...(couponCode !== undefined ? { couponCode } : {}) };
@@ -95,6 +98,7 @@ export function parkCart(order: Order, now = new Date()): ParkedCart {
       name, amountMinor, taxStatus, ...(taxClass !== undefined ? { taxClass } : {}), ...(methodId !== undefined ? { methodId } : {}),
     })) } : {}),
     orderDiscounts: order.discounts.map(discountFields),
+    ...(order.coupons?.length ? { coupons: order.coupons.map(coupon => coupon.code) } : {}),
     itemCount: order.lineItems.reduce((count, line) => count + line.quantity, 0),
     totalMinor: order.totalMinor,
   };
