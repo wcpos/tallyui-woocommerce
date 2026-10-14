@@ -49,7 +49,7 @@ core REST API), `Free` (the `woocommerce-pos` plugin), `Pro`
 (`woocommerce-pos-pro`). This app uses those contracts as they ship and
 never changes them ([ADR 0001](adr/0001-repo-place-and-boundaries.md)).
 
-**TallyUI** is what `@tallyui/*@3.7.1` already provides, and `app` is
+**TallyUI** is what `@tallyui/*@3.10.0` already provides, and `app` is
 what this app builds on it. `conn` is `@tallyui/connector-woocommerce`:
 products (one schema keyed on the WCPOS plugin's `uuid`, a pull sync and
 a replication), customer search and create, order push and the store's
