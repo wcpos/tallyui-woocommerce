@@ -45,6 +45,10 @@ e2e store in Colima). Funnel accepts only ports 443, 8443 and 10000.
 - The demo works only while the Mac mini and its dev store are up. The
   store's services start on demand (PLAN.md), so the demo needs them
   started and kept running. That is a `dev/woo-store` job, not a login item.
+  *Amended 2026-10-14:* the store was found down (502) when Paul asked to
+  see the MVP, so a per-user LaunchAgent now runs `dev/woo-store/up.sh` at
+  login. It only starts the `dev/woo-store` services and adds no other
+  login item; see `dev/woo-store/README.md` (Start at login).
 - Testers' own stores (the D5 proposal) still work the same way, since
   the app only takes a site URL. The tester guide comes with M3.
 - Opening the store's admin publicly is out of scope. Admin work goes
