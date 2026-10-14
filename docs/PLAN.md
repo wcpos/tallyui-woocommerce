@@ -121,9 +121,9 @@ Each says what a tester can do when it is done.
 
 ### M6: Orders and refunds
 
-- **Tester:** browses past orders, reopens one, adds a note, reprints its
-  receipt, and refunds it in full or in part, with stock returned when
-  chosen.
+- **Tester:** browses past orders, opens one, reprints its receipt, and
+  refunds it in full or in part, with stock returned when chosen. Editing a
+  sent order and adding a note wait for `order.update`, after M6.
 - **TallyUI:** G7, order history and refunds (connector and commands).
 
 **M0–M6 cover the selling features that exist on the released 1.10.x

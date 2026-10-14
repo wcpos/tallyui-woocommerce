@@ -58,6 +58,13 @@ test('calls onSignOut', () => {
   expect(onSignOut).toHaveBeenCalledOnce();
 });
 
+test('the Orders button opens orders', () => {
+  const onOpenOrders = vi.fn();
+  render(<CatalogueView {...props} onOpenOrders={onOpenOrders} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Orders' }));
+  expect(onOpenOrders).toHaveBeenCalledOnce();
+});
+
 test('shows the syncing status', () => {
   render(<CatalogueView {...props} status="syncing" />);
   expect(screen.getByText('Syncing products…')).not.toBeNull();
