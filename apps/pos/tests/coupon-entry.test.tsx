@@ -187,6 +187,19 @@ test('an applied coupon shows a chip; removing it restores the total', async () 
   expect(total().getByText('$3.00')).not.toBeNull();
 }, 20_000);
 
+test('an applied coupon is a row under Subtotal, inside the cart footer', async () => {
+  await renderTill();
+  await addEspresso();
+  await applyCoupon('save10');
+  const rowEl = await screen.findByTestId('coupon-chip-save10');
+  const footerEl = screen.getByTestId('cart-footer');
+  expect(footerEl.contains(rowEl)).toBe(true);
+  const subtotalEl = within(footerEl).getByText('Subtotal');
+  const totalEl = within(footerEl).getByText('Total');
+  expect(subtotalEl.compareDocumentPosition(rowEl) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(rowEl.compareDocumentPosition(totalEl) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+}, 20_000);
+
 test('the receipt lists each coupon with its amount', async () => {
   await renderTill();
   await addEspresso();

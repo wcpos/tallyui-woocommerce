@@ -31,7 +31,7 @@ import { ReceiptIdentity } from './receipt-identity';
 import { RegisterControls, RegisterSwitch } from './register-controls';
 import { CancelPaymentView } from './cancel-payment-view';
 import { CashierSheet, type CashierOption } from './cashier-sheet';
-import { CouponEntry } from './coupon-entry';
+import { CouponEntry, CouponRows } from './coupon-entry';
 import { PanelResizeHandle } from './panel-resize-handle';
 
 // The till id; the bound register is the drawer.
@@ -346,10 +346,11 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           </View>
           <ParkedSales sale={sale} parked={summaries} onPark={onPark} onResume={onResume}
             onDiscard={onDiscard} currency={currency} open={parkedOpen} onOpenChange={setParkedOpen} />
-          {/* WCPOS v2 lists coupons under Subtotal; TallyUI's Cart has no slot for them yet, so they sit above it. */}
+          {/* Add coupon sits above the cart; WCPOS v2 has it in an add-items menu. Applied coupons are rows under Subtotal (afterSubtotal). */}
           {couponsOffered && props.couponCollections ? <CouponEntry sale={sale} coupons={props.couponCollections.coupons} currency={currency} /> : null}
           {/* M6's order notes can take the price-change reason via onPriceChange. */}
-          <Cart sale={{ ...sale, startTender: gatedStartTender }} canEditPrice taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)} />
+          <Cart sale={{ ...sale, startTender: gatedStartTender }} canEditPrice taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)}
+            afterSubtotal={couponsOffered && props.couponCollections ? <CouponRows sale={sale} /> : undefined} />
         </>
       ) : sale.stage.kind === 'tender' ? outbox.enabled ? (props.multiplePayments === true ? (
         cancelling && sale.order.payments.length > 0 ? (

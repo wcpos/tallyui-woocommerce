@@ -19,7 +19,30 @@ function couponAmount(coupon: CouponDoc, currency: string): string {
   return (money && formatMoney(money)) ?? amount;
 }
 
-// WCPOS v2's coupon flow: applied chips, and a picker over the synced coupons (no free-text code entry).
+// WCPOS v2's applied coupons: one row per coupon under the cart's Subtotal, a removable chip and its amount.
+export function CouponRows({ sale }: { sale: ReturnType<typeof useSale> }): JSX.Element | null {
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const applied = sale.order.display.coupons ?? [];
+  if (!applied.length) return null;
+  const minus = (amountMinor: number) => `-${formatMoney({ amount: amountMinor, currency: sale.order.currency }) ?? amountMinor}`;
+  return (
+    <>
+      {applied.map(coupon => (
+        <View key={coupon.code} testID={`coupon-chip-${coupon.code}`} className="flex-row items-center justify-between">
+          <View className="flex-row items-center gap-2 rounded-md border border-border bg-card px-2 py-1">
+            <Text className="text-sm text-foreground">{coupon.code}</Text>
+            <Button variant="ghost" size="sm" accessibilityLabel={`Remove coupon ${coupon.code}`}
+              onPress={() => setRemoveError(sale.removeCoupon(coupon.code))}><Text>×</Text></Button>
+          </View>
+          <Text className="text-sm">{minus(coupon.amountMinor)}</Text>
+        </View>
+      ))}
+      {removeError ? <Text accessibilityRole="alert" className="text-destructive">{removeError}</Text> : null}
+    </>
+  );
+}
+
+// WCPOS v2's coupon picker over the synced coupons (no free-text code entry).
 export function CouponEntry({ sale, coupons, currency }: {
   sale: ReturnType<typeof useSale>; coupons: RxCollection; currency: string;
 }): JSX.Element {
@@ -27,7 +50,6 @@ export function CouponEntry({ sale, coupons, currency }: {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [removeError, setRemoveError] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
   const [docs, setDocs] = useState<CouponDoc[]>([]);
 
@@ -41,8 +63,6 @@ export function CouponEntry({ sale, coupons, currency }: {
   const needle = search.trim().toLowerCase();
   const listed = needle ? docs.filter(doc => doc.code.toLowerCase().includes(needle)
     || (doc.description ?? '').toLowerCase().includes(needle)) : docs;
-  const applied = sale.order.display.coupons ?? [];
-  const minus = (amountMinor: number) => `-${formatMoney({ amount: amountMinor, currency: sale.order.currency }) ?? amountMinor}`;
 
   function close() {
     setOpen(false);
@@ -62,20 +82,6 @@ export function CouponEntry({ sale, coupons, currency }: {
 
   return (
     <View className="gap-2 py-2">
-      {applied.length ? (
-        <View className="flex-row flex-wrap gap-2">
-          {applied.map(coupon => (
-            <View key={coupon.code} testID={`coupon-chip-${coupon.code}`}
-              className="flex-row items-center gap-2 rounded-md border border-border bg-card px-2 py-1">
-              <Text className="text-foreground">{coupon.code}</Text>
-              <Text className="text-muted-foreground">{minus(coupon.amountMinor)}</Text>
-              <Button variant="ghost" size="sm" accessibilityLabel={`Remove coupon ${coupon.code}`}
-                onPress={() => setRemoveError(sale.removeCoupon(coupon.code))}><Text>×</Text></Button>
-            </View>
-          ))}
-        </View>
-      ) : null}
-      {removeError ? <Text accessibilityRole="alert" className="text-destructive">{removeError}</Text> : null}
       <Button variant="outline" disabled={!sale.order.lineItems.length}
         onPress={() => setOpen(true)}><Text>Add coupon</Text></Button>
       {open && <Dialog open onOpenChange={next => { if (!next) close(); }}>
