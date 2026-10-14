@@ -30,11 +30,11 @@ export function CouponRows({ sale }: { sale: ReturnType<typeof useSale> }): JSX.
       {applied.map(coupon => (
         <View key={coupon.code} testID={`coupon-chip-${coupon.code}`} className="flex-row items-center justify-between">
           <View className="flex-row items-center gap-2 rounded-md border border-border bg-card px-2 py-1">
-            <Text className="text-foreground">{coupon.code}</Text>
+            <Text className="text-sm text-foreground">{coupon.code}</Text>
             <Button variant="ghost" size="sm" accessibilityLabel={`Remove coupon ${coupon.code}`}
               onPress={() => setRemoveError(sale.removeCoupon(coupon.code))}><Text>×</Text></Button>
           </View>
-          <Text className="text-muted-foreground">{minus(coupon.amountMinor)}</Text>
+          <Text className="text-sm">{minus(coupon.amountMinor)}</Text>
         </View>
       ))}
       {removeError ? <Text accessibilityRole="alert" className="text-destructive">{removeError}</Text> : null}
