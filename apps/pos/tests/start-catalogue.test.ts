@@ -30,13 +30,22 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals());
 
-function fakeStore({ status = 200, advertised = [], site }: { status?: number; advertised?: string[]; site?: Response | (() => Response) }) {
+function fakeStore({ status = 200, advertised = [], site, coupons = [] }: { status?: number; advertised?: string[]; site?: Response | (() => Response); coupons?: any[] }) {
   return vi.fn<typeof fetch>(async input => {
     const url = new URL(String(input));
     if (url.pathname.endsWith('/stores')) return Response.json(stores);
     if (url.pathname.endsWith('/cashier/2')) return Response.json({ id: 2, capabilities: ['create_customers'] });
     if (url.pathname.endsWith('/status')) return Response.json({ capabilities: advertised }, { status });
     if (url.pathname.endsWith('/site') && site) return typeof site === 'function' ? site() : site;
+    if (url.pathname.endsWith('/coupons')) {
+      const include = url.searchParams.get('include');
+      if (include !== null) {
+        const ids = new Set(include.split(',').map(Number));
+        return Response.json(coupons.filter(coupon => ids.has(coupon.id)));
+      }
+      return Response.json(Number(url.searchParams.get('page') ?? 1) === 1
+        ? coupons.filter(coupon => coupon.status === 'publish') : []);
+    }
     if (url.pathname.endsWith('/variations')) {
       const included = new Set(url.searchParams.get('include')?.split(',').map(Number) ?? []);
       const documents = variations.documents.filter(variation => included.has(variation.id));
@@ -131,7 +140,30 @@ test.each([
   }
 });
 
-test('the catalogue database has an empty coupons collection', async () => {
+test('syncs published coupons into catalogue.coupons from /coupons', async () => {
+  const published = {
+    id: 7, code: 'save10', status: 'publish', discount_type: 'percent', amount: '10',
+    date_modified_gmt: '2026-10-01T00:00:00', usage_count: 0, used_by: [],
+    meta_data: [{ key: '_woocommerce_pos_uuid', value: 'c-7' }],
+  };
+  vi.stubGlobal('fetch', fakeStore({ coupons: [published, {
+    ...published, id: 8, code: 'draft5', status: 'draft',
+    meta_data: [{ key: '_woocommerce_pos_uuid', value: 'c-8' }],
+  }] }));
+  const catalogue = await startCatalogue(session, { storage: getRxStorageMemory() });
+  try {
+    await vi.waitFor(async () => {
+      const coupons = await catalogue.coupons.find().exec();
+      expect(coupons).toHaveLength(1);
+      expect(coupons[0].code).toBe('save10');
+      expect(coupons[0].id).toBe(7);
+    });
+  } finally {
+    await catalogue.stop();
+  }
+});
+
+test('the coupons collection stays empty when the store lists no coupons', async () => {
   vi.stubGlobal('fetch', fakeStore({}));
   const catalogue = await startCatalogue(session, { storage: getRxStorageMemory() });
   try {

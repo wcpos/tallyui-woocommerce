@@ -21,6 +21,7 @@ export function ownerToken(owner: Session, getLive: () => Session | null): () =>
 
 export function orderTransport(
   session: Session, getToken: () => string, acceptsPaymentsList?: WooCommandTransportOptions['acceptsPaymentsList'],
+  acceptsCoupons?: WooCommandTransportOptions['acceptsCoupons'],
 ): CommandTransport<OrderCreateEnvelope> {
   // G3: WCPOS 1.10.x push (M3-spike-paid-push.md).
   // getToken reads the latest token, because the session refreshes it.
@@ -28,5 +29,6 @@ export function orderTransport(
     baseUrl: session.site.wcposApiUrl,
     getHeaders: () => connector.auth.getHeaders({ token: getToken() }),
     acceptsPaymentsList,
+    acceptsCoupons,
   });
 }
