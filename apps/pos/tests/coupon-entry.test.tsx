@@ -1,6 +1,6 @@
 import { noTaxSettings } from './fixtures/store-settings';
 import type { ComponentProps } from 'react';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { addRxPlugin, createRxDatabase } from 'rxdb';
@@ -19,6 +19,8 @@ import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import { parkedCartSchema, parkedCartMigrationStrategies, type ParkedCartCollection } from '../lib/sale/parked-carts';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+// Applying a coupon awaits an RxDB lookup, so the 1 s default async timeout flakes on CI.
+configure({ asyncUtilTimeout: 5_000 });
 
 addRxPlugin(RxDBMigrationSchemaPlugin);
 
