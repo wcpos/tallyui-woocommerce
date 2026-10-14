@@ -29,7 +29,7 @@ Demo: https://tallyui-woocommerce.vercel.app. It connects to any store running W
 - **Registers (optional, per till):** open a session with a counted float, pay cash in and out, take an X report, and close by counting, which shows the variance and prints the Z report.
 - **Reports:** today's sales on this till against yesterday, with hourly bars, payments by method and taxes by rate; each tile opens a table you can export to CSV. Past closures can be reprinted and exported.
 - **Receipts:**
-  - The receipt shows the store, cashier, customer, lines, tenders and change, and prints from the browser.
+  - The receipt shows the store, cashier, customer, lines, tenders and change, and prints from the browser. Once the sale syncs, the order line adds the WooCommerce order number (`Order 078e9206 · #306`).
   - **Email receipt** sends WooCommerce's order-details email, once, when the cashier asks. It waits until the sale has synced and the till is online. **Store health** lists receipt emails still waiting or failed, to send again or remove.
 
 **Not yet:**
