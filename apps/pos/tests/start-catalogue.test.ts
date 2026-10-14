@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import type { RxCollection } from 'rxdb';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import type { Session } from '../lib/auth/session';
 import { databaseName, startCatalogue } from '../lib/catalogue/start-catalogue';
@@ -108,20 +109,35 @@ test.each([
   expect(catalogue.db.closed).toBe(true);
 });
 
-// TallyUI 3.5.3 reads order.create v5 only from order_create_v5 in /status: a 1.10.20 store stays on v3, and order_payments_list alone gives split payments, not v5.
+// TallyUI 3.10.0: order.create 5 needs order_create_v5 in /status; 6 also needs /site to report WCPOS 1.9.0 or later, which gates coupons; order_payments_list alone gives split payments.
 test.each([
-  { advertised: [], site: '404', siteResponse: new Response(null, { status: 404 }), orderCreate: 3, multiplePayments: false },
-  { advertised: [], site: '1.10.19', siteResponse: Response.json({ wcpos_version: '1.10.19' }), orderCreate: 3, multiplePayments: false },
-  { advertised: [], site: '1.10.20', siteResponse: Response.json({ wcpos_version: '1.10.20' }), orderCreate: 3, multiplePayments: false },
-  { advertised: ['order_create_v5'], site: 'none', orderCreate: 5, multiplePayments: false },
-  { advertised: ['order_payments_list'], site: 'none', orderCreate: 3, multiplePayments: true },
-  { advertised: ['order_create_v5', 'order_payments_list'], site: 'none', orderCreate: 5, multiplePayments: true },
-])('reads order.create $orderCreate from status $advertised and site $site', async ({ advertised, siteResponse, orderCreate, multiplePayments }) => {
+  { advertised: [], site: '404', siteResponse: new Response(null, { status: 404 }), orderCreate: 3, multiplePayments: false, coupons: false },
+  { advertised: [], site: '1.10.19', siteResponse: Response.json({ wcpos_version: '1.10.19' }), orderCreate: 3, multiplePayments: false, coupons: true },
+  { advertised: [], site: '1.10.20', siteResponse: Response.json({ wcpos_version: '1.10.20' }), orderCreate: 3, multiplePayments: false, coupons: true },
+  { advertised: ['order_create_v5'], site: 'none', orderCreate: 5, multiplePayments: false, coupons: false },
+  { advertised: ['order_payments_list'], site: 'none', orderCreate: 3, multiplePayments: true, coupons: false },
+  { advertised: ['order_create_v5', 'order_payments_list'], site: 'none', orderCreate: 5, multiplePayments: true, coupons: false },
+  { advertised: ['order_create_v5'], site: '1.10.20', siteResponse: Response.json({ wcpos_version: '1.10.20' }), orderCreate: 6, multiplePayments: false, coupons: true },
+  { advertised: ['order_create_v5'], site: '1.8.9', siteResponse: Response.json({ wcpos_version: '1.8.9' }), orderCreate: 5, multiplePayments: false, coupons: false },
+])('reads order.create $orderCreate and coupons $coupons from status $advertised and site $site', async ({ advertised, siteResponse, orderCreate, multiplePayments, coupons }) => {
   vi.stubGlobal('fetch', fakeStore({ advertised, site: siteResponse }));
   const catalogue = await startCatalogue(session, { storage: getRxStorageMemory() });
   try {
     expect(catalogue.capabilities?.orderCreate).toBe(orderCreate);
     expect(catalogue.capabilities?.multiplePayments).toBe(multiplePayments);
+    expect(catalogue.capabilities?.coupons).toBe(coupons);
+  } finally {
+    await catalogue.stop();
+  }
+});
+
+test('the catalogue database has an empty coupons collection', async () => {
+  vi.stubGlobal('fetch', fakeStore({}));
+  const catalogue = await startCatalogue(session, { storage: getRxStorageMemory() });
+  try {
+    const coupons = (catalogue.db.collections as Record<string, RxCollection>).coupons;
+    expect(coupons).toBeDefined();
+    expect(await coupons.find().exec()).toEqual([]);
   } finally {
     await catalogue.stop();
   }

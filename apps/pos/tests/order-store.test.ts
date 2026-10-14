@@ -35,3 +35,13 @@ test('opens pos_orders and register collections in its own memory database and c
   }
   expect(db.closed).toBe(true);
 });
+
+test('opens pos_orders at schema version 9 (one-way from TallyUI 3.10.0)', async () => {
+  const name = `tallywoo_orders_${crypto.randomUUID()}`;
+  const store = await openOrderStore(name, getRxStorageMemory());
+  try {
+    expect(store.orders.schema.version).toBe(9);
+  } finally {
+    await store.close();
+  }
+});
