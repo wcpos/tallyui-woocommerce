@@ -104,3 +104,52 @@ and everything else returns 403.
 Do admin work through WP-CLI (`wp_cli` from `dev/woo-store/lib.sh`).
 Run `dev/woo-store/smoke.sh` to check public blocking, cashier sign-in, 12 products,
 the fork overlay and `order_create_v5`.
+
+## Start at login
+
+The demo needs the store up whenever the Mac mini is. A per-user LaunchAgent
+runs `up.sh` from the main checkout at login (the `claude` account logs in
+automatically after a reboot); `up.sh` is idempotent, and
+`AbandonProcessGroup` keeps the services it starts alive after it exits.
+
+`~/Library/LaunchAgents/com.kilbot.tallyui-woo-dev-store.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.kilbot.tallyui-woo-dev-store</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/claude/Projects/tallyui-woocommerce/dev/woo-store/up.sh</string>
+	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+	</dict>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>AbandonProcessGroup</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>/Users/claude/.local/share/tallyui-woocommerce/dev-store/log/launchd-up.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/claude/.local/share/tallyui-woocommerce/dev-store/log/launchd-up.log</string>
+</dict>
+</plist>
+```
+
+Load it now (it also runs at every login), check it, and remove it:
+
+```sh
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.kilbot.tallyui-woo-dev-store.plist
+launchctl print gui/$(id -u)/com.kilbot.tallyui-woo-dev-store | grep 'last exit'
+dev/woo-store/status.sh
+launchctl bootout gui/$(id -u)/com.kilbot.tallyui-woo-dev-store
+```
+
+Its output goes to `log/launchd-up.log`. The Tailscale Funnel route on port
+10000 persists in Tailscale's own configuration and needs no agent.
