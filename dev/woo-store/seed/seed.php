@@ -47,10 +47,12 @@ $catalogue = [
     ['Seasonal Special', 'Bakery', 'BAK-SEA', '6.00', '', 10, 'draft'],
     ['T-Shirt', 'Merch', 'MER-TEE', '25.00', '', null, 'publish'],
     ['Hoodie', 'Merch', 'MER-HOD', '45.00', '', null, 'publish'],
+    ['Cap', 'Merch', 'MER-CAP', '20.00', '', null, 'publish'],
 ];
 $variable_attributes = [
     'MER-TEE' => ['Size' => ['S', 'M', 'L'], 'Colour' => ['Black', 'White']],
     'MER-HOD' => ['Size' => ['S', 'M', 'L']],
+    'MER-CAP' => ['Size' => ['S', 'M', 'L'], 'Colour' => ['Black', 'White']],
 ];
 $variation_data = [
     'MER-TEE' => [
@@ -65,6 +67,10 @@ $variation_data = [
         ['MER-HOD-S', ['size' => 'S']],
         ['MER-HOD-M', ['size' => 'M']],
         ['MER-HOD-L', ['size' => 'L']],
+    ],
+    // Any size, Black: an empty attribute value is WooCommerce's "Any Size" (TallyUI#495).
+    'MER-CAP' => [
+        ['MER-CAP-ANY-BLK', ['size' => '', 'colour' => 'Black']],
     ],
 ];
 

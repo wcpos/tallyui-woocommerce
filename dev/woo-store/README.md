@@ -56,8 +56,9 @@ The cashier account is `cashier`, with the `shop_manager` role and POS access.
 
 Run `dev/woo-store/seed.sh` with MariaDB running to replace the demo catalogue.
 It deletes all products first and removes previously generated seed images.
-The catalogue has 11 simple products (one draft), T-Shirt and Hoodie variable
-products, and 9 variations across Coffee, Bakery and Merch, with stock and SKUs.
+The catalogue has 11 simple products (one draft), T-Shirt, Hoodie and Cap
+variable products, and 10 variations (the Cap's one variation is Any Size,
+Black) across Coffee, Bakery and Merch, with stock and SKUs.
 Product images are generated locally; barcodes use the WooCommerce GTIN field.
 
 ## Taxes and coupons
