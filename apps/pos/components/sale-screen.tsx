@@ -350,12 +350,15 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           <Text>Taking payment arrives in the next update</Text>
           <Button onPress={() => sale.cancelTender()}><Text>Back to cart</Text></Button>
         </>
-      ) : sale.stage.kind === 'receipt' ? (
+      ) : sale.stage.kind === 'receipt' ? (() => {
+        const orderId = sale.stage.posOrder.id;
+        const receiptOrder = (outbox.enabled && outbox.recent.find(o => o.id === orderId)) || sale.stage.posOrder;
+        return (
         <>
-          <Receipt order={sale.stage.order} posOrder={sale.stage.posOrder} store={{ name: props.storeName }}
+          <Receipt order={sale.stage.order} posOrder={receiptOrder} store={{ name: props.storeName }}
             cashier={props.cashierName} registerId={REGISTER_ID} newSale={sale.newSale} />
           <ReceiptIdentity identity={buildReceiptIdentity({
-            posOrder: sale.stage.posOrder,
+            posOrder: receiptOrder,
             register: register?.boundRegisterId && register.registerName ? { id: register.boundRegisterId, name: register.registerName } : null,
             timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             copies: printCount,
@@ -363,7 +366,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           {mailer && receiptEmails && outbox.enabled ? <ReceiptEmail collection={receiptEmails}
             orderId={sale.stage.posOrder.id} defaultEmail={sale.stage.order.customer?.email ?? ''} /> : null}
         </>
-      ) : null}
+        );
+      })() : null}
       {outbox.enabled ? <SyncStatus state={outbox.state} /> : null}
     </View>
   );
