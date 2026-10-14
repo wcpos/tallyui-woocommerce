@@ -4,6 +4,7 @@ import { createTallyDatabase } from '@tallyui/database';
 import { createOrderBuilder } from '@tallyui/pos';
 import type { SaleDiscountState } from '@tallyui/pos';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
+import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { saleDiscountCodes } from '../lib/sale/discount-codes';
 import { openOrderStore } from '../lib/sale/order-store';
 
@@ -20,7 +21,8 @@ test.each([
     await db.coupons.insert({
       uuid: 'c-7', id: 7, code: 'save10', status: 'publish', discount_type: 'percent', amount: '10', usage_count: 0, used_by: [],
     });
-    const store = await openOrderStore(`discount_orders_${crypto.randomUUID()}`, getRxStorageMemory());
+    const store = await openOrderStore(`discount_orders_${crypto.randomUUID()}`,
+      wrappedValidateAjvStorage({ storage: getRxStorageMemory() }));
     try {
       const state: SaleDiscountState<any> = {
         order: createOrderBuilder({

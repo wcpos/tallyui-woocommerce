@@ -28,15 +28,21 @@ beforeEach(() => {
   });
   builder.addPayment({ method: 'cash', amountMinor: 600 });
   envelope = toOrderCreateEnvelope(finalizeOrder(builder.getSnapshot()), 'test-device');
-  builder.removePayment(builder.getSnapshot().payments[0].id);
+  const couponBuilder = createOrderBuilder({
+    currency: 'USD', taxContext: { getTaxRatePpm: () => 0, getTaxRates: () => [], pricesIncludeTax: false,
+      rounding: { granularity: 'woocommerce', roundAtSubtotal: false } },
+  });
+  couponBuilder.addLine({
+    productId: '80', variantId: '80', name: 'Espresso', quantity: 2, unitPrice: { amount: 300, currency: 'USD' },
+  });
   const coupon = { id: 7, code: 'save10', discount_type: 'percent' as const, amount: '10' };
-  builder.setCoupons(['save10'], {
+  couponBuilder.setCoupons(['save10'], {
     configs: woocommerceCoupons.toCouponConfigs(['save10'], new Map([['save10', coupon]])),
     couponIds: new Map([['save10', '7']]), productCategories: new Map(), calcDiscountsSequentially: false,
   });
-  builder.addPayment({ method: 'cash', amountMinor: builder.getSnapshot().totalMinor });
+  couponBuilder.addPayment({ method: 'cash', amountMinor: couponBuilder.getSnapshot().totalMinor });
   couponEnvelope = toOrderCreateEnvelope(
-    finalizeOrder(builder.getSnapshot(), { capabilities: { orderCreate: 6, coupons: true } }), 'test-device',
+    finalizeOrder(couponBuilder.getSnapshot(), { capabilities: { orderCreate: 6, coupons: true } }), 'test-device',
   );
   fetchStub.mockReset().mockImplementation(async () => new Response(JSON.stringify({
     document: { id: 115, status: 'completed', total: (envelope.payload.totalMinor / 100).toFixed(6) },
