@@ -19,6 +19,7 @@ Demo: https://tallyui-woocommerce.vercel.app. It connects to any store running W
   - Discount a line or the whole order by a percentage or an amount.
   - Add a fee, a shipping line or a custom item (stores that advertise `order_create_v5`, such as the dev store).
   - Park a cart, with its customer, and reopen it later; parked carts survive a reload.
+- **Coupons:** pick one of the store's WooCommerce coupons from a searchable list; a refused coupon shows the reason (`Coupon expired has expired`). Applied coupons show in the cart and on the receipt, can be removed, stay with a parked cart, and reach WooCommerce as the order's coupon lines (stores on WCPOS 1.9.0 or later that advertise `order_create_v5`, such as the dev store).
 - **Customers:** search the store's customers by name, email or phone, attach one or leave the sale as a guest, and create a customer at the till.
 - **Tax:** prices and totals use the store's own WooCommerce tax settings and rates, whether prices include tax or not, with discounts on both.
 - **Payments:**
@@ -34,7 +35,7 @@ Demo: https://tallyui-woocommerce.vercel.app. It connects to any store running W
 
 **Not yet:**
 - **Payments:** card-terminal integration, tips and the order-pay page for other gateways.
-- **Other lines:** coupons and WCPOS's order-level discount coupon.
+- **Other lines:** WCPOS's order-level quick-discount coupon.
 - **Order history:** browsing past orders and refunds.
 - **Server sync for registers:** sessions, closures and reports stay on the device, and a register is bound per cashier rather than per till.
 - **Printing:** thermal and cloud printers, and receipt templates.
