@@ -136,7 +136,7 @@ front desk before the milestone that needs it ([PLAN.md](PLAN.md)).
 
 | Feature | WCPOS behaviour | Status | Server | TallyUI |
 |---|---|---|---|---|
-| Order history | Browse, filter (including by register), reopen past orders | in flux (additive, +610 lines, #1966) | Pro | gap |
+| Order history | Browse, filter (including by register), reopen past orders | in flux (additive, +610 lines, #1966) | Pro | app, partial: an Orders screen lists this till's own sales, needs attention (with Retry) and recent, using TallyUI's `OrdersList`. Gap (G7): the store's order history, order detail and reprint |
 | Refunds | Full and partial refunds with cashier and store audit; refund document printable | in flux (refund document v2-only, #1973) | Pro | gap |
 | POS vs online filter | Order-source filter in WooCommerce analytics | stable | Pro | n/a (server) |
 
