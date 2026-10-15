@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
-import type { OrderCreateEnvelope } from '@tallyui/core';
+import type { OrderCreateEnvelope, StoreOrder } from '@tallyui/core';
 import type { CommandTransport } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
 import { OrdersScreen } from '../components/orders-screen';
@@ -13,6 +13,7 @@ import { SaleScreen } from '../components/sale-screen';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
+import type { OrderHistorySource } from '../lib/orders/order-history';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 
@@ -50,13 +51,13 @@ function OrderStoreReady() {
   return outbox.enabled && outbox.orders ? <span>Order store ready</span> : null;
 }
 
-async function setup(send: CommandTransport<OrderCreateEnvelope>['send']) {
+async function setup(send: CommandTransport<OrderCreateEnvelope>['send'], history: OrderHistorySource | null = null) {
   render(
     <SessionProvider>
       <OutboxProvider transportFor={() => ({ send })} storage={getRxStorageMemory()}>
         <OrderStoreReady />
         <SaleScreen {...props} />
-        <OrdersScreen onBack={() => {}} />
+        <OrdersScreen onBack={() => {}} history={history} storeName={props.storeName} cashierName={props.cashierName} />
         <PortalHost />
       </OutboxProvider>
     </SessionProvider>,
@@ -106,7 +107,68 @@ test('a refused sale needs attention and Retry sends it again', async () => {
 }, 20_000);
 
 test('without a store it says so', () => {
-  render(<SessionProvider><OutboxProvider transportFor={() => null}><OrdersScreen onBack={() => {}} /></OutboxProvider></SessionProvider>);
+  render(<SessionProvider><OutboxProvider transportFor={() => null}>
+    <OrdersScreen onBack={() => {}} history={null} storeName={props.storeName} cashierName={props.cashierName} />
+  </OutboxProvider></SessionProvider>);
   expect(screen.getByText('Orders show once the store is connected.')).not.toBeNull();
   expect(screen.queryByRole('heading', { name: 'Recent' })).toBeNull();
+});
+
+const storeOrder: StoreOrder = {
+  id: '901', reference: '901', status: 'completed', placedAt: '2026-10-15T10:00:00Z',
+  currency: 'USD', pricesIncludeTax: false, customer: null,
+  lines: [{ id: '1', name: 'Espresso', quantity: 2, subtotalMinor: 600, subtotalTaxMinor: 0, totalMinor: 600, taxMinor: 0 }],
+  fees: [], shipping: [], coupons: [], taxLines: [], refunds: [],
+  payments: [{ method: 'pos_cash', title: 'Cash', kind: 'cash', amountMinor: 600 }],
+  discountMinor: 0, discountTaxMinor: 0, taxMinor: 0, totalMinor: 600,
+};
+
+test('store history is listed under Recent and opens as a reprint', async () => {
+  const list = vi.fn<OrderHistorySource['list']>(async () => ({ orders: [storeOrder], hasMore: false }));
+  await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
+  expect(await screen.findByText('Order 901 · 2 items')).not.toBeNull();
+  expect(within(section('Recent')!).getByText(/Completed$/)).not.toBeNull();
+  fireEvent.click(screen.getByTestId(`history-open-${storeOrder.id}`));
+  expect(screen.getByTestId('receipt-reprint').textContent).toBe('Reprint 1');
+  expect(screen.getByTestId('receipt-order').textContent).toBe('Order 901');
+  fireEvent.click(screen.getAllByRole('button', { name: 'Back' }).find(button => button.getAttribute('data-testid') !== 'orders-back')!);
+  expect(screen.getByText('Order 901 · 2 items')).not.toBeNull();
+  fireEvent.click(screen.getByTestId(`history-open-${storeOrder.id}`));
+  expect(screen.getByTestId('receipt-reprint').textContent).toBe('Reprint 2');
+  expect(list).toHaveBeenCalledTimes(1);
+});
+
+test('a till sale opens as a reprint', async () => {
+  const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => ({ kind: 'results', results: batch.map(applied) }));
+  await setup(send);
+  const reference = await payCash();
+  await vi.waitFor(() => expect(within(section('Recent')!).getByText(`Order ${reference} · #305 · 1 item`)).not.toBeNull());
+  fireEvent.click(screen.getByRole('button', { name: 'New sale' }));
+  fireEvent.click(screen.getByTestId(/^order-open-/));
+  expect(screen.getByTestId('receipt-reprint').textContent).toBe('Reprint 1');
+  expect(screen.getByTestId('receipt-order').textContent).toBe(`Order ${reference} · #305`);
+}, 20_000);
+
+test('Load more fetches the next page', async () => {
+  const next = { ...storeOrder, id: '902', reference: '902' };
+  const list = vi.fn<OrderHistorySource['list']>()
+    .mockResolvedValueOnce({ orders: [storeOrder], hasMore: true })
+    .mockResolvedValueOnce({ orders: [storeOrder, next], hasMore: false });
+  await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
+  fireEvent.click(await screen.findByTestId('orders-load-more'));
+  expect(await screen.findByText('Order 902 · 2 items')).not.toBeNull();
+  expect(screen.getAllByTestId('history-row-901')).toHaveLength(1);
+  expect(screen.queryByTestId('orders-load-more')).toBeNull();
+  expect(list.mock.calls).toEqual([[1], [2]]);
+});
+
+test('a failed history load says so and Try again reloads', async () => {
+  const list = vi.fn<OrderHistorySource['list']>()
+    .mockRejectedValueOnce(new Error('Offline'))
+    .mockResolvedValueOnce({ orders: [storeOrder], hasMore: false });
+  await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
+  expect(await screen.findByText("Store orders couldn't be loaded.")).not.toBeNull();
+  fireEvent.click(screen.getByTestId('orders-history-retry'));
+  expect(await screen.findByText('Order 901 · 2 items')).not.toBeNull();
+  expect(list.mock.calls).toEqual([[1], [1]]);
 });
