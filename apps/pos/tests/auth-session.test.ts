@@ -157,7 +157,8 @@ test.each(['network', 'expired'])('handles a %s failure during the initial refre
   const { result } = renderHook(useSession, { wrapper });
   await act(async () => {});
   expect(result.current.ready).toBe(true);
-  expect(result.current.session).toEqual(outcome === 'network' ? session : null);
+  expect(result.current.session).toEqual(session);
+  expect(result.current.held).toBe(outcome === 'expired');
   expect(loadSession()).toEqual(result.current.session);
 });
 
