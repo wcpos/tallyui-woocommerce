@@ -78,3 +78,9 @@ test('renders nothing without sales', () => {
   render(<HourlyBars hours={[]} currency="USD" locale="en-US" />);
   expect(screen.queryByTestId('sales-room-hours')).toBeNull();
 });
+
+test('the legend and labels name the comparison day', () => {
+  render(<HourlyBars hours={hours} currency="USD" locale="en-US" comparisonName="last Tuesday" />);
+  expect(screen.getByText('Filled: today · Dashed: last Tuesday')).not.toBeNull();
+  expect(screen.getByTestId('sales-hour-11').getAttribute('aria-label')).toBe('11:00 — today $0.00, 0 orders; last Tuesday $4.00');
+});
