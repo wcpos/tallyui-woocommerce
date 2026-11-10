@@ -1,17 +1,42 @@
 import type { ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
-import { Badge, Button, Text } from '@tallyui/components';
+import { Button, Dialog, DialogContent, IconButton, Text, XIcon } from '@tallyui/components';
 import { formatMoney, type StoreOrder } from '@tallyui/core';
 import { wooStatusLabel } from '../lib/orders/order-history';
 
-type BadgeVariant = 'success' | 'info' | 'warning' | 'destructive' | 'secondary' | 'outline';
-
-// v2's status tones (packages/core/src/screens/main/orders/cells/status.tsx) mapped onto Badge:
-// ok -> success, info -> info, warning -> warning, bad -> destructive, muted -> secondary.
-const STATUS_VARIANTS: Record<string, BadgeVariant> = {
-  completed: 'success', processing: 'info', 'on-hold': 'warning', pending: 'warning',
-  failed: 'destructive', cancelled: 'secondary', refunded: 'secondary', trash: 'secondary',
+// v2's status tones (packages/core/src/screens/main/orders/cells/status.tsx:10-21), drawn as
+// StatusBadge's dot and word (packages/components/src/status-badge/index.tsx).
+type StatusTone = 'ok' | 'info' | 'warning' | 'bad' | 'muted' | 'default';
+const STATUS_TONES: Record<string, StatusTone> = {
+  completed: 'ok', processing: 'info', 'pos-open': 'info', 'on-hold': 'warning', pending: 'warning',
+  'pos-partial': 'warning', failed: 'bad', cancelled: 'muted', refunded: 'muted', trash: 'muted',
 };
+// v2's tone dots on this theme's tokens: ok -> success, bad -> destructive.
+const TONE_DOT: Record<StatusTone, string> = {
+  ok: 'bg-success', info: 'bg-info', warning: 'bg-warning', bad: 'bg-destructive', muted: 'bg-muted-foreground', default: 'bg-primary',
+};
+/** v2's status dot (StatusBadge): a partial refund reads warning, as in orders/edit/view.tsx:89-100. */
+export function statusDotClass(status: string, partial = false): string {
+  return `h-2 w-2 shrink-0 rounded-full ${TONE_DOT[partial ? 'warning' : STATUS_TONES[status] ?? 'default']}`;
+}
+
+// v2's Payment section (orders/view/sections/payment.tsx:36-48). Settled is the store's word,
+// isPaidStatus (packages/sync-core/src/woo/moneyCommandAnswer.ts:105-123); a dead order owes nothing.
+const UNPAID_STATUSES = ['pos-open', 'pos-partial', 'pending', 'failed', 'cancelled', 'refunded', 'trash'];
+const DEAD_STATUSES = ['cancelled', 'failed', 'refunded', 'trash'];
+/** v2's Payment section rule: an order with nothing paid that the store does not count as paid, and that is not dead, still owes. */
+export function orderPaymentState(order: StoreOrder): { paidMinor: number; remainingMinor: number; owing: boolean } {
+  const paidMinor = order.payments.reduce((sum, payment) => sum + payment.amountMinor, 0);
+  const remainingMinor = Math.max(0, order.totalMinor - paidMinor);
+  const settled = order.status.trim() !== '' && !UNPAID_STATUSES.includes(order.status);
+  const dead = DEAD_STATUSES.includes(order.status);
+  const owing = order.payments.length === 0 && !settled && !dead && remainingMinor > 0;
+  return { paidMinor, remainingMinor, owing };
+}
+
+// v2's right side sheet (packages/components/src/dialog/index.tsx:61-78, 198-205): full height, square,
+// a left hairline on the card; size xl is w-160, which apps/main/global.css:53 makes 560px.
+export const ORDER_SHEET = 'left-auto right-0 top-0 h-full w-full max-w-[560px] translate-x-0 translate-y-0 gap-4 rounded-none border-0 border-l border-border bg-card p-0 py-4';
 
 function formatPlaced(iso: string): string {
   const date = new Date(iso);
@@ -46,7 +71,7 @@ function Row({ testID, label, beside, amount, indent, strong, className }: {
 function Chip({ text }: { text: string }) {
   return (
     <View className="self-start rounded bg-primary/10 px-1.5 py-0.5">
-      <Text className="text-xs font-medium text-primary">{text}</Text>
+      <Text className="text-xs font-medium tabular-nums text-primary">{text}</Text>
     </View>
   );
 }
@@ -60,7 +85,7 @@ export function OrderDetailView({ order, onReceipt, onClose }: {
   const refunded = order.refunds.reduce((sum, refund) => sum + refund.amountMinor, 0);
   const partial = refunded > 0 && refunded < order.totalMinor;
   const statusLabel = partial ? 'Partially refunded' : wooStatusLabel(order.status);
-  const statusVariant: BadgeVariant = partial ? 'warning' : STATUS_VARIANTS[order.status] ?? 'outline';
+  const payment = orderPaymentState(order);
 
   const rowCount = order.lines.length + order.fees.length;
   const rowClass = (index: number) => `flex-row items-center gap-3 py-2.5 ${index < rowCount - 1 ? 'border-b border-border' : ''}`;
@@ -70,13 +95,19 @@ export function OrderDetailView({ order, onReceipt, onClose }: {
   const fees = order.fees.reduce((sum, fee) => sum + gross(fee.totalMinor, fee.taxMinor), 0);
 
   return (
-    <View testID="order-modal" className="flex-1">
-      <ScrollView testID="order-modal-view" className="flex-1 bg-background">
+    <View className="min-h-0 flex-1 gap-4">
+      <View className="flex-row items-center justify-between gap-2 pl-4 pr-1">
+        <Text testID="order-modal-title" accessibilityRole="header" className="flex-1 text-base font-semibold leading-none text-foreground">
+          {`Order #${order.reference}`}
+        </Text>
+        <IconButton testID="order-modal-close" accessibilityLabel="Close" variant="ghost" size="md" onPress={onClose}><XIcon size={18} /></IconButton>
+      </View>
+      <ScrollView testID="order-modal-view" className="flex-1">
         <View className="gap-2 border-b border-border p-4">
-          <Text testID="order-modal-title" accessibilityRole="header" className="text-lg font-semibold text-foreground">
-            {`Order #${order.reference}`}
-          </Text>
-          <View className="flex-row"><Badge testID="order-modal-status" variant={statusVariant} label={statusLabel} /></View>
+          <View testID="order-modal-status" className="flex-row items-center gap-1.5 self-start">
+            <View aria-hidden className={statusDotClass(order.status, partial)} />
+            <Text className="shrink text-sm text-foreground">{statusLabel}</Text>
+          </View>
           <Text testID="order-modal-identity" className="text-muted-foreground">{formatPlaced(order.placedAt)}</Text>
         </View>
 
@@ -152,11 +183,22 @@ export function OrderDetailView({ order, onReceipt, onClose }: {
             label={refunded > 0 ? 'Net Payment' : 'Total'} amount={money(order.totalMinor - refunded)} />
         </Section>
 
-        {order.payments.length > 0 && (
+        {(order.payments.length > 0 || payment.owing || refunded > 0) && (
           <Section title={order.payments.length > 1 ? 'Payments' : 'Payment'} testID="order-modal-payments">
             {order.payments.map((payment, index) => (
               <Row key={`payment-${index}`} testID="order-modal-payment" label={payment.title ?? payment.method} amount={money(payment.amountMinor)} />
             ))}
+            {payment.owing && (
+              <>
+                <Text testID="order-modal-no-payments" className="text-sm text-muted-foreground">No payments yet</Text>
+                <View testID="order-modal-ledger" className="pt-2">
+                  <Row testID="order-modal-ledger-total" label="Total" amount={money(order.totalMinor)} />
+                  <Row testID="order-modal-ledger-paid" label="Paid" amount={money(payment.paidMinor)} />
+                  <Row testID="order-modal-ledger-remaining" strong className="mt-1 border-t border-border pt-2" label="Remaining" amount={money(payment.remainingMinor)} />
+                </View>
+              </>
+            )}
+            {refunded > 0 && <Row testID="order-modal-payment-refund" className="mt-2" label="Refund" amount={`-${money(refunded)}`} />}
           </Section>
         )}
 
@@ -165,10 +207,21 @@ export function OrderDetailView({ order, onReceipt, onClose }: {
           {order.customer?.email ? <Text className="text-xs text-muted-foreground">{order.customer.email}</Text> : null}
         </Section>
       </ScrollView>
-      <View className="flex-row justify-end gap-2 border-t border-border p-4">
-        <Button testID="order-modal-close" variant="ghost" onPress={onClose}><Text>Close</Text></Button>
+      <View testID="order-modal-footer" className="flex-row flex-wrap items-center justify-end gap-2 border-t border-border px-4 pt-4">
+        <Button testID="dialog-footer-close" variant="outline" onPress={onClose}><Text>Close</Text></Button>
         <Button testID="order-modal-receipt" variant="outline" onPress={onReceipt}><Text>Receipt</Text></Button>
       </View>
     </View>
+  );
+}
+
+/** v2's order record dialog (orders/edit/modal.tsx, record-dialog/index.tsx): a right side sheet, View only. */
+export function OrderDetailSheet({ order, onReceipt, onClose }: { order: StoreOrder; onReceipt(): void; onClose(): void }) {
+  return (
+    <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
+      <DialogContent testID="order-modal" accessibilityLabel={`Order #${order.reference}`} className={ORDER_SHEET}>
+        <OrderDetailView order={order} onReceipt={onReceipt} onClose={onClose} />
+      </DialogContent>
+    </Dialog>
   );
 }
