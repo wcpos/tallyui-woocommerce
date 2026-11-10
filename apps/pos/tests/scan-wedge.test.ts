@@ -1,6 +1,6 @@
 import { cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { createWedgeDetector } from '../lib/scan/wedge';
+import { createWedgeDetector, DEFAULT_SCAN_SETTINGS } from '../lib/scan/wedge';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 
 const code = '2000000000015';
@@ -115,4 +115,75 @@ test('the hook ignores bursts with Ctrl held', () => {
   }
   vi.advanceTimersByTime(150);
   expect(onScan).not.toHaveBeenCalled();
+});
+
+test('a configured threshold accepts a burst the default refuses', () => {
+  const onScan = vi.fn();
+  const fallback = createWedgeDetector(onScan);
+  for (const key of code) { fallback.key(key); vi.advanceTimersByTime(30); }
+  expect(fallback.key('Enter')).toBe(false);
+  const configured = createWedgeDetector(onScan, { getSettings: () => ({ ...DEFAULT_SCAN_SETTINGS, threshold: 40 }) });
+  for (const key of code) { configured.key(key); vi.advanceTimersByTime(30); }
+  expect(configured.key('Enter')).toBe(true);
+  expect(onScan).toHaveBeenCalledExactlyOnceWith(code);
+});
+
+test('a configured minimum length accepts a four-digit code', () => {
+  const onScan = vi.fn();
+  const detector = createWedgeDetector(onScan, { getSettings: () => ({ ...DEFAULT_SCAN_SETTINGS, minChars: 4 }) });
+  for (const key of '1234') { detector.key(key); vi.advanceTimersByTime(5); }
+  expect(detector.key('Enter')).toBe(true);
+  expect(onScan).toHaveBeenCalledExactlyOnceWith('1234');
+});
+
+test('the prefix and suffix come off before the length check', () => {
+  const onScan = vi.fn();
+  const settings = { ...DEFAULT_SCAN_SETTINGS, prefix: ']C1', suffix: '#', minChars: 13 };
+  const detector = createWedgeDetector(onScan, { getSettings: () => settings });
+  for (const key of `]C1${code}#`) { detector.key(key); vi.advanceTimersByTime(5); }
+  expect(detector.key('Enter')).toBe(true);
+  expect(onScan).toHaveBeenCalledExactlyOnceWith(code);
+  settings.minChars = 14;
+  for (const key of `]C1${code}#`) { detector.key(key); vi.advanceTimersByTime(5); }
+  expect(detector.key('Enter')).toBe(false);
+  expect(onScan).toHaveBeenCalledOnce();
+});
+
+test('onAttempt reports scan, too short and typing', () => {
+  const onAttempt = vi.fn();
+  const detector = createWedgeDetector(vi.fn(), { onAttempt });
+  for (const key of code) { detector.key(key); vi.advanceTimersByTime(5); }
+  detector.key('Enter');
+  for (const key of '123') { detector.key(key); vi.advanceTimersByTime(5); }
+  detector.key('Enter');
+  for (const key of '123') { detector.key(key); vi.advanceTimersByTime(100); }
+  detector.key('Enter');
+  detector.key('7');
+  vi.advanceTimersByTime(150);
+  expect(onAttempt.mock.calls.map(([attempt]) => attempt)).toEqual([
+    { raw: code, code, avgGapMs: 5, result: 'scan' },
+    { raw: '123', code: '123', avgGapMs: 5, result: 'too_short' },
+    { raw: '123', code: '123', avgGapMs: 100, result: 'typing' },
+    { raw: '7', code: '7', avgGapMs: undefined, result: 'typing' },
+  ]);
+});
+
+test('the scanner claimed last owns the wedge until it is released', () => {
+  const till = vi.fn();
+  const over = vi.fn();
+  renderHook(() => useWedgeScanner(till, true));
+  const top = renderHook(() => useWedgeScanner(over, true));
+  for (const key of [...code, 'Enter']) {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    vi.advanceTimersByTime(5);
+  }
+  expect(over).toHaveBeenCalledExactlyOnceWith(code);
+  expect(till).not.toHaveBeenCalled();
+  top.unmount();
+  for (const key of [...code, 'Enter']) {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    vi.advanceTimersByTime(5);
+  }
+  expect(till).toHaveBeenCalledExactlyOnceWith(code);
+  expect(over).toHaveBeenCalledOnce();
 });

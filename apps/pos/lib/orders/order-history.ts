@@ -32,11 +32,16 @@ export const WOO_STATUS_LABELS: Record<string, string> = {
   cancelled: 'Cancelled', refunded: 'Refunded', failed: 'Failed', 'checkout-draft': 'Draft',
 };
 
+/** WooCommerce's own name for a status word, else the word capitalised. */
+export function wooStatusLabel(status: string): string {
+  return WOO_STATUS_LABELS[status] ?? status.charAt(0).toUpperCase() + status.slice(1);
+}
+
 export function toHistoryRow(order: StoreOrder): OrderHistoryRow {
   return {
     id: order.id, ...(order.clientOrderId !== undefined ? { clientOrderId: order.clientOrderId } : {}),
     reference: order.reference, placedAt: order.placedAt, totalMinor: order.totalMinor, currency: order.currency,
     itemCount: order.lines.reduce((sum, line) => sum + line.quantity, 0),
-    stateLabel: WOO_STATUS_LABELS[order.status] ?? order.status.charAt(0).toUpperCase() + order.status.slice(1),
+    stateLabel: wooStatusLabel(order.status),
   };
 }
