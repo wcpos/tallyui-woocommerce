@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import 'uniwind';
 @import '@tallyui/theme/tokens.css';
+@import './themes.css';
 
 @source './node_modules/@tallyui/components/dist';
 
