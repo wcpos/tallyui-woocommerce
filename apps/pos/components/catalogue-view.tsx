@@ -14,6 +14,9 @@ import { catalogueFilterBaseline, isQuickFilterActive, matchesCatalogueFilters, 
 import type { CatalogueFilters, QuickFilter } from '../lib/catalogue/quick-filters';
 import type { TileTax } from '../lib/catalogue/tile-words';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
+import { categoriesLabel, categoryTerms, filtersAtBaseline, productsInCategory, productsLabel } from '../lib/catalogue/browse-terms';
+import { BrowseCrumb, BrowseRootGrid, BrowseRootTable } from './browse-terms-view';
+import type { BrowsePlace } from './browse-terms-view';
 import { CatalogueDisplayOptions } from './catalogue-display-options';
 import { CatalogueFilterChips } from './catalogue-filter-chips';
 import { DrawerSheet } from './drawer-content';
@@ -76,7 +79,7 @@ export function CatalogueView({
   const viewState = controlledViewState ?? ownViewState;
   const setViewState = onViewStateChange ?? setOwnViewState;
   const [filters, setFilters] = useState<CatalogueFilters>(() => catalogueFilterBaseline(viewState.showOutOfStock));
-  const baseline = catalogueFilterBaseline(viewState.showOutOfStock);
+  const baseline = useMemo(() => catalogueFilterBaseline(viewState.showOutOfStock), [viewState.showOutOfStock]);
   // As v2: the stock filter rebases only when the setting moves, and a sort set in the sheet replaces a quick filter's.
   function changeViewState(next: AppCatalogueViewState) {
     if (next.showOutOfStock !== viewState.showOutOfStock) setFilters(current => rebaseStockStatus(current, next.showOutOfStock));
@@ -88,11 +91,24 @@ export function CatalogueView({
   // Phones keep 2 tiles a row whatever the setting.
   const numColumns = width < 600 ? 2 : resolveGridColumns(viewState.gridColumns, width);
   const searching = Boolean(term.trim());
+  // Browse by Categories, flat. v2 keeps a path of levels projected into the query (use-browse-path.ts,
+  // browse-stage.tsx); with no hierarchy here one open place is enough: null is the root. The place
+  // drops when Browse by changes (React's "previous render" pattern, so a change from anywhere drops it)
+  // and when the active quick filter is pressed; a search, a chip or Clear filters stay inside it.
+  const [place, setPlace] = useState<BrowsePlace | null>(null);
+  const [browsedBy, setBrowsedBy] = useState(viewState.browseBy);
+  if (browsedBy !== viewState.browseBy) { setBrowsedBy(viewState.browseBy); setPlace(null); }
+  const browsing = viewState.browseBy === 'categories';
+  const level = browsing ? place : null;
+  // The terms count what the baseline lets through: with out-of-stock hidden, only in-stock products.
+  const baselineProducts = useMemo(() => products.filter(doc => matchesCatalogueFilters(doc, baseline)), [products, baseline]);
+  const terms = useMemo(() => categoryTerms(baselineProducts), [baselineProducts]);
+  const levelProducts = useMemo(() => level?.kind === 'term' ? productsInCategory(products, level.id) : products, [products, level]);
   const items = useMemo(() => {
-    const matching = products.filter(doc => matchesCatalogueFilters(doc, filters));
+    const matching = levelProducts.filter(doc => matchesCatalogueFilters(doc, filters));
     const searched = searching ? searchProducts(matching, term, connector.traits.product) : matching;
     return sortProducts([...searched], sort, (doc, field) => productSortValue(doc, field, connector.traits.product, { currency }));
-  }, [products, filters, term, searching, connector.traits.product, currency, sort]);
+  }, [levelProducts, filters, term, searching, connector.traits.product, currency, sort]);
   const columns = useMemo(() => {
     const byId = new Map(defaultProductColumns(connector.traits.product, { currency }).map(column => [column.id, column]));
     const visible: ProductTableColumn[] = viewState.columns.filter(c => c.visible).flatMap(c => {
@@ -113,6 +129,7 @@ export function CatalogueView({
       setFilters(baseline);
       setTerm('');
       setSortOverride(null);
+      setPlace(null);
     } else {
       const patch = quickFilterToQueryPatch(qf);
       setFilters({ ...baseline, ...patch.filters });
@@ -136,11 +153,16 @@ export function CatalogueView({
   </View>;
   const emptyState = <Text>{searching || products.length > 0 ? 'No products match' : 'No products yet'}</Text>;
   const syncing = status === 'syncing' || status === 'starting';
-  // v2's footer count (`products/footer.tsx`): shown against total, after the sync state and any notice.
-  const shown = items.length, total = products.length;
+  // The term set shows at the root, until a search, a chip or a quick filter displaces it with the products they match.
+  const atRoot = browsing && level === null && !searching && filtersAtBaseline(filters, baseline) && !quickFilters.some(isActive);
+  // v2's footer count (`products/footer.tsx`): shown against total, after the sync state and any notice. At the
+  // root it is v2's root tally (browse-root-footer.tsx); in a level, the level's products are the total.
+  const shown = items.length, total = levelProducts.length;
   const countLabel = status === 'error' ? 'Sync failed' : notice ? notice.message ?? notice.code
-    : syncing ? 'Syncing products…' : shown < total ? `Showing ${shown.toLocaleString()} of ${total.toLocaleString()}`
+    : syncing ? 'Syncing products…' : atRoot ? `${categoriesLabel(terms.length)} · ${productsLabel(baselineProducts.length)}`
+    : shown < total ? `Showing ${shown.toLocaleString()} of ${total.toLocaleString()}`
     : total === 1 ? '1 product' : `${total.toLocaleString()} products`;
+  const crumb = level === null ? undefined : <BrowseCrumb place={level} onRoot={() => setPlace(null)} />;
   const [syncPending, setSyncPending] = useState(false);
   function sync() {
     if (!onSync || syncing || syncPending) return;
@@ -166,11 +188,15 @@ export function CatalogueView({
           <CatalogueDisplayOptions state={viewState} onChange={changeViewState} products={products} quickFilterCount={quickFilters.length} />
         </View>
         {message ? <Text>{message}</Text> : null}
-        {viewState.view === 'grid' ? <ProductGrid
+        {atRoot ? viewState.view === 'grid'
+          ? <BrowseRootGrid terms={terms} numColumns={numColumns} searchSlot={searchSlot} onOpen={setPlace} />
+          : <BrowseRootTable terms={terms} searchSlot={searchSlot} onOpen={setPlace} />
+        : viewState.view === 'grid' ? <ProductGrid
           items={items}
           numColumns={numColumns}
           renderItem={doc => <ProductTile doc={doc} fields={viewState.tileFields} tax={tax} inCart={inCartCounts?.get(connector.traits.product.getId(doc)) ?? 0} onPress={onSelect ? () => onSelect(doc) : undefined} />}
           searchSlot={searchSlot}
+          filterSlot={crumb}
           emptyState={emptyState}
         /> : <ProductTable
           items={items}
@@ -180,6 +206,7 @@ export function CatalogueView({
           onSortChange={next => { setSortOverride(null); setViewState({ ...viewState, sort: next }); }}
           onSelect={onSelect}
           searchSlot={searchSlot}
+          filterSlot={crumb}
           emptyState={emptyState}
         />}
         <View testID="data-table-caption-row" className="flex-row items-center gap-2 pt-2">

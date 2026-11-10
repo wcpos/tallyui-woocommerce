@@ -20,6 +20,7 @@ import { installReceiptPrintStyle, printReceipt, receiptPrintCss, RECEIPT_PAGE_C
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
+import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 
 const props: ComponentProps<typeof SaleScreen> = {
   storeSettings: noTaxSettings,
@@ -42,6 +43,9 @@ beforeEach(() => {
       user: { id: 2, uuid: 'cashier', displayName: 'Paul' } },
   });
 });
+
+// Browse by now opens on category tiles; these tests drive the flat product grid, so they browse All products.
+beforeEach(() => { localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all' })); });
 
 afterEach(() => {
   cleanup();

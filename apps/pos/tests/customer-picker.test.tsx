@@ -19,6 +19,7 @@ import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
+import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 
 function SaleScreen(props: ComponentProps<typeof SaleScreenWithoutHost>) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
@@ -40,6 +41,12 @@ beforeEach(() => {
   create.mockReset().mockResolvedValue(gee);
   onChange.mockReset();
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
+});
+
+// Browse by now opens on category tiles; these tests drive the flat product grid, so they browse All products.
+beforeEach(() => {
+  const data = new Map([[CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all' })]]);
+  vi.stubGlobal('localStorage', { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => { data.set(key, value); }, removeItem: (key: string) => { data.delete(key); } });
 });
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -235,7 +242,7 @@ function OrderStoreReady() {
 }
 
 test('sends the picked customer with a cash sale, then sends a guest after New sale', async () => {
-  const data = new Map<string, string>();
+  const data = new Map<string, string>([[CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all' })]]);
   vi.stubGlobal('localStorage', {
     getItem: (key: string) => data.get(key) ?? null,
     setItem: (key: string, value: string) => { data.set(key, value); },

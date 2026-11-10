@@ -15,6 +15,7 @@ import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeLeg } from './tender-helpers';
+import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
@@ -30,6 +31,9 @@ beforeEach(() => {
       user: { id: 2, uuid: 'cashier', displayName: 'Paul' } },
   });
 });
+
+// Browse by now opens on category tiles; these tests drive the flat product grid, so they browse All products.
+beforeEach(() => { localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all' })); });
 
 afterEach(() => {
   cleanup();

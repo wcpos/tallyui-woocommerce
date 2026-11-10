@@ -5,7 +5,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { Path } from 'react-native-svg';
 import { Button, createSvgIcon, Dialog, DialogContent, DialogTitle, IconButton, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Slider, Switch, Text, XIcon } from '@tallyui/components';
 import type { ProductSort } from '@tallyui/pos';
-import { CATALOGUE_COLUMNS, CATALOGUE_TILE_FIELDS, CATALOGUE_VIEW_DEFAULTS } from '../lib/catalogue/catalogue-view-state';
+import { BROWSE_BY, CATALOGUE_COLUMNS, CATALOGUE_TILE_FIELDS, CATALOGUE_VIEW_DEFAULTS } from '../lib/catalogue/catalogue-view-state';
 import type { AppCatalogueViewState, PanelPosition } from '../lib/catalogue/catalogue-view-state';
 import { QUICK_FILTER_SORT_FIELDS } from '../lib/catalogue/quick-filters';
 import { termOptions } from './catalogue-filter-chips';
@@ -94,13 +94,17 @@ export function CatalogueDisplayOptions({ state, onChange, products, quickFilter
           </View>}
           <View className="gap-1">
             <FieldLabel>Browse by</FieldLabel>
-            {/* v2's BrowseByField. Only All products works until the app has a browse stage (Follow-up); nothing is stored. */}
+            {/* v2's BrowseByField. All products and Categories work (the browse stage in catalogue-view.tsx);
+                Tags, Brands and Shortcuts wait for their own slices. */}
             <View role="radiogroup" aria-label="Browse by" className="overflow-hidden rounded-lg border border-border">
               {browseRows.map((row, index) => {
-                const disabled = row.value !== 'all';
-                return <Pressable key={row.value} role="radio" aria-checked={row.value === 'all'} aria-disabled={disabled} disabled={disabled} testID={`ui-settings-browse-by-${row.value}`}
-                  className={'min-h-11 flex-row items-center gap-2 px-3 py-2' + (index < browseRows.length - 1 ? ' border-b border-border' : '') + (disabled ? ' opacity-45' : '')}>
-                  <CheckIcon size={16} className={row.value === 'all' ? 'text-primary' : 'opacity-0'} />
+                const live = BROWSE_BY.find(value => value === row.value);
+                const disabled = live === undefined;
+                const checked = row.value === state.browseBy;
+                return <Pressable key={row.value} role="radio" aria-checked={checked} aria-disabled={disabled} disabled={disabled} testID={`ui-settings-browse-by-${row.value}`}
+                  onPress={() => { if (live !== undefined && !checked) onChange({ ...state, browseBy: live }); }}
+                  className={'min-h-11 flex-row items-center gap-2 px-3 py-2' + (index < browseRows.length - 1 ? ' border-b border-border' : '') + (disabled ? ' opacity-45' : ' web:hover:bg-accent active:opacity-70')}>
+                  <CheckIcon size={16} className={checked ? 'text-primary' : 'opacity-0'} />
                   <Text className="flex-1">{row.label}</Text>
                   {row.help !== undefined && <Text className="text-sm text-muted-foreground">{row.help}</Text>}
                 </Pressable>;
