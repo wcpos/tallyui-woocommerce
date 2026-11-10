@@ -282,7 +282,7 @@ test('starting a new sale removes the receipt print style', async () => {
 test('an Orders reprint prints from the same receipt-only area', async () => {
   const list = vi.fn<OrderHistorySource['list']>(async () => ({ orders: [storeOrder], hasMore: false }));
   await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
-  expect(await screen.findByText('Order 901 · 2 items')).not.toBeNull();
+  expect(await screen.findByTestId('history-row-901')).not.toBeNull();
   fireEvent.click(screen.getByTestId(`history-open-${storeOrder.id}`));
   fireEvent.click(screen.getByTestId('order-modal-receipt'));
   const area = screen.getByTestId('receipt-print-area');
