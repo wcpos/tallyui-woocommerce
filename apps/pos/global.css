@@ -3,3 +3,35 @@
 @import '@tallyui/theme/tokens.css';
 
 @source './node_modules/@tallyui/components/dist';
+
+/* v2's six Poster tile tints (monorepo apps/main/global.css), for tiles without a picture. */
+@theme {
+  --color-tile-tint-0: oklch(0.86 0.09 262);
+  --color-tile-tint-1: oklch(0.88 0.10 160);
+  --color-tile-tint-2: oklch(0.88 0.10 40);
+  --color-tile-tint-3: oklch(0.86 0.09 310);
+  --color-tile-tint-4: oklch(0.90 0.11 90);
+  --color-tile-tint-5: oklch(0.88 0.09 200);
+}
+
+@layer theme {
+  :root {
+    @variant light {
+      --color-tile-tint-0: oklch(0.86 0.09 262);
+      --color-tile-tint-1: oklch(0.88 0.10 160);
+      --color-tile-tint-2: oklch(0.88 0.10 40);
+      --color-tile-tint-3: oklch(0.86 0.09 310);
+      --color-tile-tint-4: oklch(0.90 0.11 90);
+      --color-tile-tint-5: oklch(0.88 0.09 200);
+    }
+
+    @variant dark {
+      --color-tile-tint-0: oklch(0.32 0.05 250);
+      --color-tile-tint-1: oklch(0.32 0.05 160);
+      --color-tile-tint-2: oklch(0.33 0.05 40);
+      --color-tile-tint-3: oklch(0.32 0.05 300);
+      --color-tile-tint-4: oklch(0.34 0.05 90);
+      --color-tile-tint-5: oklch(0.31 0.03 200);
+    }
+  }
+}

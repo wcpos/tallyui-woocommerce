@@ -1,13 +1,40 @@
-import type { JSX } from 'react';
-import { Pressable, View } from 'react-native';
+import type { JSX, ReactNode } from 'react';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import type { ViewStyle } from 'react-native';
 import { resolvePrice, useProductStock, useProductTraits, useTraitContext } from '@tallyui/core';
-import { ProductImage, ProductPrice, ProductTitle, Text, VStack } from '@tallyui/components';
+import { ProductImage, ProductPrice, ProductTitle, Text } from '@tallyui/components';
 import type { CatalogueTileFields } from '../lib/catalogue/catalogue-view-state';
-import { formatTileMoney, isSoldOut, tileStockMark, tileTaxLine } from '../lib/catalogue/tile-words';
+import { formatTileMoney, isSoldOut, optionsLabel, tileStockMark, tileTaxLine, tileTint } from '../lib/catalogue/tile-words';
 import type { TileTax } from '../lib/catalogue/tile-words';
 import { InCartBadge } from './in-cart-badge';
 
 export interface ProductTileProps { doc: any; fields: CatalogueTileFields; onPress?(): void; tax?: TileTax; inCart?: number }
+
+// v2's poster-tile/style.ts: literal classes, so the stylesheet keeps them (tokens in global.css).
+const TILE_TINTS = ['bg-tile-tint-0', 'bg-tile-tint-1', 'bg-tile-tint-2', 'bg-tile-tint-3', 'bg-tile-tint-4', 'bg-tile-tint-5'] as const;
+// v2's two cards under a stacked tile, inside the 8 px the grid cells' p-1 leave between tiles.
+const NEAR = { top: 3, left: 3, right: -3, bottom: -3 };
+const FAR = { top: 6, left: 6, right: -6, bottom: -6, opacity: 0.6 };
+const STACK_CARD = 'absolute rounded-lg border border-border bg-card';
+// v2 greys a sold-out picture to opacity-40; inline so it holds whatever the theme.
+const SOLD_OUT = { opacity: 0.4 };
+// The picture fills its square (ProductImage's style overrides its size).
+const FILL = { width: '100%', height: '100%' } as const;
+// v2's POSTER_BAND: one line of name (16 px x 1.25), the money row (16 px x 1.35), a 2 px gap and the 10 px foot.
+const BAND = { height: 54 };
+// v2's scrim-stops.ts: the fade reaches 48 px above the words and eases up to 92% card colour.
+const SCRIM_REACH = 48;
+const SCRIM_STRENGTH = 0.92;
+const SCRIM_STOPS: readonly (readonly [number, number])[] = [
+  [0, 0], [0.018, 0.002], [0.048, 0.008], [0.09, 0.021], [0.139, 0.042], [0.198, 0.075], [0.27, 0.126],
+  [0.35, 0.194], [0.435, 0.278], [0.53, 0.382], [0.66, 0.541], [0.81, 0.738], [1, 1],
+];
+const scrimCard = (of: number) => `color-mix(in srgb, var(--color-card) ${(of * SCRIM_STRENGTH * 100).toFixed(2)}%, transparent)`;
+// v2's scrim.tsx web gradient; native has no CSS gradient, so it takes a flat card band instead.
+const SCRIM_STYLE = Platform.OS === 'web'
+  ? { paddingTop: SCRIM_REACH, backgroundImage: `linear-gradient(to bottom, ${[...SCRIM_STOPS.map(([at, of]) => `${scrimCard(of)} ${at * SCRIM_REACH}px`), `${scrimCard(1)} 100%`].join(', ')})` } as ViewStyle
+  : { paddingTop: 8 } as ViewStyle;
+const WORDS = 'absolute bottom-0 left-0 right-0 max-h-full gap-0.5 overflow-hidden px-2.5 pb-2.5';
 
 export function ProductTile({ doc, fields, onPress, tax, inCart = 0 }: ProductTileProps): JSX.Element {
   const traits = useProductTraits();
@@ -19,28 +46,53 @@ export function ProductTile({ doc, fields, onPress, tax, inCart = 0 }: ProductTi
   const category = traits.getCategoryNames(doc).join(', ');
   const sku = traits.getSku(doc);
   const barcode = traits.getBarcode(doc);
-  const content = <VStack testID={`product-tile-${id}`} space="sm" className="relative items-center rounded-lg border border-border bg-card p-3">
-    <InCartBadge count={inCart} testID={`in-cart-tile-${id}`} className="absolute right-2 top-2 z-10" />
-    <ProductImage doc={doc} size={80} className={soldOut ? 'rounded-md opacity-50' : 'rounded-md'} />
-    {fields.name && <ProductTitle doc={doc} className="text-sm" numberOfLines={2} />}
-    {soldOut ? (fields.price || fields.stock) && <Text testID={`tile-sold-out-${id}`} className="text-sm font-bold">Sold out</Text>
-      : fields.price && (variable ? <ProductPrice doc={doc} /> : <TileMoney doc={doc} id={id} fields={fields} tax={tax} />)}
-    {fields.category && category && <Text className="text-xs text-muted-foreground" numberOfLines={1}>{category}</Text>}
-    {fields.sku && sku && <Text className="text-xs text-muted-foreground" numberOfLines={1}>{sku}</Text>}
-    {fields.barcode && barcode && <Text className="text-xs text-muted-foreground" numberOfLines={1}>{barcode}</Text>}
-    {mark && <Text testID={`tile-stock-${id}`} className="text-xs text-muted-foreground">{mark.label}</Text>}
-  </VStack>;
-  return onPress ? <Pressable onPress={onPress}>{content}</Pressable> : content;
+  const imageUrl = traits.getImageUrl(doc);
+  const tint = imageUrl ? null : tileTint(traits.getCategories?.(doc) ?? [], traits.getName(doc));
+  const initial = traits.getName(doc).trim().charAt(0).toUpperCase();
+  const options = variable ? optionsLabel(traits.getVariantCount(doc)) : null;
+  const lines: ReactNode[] = [
+    fields.name && <ProductTitle key="name" doc={doc} className="text-base font-bold leading-tight" numberOfLines={2} />,
+    soldOut ? (fields.price || fields.stock) && <Text key="money" testID={`tile-sold-out-${id}`} className="text-base font-bold">Sold out</Text>
+      : fields.price && (variable ? <ProductPrice key="money" doc={doc} /> : <TileMoney key="money" doc={doc} id={id} fields={fields} tax={tax} />),
+    options && <Text key="options" testID={`tile-options-${id}`} className="text-xs text-foreground/70">{options}</Text>,
+    fields.category && category && <Text key="category" className="text-xs text-muted-foreground" numberOfLines={1}>{category}</Text>,
+    fields.sku && sku && <Text key="sku" className="text-xs text-muted-foreground" numberOfLines={1}>{sku}</Text>,
+    fields.barcode && barcode && <Text key="barcode" className="text-xs text-muted-foreground" numberOfLines={1}>{barcode}</Text>,
+  ].filter(Boolean);
+  const content = <View testID={`product-tile-${id}`} className="relative">
+    {variable && <View testID={`tile-stack-${id}`} pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <View className={STACK_CARD} style={FAR} />
+      <View className={STACK_CARD} style={NEAR} />
+    </View>}
+    <View className={`overflow-hidden rounded-lg border ${tint === null ? 'border-border bg-card' : `${TILE_TINTS[tint]} border-transparent`}`}>
+      <View className="aspect-square w-full overflow-hidden">
+        <View testID={`tile-picture-${id}`} className="h-full w-full" style={soldOut ? SOLD_OUT : undefined}>
+          {imageUrl
+            ? <ProductImage testID={`tile-image-${id}`} doc={doc} style={FILL} className="rounded-none border-0" />
+            : initial !== '' && <View testID={`tile-initial-${id}`} pointerEvents="none" className="absolute inset-0 items-center justify-center">
+              <Text className="text-3xl font-bold text-foreground">{initial}</Text>
+            </View>}
+        </View>
+      </View>
+      <View style={BAND} />
+      {lines.length > 0 && (tint === null
+        ? <View testID={`tile-scrim-${id}`} className={Platform.OS === 'web' ? WORDS : `${WORDS} bg-card/90`} style={SCRIM_STYLE}>{lines}</View>
+        : <View className={`${WORDS} pt-2`}>{lines}</View>)}
+      {mark && <Text testID={`tile-stock-${id}`} className="absolute left-2 top-2 rounded-md bg-card/90 px-1.5 py-0.5 text-xs font-semibold">{mark.label}</Text>}
+      <InCartBadge count={inCart} testID={`in-cart-tile-${id}`} className="absolute right-2 top-2 z-10" />
+    </View>
+  </View>;
+  return onPress ? <Pressable accessibilityRole="button" onPress={onPress}>{content}</Pressable> : content;
 }
 
 function TileMoney({ doc, id, fields, tax }: { doc: any; id: string; fields: CatalogueTileFields; tax?: TileTax }): JSX.Element {
   const traits = useProductTraits();
   const context = useTraitContext();
   const resolved = resolvePrice(traits.getPrices(doc, context), context.currency);
-  if (!resolved) return <Text className="text-sm text-muted-foreground">-</Text>;
+  if (!resolved) return <Text className="text-base text-muted-foreground">-</Text>;
   const line = fields.tax && tax ? tileTaxLine(resolved.current, traits.getTaxStatus?.(doc), traits.getTaxClass?.(doc), tax) : null;
-  return <View className="flex-row flex-wrap items-baseline justify-center gap-x-1.5">
-    <Text className="text-sm font-bold">{formatTileMoney(resolved.current)}</Text>
+  return <View className="flex-row flex-wrap items-baseline gap-x-1.5">
+    <Text className="text-base font-bold">{formatTileMoney(resolved.current)}</Text>
     {fields.on_sale && resolved.was && <Text testID={`tile-was-${id}`} className="text-xs text-muted-foreground line-through">{formatTileMoney(resolved.was)}</Text>}
     {line !== null && <Text testID={`tile-tax-${id}`} className="text-xs text-muted-foreground">{line}</Text>}
   </View>;

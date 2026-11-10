@@ -432,3 +432,38 @@ test('table rows show the in-cart count and keep their order', () => {
   expect(screen.queryByTestId('in-cart-row-84')).toBeNull();
   expect(screen.getAllByTestId(/^product-row-/).map(row => row.getAttribute('data-testid'))).toEqual(['product-row-84', 'product-row-80', 'product-row-102']);
 });
+
+test('a variable tile says how many options it has and stacks two cards behind it', () => {
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  expect(screen.getByTestId('tile-options-102').textContent).toBe('6 options');
+  expect(screen.getByTestId('tile-stack-102').children.length).toBe(2);
+  expect(screen.queryByTestId('tile-options-80')).toBeNull();
+  expect(screen.queryByTestId('tile-stack-80')).toBeNull();
+});
+
+test('a product photo fills the tile under the card-colour scrim', () => {
+  render(<CatalogueView {...props} />);
+  expect(screen.getByTestId('tile-image-80')).not.toBeNull();
+  expect(screen.queryByTestId('tile-initial-80')).toBeNull();
+  expect(within(screen.getByTestId('tile-scrim-80')).getByText('Espresso')).not.toBeNull();
+});
+
+test('a product without a photo shows its initial on a tint and no scrim', () => {
+  render(<CatalogueView {...props} products={[{ ...products[0], images: [] }]} />);
+  expect(screen.getByTestId('tile-initial-80').textContent).toBe('E');
+  expect(screen.queryByTestId('tile-image-80')).toBeNull();
+  expect(screen.queryByTestId('tile-scrim-80')).toBeNull();
+  expect(within(screen.getByTestId('product-tile-80')).getByText('$3.00')).not.toBeNull();
+});
+
+test('a sold-out tile greys its picture and an in-stock one does not', () => {
+  render(<><CatalogueView {...props} products={[{ ...products[0], stock_status: 'outofstock', stock_quantity: 0 }, products[1]]} /><PortalHost /></>);
+  expect(screen.getByTestId('tile-picture-80').style.opacity).toBe('0.4');
+  expect(screen.getByTestId('tile-picture-84').style.opacity).toBe('');
+});
+
+test('the stock mark stays on the tile when Stock is on', () => {
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  openTileFields('Stock');
+  expect(within(screen.getByTestId('product-tile-80')).getByTestId('tile-stock-80').textContent).toBe('100 left');
+});

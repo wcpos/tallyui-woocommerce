@@ -1,5 +1,5 @@
 import { expect, test, vi } from 'vitest';
-import { inCartCounts, isSoldOut, tileStockMark, tileTaxLine } from '../lib/catalogue/tile-words';
+import { inCartCounts, isSoldOut, optionsLabel, tileStockMark, tileTaxLine, tileTint, tintOf } from '../lib/catalogue/tile-words';
 
 test('inCartCounts sums quantities per product, variations under their parent, and skips custom lines', () => {
   const counts = inCartCounts([
@@ -46,4 +46,30 @@ test('tileTaxLine shows nothing for a product that is not taxable or a zero rate
   expect(tileTaxLine(price, 'none', undefined, tax)).toBeNull();
   expect(tileTaxLine(price, undefined, undefined, tax)).toBeNull();
   expect(tileTaxLine(price, 'taxable', undefined, { ...tax, getTaxRatePpm: () => 0 })).toBeNull();
+});
+
+test('tintOf takes a number modulo six, truncated, never negative', () => {
+  expect(tintOf(25)).toBe(1);
+  expect(tintOf(27)).toBe(3);
+  expect(tintOf(6.9)).toBe(0);
+  expect(tintOf(-1)).toBe(5);
+  expect(tintOf(Number.NaN)).toBe(0);
+});
+
+test('tintOf sums a string\'s UTF-16 code units modulo six', () => {
+  expect(tintOf('Espresso')).toBe(0);
+  expect(tintOf('Coffee')).toBe(2);
+  expect(tintOf('')).toBe(0);
+});
+
+test('tileTint keys by the first numeric category id, else that id as text, else the name', () => {
+  expect(tileTint([{ id: '31' }, { id: '27' }], 'Espresso')).toBe(1);
+  expect(tileTint([{ id: 'Coffee' }], 'Espresso')).toBe(2);
+  expect(tileTint([], 'Espresso')).toBe(0);
+});
+
+test('optionsLabel says option or options, and nothing under one', () => {
+  expect(optionsLabel(1)).toBe('1 option');
+  expect(optionsLabel(6)).toBe('6 options');
+  expect(optionsLabel(0)).toBeNull();
 });
