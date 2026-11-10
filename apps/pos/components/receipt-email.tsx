@@ -31,6 +31,10 @@ export function ReceiptEmail({ collection, orderId, defaultEmail, localOnly = fa
     };
   }, []);
   const offline = localOnly || !online;
+  // The order's billing email: the call site passes the sale customer's address, which connector-woocommerce
+  // writes to the order's billing.email on create (v2 email.tsx defaults the field to orderData.billing?.email).
+  const billingEmail = defaultEmail.trim();
+  const replacesBilling = saveToBilling && billingEmail !== '' && billingEmail !== email.trim();
 
   function show() {
     setEmail(request?.email ?? defaultEmail);
@@ -78,10 +82,13 @@ export function ReceiptEmail({ collection, orderId, defaultEmail, localOnly = fa
               checked={saveToBilling} onCheckedChange={setSaveToBilling} />
             <Text>Save email to Billing Address</Text>
           </View>
+          {replacesBilling ? <Text testID="receipt-email-billing-replaces" className="text-muted-foreground">
+            {`Replaces ${billingEmail} on this order’s billing address.`}
+          </Text> : null}
           {offline ? <Text testID="receipt-email-offline-notice" className="text-muted-foreground">
             This device can’t reach your store right now. The receipt will be emailed automatically when the connection returns.
           </Text> : null}
-          {error ? <Text accessibilityRole="alert" className="text-destructive">{error}</Text> : null}
+          {error ? <Text testID="receipt-email-error" accessibilityRole="alert" className="text-destructive">{error}</Text> : null}
           <DialogFooter>
             <Button testID="dialog-footer-close" variant="outline" onPress={() => setOpen(false)}><Text>Cancel</Text></Button>
             <Button testID="receipt-email-send" disabled={busy} onPress={() => { void send(); }}>
