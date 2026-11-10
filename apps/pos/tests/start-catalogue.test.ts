@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { RxCollection } from 'rxdb';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
+import { taxLogger } from '@tallyui/pos';
 import type { Session } from '../lib/auth/session';
 import { databaseName, startCatalogue } from '../lib/catalogue/start-catalogue';
 import products from './fixtures/products.json';
@@ -172,6 +173,29 @@ test('the coupons collection stays empty when the store lists no coupons', async
     expect(await coupons.find().exec()).toEqual([]);
   } finally {
     await catalogue.stop();
+  }
+});
+
+test('keeps a local logs collection that the TallyUI loggers write to until stop', async () => {
+  const fetchImpl = fakeStore({});
+  vi.stubGlobal('fetch', fetchImpl);
+  const catalogue = await startCatalogue(session, { storage: getRxStorageMemory(), fetchImpl: fetchImpl as unknown as typeof fetch });
+  let stopped = false;
+  try {
+    taxLogger.warn('catalogue log test');
+    await vi.waitFor(async () => {
+      const rows = await catalogue.logs.find({ selector: { message: 'catalogue log test' } }).exec();
+      expect(rows).toHaveLength(1);
+      expect(rows[0].scope).toBe('tax');
+    });
+    const insert = vi.spyOn(catalogue.logs, 'insert');
+    await catalogue.stop();
+    stopped = true;
+    taxLogger.warn('after stop');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    expect(insert).not.toHaveBeenCalled();
+  } finally {
+    if (!stopped) await catalogue.stop();
   }
 });
 

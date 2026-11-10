@@ -8,6 +8,7 @@ import type { Session } from '../auth/session';
 import { fetchCashierCapabilities, type CashierCapabilities } from '../auth/capabilities';
 import { parkedCartSchema, parkedCartMigrationStrategies, type ParkedCartCollection } from '../sale/parked-carts';
 import { receiptEmailSchema, receiptEmailMigrationStrategies, type ReceiptEmailCollection } from '../receipts/receipt-emails';
+import { attachLogStore, logRecordSchema, type LogCollection } from '../logs/log-store';
 import { fetchStoreInfo } from './store-info';
 import type { StoreInfo } from './store-info';
 
@@ -19,6 +20,7 @@ export interface Catalogue {
   coupons: RxCollection;
   parkedCarts: ParkedCartCollection;
   receiptEmails: ReceiptEmailCollection;
+  logs: LogCollection;
   connector: TallyConnector;
   store: StoreInfo;
   cashier: CashierCapabilities;
@@ -54,12 +56,14 @@ export async function startCatalogue(
     storage: options.storage ?? appStorage(),
   });
   // House rule: local-only collections, never replicated.
-  const { parked_carts: parkedCarts, receipt_emails: receiptEmails } = await db.addCollections<{
-    parked_carts: ParkedCartCollection; receipt_emails: ReceiptEmailCollection;
+  const { parked_carts: parkedCarts, receipt_emails: receiptEmails, logs } = await db.addCollections<{
+    parked_carts: ParkedCartCollection; receipt_emails: ReceiptEmailCollection; logs: LogCollection;
   }>({
     parked_carts: { schema: parkedCartSchema, migrationStrategies: parkedCartMigrationStrategies },
     receipt_emails: { schema: receiptEmailSchema, migrationStrategies: receiptEmailMigrationStrategies },
+    logs: { schema: logRecordSchema },
   });
+  const logStore = attachLogStore(logs);
   const replication = startReplication({ collection: db.products, adapter: connector.replication!.products!, context });
   const couponReplication = startReplication({ collection: db.coupons, adapter: connector.replication!.coupons!, context });
   const reconcile = startCatalogueReconcile({
@@ -72,13 +76,14 @@ export async function startCatalogue(
     startDelayMs: 0, intervalMs: COUPON_RECONCILE_INTERVAL_MS,
   });
   return {
-    db, coupons: db.coupons, parkedCarts, receiptEmails, connector, store, cashier, capabilities, replication,
+    db, coupons: db.coupons, parkedCarts, receiptEmails, logs, connector, store, cashier, capabilities, replication,
     setAccessToken(token) {
       Object.assign(context.headers, connector.auth.getHeaders({ token }));
       void replication.resume();
       void couponReplication.resume();
     },
     async stop() {
+      await logStore.detach();
       reconcile.stop();
       couponReconcile.stop();
       await replication.cancel();
