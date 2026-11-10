@@ -64,7 +64,7 @@ async function setup() {
 
 async function payCash() {
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   await takeCash(1000);
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
 }
@@ -73,7 +73,7 @@ async function openRegister() {
   fireEvent.click(screen.getByRole('switch', { name: 'Use register sessions' }));
   fireEvent.change(await screen.findByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
-  await screen.findByRole('button', { name: 'Cash' });
+  await screen.findByTestId('cart-checkout');
 }
 
 async function closeRegister(counted: string) {

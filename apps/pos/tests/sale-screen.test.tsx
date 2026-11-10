@@ -439,13 +439,13 @@ test('with no order transport, Cash shows the payment placeholder and Back to ca
   render(<SessionProvider><OutboxProvider transportFor={() => null}><SaleScreen {...props} /></OutboxProvider></SessionProvider>);
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   expect(screen.getByText('Taking payment arrives in the next update')).not.toBeNull();
-  expect(screen.queryByRole('button', { name: 'Cash' })).toBeNull();
+  expect(screen.queryByTestId('cart-checkout')).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Back to cart' }));
   expect(screen.queryByText('Taking payment arrives in the next update')).toBeNull();
   expect(screen.getByText('Espresso')).not.toBeNull();
-  expect(screen.getByRole('button', { name: 'Cash' })).not.toBeNull();
+  expect(screen.getByTestId('cart-checkout')).not.toBeNull();
   expect(within(screen.getByText('Subtotal').parentElement!).getByText('$3.00')).not.toBeNull();
 }, 20_000);
 

@@ -210,7 +210,7 @@ test('the receipt lists each coupon with its amount', async () => {
   await addEspresso();
   await applyCoupon('save10');
   await screen.findByTestId('coupon-chip-save10');
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   await takeCash(270);
   const coupons = within(await screen.findByTestId('receipt-coupons'));
   expect(coupons.getByText('Coupon save10')).not.toBeNull();

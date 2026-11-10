@@ -70,7 +70,7 @@ async function setup({ multiplePayments, storeSettings = noTaxSettings }: { mult
 
 async function payCash() {
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   await takeCash(1000);
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'New sale' }));
@@ -81,7 +81,7 @@ async function openRegister(enable = true) {
   if (enable) fireEvent.click(screen.getByRole('switch', { name: 'Use register sessions' }));
   fireEvent.change(await screen.findByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
-  await screen.findByRole('button', { name: 'Cash' });
+  await screen.findByTestId('cart-checkout');
 }
 
 async function closeRegister(counted: string) {
@@ -274,7 +274,7 @@ test('a split tender counts once per method', async () => {
   await setup({ multiplePayments: true });
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   takeLeg(200);
   takeLeg(400, 'pos_card');
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
@@ -453,7 +453,7 @@ test('the Payments tile opens a table of methods', async () => {
   await setup({ multiplePayments: true });
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   takeLeg(200);
   takeLeg(400, 'pos_card');
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();

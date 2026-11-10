@@ -67,7 +67,7 @@ test.each([true, false, undefined])('uses the advertised tender UI with multiple
   await screen.findByText('Order store ready');
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   if (multiplePayments === true) {
     expect(screen.getByTestId('checkout-ledger')).not.toBeNull();
     takeLeg(200);
@@ -116,7 +116,7 @@ test('the existing outbox transport sees a catalogue capability that arrives lat
   rerender(view(true));
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   takeLeg(200);
   takeLeg(400, 'pos_card');
   await screen.findByTestId('receipt-order');

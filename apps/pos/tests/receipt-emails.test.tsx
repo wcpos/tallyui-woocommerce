@@ -437,7 +437,7 @@ test.each([true, false])('completed sale receipt UI, mailer available: %s', asyn
   fireEvent.change(screen.getByPlaceholderText('Search Customers'), { target: { value: 'gee' } });
   fireEvent.click(await vi.waitFor(() => screen.getByLabelText('Gee Four, gee@example.invalid')));
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   await takeCash(300);
   await vi.waitFor(() => expect(screen.getByTestId('receipt-order')).not.toBeNull());
   if (available) {

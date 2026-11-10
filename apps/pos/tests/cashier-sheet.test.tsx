@@ -219,7 +219,7 @@ test('the cashier button is disabled while taking payment', async () => {
     render(<SaleScreen {...props} parkedCarts={parkedCarts} />);
     fireEvent.click(screen.getByText('Espresso'));
     // At 900px the cart is already open alongside the catalogue.
-    fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+    fireEvent.click(screen.getByTestId('cart-checkout'));
     const button = screen.getByTestId('register-bar-avatar');
     expect(button.getAttribute('aria-disabled') === 'true' || button.hasAttribute('disabled')).toBe(true);
     expect(screen.getByText('Finish or cancel the payment first.')).not.toBeNull();

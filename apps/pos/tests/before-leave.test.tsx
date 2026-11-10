@@ -101,7 +101,7 @@ test('the sale screen refuses to leave during a payment and keeps the cart', asy
   await withParkedCarts(async parkedCarts => {
     render(<SaleScreen {...props} parkedCarts={parkedCarts} />);
     fireEvent.click(screen.getByText('Espresso'));
-    fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+    fireEvent.click(screen.getByTestId('cart-checkout'));
     await act(async () => { expect(await runBeforeLeave()).toBe('Finish or cancel the payment first.'); });
     expect(await parkedCarts.find().exec()).toEqual([]);
     expect(localStorage.getItem('held-test')).toBeNull();
@@ -147,7 +147,7 @@ test('a finished sale on the receipt screen is never parked', async () => {
     );
     await screen.findByText('Order store ready');
     fireEvent.click(screen.getByText('Espresso'));
-    fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+    fireEvent.click(screen.getByTestId('cart-checkout'));
     await takeCash(300);
     await screen.findByTestId('receipt-order');
     await act(async () => { expect(await runBeforeLeave()).toBeNull(); });

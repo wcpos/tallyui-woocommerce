@@ -220,7 +220,7 @@ test('the sale receipt stage shows its print area inside the zoom preview', asyn
   await setup(send);
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   takeLeg(200);
   takeLeg(400, 'pos_card');
   await vi.waitFor(() => expect(screen.getByTestId('receipt-order')).not.toBeNull());

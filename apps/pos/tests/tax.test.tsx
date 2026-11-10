@@ -149,12 +149,12 @@ test('does not mount the sale while taxes are pending', async () => {
   renderTill();
   await waitFor(() => expect(fetchStub.mock.calls.some(([url]) => String(url).includes('/taxes?'))).toBe(true));
   expect(screen.getByText("Loading the store's tax settings…")).not.toBeNull();
-  expect(screen.queryByRole('button', { name: 'Cash' })).toBeNull();
+  expect(screen.queryByTestId('cart-checkout')).toBeNull();
   expect(screen.queryByText('Espresso')).toBeNull();
   await act(async () => { release(Response.json(taxes)); });
   await addToCart('Espresso');
   await screen.findByText('Order store ready');
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   expect(await screen.findByTestId('checkout-keypad')).not.toBeNull();
 });
 
@@ -162,13 +162,13 @@ test('a taxes failure blocks the sale until Retry succeeds', async () => {
   readTaxes = () => new Response(null, { status: 503 });
   renderTill();
   expect(await screen.findByText("Could not load the store's tax settings.")).not.toBeNull();
-  expect(screen.queryByRole('button', { name: 'Cash' })).toBeNull();
+  expect(screen.queryByTestId('cart-checkout')).toBeNull();
   expect(screen.queryByText('Espresso')).toBeNull();
   readTaxes = () => Response.json(taxes);
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
   await addToCart('Espresso');
   await screen.findByText('Order store ready');
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   expect(await screen.findByTestId('checkout-keypad')).not.toBeNull();
 }, 20_000);
 
@@ -180,7 +180,7 @@ test.each(['Order discount', 'Discount'])('inclusive stores take a sale with %s 
   fireEvent.click(screen.getByText(control, { exact: true }));
   fireEvent.change(screen.getByLabelText('Discount value'), { target: { value: '10' } });
   fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   expect(await screen.findByTestId('checkout-keypad')).not.toBeNull();
   expect(screen.queryByText("Discounts can't be sold on a tax-inclusive store yet. Remove the discount to take payment.")).toBeNull();
 });
