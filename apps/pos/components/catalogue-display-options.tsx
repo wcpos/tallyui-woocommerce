@@ -36,18 +36,9 @@ export function CatalogueDisplayOptions({ state, onChange }: { state: AppCatalog
             />} />;
           })}
         </SettingsGroup>}
-        <SettingsGroup title="Panel position">
-          <View className="flex-row gap-4">
-            <Button testID="panel-position-left" variant={state.position === 'left' ? 'default' : 'outline'}
-              aria-selected={state.position === 'left'}
-              onPress={() => onChange({ ...state, position: 'left' })}><Text>Products left</Text></Button>
-            <Button testID="panel-position-right" variant={state.position === 'right' ? 'default' : 'outline'}
-              aria-selected={state.position === 'right'}
-              onPress={() => onChange({ ...state, position: 'right' })}><Text>Products right</Text></Button>
-          </View>
-        </SettingsGroup>
         <DialogFooter>
-          <Button testID="catalogue-settings-restore" variant="destructive" onPress={() => onChange(CATALOGUE_VIEW_DEFAULTS)}><Text>Restore default settings</Text></Button>
+          {/* The panel position belongs to Cart Settings (v2 pos-cart.position), so restoring the products keeps it. */}
+          <Button testID="catalogue-settings-restore" variant="destructive" onPress={() => onChange({ ...CATALOGUE_VIEW_DEFAULTS, position: state.position })}><Text>Restore default settings</Text></Button>
           <Button testID="catalogue-settings-close" onPress={() => setOpen(false)}><Text>Close</Text></Button>
         </DialogFooter>
       </DialogContent>

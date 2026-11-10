@@ -267,7 +267,8 @@ test('Price actions appear once per line and none appear with an empty cart', ()
   expect(screen.getAllByText('Price', { exact: true })).toHaveLength(1);
   fireEvent.click(screen.getByText('Cold Brew'));
   expect(screen.getAllByText('Price', { exact: true })).toHaveLength(2);
-  fireEvent.click(screen.getAllByText('Price', { exact: true })[1]);
+  // Cart Settings sorts newest at top by default (v2), so Cold Brew, added last, is the first line.
+  fireEvent.click(screen.getAllByText('Price', { exact: true })[0]);
   expect(screen.getByRole('group', { name: 'Price for Cold Brew' })).not.toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   fireEvent.click(screen.getByRole('button', { name: 'Remove Cold Brew' }));
