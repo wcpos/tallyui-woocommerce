@@ -1,21 +1,25 @@
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import { View } from 'react-native';
 import { Button, Text } from '@tallyui/components';
-import { installReceiptPrintStyle, nextReceiptArea, printReceipt, RECEIPT_PAPER_WIDTH, type ReceiptPaperWidth } from '../lib/receipts/print-receipt';
+import { claimReceiptAutoPrint, installReceiptPrintStyle, nextReceiptArea, printReceipt, RECEIPT_PAPER_WIDTH, type ReceiptPaperWidth } from '../lib/receipts/print-receipt';
 import { useReceiptPrintCount } from '../lib/receipts/use-receipt-print-count';
 
-export function ReceiptPrintSheet({ orderId, paperWidth = RECEIPT_PAPER_WIDTH, children }: {
-  orderId: string | null; paperWidth?: ReceiptPaperWidth; children: ReactNode;
+export function ReceiptPrintSheet({ orderId, paperWidth = RECEIPT_PAPER_WIDTH, autoPrint = false, children }: {
+  orderId: string | null; paperWidth?: ReceiptPaperWidth; autoPrint?: boolean; children: ReactNode;
 }): JSX.Element {
   const [area] = useState(nextReceiptArea);
   useEffect(() => installReceiptPrintStyle(area, paperWidth), [area, paperWidth]);
   const printed = useReceiptPrintCount(orderId) > 0;
   const [error, setError] = useState<string | null>(null);
+  // Declared after the style effect, so the @page style is installed before the auto print.
+  useEffect(() => {
+    if (autoPrint && orderId !== null && claimReceiptAutoPrint(orderId)) setError(printReceipt());
+  }, [autoPrint, orderId]);
   // TallyUI's Receipt keeps its own "Print receipt" button; v2 relabels that button "Print again" (receipt/print-sheet.tsx).
   return (
     <View testID="receipt-print-area" dataSet={{ print: 'receipt', receipt: area }}>
       {children}
-      {printed && <View dataSet={{ print: 'hide' }} className="gap-2 py-2">
+      {(printed || error !== null) && <View dataSet={{ print: 'hide' }} className="gap-2 py-2">
         {error && <Text testID="print-sheet-error" accessibilityRole="alert" className="text-destructive">{error}</Text>}
         <Button testID="receipt-print-again" onPress={() => setError(printReceipt())}><Text>Print again</Text></Button>
       </View>}

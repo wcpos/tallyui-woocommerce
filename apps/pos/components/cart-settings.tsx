@@ -6,6 +6,8 @@ import { CATALOGUE_VIEW_DEFAULTS } from '../lib/catalogue/catalogue-view-state';
 import type { PanelPosition } from '../lib/catalogue/catalogue-view-state';
 import { CART_SETTINGS_DEFAULTS, LINE_SORTS, normalizeLineSort, sortCartLines, useCartSettings } from '../lib/sale/cart-settings';
 import type { CartSettings } from '../lib/sale/cart-settings';
+import { AutoPrintReceiptSetting } from './auto-print-setting';
+import { RECEIPT_SETTINGS_DEFAULTS, saveReceiptSettings } from '../lib/receipts/receipt-settings';
 
 export function CartSettingsDialog({ position, onPositionChange, settings, onSettingsChange }: {
   position: PanelPosition;                     // the PRODUCTS side (AppCatalogueViewState.position)
@@ -41,10 +43,12 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
           </Select>
           <Text testID="cart-sort-items-hint" className="text-sm text-muted-foreground">Fees and shipping always stay last</Text>
         </SettingsGroup>
+        <AutoPrintReceiptSetting />
         <DialogFooter>
           <Button testID="ui-settings-restore-defaults" variant="destructive" onPress={() => {
             onPositionChange(CATALOGUE_VIEW_DEFAULTS.position);
             onSettingsChange(CART_SETTINGS_DEFAULTS);
+            saveReceiptSettings(RECEIPT_SETTINGS_DEFAULTS);
           }}><Text>Restore Default Settings</Text></Button>
           <Button testID="ui-settings-close" onPress={() => setOpen(false)}><Text>Close</Text></Button>
         </DialogFooter>

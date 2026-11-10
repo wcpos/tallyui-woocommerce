@@ -32,6 +32,8 @@ import { useReceiptEmailSender, type ReceiptEmailCollection } from '../lib/recei
 import { ReceiptEmail } from './receipt-email';
 import { ReceiptIdentity } from './receipt-identity';
 import { ReceiptPrintSheet } from './receipt-print-sheet';
+import { ReceiptPaidMoment } from './receipt-paid-moment';
+import { useReceiptSettings } from '../lib/receipts/receipt-settings';
 import { RegisterControls, RegisterSwitch } from './register-controls';
 import { CancelPaymentView } from './cancel-payment-view';
 import { CashierSheet, type CashierOption } from './cashier-sheet';
@@ -96,6 +98,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   });
   const inCart = useMemo(() => inCartCounts(sale.order.lineItems), [sale.order.lineItems]);
   const printCount = useReceiptPrintCount(sale.stage.kind === 'receipt' ? sale.stage.posOrder.id : null);
+  const [receiptSettings] = useReceiptSettings();
   const { width } = useWindowDimensions();
   const [cartOpen, setCartOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -417,9 +420,11 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         const receiptCoupons = sale.stage.order.display.coupons ?? [], receiptCurrency = sale.stage.order.currency;
         return (
         <>
-          <ReceiptPrintSheet orderId={orderId}>
+          <ReceiptPaidMoment posOrder={receiptOrder} locale={props.locale} onClose={sale.newSale} />
+          <ReceiptPrintSheet orderId={orderId} autoPrint={receiptSettings.autoPrint}>
           <Receipt order={sale.stage.order} posOrder={receiptOrder} store={{ name: props.storeName }}
-            cashier={props.cashierName} registerId={REGISTER_ID} newSale={sale.newSale} />
+            cashier={props.cashierName} registerId={REGISTER_ID} newSale={sale.newSale}
+            doneLabel={receiptSettings.autoPrint ? 'Print receipt · New sale' : 'New sale'} />
           {receiptCoupons.length ? (
             <View testID="receipt-coupons" className="gap-1 py-2">
               {receiptCoupons.map(coupon => (
