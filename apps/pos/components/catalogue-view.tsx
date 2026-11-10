@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import type { JSX, ReactNode } from 'react';
 import { View, useWindowDimensions } from 'react-native';
+import { Path } from 'react-native-svg';
 import { ConnectorProvider } from '@tallyui/core';
 import type { TallyConnector } from '@tallyui/core';
-import { Button, defaultProductColumns, ProductGrid, ProductTable, SearchInput, Text, ViewToggle } from '@tallyui/components';
+import { Button, createSvgIcon, defaultProductColumns, IconButton, ProductGrid, ProductTable, SearchInput, Text, ViewToggle } from '@tallyui/components';
 import type { ProductTableColumn } from '@tallyui/components';
 import { productSortValue, resolveGridColumns, searchProducts, sortProducts } from '@tallyui/pos';
 import type { ProductSort } from '@tallyui/pos';
@@ -21,6 +22,9 @@ import { InCartBadge } from './in-cart-badge';
 import { ProductTile } from './product-tile';
 import { QuickFilterBar } from './quick-filter-bar';
 import { RegisterBarShell } from './register-bar-shell';
+
+const SyncIcon = createSvgIcon('SyncIcon', () => <><Path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><Path d="M21 3v5h-5" />
+  <Path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><Path d="M8 16H3v5" /></>);
 
 export interface CatalogueViewProps {
   connector: TallyConnector;
@@ -49,12 +53,14 @@ export interface CatalogueViewProps {
   tax?: TileTax;
   /** In-cart quantity by product id (SaleScreen's lines); without it no badge shows. */
   inCartCounts?: ReadonlyMap<string, number>;
+  /** Re-runs the product sync for the footer's Sync button (v2 `sync-button.tsx`); without it no button shows. */
+  onSync?(): Promise<void>;
 }
 
 export function CatalogueView({
   connector, currency, products, storeName, cashierName, cashierControl, hideOfflineBadge, status, notice, onSignOut, onOpenOrders, onOpenCustomers, onOpenReports, onOpenHealth, onOpenLogs, onOpenSettings, onSelect, onScan, message,
   viewState: controlledViewState, onViewStateChange,
-  tax, inCartCounts,
+  tax, inCartCounts, onSync,
 }: CatalogueViewProps): JSX.Element {
   const [term, setTerm] = useState('');
   const [quickFilters, setQuickFilters] = useQuickFilters();
@@ -129,8 +135,19 @@ export function CatalogueView({
     </View>
   </View>;
   const emptyState = <Text>{searching || products.length > 0 ? 'No products match' : 'No products yet'}</Text>;
-  const statusLine = status === 'error' ? 'Sync failed' : notice ? notice.message ?? notice.code
-    : status === 'syncing' ? 'Syncing products…' : status === 'ready' ? `${products.length} products` : '';
+  const syncing = status === 'syncing' || status === 'starting';
+  // v2's footer count (`products/footer.tsx`): shown against total, after the sync state and any notice.
+  const shown = items.length, total = products.length;
+  const countLabel = status === 'error' ? 'Sync failed' : notice ? notice.message ?? notice.code
+    : syncing ? 'Syncing products…' : shown < total ? `Showing ${shown.toLocaleString()} of ${total.toLocaleString()}`
+    : total === 1 ? '1 product' : `${total.toLocaleString()} products`;
+  const [syncPending, setSyncPending] = useState(false);
+  function sync() {
+    if (!onSync || syncing || syncPending) return;
+    setSyncPending(true);
+    // A failed sync reports itself through the replication's notice and status.
+    onSync().catch(() => {}).finally(() => setSyncPending(false));
+  }
 
   return (
     <ConnectorProvider connector={connector} traitContext={{ currency }}>
@@ -148,7 +165,6 @@ export function CatalogueView({
           <ViewToggle value={viewState.view} onChange={view => setViewState({ ...viewState, view })} />
           <CatalogueDisplayOptions state={viewState} onChange={changeViewState} products={products} quickFilterCount={quickFilters.length} />
         </View>
-        <Text>{statusLine}</Text>
         {message ? <Text>{message}</Text> : null}
         {viewState.view === 'grid' ? <ProductGrid
           items={items}
@@ -166,6 +182,12 @@ export function CatalogueView({
           searchSlot={searchSlot}
           emptyState={emptyState}
         />}
+        <View testID="data-table-caption-row" className="flex-row items-center gap-2 pt-2">
+          <View className="flex-1" />
+          <Text testID="data-table-count" className="text-sm text-muted-foreground">{countLabel}</Text>
+          {onSync ? <IconButton testID="catalogue-sync" accessibilityRole="button" accessibilityLabel="Sync" variant="ghost" size="sm"
+            disabled={syncing || syncPending} onPress={sync}><SyncIcon size={16} /></IconButton> : null}
+        </View>
         </View>
       </View>
     </ConnectorProvider>
