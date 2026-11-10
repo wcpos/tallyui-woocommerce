@@ -22,14 +22,17 @@ let orders: (ReturnType<typeof useOutbox> & { enabled: true })['orders'];
  * add() already vets, and the cashier ref is the harness's own. So useSale is wrapped, nothing else changed:
  * `skipComplete` makes the next complete() return without saving; `cashierRef` swaps in a ref useSale refuses as a
  * config error (`error` set, `saving` false, every complete() a no-op); `refuseTender` makes the next addTender()
- * return null (its own refusals, a bad amount, nothing due or a locked sale, all disable the button first).
+ * return null (its own refusals, a bad amount, nothing due or a locked sale, all disable the button first);
+ * `throwTender` makes the next addTender() throw, as a failing tender store would.
  */
-const stub = vi.hoisted(() => ({ skipComplete: false, refuseTender: false, cashierRef: undefined as string | undefined }));
+const stub = vi.hoisted(() => ({ skipComplete: false, refuseTender: false, throwTender: false,
+  cashierRef: undefined as string | undefined }));
 vi.mock('@tallyui/pos', async importOriginal => {
   const pos = await importOriginal<typeof import('@tallyui/pos')>();
   const useSale: typeof pos.useSale = (settings, opts) => {
     const sale = pos.useSale(settings, stub.cashierRef === undefined ? opts : { ...opts, cashierRef: stub.cashierRef });
     return { ...sale, addTender: tender => {
+      if (stub.throwTender) { stub.throwTender = false; throw new Error('tender store failed'); }
       if (!stub.refuseTender) return sale.addTender(tender);
       stub.refuseTender = false;
       return null;
@@ -61,6 +64,7 @@ afterEach(() => {
   cleanup();
   stub.skipComplete = false;
   stub.refuseTender = false;
+  stub.throwTender = false;
   stub.cashierRef = undefined;
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -274,4 +278,22 @@ test('a refused payment leaves the next tap free', async () => {
   fireEvent.click(screen.getByTestId('checkout-commit'));
   expect(legs()).toHaveLength(1);
   expect(text('checkout-ledger-balance')).toBe('$4.00');
+}, 20_000);
+
+test('a payment that throws leaves the next tap free', async () => {
+  await renderSale();
+  press('clear', '2', '0', '0');
+  stub.throwTender = true;
+  const seen: unknown[] = [];
+  const onError = (event: ErrorEvent) => { seen.push(event.error); event.preventDefault(); };
+  window.addEventListener('error', onError);
+  try {
+    fireEvent.click(screen.getByTestId('checkout-commit'));
+  } finally {
+    window.removeEventListener('error', onError);
+  }
+  expect(seen.map(e => (e as Error).message)).toEqual(['tender store failed']);
+  expect(legs()).toHaveLength(0);
+  fireEvent.click(screen.getByTestId('checkout-commit'));
+  expect(legs()).toHaveLength(1);
 }, 20_000);
