@@ -437,7 +437,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           })} />
           </ReceiptPrintSheet>
           {mailer && receiptEmails && outbox.enabled ? <ReceiptEmail collection={receiptEmails}
-            orderId={sale.stage.posOrder.id} defaultEmail={sale.stage.order.customer?.email ?? ''} /> : null}
+            orderId={sale.stage.posOrder.id} defaultEmail={sale.stage.order.customer?.email ?? ''}
+            localOnly={!receiptOrder.serverRefs?.orderId} /> : null}
         </>
         );
       })() : null}
