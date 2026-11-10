@@ -15,6 +15,7 @@ import { useRegister } from '../lib/register/register-context';
 import { buildReceiptIdentity } from '../lib/receipts/receipt-identity';
 import { useReceiptPrintCount } from '../lib/receipts/use-receipt-print-count';
 import { useOutbox } from '../lib/sale/outbox-context';
+import { clearBeforeLeave, setBeforeLeave, type BeforeLeave } from '../lib/sale/before-leave';
 import { parkCart, restoreCart } from '../lib/sale/parked-carts';
 import { saleDiscountCodes } from '../lib/sale/discount-codes';
 import { taxClassOptions } from '../lib/sale/tax-classes';
@@ -35,6 +36,7 @@ import { RegisterControls, RegisterSwitch } from './register-controls';
 import { CancelPaymentView } from './cancel-payment-view';
 import { CashierSheet, type CashierOption } from './cashier-sheet';
 import { CouponEntry, CouponRows } from './coupon-entry';
+import { OpenOrderTabs } from './open-order-tabs';
 import { PanelResizeHandle } from './panel-resize-handle';
 import { CartWithSettings } from './cart-settings';
 
@@ -113,6 +115,17 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   useEffect(() => {
     register?.setTenderInProgress(sale.stage.kind === 'tender');
   }, [register?.setTenderInProgress, sale.stage.kind]);
+  const leave = useRef({ hold: holdOpenCart, tendering: false });
+  leave.current = { hold: holdOpenCart, tendering: sale.stage.kind === 'tender' || sale.saving };
+  useEffect(() => {
+    const handler: BeforeLeave = async () => {
+      if (leave.current.tendering) return 'Finish or cancel the payment first.';
+      const result = await leave.current.hold();
+      return typeof result === 'string' ? result : null;
+    };
+    setBeforeLeave(handler);
+    return () => clearBeforeLeave(handler);
+  }, []);
   useEffect(() => {
     if (sale.stage.kind !== 'tender') { setCancelling(false); setVoidError(undefined); }
   }, [sale.stage.kind]);
@@ -230,21 +243,28 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     });
   }
 
-  async function changeCashier(uuid?: string) {
-    let held: ParkedCart | undefined;
-    if (sale.order.lineItems.length) {
-      held = parkCart(sale.order);
-      try {
-        if (parkedCarts) await parkedCarts.insert(held);
-        else setParked(carts => [held!, ...carts]);
-      } catch (error) {
-        setMessage(error instanceof Error ? error.message : String(error));
-        return;
-      }
-      try { if (props.heldCartKey) localStorage.setItem(props.heldCartKey, held.id); } catch {}
-      sale.newSale();
-      currentOrder.current = null;
+  // Parks a non-empty cart and records it under heldCartKey so it comes back after a redirect.
+  // Resolves the parked cart, undefined for an empty cart, or the failure message.
+  async function holdOpenCart(): Promise<ParkedCart | undefined | string> {
+    // Only an open cart is parked: on the receipt stage the builder still holds the finished sale, which must never come back.
+    if (sale.stage.kind !== 'cart' || !sale.order.lineItems.length) return undefined;
+    const held = parkCart(sale.order);
+    try {
+      if (parkedCarts) await parkedCarts.insert(held);
+      else setParked(carts => [held, ...carts]);
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error);
     }
+    try { if (props.heldCartKey) localStorage.setItem(props.heldCartKey, held.id); } catch {}
+    sale.newSale();
+    currentOrder.current = null;
+    return held;
+  }
+
+  async function changeCashier(uuid?: string) {
+    const result = await holdOpenCart();
+    if (typeof result === 'string') { setMessage(result); return; }
+    const held = result;
     if (uuid === undefined) { props.onAddCashier?.(); return; }
     const error = await props.onSwitchCashier!(uuid);
     if (typeof error === 'string') {
@@ -365,6 +385,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           <CartWithSettings sale={{ ...sale, startTender: gatedStartTender }} canEditPrice taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)}
             afterSubtotal={couponsOffered && props.couponCollections ? <CouponRows sale={sale} /> : undefined}
             position={viewState.position} onPositionChange={position => setViewState({ ...viewState, position })} />
+          <OpenOrderTabs parked={parked} current={sale.order} currency={currency} locale={props.locale} onSelect={onResume} onNew={onPark} onError={setMessage} />
         </>
       ) : sale.stage.kind === 'tender' ? outbox.enabled ? (props.multiplePayments === true ? (
         cancelling && sale.order.payments.length > 0 ? (
