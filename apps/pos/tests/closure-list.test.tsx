@@ -154,3 +154,17 @@ test('Reprint hands the closure back', () => {
   expect(onReprint).toHaveBeenCalledOnce();
   expect(onReprint).toHaveBeenCalledWith(c3);
 });
+
+test('tapping a closure row opens it; Reprint does not', () => {
+  const onOpen = vi.fn();
+  const onReprint = vi.fn();
+  render(<ClosureList {...props} rows={rows} onOpen={onOpen} onReprint={onReprint} />);
+  expect(screen.getByRole('button', { name: 'Open closure 4' })).toBe(screen.getByTestId('closure-open-c4'));
+  fireEvent.click(screen.getByTestId('closure-open-c4'));
+  expect(onOpen).toHaveBeenCalledTimes(1);
+  expect(onOpen).toHaveBeenCalledWith(c4);
+  fireEvent.click(screen.getByTestId('closure-reprint-c4'));
+  expect(onReprint).toHaveBeenCalledTimes(1);
+  expect(onReprint).toHaveBeenCalledWith(c4);
+  expect(onOpen).toHaveBeenCalledTimes(1);
+});

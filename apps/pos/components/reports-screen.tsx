@@ -15,6 +15,7 @@ import { dayRange } from '../lib/reports/today-sales';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { ordersDatabaseName } from '../lib/sale/order-store';
 import { ClosureList } from './closure-list';
+import { ClosurePanel } from './closure-panel';
 import { ClosurePrint } from './closure-print';
 import { HourlyBars } from './hourly-bars';
 import { SalesTable } from './sales-table';
@@ -39,6 +40,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const [sales, setSales] = useState<PosOrder[]>([]);
   const [rows, setRows] = useState<Closure[]>([]);
   const [reprint, setReprint] = useState<Closure | 'x' | null>(null);
+  const [openClosureId, setOpenClosureId] = useState<string | null>(null);
   const [openTable, setOpenTable] = useState<'payments' | 'taxes' | 'orders' | null>(null);
   const [printRequest, setPrintRequest] = useState(0);
   locale = locale.replaceAll('_', '-');
@@ -47,6 +49,8 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const closures = selectClosureRows(rows, clampClosureScope({
     from: '0000-01-01', to: today, registerId: register.boundRegisterId ?? '', storeKey,
   }, today), 'device');
+  const openClosure = openClosureId ? closures.find(c => c.id === openClosureId) ?? null : null;
+  const reprintClosure = (closure: Closure) => { setReprint(closure); setPrintRequest(value => value + 1); };
   const room = salesRoom(sales, { now: new Date(), currency });
   const { yesterdaySoFar, delta } = room;
   const money = (amount: number) => formatMoney({ amount, currency }, locale);
@@ -140,9 +144,11 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
             currency={currency}
             locale={locale}
             resolveCashierName={resolveCashierName}
-            onReprint={closure => { setReprint(closure); setPrintRequest(value => value + 1); }}
+            onReprint={reprintClosure}
+            onOpen={closure => setOpenClosureId(closure.id)}
           />
         </View>
+        {openClosure && <ClosurePanel closure={openClosure} storeName={storeName} currency={currency} locale={locale} blind={register.blind} resolveCashierName={resolveCashierName} onReprint={reprintClosure} onClose={() => setOpenClosureId(null)} />}
       </ScrollView>
       {reprint && <Portal name="closure-reprint">
         {reprint === 'x'

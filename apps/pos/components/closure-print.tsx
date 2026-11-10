@@ -16,6 +16,19 @@ const labels: Record<keyof typeof labelKeys, string> = {
   paid_in: 'Paid in', paid_out: 'Paid out', no_sale: 'No sale', void: 'Void', copy: 'Copy',
 };
 
+/** The local closure/X-report document context: device timezone, the store's currency, the English labels. */
+export function closureContext(storeName: string, currency: string, locale: string, expected?: Record<string, number>): ClosureContext {
+  const exponent = minorUnitDigits(currency);
+  const money = new Intl.NumberFormat(locale.replaceAll('_', '-'), {
+    style: 'currency', currency, minimumFractionDigits: exponent, maximumFractionDigits: exponent,
+  });
+  const ctx: ClosureContext = {
+    store: { name: storeName }, currency, exponent, locale: locale.replaceAll('_', '-'), timezone: 'device', expected,
+    printedAt: new Date().toISOString(), formatMoney: value => value === '' ? '' : money.format(Number(value)), i18n: labels,
+  };
+  return ctx;
+}
+
 export function ClosurePrint({ kind, closure, expected, storeName, currency, locale = 'en-US', copy, registerName, resolveCashierName }: {
   storeName: string; currency: string; locale?: string; copy?: boolean;
   registerName?: string; resolveCashierName?: (id: string) => string;
@@ -28,14 +41,7 @@ export function ClosurePrint({ kind, closure, expected, storeName, currency, loc
     document.head.appendChild(style);
     return () => style.remove();
   }, []);
-  const exponent = minorUnitDigits(currency);
-  const money = new Intl.NumberFormat(locale.replaceAll('_', '-'), {
-    style: 'currency', currency, minimumFractionDigits: exponent, maximumFractionDigits: exponent,
-  });
-  const ctx: ClosureContext = {
-    store: { name: storeName }, currency, exponent, locale: locale.replaceAll('_', '-'), timezone: 'device', expected,
-    printedAt: new Date().toISOString(), formatMoney: value => value === '' ? '' : money.format(Number(value)), i18n: labels,
-  };
+  const ctx = closureContext(storeName, currency, locale, expected);
   const { closure: report, store, register, order, i18n } = kind === 'x' ? buildXReportDocument(closure, ctx) : buildClosureDocument(closure, ctx);
   const { breakdowns } = report;
   const openedBy = kind === 'x' ? closure.opened_by : report.opened_by;
