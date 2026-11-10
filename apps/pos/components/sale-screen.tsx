@@ -30,6 +30,7 @@ import type { ReceiptMailer } from '../lib/receipts/receipt-mailer';
 import { useReceiptEmailSender, type ReceiptEmailCollection } from '../lib/receipts/receipt-emails';
 import { ReceiptEmail } from './receipt-email';
 import { ReceiptIdentity } from './receipt-identity';
+import { ReceiptPrintSheet } from './receipt-print-sheet';
 import { RegisterControls, RegisterSwitch } from './register-controls';
 import { CancelPaymentView } from './cancel-payment-view';
 import { CashierSheet, type CashierOption } from './cashier-sheet';
@@ -392,6 +393,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         const receiptCoupons = sale.stage.order.display.coupons ?? [], receiptCurrency = sale.stage.order.currency;
         return (
         <>
+          <ReceiptPrintSheet orderId={orderId}>
           <Receipt order={sale.stage.order} posOrder={receiptOrder} store={{ name: props.storeName }}
             cashier={props.cashierName} registerId={REGISTER_ID} newSale={sale.newSale} />
           {receiptCoupons.length ? (
@@ -410,6 +412,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             copies: printCount,
           })} />
+          </ReceiptPrintSheet>
           {mailer && receiptEmails && outbox.enabled ? <ReceiptEmail collection={receiptEmails}
             orderId={sale.stage.posOrder.id} defaultEmail={sale.stage.order.customer?.email ?? ''} /> : null}
         </>

@@ -6,6 +6,7 @@ import { buildReceiptDataFromPosOrder, buildReceiptDataFromStoreOrder, type PosO
 import { useOutbox } from '../lib/sale/outbox-context';
 import { useRegister } from '../lib/register/register-context';
 import { matchesOrderSearch, toHistoryRow, type OrderHistorySource } from '../lib/orders/order-history';
+import { ReceiptPrintSheet } from './receipt-print-sheet';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 
 // The till id; the bound register is the drawer.
@@ -94,7 +95,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName }: {
       {outbox.enabled && !opened && <View className="px-4 pb-2"><SearchInput testID="search-orders" value={term} onChangeText={setTerm} placeholder="Search Orders" /></View>}
       {outbox.enabled
         ? opened
-          ? <Receipt receipt={opened.data} posOrder={opened.posOrder} newSale={() => setOpened(null)} doneLabel="Back" />
+          ? <ReceiptPrintSheet orderId={opened.posOrder?.id ?? opened.data.header.orderNumber}><Receipt receipt={opened.data} posOrder={opened.posOrder} newSale={() => setOpened(null)} doneLabel="Back" /></ReceiptPrintSheet>
           : local.length === 0 && orders.length === 0 && !failed
             ? loading
               ? <View testID="orders-loading" className="flex-1" />
