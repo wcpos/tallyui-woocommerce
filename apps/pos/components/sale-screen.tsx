@@ -329,7 +329,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   }
 
   const browse = variants ? (
-    <VariantChooser entries={variants} currency={currency} onSelect={onAdd} onClose={() => setVariants(undefined)} />
+    <VariantChooser entries={variants} currency={currency} traits={connector.traits.product} onSelect={onAdd} onClose={() => setVariants(undefined)} />
   ) : <CatalogueView {...props} hideOfflineBadge={width >= 900 && register?.enabled === true} onSelect={onSelect} onScan={onScan} message={message}
     tax={tax} inCartCounts={inCart}
     viewState={viewState} onViewStateChange={setViewState}
