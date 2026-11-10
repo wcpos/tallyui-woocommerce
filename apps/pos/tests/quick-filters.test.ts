@@ -3,9 +3,9 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { ProductSort } from '@tallyui/pos';
 import type { CatalogueFilters, QuickFilter } from '../lib/catalogue/quick-filters';
 import {
-  CATALOGUE_FILTER_BASELINE, QUICK_FILTERS_KEY, describeQuickFilter, isQuickFilterActive, isQuickFilterValid,
+  CATALOGUE_FILTER_BASELINE, QUICK_FILTERS_KEY, catalogueFilterBaseline, describeQuickFilter, isQuickFilterActive, isQuickFilterValid,
   loadQuickFilters, matchesCatalogueFilters, normalizeQuickFilters, quickFilterToQueryPatch,
-  saveQuickFilters, useQuickFilters,
+  rebaseStockStatus, saveQuickFilters, useQuickFilters,
 } from '../lib/catalogue/quick-filters';
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
@@ -267,4 +267,16 @@ test('a quick filter is active over the baseline filters', () => {
   expect(isQuickFilterActive(quickFilter, state, null)).toBe(false);
   const soldOut = qf({ conditions: [{ field: 'stock_status', value: 'outofstock' }] });
   expect(isQuickFilterActive(soldOut, { filters: { stock_status: 'outofstock' }, search: '', sort: null }, null, CATALOGUE_FILTER_BASELINE)).toBe(true);
+});
+
+test('catalogueFilterBaseline is In Stock unless out-of-stock products show', () => {
+  expect(catalogueFilterBaseline(false)).toEqual({ stock_status: 'instock' });
+  expect(catalogueFilterBaseline(true)).toEqual({});
+});
+
+test('rebaseStockStatus deletes stock_status when out-of-stock products show and restores In Stock otherwise', () => {
+  const shown = rebaseStockStatus({ stock_status: 'outofstock', on_sale: true }, true);
+  expect('stock_status' in shown).toBe(false);
+  expect(shown.on_sale).toBe(true);
+  expect(rebaseStockStatus({ on_sale: true }, false)).toEqual({ on_sale: true, stock_status: 'instock' });
 });

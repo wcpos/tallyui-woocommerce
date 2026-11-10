@@ -45,7 +45,7 @@ function without(filters: CatalogueFilters, field: keyof CatalogueFilters): Cata
 interface ChipOption { value: string; label: string; testID: string }
 
 /** The distinct terms the synced products carry, by name. */
-function termOptions(products: any[], field: 'categories' | 'tags', prefix: string): ChipOption[] {
+export function termOptions(products: any[], field: 'categories' | 'tags', prefix: string): ChipOption[] {
   const names = new Map<number, string>();
   for (const doc of products) {
     if (!Array.isArray(doc[field])) continue;
