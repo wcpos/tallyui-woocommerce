@@ -5,6 +5,7 @@ import type { RxCollection } from 'rxdb';
 import { formatMoney, moneyFromDecimalString } from '@tallyui/core';
 import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input, Text } from '@tallyui/components';
 import type { useSale } from '@tallyui/pos';
+import { toast } from '../lib/toast/toast';
 
 const typeLabels: Record<string, string> = {
   percent: 'Percentage discount', fixed_cart: 'Fixed cart discount', fixed_product: 'Fixed product discount',
@@ -21,7 +22,6 @@ function couponAmount(coupon: CouponDoc, currency: string): string {
 
 // WCPOS v2's applied coupons: one row per coupon under the cart's Subtotal, a removable chip and its amount.
 export function CouponRows({ sale }: { sale: ReturnType<typeof useSale> }): JSX.Element | null {
-  const [removeError, setRemoveError] = useState<string | null>(null);
   const applied = sale.order.display.coupons ?? [];
   if (!applied.length) return null;
   const minus = (amountMinor: number) => `-${formatMoney({ amount: amountMinor, currency: sale.order.currency }) ?? amountMinor}`;
@@ -32,12 +32,14 @@ export function CouponRows({ sale }: { sale: ReturnType<typeof useSale> }): JSX.
           <View className="flex-row items-center gap-2 rounded-md border border-border bg-card px-2 py-1">
             <Text className="text-sm text-foreground">{coupon.code}</Text>
             <Button variant="ghost" size="sm" accessibilityLabel={`Remove coupon ${coupon.code}`}
-              onPress={() => setRemoveError(sale.removeCoupon(coupon.code))}><Text>×</Text></Button>
+              onPress={() => {
+                const refusal = sale.removeCoupon(coupon.code);
+                toast(refusal === null ? { type: 'info', title: 'Coupon removed' } : { type: 'warning', title: refusal });
+              }}><Text>×</Text></Button>
           </View>
           <Text className="text-sm">{minus(coupon.amountMinor)}</Text>
         </View>
       ))}
-      {removeError ? <Text accessibilityRole="alert" className="text-destructive">{removeError}</Text> : null}
     </>
   );
 }
