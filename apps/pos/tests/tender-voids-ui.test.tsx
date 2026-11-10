@@ -155,9 +155,11 @@ test('Back with no legs returns to the cart without a void', async () => {
 
 test('single tender Back returns to the cart without a void', async () => {
   await renderSale();
-  expect(screen.getByText('Cash Tendered')).not.toBeNull();
-  const tender = within(screen.getByRole('button', { name: 'Complete sale' }).parentElement!);
-  fireEvent.change(tender.getByRole('textbox'), { target: { value: '2.00' } });
+  expect(screen.getByTestId('checkout-keypad')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('checkout-keypad-key-clear'));
+  fireEvent.click(screen.getByTestId('checkout-keypad-key-2'));
+  fireEvent.click(screen.getByTestId('checkout-keypad-key-0'));
+  fireEvent.click(screen.getByTestId('checkout-keypad-key-0'));
   fireEvent.click(screen.getByRole('button', { name: 'Back' }));
   expect(screen.getByRole('button', { name: 'Cash' })).not.toBeNull();
   expect(await collection.find().exec()).toHaveLength(0);

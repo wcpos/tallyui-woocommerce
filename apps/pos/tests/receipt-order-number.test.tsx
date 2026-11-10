@@ -14,6 +14,7 @@ import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { takeCash } from './tender-helpers';
 
 function SaleScreen(props: ComponentProps<typeof SaleScreenWithoutHost>) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
@@ -75,9 +76,7 @@ test.each([
   await vi.waitFor(() => expect(screen.getByText('Order store ready')).not.toBeNull());
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
-  const complete = screen.getByRole('button', { name: 'Complete sale' });
-  fireEvent.change(within(complete.parentElement!).getByRole('textbox'), { target: { value: '3.00' } });
-  fireEvent.click(complete);
+  await takeCash(300);
   await vi.waitFor(() => expect(screen.getByTestId('receipt-order')).not.toBeNull());
   const label = screen.getByTestId('receipt-order').textContent!;
   const last8 = label.slice(-8);

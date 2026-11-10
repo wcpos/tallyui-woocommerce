@@ -1,6 +1,8 @@
 import { taxLinesByRate, type PosOrder } from '@tallyui/pos';
 import { dayRange } from './today-sales';
 
+/** The day a live day is compared with: yesterday, or the same weekday a week before (v2 reports/context.tsx `cmp`). */
+export type Compare = 'yesterday' | 'lastweek';
 export type MethodTile = { method: string; label: string; count: number; totalMinor: number };
 export type TaxRateRow = { ratePpm: number; label: string; netMinor: number; taxMinor: number; grossMinor: number };
 export type Period = {
@@ -15,17 +17,19 @@ export type HourBucket = {
 };
 export type SalesRoom = {
   today: Period;
+  /** The comparison day (yesterday, or the same weekday last week); the names keep the default's. */
   yesterday: Period;
   yesterdaySoFar: { count: number; totalMinor: number; averageMinor: number };
   delta: { totalMinor: number; percentTenths: number | null; count: number; averageMinor: number };
   hours: HourBucket[];
 };
 
-export function salesRoom(orders: readonly PosOrder[], options: { now: Date; currency: string }): SalesRoom {
-  const { now, currency } = options;
+export function salesRoom(orders: readonly PosOrder[], options: { now: Date; currency: string; compare?: Compare }): SalesRoom {
+  const { now, currency, compare = 'yesterday' } = options;
   const [year, month, day] = [now.getFullYear(), now.getMonth(), now.getDate()];
-  const ranges = [dayRange(now), dayRange(new Date(year, month, day - 1))];
-  const cutoff = new Date(year, month, day - 1, now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds()).toISOString();
+  const back = compare === 'lastweek' ? 7 : 1;
+  const ranges = [dayRange(now), dayRange(new Date(year, month, day - back))];
+  const cutoff = new Date(year, month, day - back, now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds()).toISOString();
   const yesterdaySoFar = { count: 0, totalMinor: 0, averageMinor: 0 };
   const buckets = new Map<number, HourBucket>();
   const [today, yesterday] = ranges.map(({ startIso, endIso }, index): Period => {

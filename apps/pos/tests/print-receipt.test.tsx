@@ -19,6 +19,7 @@ import type { OrderHistorySource } from '../lib/orders/order-history';
 import { installReceiptPrintStyle, printReceipt, receiptPrintCss, RECEIPT_PAGE_CSS, RECEIPT_PAPER_WIDTH } from '../lib/receipts/print-receipt';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { takeCash } from './tender-helpers';
 
 const props: ComponentProps<typeof SaleScreen> = {
   storeSettings: noTaxSettings,
@@ -75,9 +76,7 @@ async function setup(send: CommandTransport<OrderCreateEnvelope>['send'], histor
 async function payCash() {
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
-  const complete = await screen.findByRole('button', { name: 'Complete sale' });
-  fireEvent.change(within(complete.parentElement!).getByRole('textbox'), { target: { value: '3.00' } });
-  fireEvent.click(complete);
+  await takeCash(300);
   await vi.waitFor(() => expect(screen.getByTestId('receipt-order')).not.toBeNull());
   return /^Order ([a-f0-9]{8})/.exec(screen.getByTestId('receipt-order').textContent!)![1];
 }

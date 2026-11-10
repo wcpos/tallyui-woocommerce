@@ -24,6 +24,7 @@ import type { ReceiptEmail as ReceiptEmailRow, ReceiptEmailCollection } from '..
 import type { ReceiptMailer } from '../lib/receipts/receipt-mailer';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { takeCash } from './tender-helpers';
 
 function SaleScreen(props: ComponentProps<typeof SaleScreenWithoutHost>) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
@@ -148,10 +149,15 @@ test('recovers an interrupted send as queued and posts it once', async () => {
 });
 
 test('validates addresses and shows the refusal without queuing', async () => {
-  await expect(queueReceiptEmail(collection, 'sale', 'nobody')).rejects.toThrow('Enter an email address');
+  await expect(queueReceiptEmail(collection, 'sale', 'nobody')).rejects.toThrow('Invalid email address');
   render(<><ReceiptEmail collection={collection} orderId="sale" defaultEmail="nobody" /><PortalHost /></>);
   await sendFromDialog();
-  await vi.waitFor(() => expect(screen.getByText('Enter an email address')).not.toBeNull());
+  await vi.waitFor(() => expect(screen.getByText('Invalid email address')).not.toBeNull());
+  expect(await request()).toBeNull();
+});
+
+test.each(['nobody', 'gee@example', 'gee@exa mple.com', 'gee@example.c'])('queueReceiptEmail refuses %j with v2\'s copy and writes no row', async value => {
+  await expect(queueReceiptEmail(collection, 'sale', value)).rejects.toThrow('Invalid email address');
   expect(await request()).toBeNull();
 });
 
@@ -160,8 +166,8 @@ test('upserts one trimmed request per order and clears error and sentAt', async 
     attempts: 3, nextAttemptAt: '2026-01-01T00:02:00.000Z', lastAttemptAt: '2026-01-01T00:01:00.000Z',
     sentAt: '2026-01-01T00:01:00.000Z', error: 'Previous error' });
   const now = new Date('2026-02-01T00:00:00.000Z');
-  await queueReceiptEmail(collection, 'sale', ' a@b.c ', now);
-  expect((await request())?.toJSON()).toEqual({ id: 'sale', email: 'a@b.c', status: 'queued', queuedAt: now.toISOString(), attempts: 0, saveToBilling: false });
+  await queueReceiptEmail(collection, 'sale', ' a@b.co ', now);
+  expect((await request())?.toJSON()).toEqual({ id: 'sale', email: 'a@b.co', status: 'queued', queuedAt: now.toISOString(), attempts: 0, saveToBilling: false });
   expect(await collection.find().exec()).toHaveLength(1);
 });
 
@@ -425,9 +431,7 @@ test.each([true, false])('completed sale receipt UI, mailer available: %s', asyn
   fireEvent.click(await vi.waitFor(() => screen.getByLabelText('Gee Four, gee@example.invalid')));
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
-  const complete = screen.getByRole('button', { name: 'Complete sale' });
-  fireEvent.change(within(complete.parentElement!).getByRole('textbox'), { target: { value: '3.00' } });
-  fireEvent.click(complete);
+  await takeCash(300);
   await vi.waitFor(() => expect(screen.getByTestId('receipt-order')).not.toBeNull());
   if (available) {
     fireEvent.click(screen.getByRole('button', { name: 'Email Receipt' }));

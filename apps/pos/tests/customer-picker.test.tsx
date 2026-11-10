@@ -18,6 +18,7 @@ import { CREATE_CUSTOMERS_DENIED } from '../lib/auth/capabilities';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { takeCash } from './tender-helpers';
 
 function SaleScreen(props: ComponentProps<typeof SaleScreenWithoutHost>) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
@@ -231,8 +232,7 @@ test('sends the picked customer with a cash sale, then sends a guest after New s
   expect(screen.getByText('Customer: Gee Four')).not.toBeNull();
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
-  fireEvent.change(within(screen.getByRole('button', { name: 'Complete sale' }).parentElement!).getByRole('textbox'), { target: { value: '3.00' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Complete sale' }));
+  await takeCash(300);
   await screen.findByTestId('receipt-order');
   await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
   const first = send.mock.calls.flatMap(([batch]) => batch);
@@ -245,8 +245,7 @@ test('sends the picked customer with a cash sale, then sends a guest after New s
   expect(screen.getByText('Guest')).not.toBeNull();
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
-  fireEvent.change(within(screen.getByRole('button', { name: 'Complete sale' }).parentElement!).getByRole('textbox'), { target: { value: '3.00' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Complete sale' }));
+  await takeCash(300);
   await screen.findByTestId('receipt-order');
   await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
   const envelopes = send.mock.calls.flatMap(([batch]) => batch);
