@@ -7,7 +7,7 @@ import { useOutbox } from '../lib/sale/outbox-context';
 import { useRegister } from '../lib/register/register-context';
 import { matchesOrderSearch, toHistoryRow, type OrderHistorySource } from '../lib/orders/order-history';
 import { OrdersTable } from './orders-table';
-import { OrderDetailView } from './order-detail';
+import { OrderDetailSheet } from './order-detail';
 import { ReceiptPrintSheet } from './receipt-print-sheet';
 import { ReceiptZoom } from './receipt-zoom';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
@@ -100,7 +100,6 @@ export function OrdersScreen({ onBack, history, storeName, cashierName }: {
       {outbox.enabled
         ? opened
           ? <View className="min-h-0 flex-1 px-4 pb-4"><ReceiptZoom><ReceiptPrintSheet orderId={opened.posOrder?.id ?? opened.data.header.orderNumber}><Receipt receipt={opened.data} posOrder={opened.posOrder} newSale={() => setOpened(null)} doneLabel="Back" /></ReceiptPrintSheet></ReceiptZoom></View>
-          : viewing ? <OrderDetailView order={viewing} onReceipt={() => open(toHistoryRow(viewing))} onClose={() => setViewing(null)} />
           : local.length === 0 && orders.length === 0 && !failed
             ? loading
               ? <View testID="orders-loading" className="flex-1" />
@@ -116,6 +115,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName }: {
             : <OrdersTable local={local} store={orders} footer={footer}
               onOpen={row => { if (row.kind === 'store') setViewing(row.order); else open(row.order); }} />
         : <View className="p-4"><Text>Orders show once the store is connected.</Text></View>}
+      {outbox.enabled && viewing && !opened && <OrderDetailSheet order={viewing} onReceipt={() => open(toHistoryRow(viewing))} onClose={() => setViewing(null)} />}
     </View>
   );
 }
