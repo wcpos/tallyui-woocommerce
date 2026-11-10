@@ -65,6 +65,16 @@ test('the Orders button opens orders', () => {
   expect(onOpenOrders).toHaveBeenCalledOnce();
 });
 
+test('the Settings button opens settings only when onOpenSettings is supplied', () => {
+  const onOpenSettings = vi.fn();
+  const { rerender } = render(<CatalogueView {...props} onOpenSettings={onOpenSettings} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+  expect(onOpenSettings).toHaveBeenCalledOnce();
+  expect(screen.getByTestId('settings-entry')).not.toBeNull();
+  rerender(<CatalogueView {...props} />);
+  expect(screen.queryByRole('button', { name: 'Settings' })).toBeNull();
+});
+
 test('shows the syncing status', () => {
   render(<CatalogueView {...props} status="syncing" />);
   expect(screen.getByText('Syncing products…')).not.toBeNull();

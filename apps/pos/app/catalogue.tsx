@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react';
 import { View } from 'react-native';
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect, useRouter, type Href } from 'expo-router';
 import { Text } from '@tallyui/components';
 import { SaleScreen } from '../components/sale-screen';
 import { StoreSettingsGate } from '../components/store-settings-gate';
@@ -80,6 +80,7 @@ export default function Catalogue() {
       onOpenOrders={() => router.push('/orders')}
       onOpenReports={() => router.push('/reports')}
       onOpenHealth={() => router.push('/health')}
+      onOpenSettings={() => router.push('/settings' as Href)}
     />}</StoreSettingsGate>
   );
 }
