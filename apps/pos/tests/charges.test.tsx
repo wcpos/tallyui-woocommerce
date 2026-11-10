@@ -13,6 +13,7 @@ import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { takeCash } from './tender-helpers';
 
 const CHARGES: ServerCapabilities = { orderCreate: 5, lineTax: { none: true, classes: true },
   taxRounding: { granularity: 'woocommerce', roundAtSubtotal: false } };
@@ -97,9 +98,7 @@ test('sells a fee, a shipping charge and a custom item and pushes them to WooCom
   const footer = within(screen.getByTestId('cart-footer'));
   expect(within(footer.getByText('Total').parentElement!).getByText('$11.20')).not.toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
-  const complete = screen.getByRole('button', { name: 'Complete sale' });
-  fireEvent.change(within(complete.parentElement!).getByRole('textbox'), { target: { value: '20.00' } });
-  fireEvent.click(complete);
+  await takeCash(2000);
   const receiptOrder = await screen.findByTestId('receipt-order');
   const receipt = within(receiptOrder.parentElement!);
   expect(receipt.getByLabelText('Bag: $0.20')).not.toBeNull();
@@ -139,9 +138,7 @@ test('a store without order_create_v5 sells on the v3 fallback: no charges, one 
   fireEvent.click(screen.getByText('Espresso'));
   expect(screen.queryByRole('button', { name: 'Add charge' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
-  const complete = screen.getByRole('button', { name: 'Complete sale' });
-  fireEvent.change(within(complete.parentElement!).getByRole('textbox'), { target: { value: '5.00' } });
-  fireEvent.click(complete);
+  await takeCash(500);
   await waitFor(() => expect(screen.getByText('Sales are up to date.')).not.toBeNull());
   expect(fetchStub).toHaveBeenCalledTimes(1);
   const payload = JSON.parse(String(fetchStub.mock.calls[0][1]?.body)).payload;

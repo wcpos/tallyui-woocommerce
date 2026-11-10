@@ -15,6 +15,7 @@ import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import { RegisterProvider, useRegister } from '../lib/register/register-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { takeCash } from './tender-helpers';
 
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
@@ -60,9 +61,7 @@ async function setup() {
 async function payCash() {
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
-  const complete = await screen.findByRole('button', { name: 'Complete sale' });
-  fireEvent.change(within(complete.parentElement!).getByRole('textbox'), { target: { value: '10.00' } });
-  fireEvent.click(complete);
+  await takeCash(1000);
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
 }
 

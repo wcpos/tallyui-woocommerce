@@ -19,6 +19,7 @@ import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import { parkedCartSchema, parkedCartMigrationStrategies, type ParkedCartCollection } from '../lib/sale/parked-carts';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { takeCash } from './tender-helpers';
 // Applying a coupon awaits an RxDB lookup, so the 1 s default async timeout flakes on CI.
 configure({ asyncUtilTimeout: 5_000 });
 
@@ -206,9 +207,7 @@ test('the receipt lists each coupon with its amount', async () => {
   await applyCoupon('save10');
   await screen.findByTestId('coupon-chip-save10');
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
-  const complete = screen.getByRole('button', { name: 'Complete sale' });
-  fireEvent.change(within(complete.parentElement!).getByRole('textbox'), { target: { value: '2.70' } });
-  fireEvent.click(complete);
+  await takeCash(270);
   const coupons = within(await screen.findByTestId('receipt-coupons'));
   expect(coupons.getByText('Coupon save10')).not.toBeNull();
   expect(coupons.getByText('-$0.30')).not.toBeNull();
