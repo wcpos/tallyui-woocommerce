@@ -11,6 +11,7 @@ import { PortalHost } from '@tallyui/primitives';
 import { CatalogueView } from '../components/catalogue-view';
 import { ReportsScreen } from '../components/reports-screen';
 import { SaleScreen } from '../components/sale-screen';
+import { drawerResultClass } from '../components/till-strip';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
@@ -89,6 +90,108 @@ async function closeRegister(counted: string) {
   fireEvent.click(await screen.findByTestId('closure-done'));
   await waitFor(() => expect(screen.queryByTestId('closure-print-document')).toBeNull());
 }
+
+async function movement(type: 'paid-in' | 'paid-out' | 'no-sale', amount: string | null, reason: string) {
+  fireEvent.click(screen.getByTestId('register-bar-open-panel'));
+  fireEvent.click(await screen.findByTestId(`register-panel-${type}`));
+  if (amount !== null) fireEvent.change(await screen.findByTestId('movement-amount'), { target: { value: amount } });
+  fireEvent.change(await screen.findByTestId('movement-reason'), { target: { value: reason } });
+  fireEvent.click(screen.getByTestId('movement-confirm'));
+  await waitFor(() => expect(screen.queryByTestId('movement-confirm')).toBeNull());
+  fireEvent.click(screen.getByTestId('register-panel-dismiss'));
+}
+
+test('the till strip shows no register while register sessions are off', async () => {
+  await setup();
+  expect(screen.getByTestId('till-title').textContent).toContain('No register on this device');
+  expect(screen.queryByTestId('till-status')).toBeNull();
+  expect(screen.queryByTestId('till-since')).toBeNull();
+  expect(screen.queryByTestId('till-equation')).toBeNull();
+  expect(screen.queryByTestId('till-last-closure')).toBeNull();
+  expect(screen.queryByTestId('reports-session-card')).toBeNull();
+}, 20_000);
+
+test('the till strip adds the open session up to the expected cash', async () => {
+  const app = await setup();
+  await openRegister();
+  await movement('paid-out', '20.00', 'Milk');
+  await payCash();
+  await waitFor(() => expect(app.register.expected.cash).toBe(8300));
+  expect(screen.getByTestId('till-status').textContent).toBe('● Open');
+  expect(screen.getByTestId('till-since').textContent).toMatch(/^since \d{2}:\d{2} · Paul$/);
+  expect(screen.getByTestId('till-term-float-amount').textContent).toBe('$100.00');
+  expect(screen.getByTestId('till-term-cash-sales').textContent).toContain('Cash sales · 1');
+  expect(screen.getByTestId('till-term-cash-sales-amount').textContent).toBe('$3.00');
+  expect(screen.getByTestId('till-term-paid-out').textContent).toContain('Paid out · Milk');
+  expect(screen.getByTestId('till-term-paid-out-amount').textContent).toBe('$20.00');
+  expect(screen.getByTestId('till-expected').textContent).toContain('Expected in drawer');
+  expect(screen.getByTestId('till-expected-amount').textContent).toBe('$83.00');
+  expect(screen.queryByTestId('till-note')).toBeNull();
+  expect(screen.queryByTestId('till-last-closure')).toBeNull();
+}, 20_000);
+
+test('the till strip folds three paid-ins and counts no-sales and voids', async () => {
+  const app = await setup();
+  await openRegister();
+  await movement('paid-in', '1.00', 'A');
+  await movement('paid-in', '2.00', 'B');
+  await movement('paid-in', '3.00', 'C');
+  expect(screen.getByTestId('till-term-paid-in').textContent).toContain('Paid in · 3');
+  expect(screen.getByTestId('till-term-paid-in-amount').textContent).toBe('$6.00');
+  expect(screen.queryByTestId('till-term-paid-in-0')).toBeNull();
+  expect(screen.getByTestId('till-expected-amount').textContent).toBe('$106.00');
+  await movement('no-sale', null, 'Drawer check');
+  fireEvent.click(screen.getByTestId('register-bar-open-panel'));
+  fireEvent.click(await screen.findByTestId('register-panel-movements'));
+  fireEvent.click(await screen.findByTestId(`movement-void-${app.register.movements.find(row => row.reason === 'A')!.id}`));
+  fireEvent.click(screen.getByTestId('register-panel-dismiss'));
+  await waitFor(() => {
+    const terms = [0, 1].map(index => [
+      screen.getByTestId(`till-term-paid-in-${index}`).textContent ?? '',
+      screen.getByTestId(`till-term-paid-in-${index}-amount`).textContent,
+    ]);
+    expect(terms.find(([label]) => label.includes('Paid in · B'))?.[1]).toBe('$2.00');
+    expect(terms.find(([label]) => label.includes('Paid in · C'))?.[1]).toBe('$3.00');
+    expect(screen.queryByTestId('till-term-paid-in')).toBeNull();
+    expect(screen.getByTestId('till-expected-amount').textContent).toBe('$105.00');
+    expect(screen.getByTestId('till-note').textContent).toBe('1 no-sale · 1 void');
+  });
+}, 20_000);
+
+test('the till strip shows the last closure short in red after a close', async () => {
+  const app = await setup();
+  await openRegister();
+  await payCash();
+  await waitFor(() => expect(app.register.salesCount).toBe(1));
+  await closeRegister('102.00');
+  await waitFor(() => {
+    expect(screen.getByTestId('till-status').textContent).toBe('● Closed');
+    expect(screen.getByTestId('till-since').textContent).toMatch(/^Closed \d{2}:\d{2} · Paul$/);
+    expect(screen.getByTestId('till-expected-amount').textContent).toBe('$103.00');
+    expect(screen.getByTestId('till-counted-amount').textContent).toBe('$102.00');
+    expect(screen.getByTestId('till-result-amount').textContent).toBe('$1.00 short');
+    expect(screen.getByTestId('till-last-closure').textContent).toMatch(/^Last closure #1 · Today \d{2}:\d{2} · \$1\.00 short$/);
+    expect(screen.queryByTestId('till-term-float')).toBeNull();
+    expect(screen.queryByTestId('reports-session-card')).toBeNull();
+  });
+}, 20_000);
+
+test('the session card shows the open session, its expected cash and sales count, and leaves on close', async () => {
+  const app = await setup();
+  await openRegister();
+  await payCash();
+  await waitFor(() => expect(app.register.salesCount).toBe(1));
+  const card = within(screen.getByTestId('reports-closures')).getByTestId('reports-session-card');
+  expect(card.textContent).toContain('● Open · This till');
+  expect(card.textContent).toMatch(/since \d{2}:\d{2} · Paul · 1 sale/);
+  expect(within(card).getByTestId('session-expected').textContent).toBe('$103.00');
+  expect(within(card).getByTestId('x-report-print').textContent).toBe('Print X-report');
+  await closeRegister('103.00');
+  await waitFor(() => {
+    expect(screen.queryByTestId('reports-session-card')).toBeNull();
+    expect(screen.queryByTestId('x-report-print')).toBeNull();
+  });
+}, 20_000);
 
 test('Today starts empty and observes an Espresso cash sale', async () => {
   const app = await setup();
@@ -260,8 +363,8 @@ test('Print X report prints the mounted open session with its expected cash', as
     printedDocuments.push({ text: report.textContent, dataPrint: report.getAttribute('data-print'), opened: within(report).queryByText(/^Opened: .+ Paul$/) !== null,
       todayHidden: screen.getByTestId('reports-today').closest('[data-print="hide"]') !== null });
   });
-  const button = screen.getByTestId('x-report-print');
-  expect(button.textContent).toBe('Print X report');
+  const button = within(screen.getByTestId('reports-session-card')).getByTestId('x-report-print');
+  expect(button.textContent).toBe('Print X-report');
   fireEvent.click(button);
   await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
   expect(printedDocuments[0].opened).toBe(true);
@@ -477,3 +580,9 @@ test('Export CSV names the Orders table and carries its rows', async () => {
   expect((await blob.text()).split('\r\n')[1]).toBe(`"${orderReference(order)}","${time}","Cash","$3.00"`);
   expect(anchors[0].download).toMatch(/^sales-orders-(\d{4}-\d{2}-\d{2})-\1\.csv$/);
 }, 20_000);
+
+test('a short drawer result is red, an over one green, an exact one muted', () => {
+  expect(drawerResultClass(-100)).toBe('text-destructive');
+  expect(drawerResultClass(50)).toBe('text-success');
+  expect(drawerResultClass(0)).toBe('text-muted-foreground');
+});

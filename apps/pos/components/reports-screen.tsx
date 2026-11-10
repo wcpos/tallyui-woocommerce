@@ -17,6 +17,8 @@ import { ordersDatabaseName } from '../lib/sale/order-store';
 import { ClosurePrint } from './closure-print';
 import { HourlyBars } from './hourly-bars';
 import { SalesTable } from './sales-table';
+import { SessionCard } from './session-card';
+import { TillStrip } from './till-strip';
 
 export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }: {
   storeName: string; currency: string; locale?: string; onBack(): void;
@@ -91,7 +93,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
         <Button testID="reports-back" onPress={onBack}><Text>Back</Text></Button>
       </View>
       <ScrollView contentContainerClassName="gap-4 p-4">
-        {register.session?.status === 'open' && <Button testID="x-report-print" onPress={() => { setReprint('x'); setPrintRequest(value => value + 1); }}><Text>Print X report</Text></Button>}
+        <TillStrip orders={orders} currency={currency} locale={locale} resolveCashierName={resolveCashierName} />
         <View testID="reports-today" className="gap-2 rounded-lg border border-border p-4">
           <Text accessibilityRole="header">Today</Text>
           <Text>{`Total: ${money(room.today.totalMinor)}`}</Text>
@@ -128,6 +130,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
             <Text accessibilityRole="header">Closures</Text>
             {closures.length > 0 && <Button testID="closures-csv" onPress={() => downloadCsv(closuresCsv(closures, currency, session?.tokens.user, storeName), `closures-${today}.csv`)}><Text>Download CSV</Text></Button>}
           </View>
+          <SessionCard currency={currency} locale={locale} resolveCashierName={resolveCashierName} onPrintXReport={() => { setReprint('x'); setPrintRequest(value => value + 1); }} />
           {closures.length === 0 && <Text>No closures yet. A closure appears here when a register session closes.</Text>}
           {closures.map(closure => (
             <View key={closure.id} className="gap-2 border-b border-border py-3">
