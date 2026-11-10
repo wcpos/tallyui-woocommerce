@@ -9,11 +9,12 @@ import { productSortValue, resolveGridColumns, searchProducts, sortProducts } fr
 import type { ProductSort } from '@tallyui/pos';
 import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
 import type { AppCatalogueViewState } from '../lib/catalogue/catalogue-view-state';
-import { isQuickFilterActive, matchesCatalogueFilters, quickFilterToQueryPatch, useQuickFilters } from '../lib/catalogue/quick-filters';
+import { CATALOGUE_FILTER_BASELINE, isQuickFilterActive, matchesCatalogueFilters, quickFilterToQueryPatch, useQuickFilters } from '../lib/catalogue/quick-filters';
 import type { CatalogueFilters, QuickFilter } from '../lib/catalogue/quick-filters';
 import type { TileTax } from '../lib/catalogue/tile-words';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { CatalogueDisplayOptions } from './catalogue-display-options';
+import { CatalogueFilterChips } from './catalogue-filter-chips';
 import { DrawerSheet } from './drawer-content';
 import { FilterBarDialog } from './filter-bar-dialog';
 import { InCartBadge } from './in-cart-badge';
@@ -57,7 +58,7 @@ export function CatalogueView({
 }: CatalogueViewProps): JSX.Element {
   const [term, setTerm] = useState('');
   const [quickFilters, setQuickFilters] = useQuickFilters();
-  const [filters, setFilters] = useState<CatalogueFilters>({});
+  const [filters, setFilters] = useState<CatalogueFilters>(CATALOGUE_FILTER_BASELINE);
   const [sortOverride, setSortOverride] = useState<ProductSort | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   function scan(code: string) {
@@ -74,7 +75,6 @@ export function CatalogueView({
   // Phones keep 2 tiles a row whatever the setting.
   const numColumns = width < 600 ? 2 : resolveGridColumns(viewState.gridColumns, width);
   const searching = Boolean(term.trim());
-  const filtered = Object.keys(filters).length > 0;
   const items = useMemo(() => {
     const matching = products.filter(doc => matchesCatalogueFilters(doc, filters));
     const searched = searching ? searchProducts(matching, term, connector.traits.product) : matching;
@@ -93,34 +93,35 @@ export function CatalogueView({
     return visible;
   }, [connector.traits.product, currency, viewState.columns, inCartCounts]);
   const queryState = { filters, search: term, sort };
-  const isActive = (qf: QuickFilter) => isQuickFilterActive(qf, queryState, viewState.sort);
+  const isActive = (qf: QuickFilter) => isQuickFilterActive(qf, queryState, viewState.sort, CATALOGUE_FILTER_BASELINE);
   // Like v2, a press replaces the whole filter state, and pressing the active button restores the baseline.
   function pressQuickFilter(qf: QuickFilter) {
     if (isActive(qf)) {
-      setFilters({});
+      setFilters(CATALOGUE_FILTER_BASELINE);
       setTerm('');
       setSortOverride(null);
     } else {
       const patch = quickFilterToQueryPatch(qf);
-      setFilters(patch.filters);
+      setFilters({ ...CATALOGUE_FILTER_BASELINE, ...patch.filters });
       setTerm(patch.search);
       setSortOverride(qf.sort ?? null);
     }
   }
   function changeQuickFilters(next: QuickFilter[]) {
-    // Without v2's filter pills nothing would show the filters of an applied quick filter that was deleted or changed, so reset.
+    // An applied quick filter that was deleted or changed resets the catalogue to the baseline.
     const applied = quickFilters.find(isActive);
-    if (applied && !next.some(qf => qf.id === applied.id && isActive(qf))) { setFilters({}); setTerm(''); setSortOverride(null); }
+    if (applied && !next.some(qf => qf.id === applied.id && isActive(qf))) { setFilters(CATALOGUE_FILTER_BASELINE); setTerm(''); setSortOverride(null); }
     setQuickFilters(next);
   }
   const searchSlot = <View className="gap-2"><SearchInput value={term} onChangeText={setTerm} placeholder="Search name, SKU or barcode"
     onSubmitEditing={() => { const code = term.trim(); if (code && onScan) scan(code); }} />
-    <View className="flex-row items-start gap-2">
-      <View className="flex-1"><QuickFilterBar quickFilters={quickFilters} isActive={isActive} onPress={pressQuickFilter} /></View>
+    <View className="flex-row flex-wrap items-center gap-2">
+      <CatalogueFilterChips products={products} filters={filters} onChange={setFilters} />
+      <QuickFilterBar quickFilters={quickFilters} isActive={isActive} onPress={pressQuickFilter} />
       <FilterBarDialog quickFilters={quickFilters} onChange={changeQuickFilters} products={products} connector={connector} currency={currency} baselineSort={viewState.sort} />
     </View>
   </View>;
-  const emptyState = <Text>{searching || filtered ? 'No products match' : 'No products yet'}</Text>;
+  const emptyState = <Text>{searching || products.length > 0 ? 'No products match' : 'No products yet'}</Text>;
   const statusLine = status === 'error' ? 'Sync failed' : notice ? notice.message ?? notice.code
     : status === 'syncing' ? 'Syncing products…' : status === 'ready' ? `${products.length} products` : '';
 

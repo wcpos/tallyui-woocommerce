@@ -1,9 +1,9 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { ProductSort } from '@tallyui/pos';
-import type { QuickFilter } from '../lib/catalogue/quick-filters';
+import type { CatalogueFilters, QuickFilter } from '../lib/catalogue/quick-filters';
 import {
-  QUICK_FILTERS_KEY, describeQuickFilter, isQuickFilterActive, isQuickFilterValid,
+  CATALOGUE_FILTER_BASELINE, QUICK_FILTERS_KEY, describeQuickFilter, isQuickFilterActive, isQuickFilterValid,
   loadQuickFilters, matchesCatalogueFilters, normalizeQuickFilters, quickFilterToQueryPatch,
   saveQuickFilters, useQuickFilters,
 } from '../lib/catalogue/quick-filters';
@@ -257,4 +257,14 @@ test('describes a price range and a price ceiling', () => {
   const formatPrice = (value: number) => '$' + value.toFixed(2);
   expect(describeQuickFilter(qf({ conditions: [{ field: 'price', value: { min: 5, max: 10 } }] }), formatPrice)).toBe('Price $5.00–$10.00');
   expect(describeQuickFilter(qf({ conditions: [{ field: 'price', value: { max: 10 } }] }), formatPrice)).toBe('Price up to $10.00');
+});
+
+test('a quick filter is active over the baseline filters', () => {
+  const quickFilter = qf({ conditions: [{ field: 'categories', value: [25] }] });
+  const state: { filters: CatalogueFilters; search: string; sort: null } = { filters: { stock_status: 'instock', categories: [25] }, search: '', sort: null };
+  expect(isQuickFilterActive(quickFilter, state, null, CATALOGUE_FILTER_BASELINE)).toBe(true);
+  expect(isQuickFilterActive(quickFilter, { ...state, filters: { categories: [25] } }, null, CATALOGUE_FILTER_BASELINE)).toBe(false);
+  expect(isQuickFilterActive(quickFilter, state, null)).toBe(false);
+  const soldOut = qf({ conditions: [{ field: 'stock_status', value: 'outofstock' }] });
+  expect(isQuickFilterActive(soldOut, { filters: { stock_status: 'outofstock' }, search: '', sort: null }, null, CATALOGUE_FILTER_BASELINE)).toBe(true);
 });
