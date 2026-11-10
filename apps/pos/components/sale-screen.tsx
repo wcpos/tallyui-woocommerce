@@ -323,7 +323,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
 
   const browse = variants ? (
     <VariantChooser entries={variants} currency={currency} onSelect={onAdd} onClose={() => setVariants(undefined)} />
-  ) : <CatalogueView {...props} onSelect={onSelect} onScan={onScan} message={message}
+  ) : <CatalogueView {...props} hideOfflineBadge={width >= 900 && register?.enabled === true} onSelect={onSelect} onScan={onScan} message={message}
     viewState={viewState} onViewStateChange={setViewState}
     cashierControl={props.onSwitchCashier ? <CashierSheet name={props.cashierName} cashiers={props.cashiers ?? []}
       onSwitch={changeCashier} onAddAnother={() => changeCashier()} onSignOut={props.onSignOut}

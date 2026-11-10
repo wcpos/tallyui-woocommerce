@@ -12,6 +12,7 @@ import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import { RegisterProvider, useRegister } from '../lib/register/register-context';
+import { OnlineStatusContext, type OnlineStatus } from '../lib/online/online-status';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 
@@ -32,14 +33,14 @@ beforeEach(() => {
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-async function setup() {
+async function setup(online?: OnlineStatus) {
   let register!: ReturnType<typeof useRegister>;
   let outbox!: ReturnType<typeof useOutbox>;
   function Probe() { register = useRegister(); outbox = useOutbox(); return null; }
   const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => ({
     kind: 'results', results: batch.map(envelope => ({ id: envelope.id, status: 'applied', serverRefs: { orderId: '115', totalMinor: 300 } })),
   }));
-  render(
+  const tree = (
     <SessionProvider>
       <OutboxProvider transportFor={() => ({ send })} storage={getRxStorageMemory()}>
         <RegisterProvider>
@@ -49,8 +50,9 @@ async function setup() {
           <PortalHost />
         </RegisterProvider>
       </OutboxProvider>
-    </SessionProvider>,
+    </SessionProvider>
   );
+  render(online ? <OnlineStatusContext.Provider value={{ status: online }}>{tree}</OnlineStatusContext.Provider> : tree);
   await waitFor(() => expect(register.boundRegisterId).not.toBeNull());
   if (!outbox.enabled || !outbox.orders) throw new Error('Order store not ready');
   return { get register() { return register; }, orders: outbox.orders, send };
@@ -64,6 +66,24 @@ async function payCash() {
   fireEvent.click(complete);
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
 }
+
+test.each([900, 390])('Offline shows once: in the catalogue header, then in the register pill beside it at width %s', async width => {
+  vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width, height: 800, scale: 1, fontScale: 1 });
+  await setup('online-website-unavailable');
+  expect(screen.getByTestId('catalogue-bar-status').textContent).toBe('Offline');
+  if (width < 900) {
+    fireEvent.click(screen.getByText('Espresso'));
+    fireEvent.click(screen.getByRole('button', { name: /Open cart/ }));
+  }
+  fireEvent.click(screen.getByRole('switch', { name: 'Use register sessions' }));
+  expect((await screen.findByTestId('register-bar-pill')).textContent).toBe('Offline');
+  if (width >= 900) {
+    expect(screen.queryByTestId('catalogue-bar-status')).toBeNull();
+  } else {
+    fireEvent.click(screen.getByText('Back to products'));
+    expect(screen.getByTestId('catalogue-bar-status').textContent).toBe('Offline');
+  }
+});
 
 test('sessions default off: no register UI and the cart completes a cash sale', async () => {
   const app = await setup();
