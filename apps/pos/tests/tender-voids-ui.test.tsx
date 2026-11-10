@@ -172,13 +172,12 @@ test('double tapping Remove records exactly one void', async () => {
   expect(await collection.find().exec()).toHaveLength(1);
 }, 20_000);
 
-test('Remove while a failed save holds the sale records no void', async () => {
+test('a failed save hides Remove and records no void', async () => {
   await renderSale(true);
   vi.spyOn(orders!, 'insert').mockRejectedValue(new Error('disk full'));
   takeLeg(600);
   await screen.findByText('The sale could not be saved: disk full');
-  fireEvent.click(screen.getByTestId(/^checkout-remove-leg-/));
-  expect(await screen.findByText('This sale is being saved. Retry to finish it.')).not.toBeNull();
+  expect(screen.queryAllByTestId(/^checkout-remove-leg-/)).toHaveLength(0);
   expect(screen.getByTestId(/^checkout-leg-/)).not.toBeNull();
   expect(await collection.find().exec()).toHaveLength(0);
 }, 20_000);

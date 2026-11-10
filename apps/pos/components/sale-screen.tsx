@@ -415,7 +415,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             {sale.order.payments.length > 0 ? <Button variant="ghost" testID="checkout-cancel-payment" onPress={requestCancel}><Text>Cancel payment</Text></Button> : null}
             <TenderPane multi sale={{ ...sale, cancelTender: requestCancel }} />
             {/* One column below 900: the legs sit under the tender (wide, the ledger has the products panel). */}
-            {width < 900 ? <LedgerPane order={sale.order} onRemove={id => { void removeLeg(id); }} /> : null}
+            {width < 900 ? <LedgerPane order={sale.order} onRemove={sale.saving ? undefined : id => { void removeLeg(id); }} /> : null}
           </>
         )
       ) : <TenderPane sale={sale} />) : (
@@ -474,7 +474,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     const shown = liveWidth ?? viewState.width;
     const productsPanel = <View key="products" testID="pos-products-panel"
       style={{ flexGrow: shown, flexShrink: 1, flexBasis: 0 }}>{multiTender ? <View testID="checkout-ledger-column" className="flex-1 bg-muted p-4">
-        <LedgerPane closing order={sale.order} onRemove={cancelling ? undefined : id => { void removeLeg(id); }} />
+        <LedgerPane closing order={sale.order} onRemove={cancelling || sale.saving ? undefined : id => { void removeLeg(id); }} />
       </View> : browse}</View>;
     const cartPanel = <View key="cart" testID="pos-cart-panel"
       style={{ flexGrow: 100 - shown, flexShrink: 1, flexBasis: 0 }}

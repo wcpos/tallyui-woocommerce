@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { Button, Text } from '@tallyui/components';
@@ -30,6 +30,9 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
   useEffect(() => {
     if (multi && !state.entryDirty) dispatch({ type: 'tender-recorded', rowsSinceFrom: [], balanceMinor: due });
   }, [multi, due]);
+  // Multi: one leg per tap; two taps before the new leg renders would otherwise take the same entry twice.
+  const taking = useRef(false);
+  useEffect(() => { taking.current = false; }, [sale.order.payments.length]);
   const { stage } = sale;
   if (stage.kind !== 'tender') return null;
 
@@ -44,15 +47,18 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
     : state.entryMinor > 0 && applied < balance ? `${fmt(balance - applied)} left` : '';
   const legs = sale.order.payments.length;
   const suffix = !multi ? '' : applied < balance ? ` · ${fmt(balance - applied)} left` : legs > 0 ? ' · pays it off' : '';
-  const retry = multi && sale.saving && sale.error !== null;
+  // A failed save (saving with an error) offers Retry; paid in full with nothing saving offers the completion again.
+  const finish = multi && (sale.saving ? sale.error !== null : balance === 0 && legs > 0);
 
   function take() {
+    if (taking.current) return;
     if (multi) {
+      taking.current = true;
       // One leg of several: cash carries what was tendered, card what applies; the leg that covers the balance completes the sale.
       const id = method.method === 'cash'
         ? sale.addTender({ method: 'cash', amountMinor: state.entryMinor })
         : sale.addTender({ method: 'external', amountMinor: applied, ...(reference ? { reference } : {}) });
-      if (id === null) return;
+      if (id === null) { taking.current = false; return; }
       setReference('');
       if (applied >= balance) { void sale.complete(); return; }
       dispatch({ type: 'tender-recorded', rowsSinceFrom: [], balanceMinor: balance - applied });
@@ -102,9 +108,9 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
     </View>
     {method.method === 'external' ? <TextInput accessibilityLabel="Terminal reference" placeholder="Terminal reference" maxLength={REFERENCE_MAX}
       value={reference} onChangeText={setReference} className="rounded-md border border-border px-3 py-2 text-foreground" /> : null}
-    <Button size="lg" testID="checkout-commit" disabled={retry ? false : sale.saving || applied <= 0 || (!multi && applied < balance) || noChange}
-      onPress={retry ? () => { void sale.complete(); } : take}>
-      <Text>{retry ? 'Retry' : sale.saving ? 'Saving order…' : `Take ${fmt(applied)} in ${method.title}${suffix}`}</Text>
+    <Button size="lg" testID="checkout-commit" disabled={finish ? false : sale.saving || applied <= 0 || (!multi && applied < balance) || noChange}
+      onPress={finish ? () => { void sale.complete(); } : take}>
+      <Text>{finish ? sale.error ? 'Retry' : 'Complete sale' : sale.saving ? 'Saving order…' : `Take ${fmt(applied)} in ${method.title}${suffix}`}</Text>
     </Button>
     {sale.error ? <Text accessibilityRole="alert" className="text-destructive">{sale.error}</Text> : null}
     {sale.canContinue ? <>

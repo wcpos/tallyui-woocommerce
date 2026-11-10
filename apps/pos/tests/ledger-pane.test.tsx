@@ -1,11 +1,11 @@
 import { noTaxSettings } from './fixtures/store-settings';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import type { OrderCreateEnvelope } from '@tallyui/core';
-import type { CommandTransport } from '@tallyui/pos';
+import type { CommandTransport, PosOrder } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
 import { SaleScreen } from '../components/sale-screen';
 import { SessionProvider } from '../lib/auth/session-context';
@@ -16,6 +16,31 @@ import stores from './fixtures/stores.json';
 import { takeLeg } from './tender-helpers';
 
 let orders: (ReturnType<typeof useOutbox> & { enabled: true })['orders'];
+
+/**
+ * No refusal inside useSale().complete() is reachable from this harness: finalize's checks read only the cart, which
+ * add() already vets, and the cashier ref is the harness's own. So useSale is wrapped, nothing else changed:
+ * `skipComplete` makes the next complete() return without saving; `cashierRef` swaps in a ref useSale refuses as a
+ * config error (`error` set, `saving` false, every complete() a no-op); `refuseTender` makes the next addTender()
+ * return null (its own refusals, a bad amount, nothing due or a locked sale, all disable the button first).
+ */
+const stub = vi.hoisted(() => ({ skipComplete: false, refuseTender: false, cashierRef: undefined as string | undefined }));
+vi.mock('@tallyui/pos', async importOriginal => {
+  const pos = await importOriginal<typeof import('@tallyui/pos')>();
+  const useSale: typeof pos.useSale = (settings, opts) => {
+    const sale = pos.useSale(settings, stub.cashierRef === undefined ? opts : { ...opts, cashierRef: stub.cashierRef });
+    return { ...sale, addTender: tender => {
+      if (!stub.refuseTender) return sale.addTender(tender);
+      stub.refuseTender = false;
+      return null;
+    }, complete: () => {
+      if (!stub.skipComplete) return sale.complete();
+      stub.skipComplete = false;
+      return Promise.resolve();
+    } };
+  };
+  return { ...pos, useSale };
+});
 
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
@@ -34,6 +59,9 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  stub.skipComplete = false;
+  stub.refuseTender = false;
+  stub.cashierRef = undefined;
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -168,8 +196,8 @@ test('on a narrow screen the legs sit under the tender in one column without the
 }, 20_000);
 
 test('a failed save offers Retry, and Retry finishes the sale', async () => {
-  await renderSale();
-  vi.spyOn(orders!, 'insert').mockRejectedValueOnce(new Error('disk full'));
+  const send = await renderSale();
+  const insert = vi.spyOn(orders!, 'insert').mockRejectedValueOnce(new Error('disk full'));
   takeLeg(600);
   await screen.findByText('The sale could not be saved: disk full');
   expect(text('checkout-commit')).toBe('Retry');
@@ -177,4 +205,73 @@ test('a failed save offers Retry, and Retry finishes the sale', async () => {
   expect(text('checkout-ledger-paid-in-full')).toBe('Paid in full');
   fireEvent.click(screen.getByTestId('checkout-commit'));
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
+  // One order, one idempotency key: the Retry re-sends the rejected insert's order, not a second one.
+  await waitFor(() => expect(send).toHaveBeenCalled());
+  const envelopes = send.mock.calls.flatMap(([batch]) => batch);
+  expect(envelopes).toHaveLength(1);
+  expect(envelopes[0].id).toBe((insert.mock.calls[0][0] as PosOrder).commandId);
+}, 20_000);
+
+test('paid in full with nothing saving offers Complete sale', async () => {
+  await renderSale();
+  takeLeg(200);
+  stub.skipComplete = true;
+  takeLeg(400);
+  expect(legs()).toHaveLength(2);
+  expect(text('checkout-commit')).toBe('Complete sale');
+  expect(disabled()).not.toBe('true');
+  fireEvent.click(screen.getByTestId('checkout-commit'));
+  expect(await screen.findByTestId('receipt-order')).not.toBeNull();
+}, 20_000);
+
+test("a refusal at completion shows the store's reason with Retry and leaves the payments", async () => {
+  stub.cashierRef = '2\0';
+  await renderSale();
+  takeLeg(200);
+  takeLeg(400);
+  expect(within(screen.getByTestId('checkout-tender')).getByRole('alert').textContent).toBe('cashierRef contains a NUL character');
+  expect(text('checkout-commit')).toBe('Retry');
+  expect(disabled()).not.toBe('true');
+  fireEvent.click(screen.getByTestId('checkout-commit'));
+  expect(legs().map(leg => leg.textContent)).toEqual([expect.stringContaining('$2.00'), expect.stringContaining('$4.00')]);
+  expect(text('checkout-ledger-paid-in-full')).toBe('Paid in full');
+  expect(screen.queryByTestId('receipt-order')).toBeNull();
+}, 20_000);
+
+test('two taps in one task take one payment', async () => {
+  await renderSale();
+  press('clear', '2', '0', '0');
+  const button = screen.getByTestId('checkout-commit');
+  act(() => { button.click(); button.click(); });
+  expect(legs()).toHaveLength(1);
+  expect(text('checkout-ledger-balance')).toBe('$4.00');
+  expect(text('checkout-ledger-totals')).toBe('Total$6.00Paid$2.00Remaining$4.00');
+}, 20_000);
+
+async function noRemoveWhileSaving(width: number) {
+  await renderSale('Cash', width);
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const insert = orders!.insert.bind(orders!);
+  vi.spyOn(orders!, 'insert').mockImplementationOnce(async doc => { await gate; return insert(doc); });
+  takeLeg(200);
+  expect(screen.queryAllByTestId(/^checkout-remove-leg-/)).toHaveLength(1);
+  takeLeg(400);
+  await waitFor(() => expect(text('checkout-commit')).toBe('Saving order…'));
+  expect(screen.queryAllByTestId(/^checkout-remove-leg-/)).toHaveLength(0);
+  release();
+  expect(await screen.findByTestId('receipt-order')).not.toBeNull();
+}
+test('no Remove while the order is saving', () => noRemoveWhileSaving(900), 20_000);
+test('on a narrow screen no Remove while the order is saving', () => noRemoveWhileSaving(600), 20_000);
+
+test('a refused payment leaves the next tap free', async () => {
+  await renderSale();
+  press('clear', '2', '0', '0');
+  stub.refuseTender = true;
+  fireEvent.click(screen.getByTestId('checkout-commit'));
+  expect(legs()).toHaveLength(0);
+  fireEvent.click(screen.getByTestId('checkout-commit'));
+  expect(legs()).toHaveLength(1);
+  expect(text('checkout-ledger-balance')).toBe('$4.00');
 }, 20_000);
