@@ -21,6 +21,7 @@ import { receiptPrintCss } from '../lib/receipts/print-receipt';
 import { MAX_PREVIEW_ZOOM, MIN_PREVIEW_ZOOM, PAPER_DIMENSIONS, PREVIEW_ZOOM_STEPS, pickAutoFitZoom, stepPreviewZoom } from '../lib/receipts/receipt-zoom';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { takeLeg } from './tender-helpers';
 
 const props: ComponentProps<typeof SaleScreen> = {
   storeSettings: noTaxSettings,
@@ -216,11 +217,8 @@ test('the sale receipt stage shows its print area inside the zoom preview', asyn
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
-  fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '2.00' } });
-  fireEvent.click(screen.getByTestId('split-tender-add-button'));
-  fireEvent.click(screen.getByTestId('split-tender-method-card'));
-  fireEvent.click(screen.getByTestId('split-tender-add-button'));
-  fireEvent.click(screen.getByRole('button', { name: 'Complete sale' }));
+  takeLeg(200);
+  takeLeg(400, 'pos_card');
   await vi.waitFor(() => expect(screen.getByTestId('receipt-order')).not.toBeNull());
   const area = screen.getByTestId('receipt-print-area');
   expect(screen.getByTestId('receipt-preview-canvas').contains(area)).toBe(true);
