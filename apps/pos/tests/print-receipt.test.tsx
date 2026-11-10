@@ -206,6 +206,8 @@ test('only the newest receipt style prints, and the older one returns when it go
 test("TallyUI's Print receipt button prints with the page rule", async () => {
   await setup(async batch => ({ kind: 'results', results: batch.map(applied) }));
   await payCash();
+  // The sheet installs its print style in a passive effect, which can run after the receipt is visible.
+  await vi.waitFor(() => expect(document.head.querySelector('style[data-receipt-print][media="all"]')).not.toBeNull());
   let pageAtPrint = false;
   vi.spyOn(window, 'print').mockImplementation(() => {
     window.dispatchEvent(new Event('beforeprint'));

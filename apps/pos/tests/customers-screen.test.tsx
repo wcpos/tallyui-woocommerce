@@ -1,11 +1,14 @@
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, expect, test, vi, type Mock } from 'vitest';
 import * as ReactNative from 'react-native';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { ConnectorUnauthorizedError, CustomerServiceError, type Customer } from '@tallyui/core';
 import { PortalHost } from '@tallyui/primitives';
 import { CustomersScreen } from '../components/customers-screen';
 import { CatalogueView } from '../components/catalogue-view';
+import { Toaster } from '../components/toaster';
+import { dismissToast } from '../lib/toast/toast';
+import { CREATE_CUSTOMERS_DENIED } from '../lib/auth/capabilities';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
@@ -16,6 +19,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  act(() => dismissToast());
   cleanup();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -33,12 +37,20 @@ function memoryStorage(): Storage {
   };
 }
 
-const gee: Customer = { id: '7', name: 'Gee Four', email: 'gee@example.invalid', phone: '123', company: 'Four Co' };
-const ada: Customer = { id: '9', name: 'Ada Lovelace' };
+const gee: Customer = { id: '7', name: 'Gee Four', firstName: 'Gee', lastName: 'Four', email: 'gee@example.invalid', phone: '123', company: 'Four Co' };
+const ada: Customer = { id: '9', name: 'Ada Lovelace', firstName: 'Ada', lastName: 'Lovelace' };
 
-function renderScreen(search = vi.fn<CustomerSource['search']>(), onBack = vi.fn()) {
-  render(<CustomersScreen source={{ search, create: vi.fn<CustomerSource['create']>() }} onBack={onBack} />);
-  return { search, onBack };
+function renderScreen(search = vi.fn<CustomerSource['search']>(), onBack = vi.fn(),
+  { create = vi.fn<CustomerSource['create']>(), createBlockedReason }: { create?: Mock<CustomerSource['create']>; createBlockedReason?: string } = {}) {
+  render(<><CustomersScreen source={{ search, create }} onBack={onBack} createBlockedReason={createBlockedReason} /><PortalHost /><Toaster /></>);
+  return { search, onBack, create };
+}
+
+async function findRows(search = vi.fn<CustomerSource['search']>().mockResolvedValue([gee, ada]), options = {}) {
+  const rendered = renderScreen(search, vi.fn(), options);
+  fireEvent.change(screen.getByPlaceholderText('Search Customers'), { target: { value: 'gee' } });
+  await screen.findByTestId('customers-body');
+  return rendered;
 }
 
 test('before a search it asks for one and calls nothing', () => {
@@ -48,6 +60,7 @@ test('before a search it asks for one and calls nothing', () => {
   expect(screen.getByTestId('no-data-message-description').textContent).toBe('Type at least 2 characters of a name, email or phone.');
   expect(screen.queryByTestId('no-data-message-action')).toBeNull();
   expect(search).not.toHaveBeenCalled();
+  expect(screen.queryByTestId('data-table-count')).toBeNull();
 });
 
 test('Search Customers asks the store after a pause with the trimmed text', async () => {
@@ -58,8 +71,10 @@ test('Search Customers asks the store after a pause with the trimmed text', asyn
   fireEvent.change(box, { target: { value: ' gee ' } });
   const row = await screen.findByTestId('customers-row-7');
   expect(search.mock.calls).toEqual([['gee']]);
-  for (const heading of ['Name', 'Email', 'Phone', 'Company']) expect(screen.getByText(heading)).not.toBeNull();
-  for (const value of ['Gee Four', '123', 'Four Co']) expect(within(row).getByText(value)).not.toBeNull();
+  for (const heading of ['First Name', 'Last Name', 'Email', 'Billing Address']) expect(screen.getByText(heading)).not.toBeNull();
+  expect(screen.queryByText('Phone')).toBeNull();
+  for (const value of ['GF', 'Gee', 'Four', 'Gee Four', 'Four Co']) expect(within(row).getByText(value)).not.toBeNull();
+  expect(within(row).queryByText('123')).toBeNull();
   expect(screen.getByTestId('customer-email-gee@example.invalid').textContent).toBe('gee@example.invalid');
   const row9 = screen.getByTestId('customers-row-9');
   expect(within(row9).getByText('Ada Lovelace')).not.toBeNull();
@@ -81,6 +96,9 @@ test('a narrow window lists name and email rows', async () => {
   const row = await screen.findByTestId('customers-row-7');
   expect(within(row).getByText('Gee Four')).not.toBeNull();
   expect(within(row).getByTestId('customer-email-gee@example.invalid')).not.toBeNull();
+  expect(within(row).getByText('GF')).not.toBeNull();
+  expect(within(row).queryByRole('button', { name: 'Open customer' })).toBeNull();
+  expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 1');
   expect(screen.queryByText('123')).toBeNull();
   expect(screen.queryByText('Four Co')).toBeNull();
   expect(screen.queryByText('Phone')).toBeNull();
@@ -148,15 +166,97 @@ test('Try again searches again', async () => {
 });
 
 test('without a store it says so', () => {
-  render(<CustomersScreen source={null} onBack={() => {}} />);
+  render(<CustomersScreen source={null} onBack={() => {}} createBlockedReason={undefined} />);
   expect(screen.getByTestId('customers-unavailable').textContent).toBe('Customers show once the store is connected.');
   expect(screen.queryByPlaceholderText('Search Customers')).toBeNull();
+  expect(screen.queryByTestId('customers-add-button')).toBeNull();
 });
 
 test('Back calls onBack', () => {
   const { onBack } = renderScreen();
   fireEvent.click(screen.getByTestId('customers-back'));
   expect(onBack).toHaveBeenCalledOnce();
+});
+
+test('rows sort by Last Name and a header press flips or moves the sort', async () => {
+  const cy: Customer = { id: '11', name: 'Cy Brown', firstName: 'Cy', lastName: 'Brown', email: 'cy@example.invalid' };
+  await findRows(vi.fn<CustomerSource['search']>().mockResolvedValue([ada, gee, cy]));
+  const ids = () => screen.getAllByTestId(/^customers-row-/).map(r => r.getAttribute('data-testid'));
+  expect(ids()).toEqual(['customers-row-11', 'customers-row-7', 'customers-row-9']);
+  expect(screen.getByTestId('data-table-sort-last_name-asc')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('data-table-header-last_name'));
+  expect(ids()).toEqual(['customers-row-9', 'customers-row-7', 'customers-row-11']);
+  expect(screen.getByTestId('data-table-sort-last_name-desc')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('data-table-header-first_name'));
+  expect(ids()).toEqual(['customers-row-9', 'customers-row-11', 'customers-row-7']);
+  expect(screen.getByTestId('data-table-sort-first_name-asc')).not.toBeNull();
+  expect(screen.queryByTestId('data-table-sort-last_name-desc')).toBeNull();
+  expect(screen.queryByTestId('data-table-header-billing')).toBeNull();
+});
+
+test('found customers show how many are shown', async () => {
+  await findRows();
+  expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 2');
+});
+
+test('each row has a disabled Open customer button until customers can be edited', async () => {
+  await findRows();
+  const open = within(screen.getByTestId('customers-row-7')).getByRole('button', { name: 'Open customer' });
+  expect(open.getAttribute('aria-disabled')).toBe('true');
+});
+
+test('Add new customer opens Add Customer, requires an email and saves', async () => {
+  const create = vi.fn<CustomerSource['create']>().mockResolvedValue(gee);
+  renderScreen(undefined, undefined, { create });
+  fireEvent.click(screen.getByRole('button', { name: 'Add new customer' }));
+  expect(screen.getByRole('heading', { name: 'Add Customer' })).not.toBeNull();
+  expect(screen.queryByPlaceholderText('Street address')).toBeNull();
+  const submit = () => fireEvent.click(within(screen.getByTestId('customer-form')).getByText('Add Customer'));
+  fireEvent.change(screen.getByPlaceholderText('email@example.com'), { target: { value: '   ' } });
+  submit();
+  expect(screen.getByTestId('customer-form-error').textContent).toBe('An email is required');
+  expect(create).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByPlaceholderText('email@example.com'), { target: { value: ' gee@example.invalid ' } });
+  fireEvent.change(screen.getByPlaceholderText('First name'), { target: { value: ' Gee ' } });
+  fireEvent.change(screen.getByPlaceholderText('Last name'), { target: { value: '  ' } });
+  submit();
+  await waitFor(() => expect(create).toHaveBeenCalledExactlyOnceWith({ email: 'gee@example.invalid', firstName: 'Gee' }));
+  expect(within(await screen.findByTestId('success-toast')).getByText('Gee Four saved')).not.toBeNull();
+  await waitFor(() => expect(screen.queryByTestId('customer-form')).toBeNull());
+});
+
+test('a failed save toasts Failed to save customer and keeps the form', async () => {
+  const create = vi.fn<CustomerSource['create']>()
+    .mockRejectedValueOnce(new CustomerServiceError('invalid', 'An account is already registered with your email address.'));
+  renderScreen(undefined, undefined, { create });
+  fireEvent.click(screen.getByRole('button', { name: 'Add new customer' }));
+  fireEvent.change(screen.getByPlaceholderText('email@example.com'), { target: { value: 'gee@example.invalid' } });
+  fireEvent.click(within(screen.getByTestId('customer-form')).getByText('Add Customer'));
+  const t = await screen.findByTestId('error-toast');
+  expect(within(t).getByText('Failed to save customer')).not.toBeNull();
+  expect(within(t).getByText('The store refused: An account is already registered with your email address.')).not.toBeNull();
+  expect(screen.getByTestId('customer-form')).not.toBeNull();
+  expect((screen.getByPlaceholderText('email@example.com') as HTMLInputElement).value).toBe('gee@example.invalid');
+});
+
+test('Cancel closes Add Customer without saving', () => {
+  const { create } = renderScreen();
+  fireEvent.click(screen.getByRole('button', { name: 'Add new customer' }));
+  fireEvent.click(screen.getByTestId('customer-form-close'));
+  expect(screen.queryByTestId('customer-form')).toBeNull();
+  expect(create).not.toHaveBeenCalled();
+});
+
+test('without the create capability Add new customer is disabled and says why', () => {
+  renderScreen(undefined, undefined, { createBlockedReason: CREATE_CUSTOMERS_DENIED });
+  const add = screen.getByRole('button', { name: 'Add new customer' });
+  expect(add.getAttribute('aria-disabled')).toBe('true');
+  expect(screen.getByTestId('customers-add-blocked').textContent).toBe(CREATE_CUSTOMERS_DENIED);
+  fireEvent.click(add);
+  expect(screen.queryByTestId('customer-form')).toBeNull();
+  cleanup();
+  renderScreen();
+  expect(screen.queryByTestId('customers-add-blocked')).toBeNull();
 });
 
 test('the drawer lists Customers after Orders only when an onOpenCustomers handler is supplied', () => {

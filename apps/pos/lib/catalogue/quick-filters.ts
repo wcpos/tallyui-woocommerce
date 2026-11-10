@@ -28,7 +28,7 @@ export interface QuickFilter {
   conditions: QuickFilterCondition[];
   sort?: QuickFilterSort;
 }
-/** The catalogue's applied filters. `{}` is the baseline: no filter. */
+/** The catalogue's applied filters. CATALOGUE_FILTER_BASELINE is the starting state. */
 export interface CatalogueFilters {
   categories?: number[];
   tags?: number[];
@@ -37,6 +37,8 @@ export interface CatalogueFilters {
   stock_status?: QuickFilterStockStatus;
   type?: QuickFilterProductType;
 }
+// v2's initialFilters without the Show out-of-stock setting: the catalogue opens on In Stock only.
+export const CATALOGUE_FILTER_BASELINE: CatalogueFilters = { stock_status: 'instock' };
 
 export function createQuickFilterId(): string { return mintUuid(); }
 
@@ -166,15 +168,17 @@ export function isQuickFilterActive(
   quickFilter: QuickFilter,
   state: { filters: CatalogueFilters; search: string; sort: ProductSort | null },
   baselineSort: ProductSort | null,
+  baselineFilters: CatalogueFilters = {},
 ): boolean {
   const patch = quickFilterToQueryPatch(quickFilter);
+  const expectedFilters: CatalogueFilters = { ...baselineFilters, ...patch.filters };
   const expectedSort = quickFilter.sort ?? baselineSort;
   if (state.search !== patch.search) return false;
   if (state.sort === null || expectedSort === null) {
     if (state.sort !== expectedSort) return false;
   } else if (state.sort.field !== expectedSort.field || state.sort.dir !== expectedSort.dir) return false;
-  if (Object.values(state.filters).filter(value => value !== undefined).length !== Object.keys(patch.filters).length) return false;
-  return Object.entries(patch.filters).every(([field, expected]) => {
+  if (Object.values(state.filters).filter(value => value !== undefined).length !== Object.keys(expectedFilters).length) return false;
+  return Object.entries(expectedFilters).every(([field, expected]) => {
     const actual = state.filters[field as keyof CatalogueFilters];
     if (Array.isArray(expected)) return Array.isArray(actual) && actual.length === expected.length && expected.every(id => actual.includes(id));
     if (field === 'price') return state.filters.price !== undefined && state.filters.price.min === expected.min && state.filters.price.max === expected.max;

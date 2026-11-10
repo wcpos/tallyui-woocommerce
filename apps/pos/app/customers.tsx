@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { Text } from '@tallyui/components';
 import { CustomersScreen } from '../components/customers-screen';
+import { createCustomersBlockedReason } from '../lib/auth/capabilities';
 import { useSession } from '../lib/auth/session-context';
 import { useCatalogue } from '../lib/catalogue/catalogue-context';
 import { customerSource } from '../lib/customers/customer-source';
@@ -26,5 +27,6 @@ export default function Customers() {
       <Text>{error ?? `Connecting to ${session.site.name}…`}</Text>
     </View>
   );
-  return <CustomersScreen source={customers} onBack={() => { router.canGoBack() ? router.back() : router.replace('/catalogue'); }} />;
+  return <CustomersScreen source={customers} onBack={() => { router.canGoBack() ? router.back() : router.replace('/catalogue'); }}
+    createBlockedReason={createCustomersBlockedReason(catalogue.cashier)} />;
 }
