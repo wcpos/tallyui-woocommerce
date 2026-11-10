@@ -79,6 +79,7 @@ export default function Catalogue() {
       notice={notice}
       onSignOut={() => { signOut(); router.replace('/connect'); }}
       onOpenOrders={() => router.push('/orders')}
+      onOpenCustomers={() => router.push('/customers')}
       onOpenReports={() => router.push('/reports')}
       onOpenHealth={() => router.push('/health')}
       onOpenSettings={() => router.push('/settings' as Href)}
