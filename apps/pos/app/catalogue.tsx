@@ -82,6 +82,7 @@ export default function Catalogue() {
       heldCartKey={`${HELD_CART_PREFIX}${databaseName(session)}`}
       status={status}
       notice={notice}
+      onSync={catalogue ? async () => { catalogue.replication.reSync(); await catalogue.replication.awaitInSync(); } : undefined}
       onSignOut={() => { signOut(); router.replace('/connect'); }}
       onOpenOrders={() => router.push('/orders')}
       onOpenCustomers={() => router.push('/customers')}

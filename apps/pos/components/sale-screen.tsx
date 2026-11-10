@@ -396,8 +396,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           {/* M6's order notes can take the price-change reason via onPriceChange. */}
           <CartWithSettings sale={{ ...sale, startTender: gatedStartTender }} canEditPrice taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)}
             afterSubtotal={couponsOffered && props.couponCollections ? <CouponRows sale={sale} /> : undefined}
-            position={viewState.position} onPositionChange={position => setViewState({ ...viewState, position })} />
-          <OpenOrderTabs parked={parked} current={sale.order} currency={currency} locale={props.locale} onSelect={onResume} onNew={onPark} onError={setMessage} />
+            position={viewState.position} onPositionChange={position => setViewState({ ...viewState, position })}
+            openOrders={<OpenOrderTabs parked={parked} current={sale.order} currency={currency} locale={props.locale} onSelect={onResume} onNew={onPark} onError={setMessage} />} />
         </>
       ) : sale.stage.kind === 'tender' ? outbox.enabled ? (props.multiplePayments === true ? (
         cancelling && sale.order.payments.length > 0 ? (

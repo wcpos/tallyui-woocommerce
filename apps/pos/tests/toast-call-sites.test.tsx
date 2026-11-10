@@ -49,7 +49,7 @@ test('a refused coupon removal toasts the refusal as a warning, not an inline al
 
 test('creating a customer toasts the saved name', async () => {
   render(<><CustomerPicker source={source} customer={null} onChange={onChange} /><Toaster /></>);
-  fireEvent.click(screen.getByRole('button', { name: 'Change customer' }));
+  fireEvent.click(screen.getByTestId('cart-customer-name'));
   fireEvent.click(screen.getByRole('button', { name: 'New customer' }));
   fireEvent.change(screen.getByPlaceholderText('email@example.com'), { target: { value: 'gee@example.invalid' } });
   fireEvent.click(screen.getByText('Create customer'));
@@ -60,7 +60,7 @@ test('creating a customer toasts the saved name', async () => {
 test('a failed create shows no toast', async () => {
   create.mockRejectedValue(new CustomerServiceError('network', 'Offline'));
   render(<><CustomerPicker source={source} customer={null} onChange={onChange} /><Toaster /></>);
-  fireEvent.click(screen.getByRole('button', { name: 'Change customer' }));
+  fireEvent.click(screen.getByTestId('cart-customer-name'));
   fireEvent.click(screen.getByRole('button', { name: 'New customer' }));
   fireEvent.change(screen.getByPlaceholderText('email@example.com'), { target: { value: 'gee@example.invalid' } });
   fireEvent.click(screen.getByText('Create customer'));

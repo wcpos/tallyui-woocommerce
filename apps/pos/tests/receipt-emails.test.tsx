@@ -426,8 +426,8 @@ test.each([true, false])('completed sale receipt UI, mailer available: %s', asyn
     </SessionProvider>,
   );
   await vi.waitFor(() => expect(screen.getByText('Order store ready')).not.toBeNull());
-  fireEvent.click(screen.getByRole('button', { name: 'Change customer' }));
-  fireEvent.change(screen.getByPlaceholderText('Search name, email or phone'), { target: { value: 'gee' } });
+  fireEvent.click(screen.getByTestId('cart-customer-name'));
+  fireEvent.change(screen.getByPlaceholderText('Search Customers'), { target: { value: 'gee' } });
   fireEvent.click(await vi.waitFor(() => screen.getByLabelText('Gee Four, gee@example.invalid')));
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));

@@ -243,8 +243,8 @@ test('parks through the sheet, shows the parked customer and restores them to th
   const gee = { id: '7', name: 'Gee Four', email: 'gee@example.invalid' };
   const customers = { search: vi.fn().mockResolvedValue([gee]), create: vi.fn().mockResolvedValue(gee) };
   render(<SaleScreen {...props} customers={customers} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Change customer' }));
-  fireEvent.change(screen.getByPlaceholderText('Search name, email or phone'), { target: { value: 'gee' } });
+  fireEvent.click(screen.getByTestId('cart-customer-name'));
+  fireEvent.change(screen.getByPlaceholderText('Search Customers'), { target: { value: 'gee' } });
   fireEvent.click(await screen.findByLabelText('Gee Four, gee@example.invalid'));
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Parked (0)' }));
@@ -255,7 +255,7 @@ test('parks through the sheet, shows the parked customer and restores them to th
   expect(sheet.getByText('$3.00')).not.toBeNull();
   await act(async () => { fireEvent.click(sheet.getByRole('button', { name: 'Resume parked sale' })); });
   expect(screen.queryByTestId('parked-sales')).toBeNull();
-  expect(await screen.findByText('Customer: Gee Four')).not.toBeNull();
+  expect(await screen.findByRole('button', { name: 'Customer: Gee Four' })).not.toBeNull();
   expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
 }, 20_000);
 
