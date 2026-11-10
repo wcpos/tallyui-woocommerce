@@ -45,3 +45,25 @@ export function inCartCounts(lines: readonly Pick<LineItem, 'productId' | 'quant
   }
   return counts;
 }
+
+// v2's poster-tile/tint-of.ts: a number is its value modulo six; a string is the sum of its
+// UTF-16 code units modulo six, so the same key always gets the same tint.
+export function tintOf(key: number | string): number {
+  let n = 0;
+  if (typeof key === 'number') n = Number.isFinite(key) ? Math.trunc(key) : 0;
+  else for (let i = 0; i < key.length; i += 1) n += key.charCodeAt(i);
+  return ((n % 6) + 6) % 6;
+}
+
+// v2 keys a picture-less tile by its first category id (a number in WooCommerce), else the product's name.
+export function tileTint(categories: readonly { id: string }[], name: string): number {
+  const first = categories[0]?.id;
+  if (first === undefined) return tintOf(name);
+  return tintOf(/^\d+$/.test(first) ? Number(first) : first);
+}
+
+// v2's pos_products.n_options copy ("{count} option" / "{count} options").
+export function optionsLabel(count: number): string | null {
+  if (count < 1) return null;
+  return count === 1 ? '1 option' : `${count} options`;
+}
