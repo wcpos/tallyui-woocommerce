@@ -2,12 +2,28 @@ import type { StoreOrder, StoreOrderPage, SyncContext, TallyConnector } from '@t
 import type { OrderHistoryRow } from '@tallyui/components';
 
 export interface OrderHistorySource {
-  list(page: number): Promise<StoreOrderPage>;
+  /** `search` is the platform's own order search; leave it out for every order. */
+  list(page: number, search?: string): Promise<StoreOrderPage>;
 }
 
 export function orderHistorySource(connector: TallyConnector, context: () => SyncContext): OrderHistorySource | null {
   if (!connector.listOrders) return null;
-  return { list: page => connector.listOrders!(context(), { page, perPage: 25 }) };
+  return { list: (page, search) => connector.listOrders!(context(), search ? { page, perPage: 25, search } : { page, perPage: 25 }) };
+}
+
+export interface SearchableOrder {
+  id: string;
+  lines: ReadonlyArray<{ name: string; sku?: string }>;
+  customer: { name?: string; email?: string } | null;
+  serverRefs?: { orderId: string; displayId?: string };
+}
+/** This till's own sales, matched by the same text as the store search: order id, store number, customer, line name or SKU. */
+export function matchesOrderSearch(order: SearchableOrder, search: string): boolean {
+  const needle = search.trim().toLowerCase();
+  if (!needle) return true;
+  return [order.id, order.serverRefs?.orderId, order.serverRefs?.displayId,
+    order.customer?.name, order.customer?.email, ...order.lines.flatMap(line => [line.name, line.sku])]
+    .some(value => value?.toLowerCase().includes(needle));
 }
 
 // These are WooCommerce's own status names.
