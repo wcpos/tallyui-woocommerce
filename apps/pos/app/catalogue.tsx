@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { Redirect, useRouter, type Href } from 'expo-router';
 import { Text } from '@tallyui/components';
 import { SaleScreen } from '../components/sale-screen';
+import { SessionHoldBanner } from '../components/session-hold-banner';
 import { StoreSettingsGate } from '../components/store-settings-gate';
 import { useTillStoreSettings } from '../lib/sale/use-till-store-settings';
 import { useSession } from '../lib/auth/session-context';
@@ -37,11 +38,16 @@ export default function Catalogue() {
   if (!ready) return null;
   if (!session) return <Redirect href="/connect" />;
   if (!catalogue) return (
+    <>
+    <SessionHoldBanner />
     <View className="flex-1 items-center justify-center bg-background p-6">
       <Text>{error ?? `Connecting to ${session.site.name}…`}</Text>
     </View>
+    </>
   );
   return (
+    <>
+    <SessionHoldBanner />
     <StoreSettingsGate store={store}>{(settings) => <SaleScreen
       storeSettings={settings}
       connector={catalogue.connector}
@@ -84,5 +90,6 @@ export default function Catalogue() {
       onOpenHealth={() => router.push('/health')}
       onOpenSettings={() => router.push('/settings' as Href)}
     />}</StoreSettingsGate>
+    </>
   );
 }

@@ -2,6 +2,7 @@ import { View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { Text } from '@tallyui/components';
 import { HealthScreen } from '../components/health-screen';
+import { SessionHoldBanner } from '../components/session-hold-banner';
 import { useSession } from '../lib/auth/session-context';
 import { useCatalogue } from '../lib/catalogue/catalogue-context';
 
@@ -12,15 +13,18 @@ export default function Health() {
   if (!ready) return null;
   if (!session) return <Redirect href="/connect" />;
   if (!catalogue) return (
+    <>
+    <SessionHoldBanner />
     <View className="flex-1 items-center justify-center bg-background p-6">
       <Text>{error ?? `Connecting to ${session.site.name}…`}</Text>
     </View>
+    </>
   );
-  return <HealthScreen receiptEmails={catalogue.receiptEmails}
+  return <><SessionHoldBanner /><HealthScreen receiptEmails={catalogue.receiptEmails}
     collections={[
       { key: 'products', label: 'Products', collection: catalogue.db.products, onSyncNow: () => catalogue.replication.resume() },
       { key: 'coupons', label: 'Coupons', collection: catalogue.coupons },
       { key: 'parked', label: 'Parked sales', collection: catalogue.parkedCarts },
     ]}
-    onBack={() => { router.canGoBack() ? router.back() : router.replace('/catalogue'); }} />;
+    onBack={() => { router.canGoBack() ? router.back() : router.replace('/catalogue'); }} /></>;
 }
