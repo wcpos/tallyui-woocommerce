@@ -3,7 +3,7 @@
 // `packages/core/src/screens/main/components/drawer-content/index.tsx` (`drawer-item-<route>`, the two
 // groups, `drawer-panel`, the close-or-navigate press) and the footer from `drawer-content/version.tsx`.
 // Built inside the app with no `@react-navigation/drawer`: the front drawer is a TallyUI Dialog side
-// sheet. v2's wide-screen rail is a follow-up. v2 has no Logs item (Logs is a page inside Health);
+// sheet. On wide windows v2's permanent rail is app-rail.tsx; this sheet is the phone's front drawer. v2 has no Logs item (Logs is a page inside Health);
 // here `/logs` has no other way in, so it sits right after Store health.
 import type { JSX } from 'react';
 import { View } from 'react-native';

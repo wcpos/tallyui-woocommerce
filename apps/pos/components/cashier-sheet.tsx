@@ -3,7 +3,8 @@ import type { JSX } from 'react';
 import { Linking, View } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import type { PosOrder } from '@tallyui/pos';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Text } from '@tallyui/components';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, IconButton, Text } from '@tallyui/components';
+import { getInitials } from '../lib/cashier/initials';
 import { sheetMoney, useCashierSalesToday } from '../lib/cashier/sheet-figures';
 
 // v2's right side sheet: full height, flush right, no rounding, a left border.
@@ -36,7 +37,10 @@ export function CashierSheet(props: {
   const [open, setOpen] = useState(false);
   const [removing, setRemoving] = useState<CashierOption | null>(null);
   return <>
-    <Button testID="register-bar-avatar" disabled={Boolean(props.blockedReason)} onPress={() => setOpen(true)}><Text>{`Cashier: ${props.name}`}</Text></Button>
+    {/* v2's CashierEntry (packages/core/src/screens/main/pos/cart/register-bar.tsx): the initials avatar on the accent wash. */}
+    <IconButton testID="register-bar-avatar" accessibilityLabel={props.name} disabled={Boolean(props.blockedReason)} className="rounded-lg bg-accent" onPress={() => setOpen(true)}>
+      <View className="size-7 items-center justify-center rounded-full bg-primary"><Text className="text-xs font-medium text-primary-foreground">{getInitials(props.name)}</Text></View>
+    </IconButton>
     {props.blockedReason && <Text>{props.blockedReason}</Text>}
     {open && <Dialog open onOpenChange={setOpen}>
       <DialogContent testID="user-sheet" className={SIDE_SHEET}>

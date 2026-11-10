@@ -1,7 +1,10 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import { Text } from '@tallyui/components';
+import { PortalHost } from '@tallyui/primitives';
+import { CashierSheet } from '../components/cashier-sheet';
 import { RegisterBarShell, registerBarPill } from '../components/register-bar-shell';
+import { getInitials } from '../lib/cashier/initials';
 import { OnlineStatusContext } from '../lib/online/online-status';
 
 afterEach(() => { cleanup(); });
@@ -43,4 +46,34 @@ test('registerBarPill: sessions off reads Offline only when offline; sessions on
   expect(registerBarPill({ ...on, session: { status: 'counting' } }, true)).toBe('Counting');
   expect(registerBarPill({ ...on, session: { status: 'counting' } }, false)).toBe('Offline');
   expect(registerBarPill({ ...on, boundRegisterId: null }, false)).toBe('Choose a register');
+});
+
+test('the bell opens the notifications sheet with its empty state, and Close shuts it', () => {
+  render(<>{shell()}<PortalHost /></>);
+  expect(screen.getByRole('button', { name: 'Notifications' }).getAttribute('data-testid')).toBe('register-bar-bell');
+  expect(screen.queryByTestId('notifications-sheet')).toBeNull();
+  fireEvent.click(screen.getByTestId('register-bar-bell'));
+  const sheet = screen.getByTestId('notifications-sheet');
+  expect(within(sheet).getByText('Notifications')).not.toBeNull();
+  expect(screen.getByTestId('notifications-empty').textContent).toBe('No notifications');
+  fireEvent.click(screen.getByTestId('notifications-close'));
+  expect(screen.queryByTestId('notifications-sheet')).toBeNull();
+});
+
+test('getInitials: first and last initials of a full name, the first two letters of one name, ? for none', () => {
+  expect(getInitials('Bob Ross')).toBe('BR');
+  expect(getInitials('Mary Jane Watson')).toBe('MW');
+  expect(getInitials('paul')).toBe('PA');
+  expect(getInitials('  ')).toBe('?');
+  expect(getInitials(null)).toBe('?');
+});
+
+test('the cashier entry is an initials avatar named for the cashier, and opens the user sheet', () => {
+  render(<><CashierSheet name="Bob Ross" cashiers={[]} onSwitch={() => {}} onAddAnother={() => {}} onSignOut={() => {}} /><PortalHost /></>);
+  const entry = screen.getByRole('button', { name: 'Bob Ross' });
+  expect(entry.getAttribute('data-testid')).toBe('register-bar-avatar');
+  expect(entry.textContent).toBe('BR');
+  expect(screen.queryByText('Cashier: Bob Ross')).toBeNull();
+  fireEvent.click(entry);
+  expect(screen.queryByTestId('user-sheet')).not.toBeNull();
 });
