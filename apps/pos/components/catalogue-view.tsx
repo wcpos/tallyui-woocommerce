@@ -9,7 +9,7 @@ import { productSortValue, resolveGridColumns, searchProducts, sortProducts } fr
 import type { ProductSort } from '@tallyui/pos';
 import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
 import type { AppCatalogueViewState } from '../lib/catalogue/catalogue-view-state';
-import { CATALOGUE_FILTER_BASELINE, isQuickFilterActive, matchesCatalogueFilters, quickFilterToQueryPatch, useQuickFilters } from '../lib/catalogue/quick-filters';
+import { catalogueFilterBaseline, isQuickFilterActive, matchesCatalogueFilters, quickFilterToQueryPatch, rebaseStockStatus, useQuickFilters } from '../lib/catalogue/quick-filters';
 import type { CatalogueFilters, QuickFilter } from '../lib/catalogue/quick-filters';
 import type { TileTax } from '../lib/catalogue/tile-words';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
@@ -58,7 +58,6 @@ export function CatalogueView({
 }: CatalogueViewProps): JSX.Element {
   const [term, setTerm] = useState('');
   const [quickFilters, setQuickFilters] = useQuickFilters();
-  const [filters, setFilters] = useState<CatalogueFilters>(CATALOGUE_FILTER_BASELINE);
   const [sortOverride, setSortOverride] = useState<ProductSort | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   function scan(code: string) {
@@ -70,6 +69,14 @@ export function CatalogueView({
   const [ownViewState, setOwnViewState] = useCatalogueView();
   const viewState = controlledViewState ?? ownViewState;
   const setViewState = onViewStateChange ?? setOwnViewState;
+  const [filters, setFilters] = useState<CatalogueFilters>(() => catalogueFilterBaseline(viewState.showOutOfStock));
+  const baseline = catalogueFilterBaseline(viewState.showOutOfStock);
+  // As v2: the stock filter rebases only when the setting moves, and a sort set in the sheet replaces a quick filter's.
+  function changeViewState(next: AppCatalogueViewState) {
+    if (next.showOutOfStock !== viewState.showOutOfStock) setFilters(current => rebaseStockStatus(current, next.showOutOfStock));
+    if (next.sort !== viewState.sort) setSortOverride(null);
+    setViewState(next);
+  }
   const sort = sortOverride ?? viewState.sort;
   const { width } = useWindowDimensions();
   // Phones keep 2 tiles a row whatever the setting.
@@ -93,16 +100,16 @@ export function CatalogueView({
     return visible;
   }, [connector.traits.product, currency, viewState.columns, inCartCounts]);
   const queryState = { filters, search: term, sort };
-  const isActive = (qf: QuickFilter) => isQuickFilterActive(qf, queryState, viewState.sort, CATALOGUE_FILTER_BASELINE);
+  const isActive = (qf: QuickFilter) => isQuickFilterActive(qf, queryState, viewState.sort, baseline);
   // Like v2, a press replaces the whole filter state, and pressing the active button restores the baseline.
   function pressQuickFilter(qf: QuickFilter) {
     if (isActive(qf)) {
-      setFilters(CATALOGUE_FILTER_BASELINE);
+      setFilters(baseline);
       setTerm('');
       setSortOverride(null);
     } else {
       const patch = quickFilterToQueryPatch(qf);
-      setFilters({ ...CATALOGUE_FILTER_BASELINE, ...patch.filters });
+      setFilters({ ...baseline, ...patch.filters });
       setTerm(patch.search);
       setSortOverride(qf.sort ?? null);
     }
@@ -110,7 +117,7 @@ export function CatalogueView({
   function changeQuickFilters(next: QuickFilter[]) {
     // An applied quick filter that was deleted or changed resets the catalogue to the baseline.
     const applied = quickFilters.find(isActive);
-    if (applied && !next.some(qf => qf.id === applied.id && isActive(qf))) { setFilters(CATALOGUE_FILTER_BASELINE); setTerm(''); setSortOverride(null); }
+    if (applied && !next.some(qf => qf.id === applied.id && isActive(qf))) { setFilters(baseline); setTerm(''); setSortOverride(null); }
     setQuickFilters(next);
   }
   const searchSlot = <View className="gap-2"><SearchInput value={term} onChangeText={setTerm} placeholder="Search name, SKU or barcode"
@@ -139,7 +146,7 @@ export function CatalogueView({
         <View className="flex-1 p-4">
         <View className="flex-row flex-wrap items-center justify-end gap-4">
           <ViewToggle value={viewState.view} onChange={view => setViewState({ ...viewState, view })} />
-          <CatalogueDisplayOptions state={viewState} onChange={setViewState} />
+          <CatalogueDisplayOptions state={viewState} onChange={changeViewState} products={products} quickFilterCount={quickFilters.length} />
         </View>
         <Text>{statusLine}</Text>
         {message ? <Text>{message}</Text> : null}

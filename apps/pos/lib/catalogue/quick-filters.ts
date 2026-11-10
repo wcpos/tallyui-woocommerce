@@ -37,8 +37,21 @@ export interface CatalogueFilters {
   stock_status?: QuickFilterStockStatus;
   type?: QuickFilterProductType;
 }
-// v2's initialFilters without the Show out-of-stock setting: the catalogue opens on In Stock only.
+// v2's initialFilters with Show out-of-stock products off: the catalogue opens on In Stock only.
 export const CATALOGUE_FILTER_BASELINE: CatalogueFilters = { stock_status: 'instock' };
+
+/** v2's initialFilters: In Stock unless the cashier shows out-of-stock products. */
+export function catalogueFilterBaseline(showOutOfStock: boolean): CatalogueFilters {
+  return showOutOfStock ? {} : CATALOGUE_FILTER_BASELINE;
+}
+
+/** v2's rebaseFilter('stock_status', …): the setting moves the current stock filter with the baseline. */
+export function rebaseStockStatus(filters: CatalogueFilters, showOutOfStock: boolean): CatalogueFilters {
+  const next = { ...filters };
+  if (showOutOfStock) delete next.stock_status;
+  else next.stock_status = 'instock';
+  return next;
+}
 
 export function createQuickFilterId(): string { return mintUuid(); }
 

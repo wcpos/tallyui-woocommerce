@@ -42,6 +42,7 @@ test('saves the exact JSON and round-trips a table state', () => {
     tileFields: { ...CATALOGUE_VIEW_DEFAULTS.tileFields, sku: true, price: false },
     position: 'right',
     width: 37.5,
+    showOutOfStock: true,
   };
   saveCatalogueView(state, storage);
   expect(storage.getItem(CATALOGUE_VIEW_KEY)).toBe(JSON.stringify(state));
@@ -58,6 +59,13 @@ test('preserves an explicit null sort and table view', () => {
   const storage = memoryStorage();
   storage.setItem(CATALOGUE_VIEW_KEY, '{"sort":null,"view":"table"}');
   expect(loadCatalogueView(storage)).toEqual({ ...CATALOGUE_VIEW_DEFAULTS, view: 'table', sort: null });
+});
+
+test('showOutOfStock loads only a stored true', () => {
+  const storage = memoryStorage();
+  const load = (raw: string) => { storage.setItem(CATALOGUE_VIEW_KEY, raw); return loadCatalogueView(storage).showOutOfStock; };
+  expect(load('{"showOutOfStock":"yes"}')).toBe(false);
+  expect(load('{"showOutOfStock":true}')).toBe(true);
 });
 
 test('a stored value without position loads products left', () => {

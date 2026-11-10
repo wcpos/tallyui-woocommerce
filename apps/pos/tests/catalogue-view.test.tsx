@@ -260,7 +260,7 @@ test.each(['grid', 'table'])('%s settings show only the relevant controls and cl
   render(<><CatalogueView {...props} /><PortalHost /></>);
   fireEvent.click(screen.getByTestId('catalogue-settings-button'));
   if (view === 'grid') {
-    expect(screen.getByText('Tile size')).not.toBeNull();
+    expect(screen.getByText('Tile Size')).not.toBeNull();
     expect(screen.getByRole('slider').getAttribute('aria-valuenow')).toBe('4');
     expect(screen.queryAllByTestId(/^column-toggle-/)).toHaveLength(0);
     expect(screen.getAllByTestId(/^tile-field-toggle-/).map(node => node.getAttribute('data-testid'))).toEqual(CATALOGUE_TILE_FIELDS.map(({ id }) => `tile-field-toggle-${id}`));

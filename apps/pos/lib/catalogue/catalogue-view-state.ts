@@ -14,7 +14,7 @@ export const PRODUCTS_WIDTH_DEFAULT = 60;
 export const PRODUCTS_WIDTH_MIN = 25;
 export const PRODUCTS_WIDTH_MAX = 75;
 export const PRODUCTS_WIDTH_STEP = 5;
-export interface AppCatalogueViewState extends CatalogueViewState { columns: CatalogueColumnSetting[]; tileFields: CatalogueTileFields; position: PanelPosition; width: number }
+export interface AppCatalogueViewState extends CatalogueViewState { columns: CatalogueColumnSetting[]; tileFields: CatalogueTileFields; position: PanelPosition; width: number; showOutOfStock: boolean }
 // Stock and categories are columns here because ProductTable has no name sub-fields.
 export const CATALOGUE_COLUMNS: { id: CatalogueColumnId; label: string; visible: boolean }[] = [
   { id: 'name', label: 'Name', visible: true },
@@ -45,6 +45,8 @@ export const CATALOGUE_VIEW_DEFAULTS: AppCatalogueViewState = {
   position: 'left',
   // v2's pos-products.width.
   width: PRODUCTS_WIDTH_DEFAULT,
+  // v2's pos-products.showOutOfStock.
+  showOutOfStock: false,
 };
 
 export function normalizePanelPosition(raw: unknown): PanelPosition {
@@ -104,6 +106,7 @@ export function loadCatalogueView(storage?: Storage): AppCatalogueViewState {
       tileFields: normalizeCatalogueTileFields(typeof parsed === 'object' && parsed !== null ? parsed.tileFields : undefined),
       position: normalizePanelPosition(typeof parsed === 'object' && parsed !== null ? parsed.position : undefined),
       width: normalizeProductsWidth(typeof parsed === 'object' && parsed !== null ? parsed.width : undefined),
+      showOutOfStock: typeof parsed === 'object' && parsed !== null && parsed.showOutOfStock === true,
     };
   } catch { return CATALOGUE_VIEW_DEFAULTS; }
 }
