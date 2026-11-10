@@ -17,5 +17,10 @@ export default function Health() {
     </View>
   );
   return <HealthScreen receiptEmails={catalogue.receiptEmails}
+    collections={[
+      { key: 'products', label: 'Products', collection: catalogue.db.products, onSyncNow: () => catalogue.replication.resume() },
+      { key: 'coupons', label: 'Coupons', collection: catalogue.coupons },
+      { key: 'parked', label: 'Parked sales', collection: catalogue.parkedCarts },
+    ]}
     onBack={() => { router.canGoBack() ? router.back() : router.replace('/catalogue'); }} />;
 }
