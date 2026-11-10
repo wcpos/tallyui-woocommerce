@@ -596,6 +596,126 @@ Corrections to `docs/PARITY.md`:
 `~/Projects/tallyui/docs/v2-parity/PLAN.md` didn't exist yet, so these unit names are mine, not the sibling plan's.
 
 
+## Catalogue, cart, tax, customers and sync: v2 parity audit
+
+I checked v2 at monorepo `main` 5ac185b0e against this app on TallyUI 3.12.0. `~/Projects/tallyui/docs/v2-parity/PLAN.md` does not exist yet, so the package names below are mine. I did not run any tests or builds.
+
+**Path shorthand**
+- `M/` = `~/Projects/monorepo/packages/core/src/screens/main/`
+- `SE/` = `~/Projects/monorepo/packages/sync-engine/src/`
+- `A/` = `apps/pos/`
+- `TU` = the installed `apps/pos/node_modules/@tallyui/*` 3.12.0
+
+**Corrections to PARITY.md**
+- **G-V1 and G-V2 are now gaps in this app, not in TallyUI.** TallyUI ships what the pickers need: `ProductTraits.getVariantOptions` (connector `dist/index.js:577`), `ProductVariantPicker`, `CatalogueEntry.picks`, and `addEntryToCart` writes `attributes`/`anyAttributes` (pos_orders v10). The app doesn't use any of them.
+- **The v2 default for variable products is drill-in, not the popover.** See `M/pos/products/index.tsx:265` (`variationsStyle ?? 'drill'`).
+- **v2 added things PARITY doesn't mention:**
+  - Browse by categories, tags, brands or shortcuts
+  - The Poster tile
+  - The in-cart count badge
+  - Product and customer tax screens
+  - A Customers screen
+  - Split line
+- **"Decimal quantities: check pos cart" can now be answered: missing.** The order builder throws "Quantity must be an integer >= 1" (`TU pos/dist/index.js:308`, `:958`).
+- **"Stock guard: pos `stock`" is wrong.** The app refuses out-of-stock items only on a scan (the `onScan` path in `A/components/sale-screen.tsx`). Tapping a product never checks stock.
+
+#### 1. Table
+
+| Area | v2 behaviour (key monorepo paths) | This app (paths) | Status | Gap class | What is needed |
+|---|---|---|---|---|---|
+| Product sync, offline | Products and variations in separate collections; published-only; variation prefetch; change-signal cadence (`SE/collections/collection-descriptors.ts:610-802`, `SE/change-signal/*`, `SE/cadence-controller.ts`) | Pull replication and fingerprint reconcile for products and coupons (`A/lib/catalogue/start-catalogue.ts:63-72`) | partial | connector, app-local | A Woo stock adapter for `@tallyui/database` `startStockReconcile` (the `stock_levels` collection exists but no Woo adapter is exported); a published-only baseline in the app (`traits.isSellable`) |
+| Browse by | Settings radio: All, Categories, Tags, Brands, Shortcuts; term gallery, crumb, pills narrowing a level (`M/pos/products/browse/*`, `ui-settings-form.tsx:295-335`, `products.LEDGER.md` "Browse by") | none | missing | connector | Category, tag and brand term feeds with parent, image and count (v2 syncs `categories`, `brands`, `tags`: `SE/scheduler/rx-scheduler-reference-fetcher.ts:83-107`); the gallery is app-local afterwards |
+| Grid tile visual | Poster tile: picture fills the square; words on a scrim; tint when there's no picture; stock as a number; "Sold out" replaces the price; stacked cards on a variable product (`M/pos/products/tiles/{product-tile,tile-words,tile-image,variable-product-tile}.tsx`, ledger "Poster tile" 1-10) | 80px image over a text stack with a stock badge (`A/components/product-tile.tsx`) | partial | app-local (`shared:@tallyui/components` `PosterTile` preferred) | Poster layout, stock-number rules, Sold out |
+| Tile fields | 9 fields: name, price, tax, on_sale, category, sku, barcode, stock_quantity, cost_of_goods_sold (`M/pos/products/ui-settings-form.tsx:44-54`) | 6 fields (`A/lib/catalogue/catalogue-view-state.ts:29-35`) | partial | app-local; connector for COGS | Add Tax and On sale; COGS needs the schema field |
+| Grid size and view toggle | Grid/table toggle; 2–8 slider (`ui-settings-form.tsx:117-140`) | Slider and toggle (`A/components/catalogue-display-options.tsx:17`) | present | — | — |
+| Product settings | Show out of stock; Sort by (11 fields) and direction; Variations style (drill/inline); meta-data keys; Customize filter bar (`ui-settings-form.tsx:150-290`) | Tile size, fields, columns, panel position, Restore (`A/components/catalogue-display-options.tsx`) | partial | app-local; connector for meta keys | Show out of stock, sort by/direction, variations style; meta keys need `meta_data` on the product schema |
+| In-cart count | Badge on a tile or row with the in-cart quantity, animated on add (`products.LEDGER.md` "In-cart count" 1-2) | none | missing | app-local | Count from `sale.order.lineItems` by productId |
+| Table view | Rows on the column grid; image, name with a sub-line ("N options", option chips); expanded variation rows (`M/pos/products/rows/*`, ledger "Table rows") | Sortable `ProductTable` with column switches (`A/components/catalogue-view.tsx`) | partial | app-local | Sub-line, option chips, variation rows |
+| Variations: drill-in (default) | Tap a variable product: its variations open in place, tiles in the grid, rows in the table, with a back tile (`M/pos/products/{drill-in,variations-grid,variations-pane,deal-stack,level-back}.tsx`) | Full-screen "Choose an option", a flat list (`A/components/variant-chooser.tsx`) | partial | app-local | Variations as tiles/rows in the products pane |
+| Variations: attribute pickers (inline) | Popover pickers; "Any" options; a sole option auto-selects; out-of-stock options disabled; Add blocked only when "Avoid overselling" is on (`M/pos/products/cells/variations-popover/{utils,select,buttons,stock-status}.tsx`, ledger 5-13) | none | missing | app-local | `ProductVariantPicker` + `traits.getVariantOptions` + `CatalogueEntry.picks` (all in TU) |
+| Option chips | Variation option values as chips (`M/pos/products/option-chips.tsx`) | none | missing | app-local | Chips from `VariantSummary.options` |
+| Product search | Products plus parents of matching variations; online exact-SKU leg; meta-key search (`products.LEDGER.md` "Relational search"; `SE/scheduler/exact-sku-leg.ts`; `M/components/search-meta-keys-bridge.tsx`) | TU `searchProducts`: product-level name, SKU, barcode only | partial | app-local; connector for the online leg | Match `getVariants()` SKU, barcode and title and return the parent |
+| Quick filters | Bar, editor, preview, starters, "save current search" (`M/pos/products/filter-bar/{quick-filter-starters,capture-quick-filter}.tsx`) | Bar, editor, reorder (`A/components/quick-filter-*.tsx`, `A/lib/catalogue/quick-filters.ts`) | partial | app-local; connector | Starters and capture; brand and featured conditions need term data |
+| Scan lookup and add | Scan resolves locally, then online (`sync-core/src/barcodeResolve.ts`, `M/pos/products/use-barcode.ts`); a variable parent warns "Choose a variation" and the code goes to search | Barcode, then SKU, then the variable parent opens the chooser (`A/lib/scan/lookup.ts`) | partial | app-local; connector for online resolve | v2's variable-parent behaviour; online resolve via `wcpos/v2/products` |
+| Scanner settings | Prefix, suffix, minimum length, average key-time threshold (`M/settings/barcode-scanning/settings.tsx`) | Fixed constants (`A/lib/scan/wedge.ts`) | missing | app-local | Settings page saved per device |
+| Scan sounds and haptics | Success and failure sounds; themes classic, soft, checkout; volume; haptic (`M/pos/products/{play-scan-sound.web,scan-sound-themes,use-scan-feedback}.ts`) | Message line only | missing | app-local | Web Audio feedback and settings |
+| Scanning test | Capture trace, chart, suggestions (`M/settings/barcode-scanning/{index.tsx,use-scan-trace-capture.ts}`) | none | missing | app-local | Test panel |
+| Direct scanner connect | USB HID, serial, Bluetooth LE devices, register and remove (`M/pos/products/use-{hid,serial}-scan.web.ts`, `use-ble-scan.ios.ts`, `M/settings/barcode-scanning/input-sources.tsx`, `packages/scanner/src/*`) | Keyboard wedge only | missing | shared (new scanner package) | Decoders and device identity |
+| Camera scanning | Camera panel with decoder (`M/pos/products/{camera-scanner-panel.tsx,camera-decoder.web.ts,decode-loop.ts}`) | none | missing | app-local | Camera panel |
+| Products admin | Products screen: inline editable price, stock quantity, COGS and barcode; edit modals for product (name, regular price, SKU, categories) and variation; autosave; Pro read-only plus edit capabilities (`M/products/{products,index}.tsx:296-461`, `M/products/cells/*`, `M/products/edit/*`, `use-catalogue-autosave.ts`) | none | missing | connector; server (Pro) | Product and variation writes (v2 writes through `wcpos/v2/push/…`, per `sync-core/src/fakeWriteServer.ts`) |
+| Cost of goods | `payload.cost_of_goods_sold.values[0].defined_value`, editable column and tile field (`M/products/cells/cogs.tsx`) | none | missing | connector | `cost_of_goods_sold` on the Woo product schema (no occurrence in the connector's dist) |
+| Open orders, tabs bar | Open orders as tabs in a bar above or below the cart (default bottom); status chips (saving, queued, refused, partly paid); ages; open orders held on the server as `pos-open` (`M/pos/cart/{open-orders-list,cart-tab-count,cart-header}.tsx`, cart.LEDGER 2-8, `SE/write-path/open-cart-hold.ts`) | Park and resume through `ParkedSales`, carts kept on this device (`A/lib/sale/parked-carts.ts`) | partial | connector, app-local | Server-held `pos-open` orders; a tab bar over the local parked carts is app-local now |
+| Line quantity | `AmountField` keypad, select-on-focus (`M/pos/cart/cells/quantity-keypad.tsx`, `M/components/amount-field`) | TU `Cart` quantity | partial | app-local | Keypad entry |
+| Line price and line edit | Price and regular price edited inline ("was" price); line dialog with name, price, regular price, SKU, quantity, categories, virtual, downloadable (`M/pos/cart/cells/edit-line-item/form.tsx`) | TU `Cart` `canEditPrice` → `PriceForm` | partial | `shared:@tallyui/pos` | `useSale.updateLine` for name, SKU and regular price |
+| Split line | "Split" when quantity > 1 and the column setting allows it (`M/pos/cart/cells/quantity-keypad.tsx:100-107`, `M/pos/hooks/use-split-line-item.ts`) | none | missing | `shared:@tallyui/pos` | `useSale.splitLine(lineId)`; `addEntryToCart` merges the same variant into one line (`TU pos/dist/index.js:4687`) |
+| Per-line quick discount | Configurable % keys in the price keypad (`M/pos/cart/quick-discount-keys.tsx`) | TU line Discount form, % or fixed | partial | app-local | % key buttons calling `sale.applyDiscount(lineId, …)` |
+| Order-level discount | "Add Discount" writes a `pos-discount` coupon line, not a negative fee (`M/pos/cart/{add-discount,add-discount-sheet}.tsx`, `M/pos/hooks/{quick-discount,use-add-quick-discount}.ts`, cart.LEDGER 32-33, 38) | TU "Order discount" (an allocated TallyUI discount) | partial | connector; server | Quick-discount coupon line in order.create; the plugin's `pos-discount` virtual coupon (woocommerce-pos#1927) |
+| Fees | Name, amount, "amount includes tax", tax status and class; negatives refused (`M/pos/cart/add-fee.tsx`, cart.LEDGER 34) | TU `ChargeForm`, gated on `order_create_v5` | partial | server | Check whether the WCPOS 2.0 `/status` advertises `order_create_v5` (PARITY: only the TallyUI fork does) |
+| Shipping | Method select, title, amount, tax status, no tax class (`M/pos/cart/add-shipping.tsx`, `M/components/shipping-method-select.tsx`, cart.LEDGER 35) | TU `ChargeForm`, shipping kind | partial | server; connector | Same gate; a shipping-methods list for the select |
+| Misc product | Name, price, SKU, tax, virtual, downloadable, categories (`M/pos/cart/add-misc-product.tsx`, cart.LEDGER 36) | Add charge → Custom item (name, price, tax) | partial | server; `shared:@tallyui/pos` | `addCustomLine` with SKU, virtual, downloadable, categories (they feed coupon eligibility) |
+| Decimal quantities | Fractional quantity with the store's separators (`M/pos/cart/cells/quantity-keypad.tsx:32`) | none | missing | `shared:@tallyui/pos`; connector | Non-integer quantity in the builder and order.create |
+| Stock guard | With prevent_overselling on: blocks adds and quantity raises over stock; server stock refusal shown beside the line (`M/pos/hooks/{stock-guard,stock-guard-hook,stock-rejection}.ts`, cells LEDGER 8) | Scan refuses `out_of_stock` only; taps never check | missing | connector; `shared:@tallyui/pos` | Expose prevent_overselling in `StoreSettings`; a guard in `useSale.add`/`setQuantity` |
+| Tax at the store address | order-math settle, retax (`packages/order-math/src/{settle,retax-line}.ts`) | TU `TaxProvider`/`computeOrderTax`, `taxRates` at the store address, `taxRoundAtSubtotal` | present (base-address stores) | — | — |
+| Tax based on customer address | Billing, shipping or base; cart retaxed when the customer changes (`M/contexts/tax-rates/{provider,use-tax-rates}.tsx`, `packages/order-math/src/retax-cart-lines.ts`, the `taxRates` collection) | none: `StoreSettings.taxRates` is "already filtered to the store's tax address" | missing | connector; `shared:@tallyui/pos` | Full rate table with locations, plus `tax_based_on`; an address rate matcher |
+| Tax settings page | Read-only "Set in WooCommerce": enable taxes, prices entered with tax, display in shop and cart, suffix, tax totals, round at subtotal, shipping tax class (`M/settings/tax.tsx`) | none | missing | app-local; connector | Show the `StoreSettings` fields TU has; display settings need the connector |
+| Tax rates viewer | Modal, a tab per class: country, state, postcode, city, rate, name, priority (`apps/main/app/(app)/(modals)/tax-rates.tsx`, `M/tax-rates/{tax-rates,rate-table,rate-rows}.tsx`) | none | missing | app-local | Built from `storeSettings.taxRates` (store-address rates only) |
+| Product tax display | "Tax based on" popover (`M/components/product/tax-based-on/*`) | none | missing | app-local | Popover |
+| Customer search and attach | Synced local customers, searchable offline (`M/components/customer-select.tsx`, the `customers` collection) | Online search, limit 20 (`A/components/customer-picker.tsx`, `A/lib/customers/customer-source.ts`) | partial | connector | Customers replication into a local collection |
+| Guest | Guest by default | Guest | present | — | — |
+| Customer create | Billing and shipping address, country/state select; Pro plus create capability (`M/pos/cart/add-customer.tsx`, `M/components/customer/customer-form.tsx`, cart.LEDGER 20-22) | Email, name, phone (TU `CustomerInput`) | partial | `shared:@tallyui/core`; connector | Address on `Customer`/`CustomerInput`; `createCustomer` sends it |
+| Customer edit (cart) | Address dialog as property rows; save to the order only, or to the customer too; hidden for guests or without edit rights (`M/pos/cart/edit-cart-customer.tsx`, cart.LEDGER 24-26, 68) | none | missing | `shared:@tallyui/pos`; connector | Order billing/shipping in the builder and order.create; `updateCustomer` |
+| Tax IDs | Structured tax IDs with billing and shipping, on the order and optionally the customer (`M/components/customer/tax-ids-form.tsx`, cart.LEDGER 25) | none | missing | `shared:@tallyui/core` + `pos`; connector | `Customer.taxIds`, an order tax-identity snapshot |
+| Customers screen | Table (avatar, name, email, address, date), search, sync, add, edit, delete; read-only without Pro (`apps/main/app/(app)/(drawer)/customers/*`, `M/customers/{index,row,cells/*,edit/*}.tsx:144`) | none | missing | app-local (read-only); connector for writes | A list over `searchCustomers`; edit and delete need `updateCustomer`/`deleteCustomer` |
+| Collections synced | products, variations, customers, coupons, orders, refunds, taxRates, categories, brands, tags (`SE/collections/collection-descriptors.ts:610-802`) | TU: products (variations embedded), coupons, `pos_orders` push, registers/closures/`tender_voids` on the device; order history online only (`createWooOrders`) | partial | connector | Customers, terms and tax rates feeds; Woo stock adapter |
+| Change detection | Server change signal plus cadence (`sync-core/src/hybridChangeSignal.ts`, `SE/change-signal/*`) | Interval fingerprint reconcile (coupons every 15 min) | partial | connector; server | A change-signal source for Woo |
+| Write path and conflicts | Record mutation queue; retry with the server's base; requeue rebuilt; dead letter; order revisions; money-divergence banner (`sync-core/src/recordMutationQueue.ts`, `SE/write-path/{conflict-resolution,order-revision,order-money-divergence}.ts`, cart.LEDGER 42-46) | TU outbox: order push, `needsAttention` and Retry, `reopenRefusedOrder`, `OrderContentMismatchError`; no product or customer writes | partial | `shared:@tallyui/pos`; connector | Server-versus-local totals divergence report; record writes |
+| Sync status UI | Sync button; online status; database coverage page; storage-outage banner (`M/components/sync-button.tsx`, `M/health/*`, `M/pos/components/storage-outage-banner.tsx`) | Catalogue status line (`A/components/catalogue-view.tsx:103`); TU `SyncStatus` for the outbox (`A/components/sale-screen.tsx:407`) | partial | app-local | Sync button (`replication.reSync()`); a banner from `getStorageHealth` |
+
+#### 2. Buildable now (app-local on TU 3.12.0, in the order a cashier meets them)
+
+1. **Variation attribute pickers.** Touches `A/components/variant-chooser.tsx` and `A/components/sale-screen.tsx` (the `onSelect` flow). Uses `ProductVariantPicker`, `traits.getVariantOptions`, `CatalogueEntry.picks`. Copy from `M/pos/products/cells/variations-popover/{utils.ts,select.tsx,buttons.tsx,stock-status.tsx}` and `LEDGER.md` 5-13.
+2. **Variations drill-in in the products pane** (the v2 default). Touches `A/components/catalogue-view.tsx`, `A/components/variant-chooser.tsx`, `A/lib/catalogue/catalogue-view-state.ts` (adds `variationsStyle`). Copy from `M/pos/products/{drill-in,variations-grid,variations-pane,level-back}.tsx`.
+3. **Tile fields Tax and On sale, plus Sold out and stock-number rules.** Touches `A/components/product-tile.tsx`, `A/lib/catalogue/catalogue-view-state.ts`, `A/components/catalogue-display-options.tsx`. Copy from `M/pos/products/tiles/tile-words.tsx` and `products.LEDGER.md` Poster 2.
+4. **In-cart count badge** on tiles and rows. Touches `A/components/product-tile.tsx`, `A/components/catalogue-view.tsx`. Copy from `products.LEDGER.md` "In-cart count".
+5. **Product settings: Show out of stock, published-only baseline, Sort by and direction.** Touches `A/lib/catalogue/catalogue-view-state.ts`, `A/components/catalogue-display-options.tsx`, `A/components/catalogue-view.tsx`. Copy from `M/pos/products/ui-settings-form.tsx:150-200` and `products/LEDGER.md` 2-5.
+6. **Variation-aware search** (a parent matches through a variation's SKU, barcode or title). Touches `A/components/catalogue-view.tsx` plus a new `A/lib/catalogue/search.ts`. Copy from `products.LEDGER.md` "Relational search".
+7. **Scanned variable parent: v2 behaviour** (warn "Choose a variation", code goes to search; monorepo #2413). Touches `A/lib/scan/lookup.ts`, `A/components/sale-screen.tsx` (`onScan`). Copy from `M/pos/products/use-barcode.ts`.
+8. **Scanner settings page** (prefix, suffix, minimum length, threshold). Touches `A/lib/scan/wedge.ts`, `A/lib/scan/use-wedge-scanner.ts`, a new `A/components/barcode-settings.tsx`. Copy from `M/settings/barcode-scanning/settings.tsx`.
+9. **Scan sounds and haptic setting** (classic, soft, checkout; volume). Adds a new `A/lib/scan/scan-sound.ts`, touches `A/components/barcode-settings.tsx`. Copy from `M/pos/products/{play-scan-sound.web.ts,scan-sound-themes.ts,use-scan-feedback.ts}`.
+10. **Open-orders tab bar over the local parked carts** (bar above or below, count, ages). Touches `A/components/sale-screen.tsx`, `A/lib/sale/parked-carts.ts`, a new `A/components/open-orders-bar.tsx`. Copy from `M/pos/cart/{open-orders-list,cart-tab-count}.tsx` and `cart.LEDGER.md` 2, 6.
+11. **Per-line quick % discount keys.** Touches `A/components/sale-screen.tsx` and a new `A/components/quick-discount-keys.tsx`. Copy from `M/pos/cart/quick-discount-keys.tsx`.
+12. **Tax rates viewer** (store-address rates, a tab per class). Adds a new `A/components/tax-rates.tsx` plus a route. Copy from `M/tax-rates/{tax-rates,rate-table,rate-rows}.tsx`.
+13. **Read-only tax settings page.** Adds a new `A/components/tax-settings.tsx` built on `StoreSettings`. Copy from `M/settings/tax.tsx`.
+14. **Customers screen, read-only** (online search list). Adds a new `A/app/customers.tsx` and `A/components/customers-screen.tsx`, reusing `A/lib/customers/customer-source.ts`. Copy from `M/customers/{index,row}.tsx` and `cells/*`.
+15. **Catalogue Sync button and storage-outage banner.** Touches `A/components/catalogue-view.tsx`, `A/lib/catalogue/start-catalogue.ts`. Copy from `M/components/sync-button.tsx`, `M/pos/components/storage-outage-banner.tsx`.
+
+#### 3. Shared needs
+
+- `@tallyui/pos`: `useSale.splitLine(lineId)`. Same-variant adds merge into one line, so the app can't split.
+- `@tallyui/pos`: decimal quantities in `OrderBuilder.addLine`/`updateQuantity` and the order.create envelope. The builder rejects non-integers.
+- `@tallyui/pos`: a stock guard in `useSale.add`/`setQuantity`, driven by a `preventOverselling` setting. Needed for v2's prevent_overselling.
+- `@tallyui/pos`: `useSale.updateLine` (name, SKU, regular price), plus `addCustomLine` with SKU, virtual, downloadable and categories. Needed for v2's line edit and misc-product dialogs.
+- `@tallyui/pos`: tax rate matching by customer billing or shipping address, with retax on customer change. `StoreSettings.taxRates` is pre-filtered to the store address.
+- `@tallyui/pos`: order billing and shipping address plus a tax-ID snapshot on `Order` and in order.create. Needed for v2's cart customer edit.
+- `@tallyui/pos`: a money-divergence report (server totals against local). Needed for v2's totals-changed banner.
+- `@tallyui/core`: `Customer`/`CustomerInput` gain billing and shipping address and `taxIds`. Needed for create, edit and tax IDs.
+- `@tallyui/connector-woocommerce`: a stock reconcile adapter for `@tallyui/database` `startStockReconcile`. The `stock_levels` collection is unused.
+- `@tallyui/connector-woocommerce`: category, tag and brand term feeds (parent, image, count). Needed for Browse by, quick-filter trees, brand and featured conditions.
+- `@tallyui/connector-woocommerce`: customers replication into a local collection. Needed for offline customer search.
+- `@tallyui/connector-woocommerce`: `updateCustomer` (and delete), sending address and tax IDs. Needed for customer edit and the Customers screen.
+- `@tallyui/connector-woocommerce`: product and variation writes (price, stock, COGS, name, SKU, categories). Needed for the Products admin screen (Pro).
+- `@tallyui/connector-woocommerce`: `cost_of_goods_sold` and `meta_data` on `wooProductSchema`. Needed for the COGS column and tile field, and meta-key search.
+- `@tallyui/connector-woocommerce`: the full tax-rate table with locations, `tax_based_on`, and the tax display settings in `wooStoreSettings`. Needed for address-based tax and the tax settings page.
+- `@tallyui/connector-woocommerce`: the prevent_overselling setting in `StoreSettings`. Needed for the stock guard.
+- `@tallyui/connector-woocommerce`: a quick-discount (`pos-discount`) coupon line in order.create. Needed for v2's Add Discount (plugin woocommerce-pos#1927).
+- `@tallyui/connector-woocommerce`: open orders held on the server as `pos-open` (push and pull). Needed for v2 open-order tabs that survive across devices.
+- `@tallyui/connector-woocommerce`: online barcode and exact-SKU resolve via `wcpos/v2/products`. Needed for v2's scan miss → online lookup.
+- `@tallyui/connector-woocommerce`: a change-signal source. v2 detects server changes instead of reconciling on an interval.
+- `@tallyui/components`: `PosterTile`. Needed for v2's Poster grid tile.
+- New shared scanner package (`@tallyui/scanner` or inside `@tallyui/pos`): HID, serial and BLE decoders and device identity, porting `packages/scanner/src/*`.
+- Server to check on the dev store: does the WCPOS 2.0 `/status` advertise `order_create_v5`? If not, fees, shipping and misc lines stay hidden on a stock v2 plugin.
+
+
 ## Screenshots
 
 This app (left) at `f34ffcf` against the local dev store, beside WCPOS v2 (right) at `5ac185b0e`. Captures at the desktop width. A blank cell means the screen does not exist in that app.
@@ -608,6 +728,7 @@ This app (left) at `f34ffcf` against the local dev store, beside WCPOS v2 (right
 | connect | ![connect, this app](screens/connect-tally.png) | ![connect, v2](screens/connect-v2.png) |
 | display-options | ![display-options, this app](screens/display-options-tally.png) | ![display-options, v2](screens/display-options-v2.png) |
 | health | ![health, this app](screens/health-tally.png) | ![health, v2](screens/health-v2.png) |
+| order-detail | ![order-detail, this app](screens/order-detail-tally.png) | ![order-detail, v2](screens/order-detail-v2.png) |
 | orders | ![orders, this app](screens/orders-tally.png) | ![orders, v2](screens/orders-v2.png) |
 | receipt | ![receipt, this app](screens/receipt-tally.png) | ![receipt, v2](screens/receipt-v2.png) |
 | register-close | ![register-close, this app](screens/register-close-tally.png) | ![register-close, v2](screens/register-close-v2.png) |
@@ -617,3 +738,4 @@ This app (left) at `f34ffcf` against the local dev store, beside WCPOS v2 (right
 | reports | ![reports, this app](screens/reports-tally.png) | ![reports, v2](screens/reports-v2.png) |
 | settings |  | ![settings, v2](screens/settings-v2.png) |
 | tender | ![tender, this app](screens/tender-tally.png) | ![tender, v2](screens/tender-v2.png) |
+| tender-change | ![tender-change, this app](screens/tender-change-tally.png) | ![tender-change, v2](screens/tender-change-v2.png) |
