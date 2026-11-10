@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
 import { View } from 'react-native';
-import { SettingsGroup, Text } from '@tallyui/components';
+import { SettingsGroup } from '@tallyui/components';
 import type { StoreSettings } from '@tallyui/core';
 import { LockedRow, wooSettingsUrl } from './general-settings';
 
@@ -24,7 +24,6 @@ export function TaxSettings(props: {
   const href = wooTaxSettingsUrl(props.siteHome);
   return (
     <View testID="screen-settings-tax" className="gap-5">
-      <Text className="text-2xl font-semibold">Tax</Text>
       <SettingsGroup title="Calculation" testID="settings-tax-calculation">
         <LockedRow testID="settings-tax-locked-prices_include_tax" label="Prices entered with tax" value={props.settings.pricesIncludeTax} href={href} />
         <LockedRow testID="settings-tax-locked-shipping_tax_class" label="Shipping tax class" value={shippingTaxClassLabel(props.settings.shippingTaxClass)} href={href} />

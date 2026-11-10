@@ -63,7 +63,6 @@ export function BarcodeScanningSettings(): JSX.Element {
   const [settings, update] = useScanSettings();
   return (
     <View testID="screen-settings-barcode-scanning" className="gap-5">
-      <Text className="text-2xl font-semibold">Barcode Scanning</Text>
       <SettingsGroup title="Scanning" testID="settings-barcode-scanning-group">
         <SettingsRow label="Barcode Average Time Input Threshold (ms)" action={
           <CountField testID="settings-barcode-threshold" label="Barcode Average Time Input Threshold (ms)"

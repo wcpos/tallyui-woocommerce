@@ -42,7 +42,6 @@ export function ThemeSettings(): JSX.Element {
   const label = THEME_OPTIONS.find(option => option.name === choice)?.label;
   return (
     <View testID="screen-settings-theme" className="gap-5">
-      <Text className="text-2xl font-semibold">Theme</Text>
       <SettingsGroup testID="settings-theme-appearance" title="Appearance"
         description="Choose a theme for the app. Custom themes provide different color schemes.">
         <View className="gap-3 p-4">
