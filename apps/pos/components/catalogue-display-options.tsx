@@ -3,7 +3,7 @@ import { useState } from 'react';
 import type { JSX } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Path } from 'react-native-svg';
-import { Button, createSvgIcon, Dialog, DialogContent, DialogTitle, IconButton, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SettingsGroup, SettingsRow, Slider, Switch, Text, XIcon } from '@tallyui/components';
+import { Button, createSvgIcon, Dialog, DialogContent, DialogTitle, IconButton, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Slider, Switch, Text, XIcon } from '@tallyui/components';
 import type { ProductSort } from '@tallyui/pos';
 import { CATALOGUE_COLUMNS, CATALOGUE_TILE_FIELDS, CATALOGUE_VIEW_DEFAULTS } from '../lib/catalogue/catalogue-view-state';
 import type { AppCatalogueViewState, PanelPosition } from '../lib/catalogue/catalogue-view-state';
@@ -25,6 +25,18 @@ const SORT_LABELS: Record<(typeof QUICK_FILTER_SORT_FIELDS)[number], string> = {
 function countLabel(count: number, one: string, many: string): string { return `${count} ${count === 1 ? one : many}`; }
 
 function FieldLabel({ children }: { children: string }): JSX.Element { return <Text className="text-sm font-medium text-foreground">{children}</Text>; }
+
+/** v2's FormSwitch: the switch first, then a label that fills the row and toggles the switch when pressed. */
+function SwitchRow({ label, testID, accessibilityLabel, checked, disabled, onCheckedChange }: {
+  label: string; testID: string; accessibilityLabel: string; checked: boolean; disabled?: boolean; onCheckedChange(next: boolean): void;
+}): JSX.Element {
+  return <View testID={`${testID}-row`} className="w-full flex-row items-center gap-3">
+    <Switch testID={testID} accessibilityLabel={accessibilityLabel} checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
+    <Pressable testID={`${testID}-label`} className="grow" disabled={disabled} onPress={() => onCheckedChange(!checked)}>
+      <Text className="grow text-sm text-foreground">{label}</Text>
+    </Pressable>
+  </View>;
+}
 
 /** v2's SegmentedControl: one row of radio segments. */
 function Segmented({ testID, label, value, segments, onChange }: {
@@ -95,8 +107,8 @@ export function CatalogueDisplayOptions({ state, onChange, products, quickFilter
               })}
             </View>
           </View>
-          <SettingsRow label="Show out-of-stock products" action={<Switch testID="show-out-of-stock" accessibilityLabel="Show out-of-stock products"
-            checked={state.showOutOfStock} onCheckedChange={next => onChange({ ...state, showOutOfStock: next })} />} />
+          <SwitchRow label="Show out-of-stock products" testID="show-out-of-stock" accessibilityLabel="Show out-of-stock products"
+            checked={state.showOutOfStock} onCheckedChange={next => onChange({ ...state, showOutOfStock: next })} />
           <View className="flex-row items-end gap-2">
             <View className="flex-1 gap-1">
               <FieldLabel>Sort By</FieldLabel>
@@ -122,22 +134,22 @@ export function CatalogueDisplayOptions({ state, onChange, products, quickFilter
             <Segmented testID="products-variations-style" label="Variations" value="drill" onChange={() => {}}
               segments={[{ value: 'drill', label: 'Open in place' }, { value: 'inline', label: state.view === 'grid' ? 'Popover' : 'Expanded rows', disabled: true }]} />
           </View>
-          {state.view === 'grid' ? <SettingsGroup title="Tile Fields">
-            {CATALOGUE_TILE_FIELDS.map(({ id, label }) => <SettingsRow key={id} label={label} action={<Switch
+          {state.view === 'grid' ? <View className="gap-2 px-1 pt-2">
+            <Text className="text-sm font-semibold">Tile Fields</Text>
+            {CATALOGUE_TILE_FIELDS.map(({ id, label }) => <SwitchRow key={id} label={label}
               testID={`tile-field-toggle-${id}`} accessibilityLabel={`Show ${label} on tiles`}
               checked={state.tileFields[id]}
-              onCheckedChange={next => onChange({ ...state, tileFields: { ...state.tileFields, [id]: next } })}
-            />} />)}
-          </SettingsGroup> : <SettingsGroup title="Columns">
+              onCheckedChange={next => onChange({ ...state, tileFields: { ...state.tileFields, [id]: next } })} />)}
+          </View> : <View className="gap-2 px-1 pt-2">
+            <Text className="text-sm font-semibold">Columns</Text>
             {state.columns.map(({ id, visible }) => {
               const label = CATALOGUE_COLUMNS.find(column => column.id === id)!.label;
-              return <SettingsRow key={id} label={label} action={<Switch
+              return <SwitchRow key={id} label={label}
                 testID={`column-toggle-${id}`} accessibilityLabel={`Show ${label}`}
                 checked={visible} disabled={id === 'name'}
-                onCheckedChange={next => onChange({ ...state, columns: state.columns.map(c => c.id === id ? { ...c, visible: next } : c) })}
-              />} />;
+                onCheckedChange={next => onChange({ ...state, columns: state.columns.map(c => c.id === id ? { ...c, visible: next } : c) })} />;
             })}
-          </SettingsGroup>}
+          </View>}
         </ScrollView>
         <View className="flex-row justify-between border-t border-border px-4 pt-4">
           {/* The panel position belongs to Cart Settings (v2 pos-cart.position), so restoring the products keeps it. */}
