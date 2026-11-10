@@ -121,8 +121,7 @@ test('an Any colour variation carries the picked colour on the cart line', () =>
   pick('White');
   addAndOpenCart();
   expect(screen.getByText('T-Shirt · S')).not.toBeNull();
-  expect(screen.getByText('Size: S')).not.toBeNull();
-  expect(screen.getByText('Colour: White')).not.toBeNull();
+  expect(screen.getByText('Size: S · Colour: White')).not.toBeNull();
 });
 
 test('Cancel closes the picker and adds nothing', () => {

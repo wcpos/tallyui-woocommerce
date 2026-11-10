@@ -26,6 +26,58 @@ function SaleScreen(props: SaleScreenProps) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
 }
 
+// The Cart sets no testID on a line. Each line sits in its own wrapper: the CartLine row first
+// (Qty, Item, Price when the cart is wide enough, Total cells), then the line's actions, Increase <name> among them.
+function queryCartItem(name: string): HTMLElement | null {
+  // By its aria-label, not getByRole: a role query re-reads every button's name and is slow inside waitFor.
+  let node: HTMLElement | null = screen.queryByLabelText(`Increase ${name}`);
+  while (node && !(node.firstElementChild && within(node.firstElementChild as HTMLElement).queryByText(name))) node = node.parentElement;
+  return node;
+}
+
+function cartItem(name: string): HTMLElement {
+  const item = queryCartItem(name);
+  if (!item) throw new Error(`No cart line for ${name}`);
+  return item;
+}
+
+// Collapses whitespace as getByText's default normalizer does (Intl puts a no-break space in "KWD 2.501").
+const text = (node: Element) => node.textContent!.replace(/\s+/g, ' ').trim();
+
+// unitPrice is undefined when the Price column folds away (a narrow cart or a phone).
+function queryCartLine(name: string): { quantity: string; unitPrice: string | undefined; total: string } | null {
+  const row = queryCartItem(name)?.firstElementChild;
+  if (!row) return null;
+  const cells = Array.from(row.children);
+  return {
+    quantity: text(cells[0]),
+    unitPrice: cells.length === 4 ? text(cells[2].lastElementChild!) : undefined,
+    total: text(cells[cells.length - 1]),
+  };
+}
+
+function cartLine(name: string) {
+  const line = queryCartLine(name);
+  if (!line) throw new Error(`No cart line for ${name}`);
+  return line;
+}
+
+// The line's Price action has no role or label, only its text, and the Price column head reads the same.
+function priceActions(): HTMLElement[] {
+  return screen.queryAllByText('Price', { exact: true }).filter(node => !node.closest('[role="columnheader"]'));
+}
+
+function priceAction(name: string): HTMLElement {
+  return within(cartItem(name)).getByText('Price', { exact: true });
+}
+
+// "Total" is also a cart column head; the summary row's label is the one outside the heads.
+function summaryRow(label: string): HTMLElement {
+  const labels = screen.getAllByText(label).filter(node => !node.closest('[role="columnheader"]'));
+  expect(labels).toHaveLength(1);
+  return labels[0].parentElement!;
+}
+
 addRxPlugin(RxDBMigrationSchemaPlugin);
 
 const shirt = { ...products[2], variation_docs: variations.documents.filter(doc => doc.parent_id === products[2].id)
@@ -150,7 +202,7 @@ test('narrow: adds, opens, changes quantity, removes and returns to products', (
   expect(screen.getByText('Espresso')).not.toBeNull();
   expect(screen.queryByPlaceholderText('Search name, SKU or barcode')).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
-  expect(screen.getByText('$3.00 × 2')).not.toBeNull();
+  expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: undefined, total: '$6.00' });
   expect(within(screen.getByText('Subtotal').parentElement!).getByText('$6.00')).not.toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Remove Espresso' }));
   expect(screen.queryByText('Espresso')).toBeNull();
@@ -186,7 +238,7 @@ test.each([600, 900])('variants at %spx: lists synced titles, prices and stock, 
   expect(screen.queryByText('Choose an option')).toBeNull();
   if (width < 900) fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $25.00' }));
   expect(screen.getByText('T-Shirt · M / Black')).not.toBeNull();
-  expect(screen.getByText('$25.00 × 1')).not.toBeNull();
+  expect(cartLine('T-Shirt · M / Black')).toEqual({ quantity: '1', unitPrice: width < 900 ? undefined : '$25.00', total: '$25.00' });
   expect(within(screen.getByText('Subtotal').parentElement!).getByText('$25.00')).not.toBeNull();
 });
 
@@ -211,13 +263,13 @@ test('editing Espresso ×2 changes the unit price and subtotal exactly', () => {
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' }));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
-  fireEvent.click(screen.getByText('Price', { exact: true }));
+  fireEvent.click(priceAction('Espresso'));
   fireEvent.change(screen.getByRole('textbox', { name: 'Price value' }), { target: { value: '2.50' } });
   fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
   expect(screen.queryByRole('textbox')).toBeNull();
-  expect(screen.getByText('$2.50 × 2')).not.toBeNull();
+  expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: undefined, total: '$5.00' });
   expect(within(screen.getByText('Subtotal').parentElement!).getByText('$5.00')).not.toBeNull();
-  expect(within(screen.getByText('Total').parentElement!).getByText('$5.00')).not.toBeNull();
+  expect(within(summaryRow('Total')).getByText('$5.00')).not.toBeNull();
 });
 
 test('invalid prices leave the form open and Cancel preserves the original price and total', () => {
@@ -225,7 +277,7 @@ test('invalid prices leave the form open and Cancel preserves the original price
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' }));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
-  fireEvent.click(screen.getByText('Price', { exact: true }));
+  fireEvent.click(priceAction('Espresso'));
   for (const [value, message] of [
     ['', 'Enter a price.'], ['abc', 'Enter a number.'], ['-1', 'Enter a price of 0 or more.'],
     ['1.2.3', 'Enter a number.'], ['2.501', 'Use at most 2 decimal places.'],
@@ -235,14 +287,14 @@ test('invalid prices leave the form open and Cancel preserves the original price
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
     expect(screen.getByRole('alert').textContent).toBe(message);
     expect(screen.getByRole('group', { name: 'Price for Espresso' })).not.toBeNull();
-    expect(screen.getByText('$3.00 × 2')).not.toBeNull();
-    expect(within(screen.getByText('Total').parentElement!).getByText('$6.00')).not.toBeNull();
+    expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: undefined, total: '$6.00' });
+    expect(within(summaryRow('Total')).getByText('$6.00')).not.toBeNull();
   }
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(screen.queryByRole('textbox')).toBeNull();
-  expect(screen.getByText('$3.00 × 2')).not.toBeNull();
+  expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: undefined, total: '$6.00' });
   expect(within(screen.getByText('Subtotal').parentElement!).getByText('$6.00')).not.toBeNull();
-  expect(within(screen.getByText('Total').parentElement!).getByText('$6.00')).not.toBeNull();
+  expect(within(summaryRow('Total')).getByText('$6.00')).not.toBeNull();
 }, 20_000);
 
 test('parks through the sheet, shows the parked customer and restores them to the cart', async () => {
@@ -269,19 +321,44 @@ test('parks through the sheet, shows the parked customer and restores them to th
 test('Price actions appear once per line and none appear with an empty cart', () => {
   vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
   render(<SaleScreen {...props} />);
-  expect(screen.queryByText('Price', { exact: true })).toBeNull();
+  expect(priceActions()).toEqual([]);
   fireEvent.click(screen.getByText('Espresso'));
-  expect(screen.getAllByText('Price', { exact: true })).toHaveLength(1);
+  expect(priceActions()).toEqual([priceAction('Espresso')]);
   fireEvent.click(screen.getByText('Cold Brew'));
-  expect(screen.getAllByText('Price', { exact: true })).toHaveLength(2);
+  expect(priceActions()).toHaveLength(2);
+  expect(within(cartItem('Espresso')).getAllByText('Price', { exact: true })).toHaveLength(1);
+  expect(within(cartItem('Cold Brew')).getAllByText('Price', { exact: true })).toHaveLength(1);
   // Cart Settings sorts newest at top by default (v2), so Cold Brew, added last, is the first line.
-  fireEvent.click(screen.getAllByText('Price', { exact: true })[0]);
+  fireEvent.click(priceActions()[0]);
   expect(screen.getByRole('group', { name: 'Price for Cold Brew' })).not.toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   fireEvent.click(screen.getByRole('button', { name: 'Remove Cold Brew' }));
-  expect(screen.getAllByText('Price', { exact: true })).toHaveLength(1);
+  expect(priceActions()).toEqual([priceAction('Espresso')]);
   fireEvent.click(screen.getByRole('button', { name: 'Remove Espresso' }));
-  expect(screen.queryByText('Price', { exact: true })).toBeNull();
+  expect(priceActions()).toEqual([]);
+});
+
+// B1: v2's cart columns. The heads are the row that holds Qty, so a product table's heads never count.
+function cartColumnHeads(): (string | null)[] {
+  const row = screen.getByText('Qty', { exact: true }).closest('[role="row"]') as HTMLElement;
+  return within(row).getAllByRole('columnheader').map(head => head.textContent);
+}
+
+test('the cart shows the Qty, Item, Price and Total column heads wide, and a phone folds Price away', () => {
+  vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
+  const view = render(<SaleScreen {...props} />);
+  fireEvent.click(screen.getByText('Espresso'));
+  expect(cartColumnHeads()).toEqual(['Qty', 'Item', 'Price', 'Total']);
+  expect(cartLine('Espresso')).toEqual({ quantity: '1', unitPrice: '$3.00', total: '$3.00' });
+  view.unmount();
+
+  vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  render(<SaleScreen {...props} />);
+  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' }));
+  expect(cartColumnHeads()).toEqual(['Qty', 'Item', 'Total']);
+  expect(screen.queryByRole('columnheader', { name: 'Price' })).toBeNull();
+  expect(cartLine('Espresso')).toEqual({ quantity: '1', unitPrice: undefined, total: '$3.00' });
 });
 
 test.each([
@@ -293,17 +370,17 @@ test.each([
     render(<SaleScreen {...props} currency={currency} />);
     fireEvent.click(screen.getByText('Espresso'));
     fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
-    fireEvent.click(screen.getByText('Price', { exact: true }));
+    fireEvent.click(priceAction('Espresso'));
     fireEvent.change(screen.getByRole('textbox', { name: 'Price value' }), { target: { value } });
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
-    expect(screen.getByText(`${unit} × 2`)).not.toBeNull();
+    expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: unit, total });
     expect(within(screen.getByText('Subtotal').parentElement!).getByText(total)).not.toBeNull();
-    fireEvent.click(screen.getByText('Price', { exact: true }));
+    fireEvent.click(priceAction('Espresso'));
     fireEvent.change(screen.getByRole('textbox', { name: 'Price value' }), { target: { value: invalid } });
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
     expect(screen.getByRole('alert').textContent).toBe(message);
     expect(screen.getByRole('group', { name: 'Price for Espresso' })).not.toBeNull();
-    expect(screen.getByText(`${unit} × 2`)).not.toBeNull();
+    expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: unit, total });
     expect(within(screen.getByText('Subtotal').parentElement!).getByText(total)).not.toBeNull();
   },
 );
@@ -391,7 +468,7 @@ test('wide: parks, resumes while parking the current cart, and discards with con
   fireEvent.click(screen.getByRole('button', { name: 'Parked (1)' }));
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' })); });
   expect(screen.queryByTestId('parked-sales')).toBeNull();
-  expect(screen.getByText('$3.00 × 2')).not.toBeNull();
+  expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: '$3.00', total: '$6.00' });
   expect(within(screen.getByText('Subtotal').parentElement!).getByText('$6.00')).not.toBeNull();
   expect(screen.queryByRole('button', { name: 'Remove Cold Brew' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Parked (1)' }));
@@ -406,7 +483,7 @@ test('wide: parks, resumes while parking the current cart, and discards with con
   expect(sheet.getByText('No parked sales.')).not.toBeNull();
   expect(screen.getByRole('button', { name: 'Parked (0)' })).not.toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Close panel' }));
-  expect(screen.getByText('$3.00 × 2')).not.toBeNull();
+  expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: '$3.00', total: '$6.00' });
 }, 20_000);
 
 test('narrow: the parked sheet opens and restores within the full-screen cart', async () => {
@@ -442,7 +519,7 @@ test('onResume resolves after restoration, and the sheet closes with the restore
       return result;
     }} onOpenChange={open => {
       if (!open) closed(open, latest.sale.order.lineItems.map(({ name, quantity }) => ({ name, quantity })),
-        !!screen.queryByText('$3.00 × 2'), !!screen.queryByText('$4.00 × 3'));
+        queryCartLine('Espresso'), queryCartLine('Cold Brew'));
       sheetProps.onOpenChange(open);
     }} />;
   });
@@ -463,11 +540,13 @@ test('onResume resolves after restoration, and the sheet closes with the restore
   });
   const lines = [{ name: 'Espresso', quantity: 2 }, { name: 'Cold Brew', quantity: 3 }];
   expect(resumed).toHaveBeenCalledExactlyOnceWith(null, lines);
-  expect(closed).toHaveBeenCalledExactlyOnceWith(false, lines, true, true);
+  const espresso = { quantity: '2', unitPrice: '$3.00', total: '$6.00' };
+  const coldBrew = { quantity: '3', unitPrice: '$4.00', total: '$12.00' };
+  expect(closed).toHaveBeenCalledExactlyOnceWith(false, lines, espresso, coldBrew);
   expect(latest!.open).toBe(false);
   expect(screen.queryByTestId('parked-sales')).toBeNull();
-  expect(screen.getByText('$3.00 × 2')).not.toBeNull();
-  expect(screen.getByText('$4.00 × 3')).not.toBeNull();
+  expect(cartLine('Espresso')).toEqual(espresso);
+  expect(cartLine('Cold Brew')).toEqual(coldBrew);
 }, 20_000);
 
 test('resuming reports a missing product in the phone cart message line', async () => {
@@ -499,7 +578,7 @@ test('toolbar park failure shows the error and keeps the cart line', async () =>
     fireEvent.click(screen.getByRole('button', { name: 'Park cart' }));
     expect(await screen.findByText('disk full')).not.toBeNull();
     expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
-    expect(screen.getByText('$3.00 × 1')).not.toBeNull();
+    expect(cartLine('Espresso')).toEqual({ quantity: '1', unitPrice: undefined, total: '$3.00' });
   } finally {
     cleanup();
     await db.remove();
@@ -530,7 +609,7 @@ test('a parked cart stays parked while syncing and resumes once the catalogue is
 
     view.rerender(<SaleScreen {...props} parkedCarts={parkedCarts} status="ready" />);
     fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' }));
-    await screen.findByText('$3.00 × 2');
+    await waitFor(() => expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: undefined, total: '$6.00' }));
     await waitFor(() => expect(screen.queryByTestId('parked-sales')).toBeNull());
     expect(await parkedCarts.find().exec()).toEqual([]);
     expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
@@ -566,7 +645,7 @@ test('persisted carts survive a new screen, restore, swap and discard', async ()
     expect(within(screen.getByTestId('parked-sales')).getByText('2 items')).not.toBeNull();
     expect(within(screen.getByTestId('parked-sales')).getByText('$6.00')).not.toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' }));
-    await screen.findByText('$3.00 × 2');
+    await waitFor(() => expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: '$3.00', total: '$6.00' }));
     await waitFor(() => expect(screen.queryByTestId('parked-sales')).toBeNull());
     expect(await parkedCarts.find().exec()).toEqual([]);
     expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
@@ -577,7 +656,7 @@ test('persisted carts survive a new screen, restore, swap and discard', async ()
     fireEvent.click(screen.getByText('Cold Brew'));
     fireEvent.click(screen.getByRole('button', { name: 'Parked (1)' }));
     fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' }));
-    await screen.findByText('$3.00 × 2');
+    await waitFor(() => expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: '$3.00', total: '$6.00' }));
     await waitFor(() => expect(screen.queryByTestId('parked-sales')).toBeNull());
     await waitFor(() => expect(screen.getByRole('button', { name: 'Parked (1)' })).not.toBeNull());
     const swapped = await parkedCarts.find().exec();
