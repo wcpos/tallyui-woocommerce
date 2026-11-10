@@ -1,7 +1,7 @@
 import { expect, test, vi } from 'vitest';
 import { SessionExpiredError } from '../lib/auth/session';
 import type { Session } from '../lib/auth/session';
-import { fetchStoreInfo } from '../lib/catalogue/store-info';
+import { fetchStoreInfo, StoreAccessDeniedError } from '../lib/catalogue/store-info';
 import stores from './fixtures/stores.json';
 
 const home = 'https://shop.example';
@@ -24,9 +24,16 @@ test('uppercases the currency', async () => {
   expect((await fetchStoreInfo(session, headers, fetchImpl as unknown as typeof fetch)).currency).toBe('USD');
 });
 
-test.each([401, 403])('rejects a %i as an expired session', async status => {
-  const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status }));
+test('rejects a 401 as an expired session', async () => {
+  const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 401 }));
   await expect(fetchStoreInfo(session, headers, fetchImpl as unknown as typeof fetch)).rejects.toBeInstanceOf(SessionExpiredError);
+});
+
+test('rejects a 403 as a user without POS access, not an expired session', async () => {
+  const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 403 }));
+  const failure = fetchStoreInfo(session, headers, fetchImpl as unknown as typeof fetch);
+  await expect(failure).rejects.toBeInstanceOf(StoreAccessDeniedError);
+  await expect(failure).rejects.not.toBeInstanceOf(SessionExpiredError);
 });
 
 test('rejects a 500 as a plain failure, not an expired session', async () => {

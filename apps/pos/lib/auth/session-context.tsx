@@ -11,8 +11,8 @@ interface SessionContextValue {
   session: Session | null;
   /** True while the store refused this session's refresh: it is kept, not cleared, until the cashier signs in again. */
   held: boolean;
-  /** Holds the current session because the store refused it outside a refresh; does nothing without a session. */
-  hold(): void;
+  /** Holds the current session because the store refused this access token outside a refresh; does nothing unless it is the current token. */
+  hold(accessToken: string): void;
   startReauth(): Promise<string | null>;
   cashiers: Session[];
   startAddCashier(): void;
@@ -37,8 +37,8 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
     setSession(next);
     setHeld(false);
   }, []);
-  const hold = useCallback(() => {
-    if (current.current) setHeld(true);
+  const hold = useCallback((accessToken: string) => {
+    if (current.current?.tokens.accessToken === accessToken) setHeld(true);
   }, []);
 
   useEffect(() => {

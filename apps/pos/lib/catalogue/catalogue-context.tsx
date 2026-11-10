@@ -17,7 +17,7 @@ interface CatalogueContextValue {
 const CatalogueContext = createContext<CatalogueContextValue>({ catalogue: null, products: [], status: 'idle' });
 
 export function CatalogueProvider({ children }: { children: ReactNode }): JSX.Element {
-  const { session, hold } = useSession();
+  const { session, hold, ready } = useSession();
   const [value, setValue] = useState<CatalogueContextValue>({ catalogue: null, products: [], status: 'idle' });
   const latestSession = useRef(session);
   const latestHold = useRef(hold);
@@ -30,7 +30,8 @@ export function CatalogueProvider({ children }: { children: ReactNode }): JSX.El
 
   useEffect(() => {
     const initialSession = latestSession.current;
-    if (!initialSession) {
+    // Start only after the first refresh settles, so a start never runs on a token that refresh is replacing.
+    if (!initialSession || !ready) {
       setValue({ catalogue: null, products: [], status: 'idle' });
       return;
     }
@@ -58,7 +59,7 @@ export function CatalogueProvider({ children }: { children: ReactNode }): JSX.El
       } catch (error) {
         // The store refused this sign-in at start (v2 holds the session on any 401): hold it so the banner offers Log in.
         if (!disposed && error instanceof SessionExpiredError) {
-          latestHold.current();
+          latestHold.current(initialSession.tokens.accessToken);
           setValue(previous => ({ ...previous, status: 'error', error: 'The store did not accept this sign-in. Log in again to load the catalogue.' }));
           return;
         }
@@ -73,7 +74,7 @@ export function CatalogueProvider({ children }: { children: ReactNode }): JSX.El
       active.current = null;
       if (catalogue) void catalogue.stop();
     };
-  }, [home, userId]);
+  }, [home, userId, ready]);
 
   useEffect(() => {
     if (active.current && active.current.catalogue === value.catalogue && token && active.current.token !== token) {
