@@ -20,6 +20,7 @@ import { parkedCartSchema, parkedCartMigrationStrategies, type ParkedCartCollect
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
+import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 // Applying a coupon awaits an RxDB lookup, so the 1 s default async timeout flakes on CI.
 configure({ asyncUtilTimeout: 5_000 });
 
@@ -66,6 +67,9 @@ beforeEach(async () => {
     results: batch.map(envelope => ({ id: envelope.id, status: 'applied',
       serverRefs: { orderId: '305', displayId: '305', totalMinor: 270 } })) })) };
 });
+
+// Browse by now opens on category tiles; these tests drive the flat product grid, so they browse All products.
+beforeEach(() => { localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all' })); });
 
 afterEach(async () => {
   cleanup();

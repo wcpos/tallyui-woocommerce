@@ -15,6 +15,7 @@ import products from './fixtures/products.json';
 import stores from './fixtures/taxes/stores.json';
 import classes from './fixtures/taxes/tax-classes.json';
 import taxes from './fixtures/taxes/taxes.json';
+import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 
 const connector = createWooCommerceConnector();
 const CHARGES: ServerCapabilities = { orderCreate: 5, lineTax: { none: true, classes: true },
@@ -83,6 +84,9 @@ beforeEach(() => {
   });
   vi.stubGlobal('fetch', fetchStub);
 });
+
+// Browse by now opens on category tiles; these tests drive the flat product grid, so they browse All products.
+beforeEach(() => { localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all' })); });
 
 afterEach(() => {
   cleanup();

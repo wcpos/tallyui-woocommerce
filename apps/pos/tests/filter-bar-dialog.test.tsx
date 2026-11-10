@@ -8,11 +8,15 @@ import { QUICK_FILTERS_KEY } from '../lib/catalogue/quick-filters';
 import type { QuickFilter } from '../lib/catalogue/quick-filters';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
   localStorage.setItem(QUICK_FILTERS_KEY, JSON.stringify(quickFilters));
 });
+
+// Browse by now opens on category tiles; these tests drive the flat product grid, so they browse All products.
+beforeEach(() => { localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all' })); });
 
 afterEach(() => {
   cleanup();

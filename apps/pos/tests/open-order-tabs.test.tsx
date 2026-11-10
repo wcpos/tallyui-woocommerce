@@ -1,6 +1,6 @@
 import { noTaxSettings } from './fixtures/store-settings';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { PortalHost } from '@tallyui/primitives';
@@ -10,6 +10,7 @@ import { OpenOrderTabs, type OpenOrderTabsCurrent, type OpenOrderTabsParked } fr
 import { tabWho } from '../lib/sale/tab-who';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 
 function SaleScreen(props: SaleScreenProps) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
@@ -39,6 +40,12 @@ function handlers() {
 function tabIds() {
   return within(screen.getByTestId('open-order-strip')).getAllByRole('tab').map(tab => tab.getAttribute('data-testid'));
 }
+
+// Browse by now opens on category tiles; these tests drive the flat product grid, so they browse All products.
+beforeEach(() => {
+  const data = new Map([[CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all' })]]);
+  vi.stubGlobal('localStorage', { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => { data.set(key, value); }, removeItem: (key: string) => { data.delete(key); } });
+});
 
 afterEach(() => {
   cleanup();

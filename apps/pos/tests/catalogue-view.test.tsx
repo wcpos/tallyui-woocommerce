@@ -11,6 +11,9 @@ import stores from './fixtures/stores.json';
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 
+// Browse by now opens on category tiles; these tests drive the flat product grid, so they browse All products.
+beforeEach(() => { localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all' })); });
+
 afterEach(() => {
   cleanup();
   localStorage.clear();
@@ -183,6 +186,8 @@ test('the table view survives a remount', () => {
 test.each(['{not json', '{"view":"list","gridColumns":99}'])('bad stored value %s falls back to the name-sorted grid', raw => {
   localStorage.setItem(CATALOGUE_VIEW_KEY, raw);
   render(<CatalogueView {...props} />);
+  // The defaults open on the category tiles; All products shows the grid of every product.
+  fireEvent.click(screen.getByTestId('browse-all-products'));
   expect(screen.getByTestId('view-toggle-grid').getAttribute('aria-checked')).toBe('true');
   expect(screen.queryAllByTestId(/^product-row-/)).toHaveLength(0);
   expect(screen.getAllByText(/^(Espresso|Cold Brew|T-Shirt)$/).map(node => node.textContent)).toEqual(['Cold Brew', 'Espresso', 'T-Shirt']);
@@ -203,7 +208,7 @@ test('price header cycles through ascending, descending and unsorted and saves e
 });
 
 test('the grid follows the stored sort', () => {
-  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"view":"grid","gridColumns":4,"sort":{"field":"price","dir":"desc"},"categoryId":null}');
+  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"view":"grid","gridColumns":4,"sort":{"field":"price","dir":"desc"},"categoryId":null,"browseBy":"all"}');
   render(<CatalogueView {...props} />);
   expect(screen.getAllByText(/^(Espresso|Cold Brew|T-Shirt)$/).map(node => node.textContent)).toEqual(['T-Shirt', 'Cold Brew', 'Espresso']);
 });
@@ -266,13 +271,13 @@ test('the tile size slider changes the wide grid immediately and saves the selec
 
 test('phones keep two tiles per row with a stored size of six', () => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 800, scale: 1, fontScale: 1 });
-  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"gridColumns":6}');
+  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"gridColumns":6,"browseBy":"all"}');
   render(<CatalogueView {...props} />);
   expect(gridCellWidth()).toBeCloseTo(50);
 });
 
 test('column switches update the table immediately and survive a remount', () => {
-  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"view":"table"}');
+  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"view":"table","browseBy":"all"}');
   const { unmount } = render(<><CatalogueView {...props} /><PortalHost /></>);
   expect(screen.queryByTestId('product-table-sort-sku')).toBeNull();
   expect(screen.getByTestId('product-table-sort-category')).not.toBeNull();
@@ -294,7 +299,7 @@ test('column switches update the table immediately and survive a remount', () =>
 });
 
 test('the name column switch is disabled and cannot hide the name', () => {
-  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"view":"table"}');
+  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"view":"table","browseBy":"all"}');
   render(<><CatalogueView {...props} /><PortalHost /></>);
   fireEvent.click(screen.getByTestId('catalogue-settings-button'));
   const toggle = screen.getByRole('switch', { name: 'Show Name' });
@@ -397,10 +402,12 @@ test('the name tile switch hides name and keeps price visible', () => {
 });
 
 test('restore resets tile fields and saves the complete defaults', () => {
-  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"tileFields":{"name":false,"price":false,"sku":true,"stock":true}}');
+  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"tileFields":{"name":false,"price":false,"sku":true,"stock":true},"browseBy":"all"}');
   render(<><CatalogueView {...props} /><PortalHost /></>);
   fireEvent.click(screen.getByTestId('catalogue-settings-button'));
   fireEvent.click(screen.getByTestId('catalogue-settings-restore'));
+  // The restored defaults open on the category tiles; All products shows the product tiles.
+  fireEvent.click(screen.getByTestId('browse-all-products'));
   const tile = within(screen.getByTestId('product-tile-80'));
   expect(tile.getByText('Espresso')).not.toBeNull();
   expect(tile.getByText('$3.00')).not.toBeNull();
