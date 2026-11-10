@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { ConnectorUnauthorizedError, CustomerServiceError, type Customer } from '@tallyui/core';
+import { PortalHost } from '@tallyui/primitives';
 import { CustomersScreen } from '../components/customers-screen';
 import { CatalogueView } from '../components/catalogue-view';
 import type { CustomerSource } from '../lib/customers/customer-source';
@@ -158,18 +159,20 @@ test('Back calls onBack', () => {
   expect(onBack).toHaveBeenCalledOnce();
 });
 
-test('CatalogueView exposes Customers after Orders only when an onOpenCustomers handler is supplied', () => {
+test('the drawer lists Customers after Orders only when an onOpenCustomers handler is supplied', () => {
   const props = { connector: createWooCommerceConnector(), currency: stores[0].currency, products,
     storeName: stores[0].name, cashierName: 'Paul', status: 'ready' as const, onSignOut: () => {} };
   const onOpenCustomers = vi.fn();
-  const { rerender } = render(<CatalogueView {...props} onOpenOrders={() => {}} onOpenReports={() => {}} onOpenCustomers={onOpenCustomers} />);
-  const buttons = screen.getAllByRole('button').map(button => button.textContent);
-  const ordersIndex = buttons.indexOf('Orders');
+  const { rerender } = render(<><CatalogueView {...props} onOpenOrders={() => {}} onOpenReports={() => {}} onOpenCustomers={onOpenCustomers} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('pos-drawer-open-button'));
+  const items = screen.getAllByTestId(/^drawer-item-/).map(i => i.textContent);
+  const ordersIndex = items.indexOf('Orders');
   expect(ordersIndex).toBeGreaterThanOrEqual(0);
-  expect(buttons[ordersIndex + 1]).toBe('Customers');
-  expect(buttons[ordersIndex + 2]).toBe('Reports');
-  fireEvent.click(screen.getByTestId('customers-navigation'));
+  expect(items[ordersIndex + 1]).toBe('Customers');
+  expect(items[ordersIndex + 2]).toBe('Reports');
+  fireEvent.click(screen.getByTestId('drawer-item-customers'));
   expect(onOpenCustomers).toHaveBeenCalledOnce();
-  rerender(<CatalogueView {...props} />);
-  expect(screen.queryByTestId('customers-navigation')).toBeNull();
+  rerender(<><CatalogueView {...props} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('pos-drawer-open-button'));
+  expect(screen.queryByTestId('drawer-item-customers')).toBeNull();
 });
