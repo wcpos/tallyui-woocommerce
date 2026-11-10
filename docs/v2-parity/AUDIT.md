@@ -718,7 +718,7 @@ I checked v2 at monorepo `main` 5ac185b0e against this app on TallyUI 3.12.0. `~
 
 ## Screenshots
 
-This app (left) at `f34ffcf` against the local dev store, beside WCPOS v2 (right) at `5ac185b0e`. Captures at the desktop width. A blank cell means the screen does not exist in that app.
+This app (left): `f34ffcf` against the local dev store, captured headless at 1280x800. WCPOS v2 (right): the 2.x docs captures (`~/Projects/docs/static/img/2.x/`, docs head `8dc8a571b`, 1024x768 tablet light), since the monorepo has no screen captures. The v2 receipt capture shows only a "template cannot be previewed" notice, so it is a weak reference. A blank cell means the screen does not exist in that app.
 
 | Screen | This app | v2 |
 |---|---|---|
