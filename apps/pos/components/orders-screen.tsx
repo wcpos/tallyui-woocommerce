@@ -9,6 +9,7 @@ import { matchesOrderSearch, toHistoryRow, type OrderHistorySource } from '../li
 import { OrdersTable } from './orders-table';
 import { OrderDetailView } from './order-detail';
 import { ReceiptPrintSheet } from './receipt-print-sheet';
+import { ReceiptZoom } from './receipt-zoom';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 
 // The till id; the bound register is the drawer.
@@ -98,7 +99,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName }: {
       {outbox.enabled && !opened && !viewing && <View className="px-4 pb-2"><SearchInput testID="search-orders" value={term} onChangeText={setTerm} placeholder="Search Orders" /></View>}
       {outbox.enabled
         ? opened
-          ? <ReceiptPrintSheet orderId={opened.posOrder?.id ?? opened.data.header.orderNumber}><Receipt receipt={opened.data} posOrder={opened.posOrder} newSale={() => setOpened(null)} doneLabel="Back" /></ReceiptPrintSheet>
+          ? <View className="min-h-0 flex-1 px-4 pb-4"><ReceiptZoom><ReceiptPrintSheet orderId={opened.posOrder?.id ?? opened.data.header.orderNumber}><Receipt receipt={opened.data} posOrder={opened.posOrder} newSale={() => setOpened(null)} doneLabel="Back" /></ReceiptPrintSheet></ReceiptZoom></View>
           : viewing ? <OrderDetailView order={viewing} onReceipt={() => open(toHistoryRow(viewing))} onClose={() => setViewing(null)} />
           : local.length === 0 && orders.length === 0 && !failed
             ? loading
