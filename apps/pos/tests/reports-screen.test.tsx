@@ -199,7 +199,7 @@ test('Today starts empty and observes an Espresso cash sale', async () => {
   const today = within(screen.getByTestId('reports-today'));
   expect(today.getByText('No sales yet today.')).not.toBeNull();
   expect(screen.queryByTestId('sales-room-payments')).toBeNull();
-  expect(within(screen.getByTestId('reports-closures')).getByText('No closures yet. A closure appears here when a register session closes.')).not.toBeNull();
+  expect(within(screen.getByTestId('reports-closures')).getByTestId('closures-empty').textContent).toBe('No closures in this period');
   expect(screen.queryByTestId('x-report-print')).toBeNull();
   expect(screen.queryByTestId('closures-csv')).toBeNull();
   await payCash();
@@ -304,13 +304,16 @@ test('Closures lists real counted closures newest first', async () => {
   await waitFor(() => expect(app.register.salesCount).toBe(1));
   await closeRegister('103.00');
   const room = within(screen.getByTestId('reports-closures'));
-  await waitFor(() => expect(room.getByText('Closure #1')).not.toBeNull());
-  expect(room.getByText('Cash counted: $103.00')).not.toBeNull();
-  expect(room.getByText('Variance: $0.00')).not.toBeNull();
-  expect(room.getByText('Period sales: $3.00')).not.toBeNull();
+  await waitFor(() => expect(room.getAllByTestId(/^closure-title-/)).toHaveLength(1));
+  const first = app.register.lastClosure!;
+  expect(room.getByTestId(`closure-title-${first.id}`).textContent).toBe('Closure 1 · This till');
+  expect(room.getByTestId(`closure-expected-${first.id}`).textContent).toBe('$103.00');
+  expect(room.getByTestId(`closure-counted-${first.id}`).textContent).toBe('$103.00');
+  expect(room.getByTestId(`closure-difference-${first.id}`).textContent).toBe('$0.00');
+  expect(room.getByTestId(`closure-result-${first.id}`).textContent).toBe('Exact');
   await openRegister(false);
   await closeRegister('100.00');
-  await waitFor(() => expect(room.getAllByText(/^Closure #/).map(row => row.textContent)).toEqual(['Closure #2', 'Closure #1']));
+  await waitFor(() => expect(room.getAllByTestId(/^closure-title-/).map(row => row.textContent)).toEqual(['Closure 2 · This till', 'Closure 1 · This till']));
 }, 20_000);
 
 test('Reprint prints the mounted Copy document once without changing the closure', async () => {
