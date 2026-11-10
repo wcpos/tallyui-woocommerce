@@ -4,7 +4,7 @@ import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { catalogueEntries, TaxProvider, useSale } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
 import { CartSettingsDialog, CartWithSettings } from '../components/cart-settings';
-import { CART_SETTINGS_KEY, loadCartSettings, saveCartSettings, sortCartLines } from '../lib/sale/cart-settings';
+import { CART_SETTINGS_KEY, loadCartSettings, normalizeQuickDiscounts, saveCartSettings, sortCartLines } from '../lib/sale/cart-settings';
 import type { PanelPosition } from '../lib/catalogue/catalogue-view-state';
 import products from './fixtures/products.json';
 
@@ -35,13 +35,16 @@ const bananaBread = { ...products[0], id: 90, name: 'Banana Bread', price: '3.50
 
 let latest: ReturnType<typeof useSale>;
 
-function Harness({ position = 'left', onPositionChange = () => {} }: { position?: PanelPosition; onPositionChange?(next: PanelPosition): void }) {
+type HarnessProps = { position?: PanelPosition; onPositionChange?(next: PanelPosition): void; canEditPrice?: boolean };
+
+function Harness({ position = 'left', onPositionChange = () => {}, canEditPrice }: HarnessProps) {
   const sale = useSale({ currency: 'USD' }, { registerId: 'web', cashierRef: '2' });
   latest = sale;
-  return <CartWithSettings sale={sale} position={position} onPositionChange={onPositionChange} openOrders={<span data-testid="open-orders-node" />} />;
+  return <CartWithSettings sale={sale} position={position} onPositionChange={onPositionChange} canEditPrice={canEditPrice}
+    openOrders={<span data-testid="open-orders-node" />} />;
 }
 
-function renderCart(props: { position?: PanelPosition; onPositionChange?(next: PanelPosition): void } = {}) {
+function renderCart(props: HarnessProps = {}) {
   return render(<><TaxProvider ratesPpm={{}} pricesIncludeTax={false}><Harness {...props} /></TaxProvider><PortalHost /></>);
 }
 
@@ -76,7 +79,7 @@ test('sortCartLines keeps the add order between equal names and equal prices', (
 
 test('saved cart settings load with newest at top as the fallback', () => {
   const storage = memoryStorage();
-  expect(loadCartSettings(storage)).toEqual({ sortLines: 'newest_top', openOrdersPosition: 'bottom' });
+  expect(loadCartSettings(storage)).toEqual({ sortLines: 'newest_top', openOrdersPosition: 'bottom', quickDiscounts: [5, 10, 15] });
   storage.setItem(CART_SETTINGS_KEY, '{"sortLines":"price"}');
   expect(loadCartSettings(storage).sortLines).toBe('price');
   storage.setItem(CART_SETTINGS_KEY, '{"sortLines":"oldest"}');
@@ -89,10 +92,10 @@ test('saved cart settings load with newest at top as the fallback', () => {
 
 test('saving cart settings writes the device key and ignores a refusing storage', () => {
   const storage = memoryStorage();
-  saveCartSettings({ sortLines: 'name', openOrdersPosition: 'bottom' }, storage);
-  expect(storage.getItem(CART_SETTINGS_KEY)).toBe('{"sortLines":"name","openOrdersPosition":"bottom"}');
+  saveCartSettings({ sortLines: 'name', openOrdersPosition: 'bottom', quickDiscounts: [5, 10, 15] }, storage);
+  expect(storage.getItem(CART_SETTINGS_KEY)).toBe('{"sortLines":"name","openOrdersPosition":"bottom","quickDiscounts":[5,10,15]}');
   const refusing = { ...memoryStorage(), setItem: () => { throw new Error('full'); } } as Storage;
-  expect(() => saveCartSettings({ sortLines: 'name', openOrdersPosition: 'bottom' }, refusing)).not.toThrow();
+  expect(() => saveCartSettings({ sortLines: 'name', openOrdersPosition: 'bottom', quickDiscounts: [5, 10, 15] }, refusing)).not.toThrow();
 });
 
 test('the cart shows the newest line at the top by default and leaves the order alone', () => {
@@ -114,7 +117,7 @@ test('choosing a sort in Cart Settings reorders the shown lines and saves it for
   fireEvent.click(screen.getByTestId('cart-sort-items-option-name'));
   expect(shown()).toEqual(['Remove Banana Bread', 'Remove Cold Brew', 'Remove Espresso']);
   expect(screen.getByTestId('cart-sort-items').textContent).toBe('Name');
-  expect(localStorage.getItem(CART_SETTINGS_KEY)).toBe('{"sortLines":"name","openOrdersPosition":"bottom"}');
+  expect(localStorage.getItem(CART_SETTINGS_KEY)).toBe('{"sortLines":"name","openOrdersPosition":"bottom","quickDiscounts":[5,10,15]}');
   expect(kept()).toEqual(['Cold Brew', 'Espresso', 'Banana Bread']);
   fireEvent.click(screen.getByTestId('cart-sort-items'));
   fireEvent.click(screen.getByTestId('cart-sort-items-option-price'));
@@ -151,7 +154,7 @@ test('Restore Default Settings puts the cart right and newest at top and keeps t
   fireEvent.click(screen.getByTestId('cart-settings-button'));
   fireEvent.click(screen.getByTestId('ui-settings-restore-defaults'));
   expect(onPositionChange).toHaveBeenCalledWith('left');
-  expect(localStorage.getItem(CART_SETTINGS_KEY)).toBe('{"sortLines":"newest_top","openOrdersPosition":"bottom"}');
+  expect(localStorage.getItem(CART_SETTINGS_KEY)).toBe('{"sortLines":"newest_top","openOrdersPosition":"bottom","quickDiscounts":[5,10,15]}');
   expect(shown()).toEqual(['Remove Banana Bread', 'Remove Espresso', 'Remove Cold Brew']);
   expect(screen.getByTestId('cart-settings')).not.toBeNull();
   fireEvent.click(screen.getByTestId('ui-settings-close'));
@@ -162,7 +165,7 @@ test('open orders position loads as bottom unless top was saved, keeping an olde
   const storage = memoryStorage();
   expect(loadCartSettings(storage).openOrdersPosition).toBe('bottom');
   storage.setItem(CART_SETTINGS_KEY, '{"sortLines":"name"}');
-  expect(loadCartSettings(storage)).toEqual({ sortLines: 'name', openOrdersPosition: 'bottom' });
+  expect(loadCartSettings(storage)).toEqual({ sortLines: 'name', openOrdersPosition: 'bottom', quickDiscounts: [5, 10, 15] });
   storage.setItem(CART_SETTINGS_KEY, '{"sortLines":"name","openOrdersPosition":"sideways"}');
   expect(loadCartSettings(storage).openOrdersPosition).toBe('bottom');
   storage.setItem(CART_SETTINGS_KEY, '{"sortLines":"name","openOrdersPosition":"top"}');
@@ -172,7 +175,7 @@ test('open orders position loads as bottom unless top was saved, keeping an olde
 test('Open orders position shows Bottom selected and Top keeps the other settings', () => {
   const onSettingsChange = vi.fn();
   render(<><CartSettingsDialog position="left" onPositionChange={() => {}}
-    settings={{ sortLines: 'name', openOrdersPosition: 'bottom' }} onSettingsChange={onSettingsChange} /><PortalHost /></>);
+    settings={{ sortLines: 'name', openOrdersPosition: 'bottom', quickDiscounts: [5, 10, 15] }} onSettingsChange={onSettingsChange} /><PortalHost /></>);
   fireEvent.click(screen.getByTestId('cart-settings-button'));
   expect(within(screen.getByTestId('cart-settings')).getByText('Open orders position')).not.toBeNull();
   expect(screen.getByTestId('cart-setting-open-orders-top').textContent).toBe('Top');
@@ -180,7 +183,7 @@ test('Open orders position shows Bottom selected and Top keeps the other setting
   expect(screen.getByTestId('cart-setting-open-orders-bottom').getAttribute('aria-selected')).toBe('true');
   expect(screen.getByTestId('cart-setting-open-orders-top').getAttribute('aria-selected')).toBe('false');
   fireEvent.click(screen.getByTestId('cart-setting-open-orders-top'));
-  expect(onSettingsChange).toHaveBeenLastCalledWith({ sortLines: 'name', openOrdersPosition: 'top' });
+  expect(onSettingsChange).toHaveBeenLastCalledWith({ sortLines: 'name', openOrdersPosition: 'top', quickDiscounts: [5, 10, 15] });
 });
 
 const follows = (a: Node, b: Node) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
@@ -196,4 +199,103 @@ test('a saved top puts the open orders strip above the cart head', () => {
   localStorage.setItem(CART_SETTINGS_KEY, '{"sortLines":"newest_top","openOrdersPosition":"top"}');
   renderCart();
   expect(follows(screen.getByTestId('cart-open-orders'), screen.getByTestId('cart-head'))).toBe(true);
+});
+
+test('normalizeQuickDiscounts keeps up to three valid percents in order and defaults anything that is not an array', () => {
+  expect(normalizeQuickDiscounts(undefined)).toEqual([5, 10, 15]);
+  expect(normalizeQuickDiscounts('5,10')).toEqual([5, 10, 15]);
+  expect(normalizeQuickDiscounts({ 0: 5 })).toEqual([5, 10, 15]);
+  expect(normalizeQuickDiscounts([15, 5, 10])).toEqual([15, 5, 10]);
+  expect(normalizeQuickDiscounts([0, 20, -5, 150, Number.NaN, Number.POSITIVE_INFINITY, '30', 100])).toEqual([20, 100]);
+  expect(normalizeQuickDiscounts([2.5, 5, 10, 15, 20])).toEqual([2.5, 5, 10]);
+  expect(normalizeQuickDiscounts([])).toEqual([]);
+});
+
+test('settings saved before quick discounts load the default keys and keep their sort', () => {
+  const storage = memoryStorage();
+  storage.setItem(CART_SETTINGS_KEY, '{"sortLines":"price","openOrdersPosition":"top"}');
+  expect(loadCartSettings(storage)).toEqual({ sortLines: 'price', openOrdersPosition: 'top', quickDiscounts: [5, 10, 15] });
+  storage.setItem(CART_SETTINGS_KEY, '{"sortLines":"price","quickDiscounts":[]}');
+  expect(loadCartSettings(storage).quickDiscounts).toEqual([]);
+});
+
+const slot = (i: number) => screen.getByTestId(`cart-setting-quick-discount-${i}`) as HTMLInputElement;
+const slots = () => [0, 1, 2].map(i => slot(i).value);
+const storedKeys = () => JSON.parse(localStorage.getItem(CART_SETTINGS_KEY) ?? '{}').quickDiscounts;
+function enter(i: number, value: string) {
+  fireEvent.change(slot(i), { target: { value } });
+  fireEvent.blur(slot(i));
+}
+
+test('Quick Discounts shows the three keys and writes a changed or emptied slot in slot order', () => {
+  renderCart();
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  expect(within(screen.getByTestId('cart-settings')).getByText('Quick Discounts')).not.toBeNull();
+  expect(slots()).toEqual(['5', '10', '15']);
+  expect(slot(0).getAttribute('aria-label')).toBe('Quick discount 1');
+  expect(slot(2).getAttribute('aria-label')).toBe('Quick discount 3');
+  expect(screen.getByTestId('cart-setting-quick-discounts-hint').textContent)
+    .toBe('As the cashier sees them on the price keypad. Tap a key to change it.');
+  enter(1, '20');
+  expect(storedKeys()).toEqual([5, 20, 15]);
+  expect(slots()).toEqual(['5', '20', '15']);
+  enter(0, '');
+  expect(storedKeys()).toEqual([20, 15]);
+  expect(slots()).toEqual(['20', '15', '']);
+  enter(1, '0');
+  expect(storedKeys()).toEqual([20]);
+  expect(slots()).toEqual(['20', '', '']);
+  expect(JSON.parse(localStorage.getItem(CART_SETTINGS_KEY)!).sortLines).toBe('newest_top');
+});
+
+test.each(['150', '-5', 'abc'])('a quick discount of %s is refused inline and leaves the stored keys alone', value => {
+  localStorage.setItem(CART_SETTINGS_KEY, '{"sortLines":"name","openOrdersPosition":"bottom","quickDiscounts":[5,10,15]}');
+  renderCart();
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  enter(1, value);
+  expect(screen.getByTestId('cart-setting-quick-discounts-hint').textContent).toBe('Enter a percentage above 0 and up to 100');
+  expect(slot(1).getAttribute('aria-invalid')).toBe('true');
+  expect(slot(0).getAttribute('aria-invalid')).not.toBe('true');
+  expect(localStorage.getItem(CART_SETTINGS_KEY)).toBe('{"sortLines":"name","openOrdersPosition":"bottom","quickDiscounts":[5,10,15]}');
+  enter(1, '25');
+  expect(storedKeys()).toEqual([5, 25, 15]);
+  expect(screen.getByTestId('cart-setting-quick-discounts-hint').textContent)
+    .toBe('As the cashier sees them on the price keypad. Tap a key to change it.');
+});
+
+test('with every quick discount slot emptied, the none text shows and the empty list is kept', () => {
+  renderCart();
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  enter(0, '');
+  enter(0, '');
+  enter(0, '');
+  expect(slots()).toEqual(['', '', '']);
+  expect(storedKeys()).toEqual([]);
+  expect(screen.getByTestId('cart-setting-quick-discounts-hint').textContent).toBe('No quick keys. The price keypad shows the digits only.');
+  expect(loadCartSettings().quickDiscounts).toEqual([]);
+});
+
+test('Restore Default Settings brings back the 5, 10 and 15 quick discounts', () => {
+  localStorage.setItem(CART_SETTINGS_KEY, '{"sortLines":"name","openOrdersPosition":"bottom","quickDiscounts":[20]}');
+  renderCart();
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  expect(slots()).toEqual(['20', '', '']);
+  fireEvent.click(screen.getByTestId('ui-settings-restore-defaults'));
+  expect(slots()).toEqual(['5', '10', '15']);
+  expect(storedKeys()).toEqual([5, 10, 15]);
+});
+
+test("a line's Price form shows the quick discounts from Cart Settings and follows a change", () => {
+  renderCart({ canEditPrice: true });
+  act(() => latest.add(catalogueEntries([espresso], connector.traits.product, { currency: 'USD' })[0], connector.traits.product));
+  fireEvent.click(screen.getByText('Price', { exact: true }));
+  const keys = () => within(screen.getByTestId('price-quick-discounts')).getAllByRole('button').map(key => key.textContent);
+  expect(keys()).toEqual(['−5%', '−10%', '−15%']);
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  enter(0, '20');
+  enter(1, '');
+  enter(1, '');
+  expect(storedKeys()).toEqual([20]);
+  fireEvent.click(screen.getByTestId('ui-settings-close'));
+  expect(keys()).toEqual(['−20%']);
 });
