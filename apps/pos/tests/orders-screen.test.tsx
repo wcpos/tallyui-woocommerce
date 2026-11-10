@@ -14,6 +14,7 @@ import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import type { OrderHistorySource } from '../lib/orders/order-history';
+import { dayKey } from '../lib/orders/order-days';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
@@ -74,35 +75,33 @@ async function payCash() {
   return /^Order ([a-f0-9]{8})/.exec(screen.getByTestId('receipt-order').textContent!)![1];
 }
 
-const section = (title: string) => screen.queryByRole('heading', { name: title })?.parentElement ?? null;
+const table = () => within(screen.getByTestId('orders-table'));
 
 const applied = (envelope: OrderCreateEnvelope) => ({ id: envelope.id, status: 'applied' as const,
   serverRefs: { orderId: '305', displayId: '305', totalMinor: 300 } });
 
-test('a sent sale is listed under Recent', async () => {
+test('a sent sale is listed under Today', async () => {
   const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => ({ kind: 'results', results: batch.map(applied) }));
   await setup(send);
   const reference = await payCash();
   await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
-  await vi.waitFor(() => expect(within(section('Recent')!).getByText(`Order ${reference} · #305 · 1 item`)).not.toBeNull());
-  expect(within(section('Recent')!).getByText(/\$3\.00 · Synced$/)).not.toBeNull();
-  expect(section('Needs attention')).toBeNull();
+  await vi.waitFor(() => expect(table().getByText(`${reference} · #305`)).not.toBeNull());
+  expect(table().getByText('Synced')).not.toBeNull();
+  expect(table().getByText('$3.00')).not.toBeNull();
+  expect(screen.getByTestId(`orders-day-heading-${dayKey(new Date())}`).textContent).toBe('Today');
 }, 20_000);
 
-test('a refused sale needs attention and Retry sends it again', async () => {
+test('a refused sale shows Not accepted, and Orders offers no Retry', async () => {
   const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => ({ kind: 'results', results: batch.map(applied) }));
   send.mockImplementationOnce(async batch => ({ kind: 'results', results: batch.map(envelope => ({ id: envelope.id, status: 'rejected',
     error: { code: 'store_configuration', message: 'A store setting needs changing.' } })) }));
   await setup(send);
   const reference = await payCash();
-  await vi.waitFor(() => expect(section('Needs attention')).not.toBeNull());
-  const attention = within(section('Needs attention')!);
-  expect(attention.getByText(`Order ${reference} · 1 item`)).not.toBeNull();
+  await vi.waitFor(() => expect(table().getByText('Not accepted')).not.toBeNull());
+  expect(table().getByText(reference)).not.toBeNull();
+  expect(table().queryByRole('button', { name: 'Retry' })).toBeNull();
+  expect(screen.queryByRole('heading', { name: 'Needs attention' })).toBeNull();
   expect(send).toHaveBeenCalledTimes(1);
-  fireEvent.click(attention.getByRole('button', { name: 'Retry' }));
-  await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(2));
-  await vi.waitFor(() => expect(section('Needs attention')).toBeNull());
-  expect(within(section('Recent')!).getByText(`Order ${reference} · #305 · 1 item`)).not.toBeNull();
 }, 20_000);
 
 test('without a store it says so', () => {
@@ -110,7 +109,7 @@ test('without a store it says so', () => {
     <OrdersScreen onBack={() => {}} history={null} storeName={props.storeName} cashierName={props.cashierName} />
   </OutboxProvider></SessionProvider>);
   expect(screen.getByText('Orders show once the store is connected.')).not.toBeNull();
-  expect(screen.queryByRole('heading', { name: 'Recent' })).toBeNull();
+  expect(screen.queryByTestId('orders-table')).toBeNull();
 });
 
 const storeOrder: StoreOrder = {
@@ -125,8 +124,8 @@ const storeOrder: StoreOrder = {
 test('store history opens its detail, and Receipt there opens the reprint', async () => {
   const list = vi.fn<OrderHistorySource['list']>(async () => ({ orders: [storeOrder], hasMore: false }));
   await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
-  expect(await screen.findByText('Order 901 · 2 items')).not.toBeNull();
-  expect(within(section('Recent')!).getByText(/Completed$/)).not.toBeNull();
+  expect(await screen.findByTestId('history-row-901')).not.toBeNull();
+  expect(within(screen.getByTestId('history-row-901')).getByText('Completed')).not.toBeNull();
   fireEvent.click(screen.getByTestId(`history-open-${storeOrder.id}`));
   expect(screen.getByTestId('order-modal-title').textContent).toBe('Order #901');
   expect(screen.getByTestId('order-modal-status').textContent).toBe('Completed');
@@ -148,7 +147,7 @@ test('store history opens its detail, and Receipt there opens the reprint', asyn
   expect(screen.getByTestId('receipt-reprint').textContent).toBe('Reprint 2');
   fireEvent.click(back());
   fireEvent.click(screen.getByTestId('order-modal-close'));
-  expect(screen.getByText('Order 901 · 2 items')).not.toBeNull();
+  expect(screen.getByTestId('history-row-901')).not.toBeNull();
   expect((screen.getByPlaceholderText('Search Orders') as HTMLInputElement).value).toBe('');
   expect(list).toHaveBeenCalledTimes(1);
 });
@@ -157,7 +156,7 @@ test('a till sale opens as a reprint', async () => {
   const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => ({ kind: 'results', results: batch.map(applied) }));
   await setup(send);
   const reference = await payCash();
-  await vi.waitFor(() => expect(within(section('Recent')!).getByText(`Order ${reference} · #305 · 1 item`)).not.toBeNull());
+  await vi.waitFor(() => expect(table().getByText(`${reference} · #305`)).not.toBeNull());
   fireEvent.click(screen.getByRole('button', { name: 'New sale' }));
   fireEvent.click(screen.getByTestId(/^order-open-/));
   expect(screen.getByTestId('receipt-reprint').textContent).toBe('Reprint 1');
@@ -171,7 +170,7 @@ test('Load more fetches the next page', async () => {
     .mockResolvedValueOnce({ orders: [storeOrder, next], hasMore: false });
   await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
   fireEvent.click(await screen.findByTestId('orders-load-more'));
-  expect(await screen.findByText('Order 902 · 2 items')).not.toBeNull();
+  expect(await screen.findByTestId('history-row-902')).not.toBeNull();
   expect(screen.getAllByTestId('history-row-901')).toHaveLength(1);
   expect(screen.queryByTestId('orders-load-more')).toBeNull();
   expect(list.mock.calls).toEqual([[1], [2]]);
@@ -184,7 +183,7 @@ test('a failed history load says so and Try again reloads', async () => {
   await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
   expect(await screen.findByText("Store orders couldn't be loaded.")).not.toBeNull();
   fireEvent.click(screen.getByTestId('orders-history-retry'));
-  expect(await screen.findByText('Order 901 · 2 items')).not.toBeNull();
+  expect(await screen.findByTestId('history-row-901')).not.toBeNull();
   expect(list.mock.calls).toEqual([[1], [1]]);
 });
 
@@ -195,14 +194,14 @@ test('Search Orders asks the store after a pause and starts again at page 1', as
     .mockResolvedValueOnce({ orders: [{ ...storeOrder, id: '902', reference: '902' }], hasMore: false });
   await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
   fireEvent.click(await screen.findByTestId('orders-load-more'));
-  expect(await screen.findByText('Order 903 · 2 items')).not.toBeNull();
+  expect(await screen.findByTestId('history-row-903')).not.toBeNull();
   const input = screen.getByPlaceholderText('Search Orders');
   fireEvent.change(input, { target: { value: '9' } });
   fireEvent.change(input, { target: { value: '90' } });
   fireEvent.change(input, { target: { value: '902' } });
-  expect(await screen.findByText('Order 902 · 2 items')).not.toBeNull();
-  expect(screen.queryByText('Order 901 · 2 items')).toBeNull();
-  expect(screen.queryByText('Order 903 · 2 items')).toBeNull();
+  expect(await screen.findByTestId('history-row-902')).not.toBeNull();
+  expect(screen.queryByTestId('history-row-901')).toBeNull();
+  expect(screen.queryByTestId('history-row-903')).toBeNull();
   expect(screen.queryByTestId('orders-load-more')).toBeNull();
   expect(list.mock.calls).toEqual([[1], [2], [1, '902']]);
 });
@@ -214,31 +213,31 @@ test('a slower earlier search does not replace a later one', async () => {
     .mockReturnValueOnce(new Promise<StoreOrderPage>(resolve => { resolveFirst = resolve; }))
     .mockResolvedValueOnce({ orders: [{ ...storeOrder, id: '902', reference: '902' }], hasMore: false });
   await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
-  expect(await screen.findByText('Order 901 · 2 items')).not.toBeNull();
+  expect(await screen.findByTestId('history-row-901')).not.toBeNull();
   const input = screen.getByPlaceholderText('Search Orders');
   fireEvent.change(input, { target: { value: '903' } });
   await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(2));
   fireEvent.change(input, { target: { value: '902' } });
-  expect(await screen.findByText('Order 902 · 2 items')).not.toBeNull();
+  expect(await screen.findByTestId('history-row-902')).not.toBeNull();
   await act(async () => {
     resolveFirst({ orders: [{ ...storeOrder, id: '903', reference: '903' }], hasMore: false });
   });
-  expect(screen.queryByText('Order 903 · 2 items')).toBeNull();
-  expect(screen.getByText('Order 902 · 2 items')).not.toBeNull();
+  expect(screen.queryByTestId('history-row-903')).toBeNull();
+  expect(screen.getByTestId('history-row-902')).not.toBeNull();
 });
 
 test("Search Orders filters this till's own sales", async () => {
   const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => ({ kind: 'results', results: batch.map(applied) }));
   await setup(send);
   const reference = await payCash();
-  const row = `Order ${reference} · #305 · 1 item`;
-  await vi.waitFor(() => expect(within(section('Recent')!).getByText(row)).not.toBeNull());
+  const row = `${reference} · #305`;
+  await vi.waitFor(() => expect(table().getByText(row)).not.toBeNull());
   const input = screen.getByPlaceholderText('Search Orders');
   fireEvent.change(input, { target: { value: 'latte' } });
   expect((await screen.findByTestId('no-data-message-title')).textContent).toBe('No orders match these filters');
-  expect(screen.queryByText(row)).toBeNull();
+  expect(screen.queryByTestId('orders-table')).toBeNull();
   fireEvent.change(input, { target: { value: reference } });
-  expect(await screen.findByText(row)).not.toBeNull();
+  await vi.waitFor(() => expect(table().getByText(row)).not.toBeNull());
 }, 20_000);
 
 test('with nothing matching it says so and Clear filters lists every order again', async () => {
@@ -247,12 +246,12 @@ test('with nothing matching it says so and Clear filters lists every order again
     .mockResolvedValueOnce({ orders: [], hasMore: false })
     .mockResolvedValueOnce({ orders: [storeOrder], hasMore: false });
   await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
-  expect(await screen.findByText('Order 901 · 2 items')).not.toBeNull();
+  expect(await screen.findByTestId('history-row-901')).not.toBeNull();
   const input = screen.getByPlaceholderText('Search Orders') as HTMLInputElement;
   fireEvent.change(input, { target: { value: 'nope' } });
   expect(await screen.findByText('No orders match these filters')).not.toBeNull();
   fireEvent.click(screen.getByTestId('no-data-message-action'));
-  expect(await screen.findByText('Order 901 · 2 items')).not.toBeNull();
+  expect(await screen.findByTestId('history-row-901')).not.toBeNull();
   expect(input.value).toBe('');
   expect(list.mock.calls).toEqual([[1], [1, 'nope'], [1]]);
 });
@@ -270,13 +269,13 @@ test('a wedge scan searches Orders at once', async () => {
     .mockResolvedValueOnce({ orders: [storeOrder], hasMore: false })
     .mockResolvedValueOnce({ orders: [{ ...storeOrder, id: '902', reference: '902' }], hasMore: false });
   await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list }, false);
-  expect(await screen.findByText('Order 901 · 2 items')).not.toBeNull();
+  expect(await screen.findByTestId('history-row-901')).not.toBeNull();
   act(() => {
     for (const key of [...'12345678', 'Enter']) {
       document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
     }
   });
   expect((screen.getByPlaceholderText('Search Orders') as HTMLInputElement).value).toBe('12345678');
-  expect(await screen.findByText('Order 902 · 2 items')).not.toBeNull();
+  expect(await screen.findByTestId('history-row-902')).not.toBeNull();
   expect(list.mock.calls).toEqual([[1], [1, '12345678']]);
 });

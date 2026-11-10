@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { Button, OrdersList, Receipt, SearchInput, Text, type OrderHistoryRow } from '@tallyui/components';
+import { Button, Receipt, SearchInput, Text, type OrderHistoryRow } from '@tallyui/components';
 import type { StoreOrder } from '@tallyui/core';
 import { buildReceiptDataFromPosOrder, buildReceiptDataFromStoreOrder, type PosOrder, type ReceiptConfig } from '@tallyui/pos';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { useRegister } from '../lib/register/register-context';
 import { matchesOrderSearch, toHistoryRow, type OrderHistorySource } from '../lib/orders/order-history';
+import { OrdersTable } from './orders-table';
 import { OrderDetailView } from './order-detail';
 import { ReceiptPrintSheet } from './receipt-print-sheet';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
@@ -111,8 +112,8 @@ export function OrdersScreen({ onBack, history, storeName, cashierName }: {
                     <Text testID="no-data-message-title" className="text-center font-medium text-foreground">No orders yet</Text>
                     <Text testID="no-data-message-description" className="text-center text-muted-foreground">Sales you take will appear here.</Text>
                   </View>
-            : <OrdersList orders={local} onRetry={ids => outbox.requeue(ids)} stuck={outbox.state.stuck}
-              history={orders.map(toHistoryRow)} onOpen={row => { if ('placedAt' in row) setViewing(orders.find(order => order.id === row.id) ?? null); else open(row); }} footer={footer} />
+            : <OrdersTable local={local} store={orders} footer={footer}
+              onOpen={row => { if (row.kind === 'store') setViewing(row.order); else open(row.order); }} />
         : <View className="p-4"><Text>Orders show once the store is connected.</Text></View>}
     </View>
   );
