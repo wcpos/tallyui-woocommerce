@@ -99,7 +99,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     discountCodes,
   });
   const inCart = useMemo(() => inCartCounts(sale.order.lineItems), [sale.order.lineItems]);
-  const printCount = useReceiptPrintCount(sale.stage.kind === 'receipt' ? sale.stage.posOrder.id : null);
+  const receiptOrderId = sale.stage.kind === 'receipt' ? sale.stage.posOrder.id : null;
+  const printCount = useReceiptPrintCount(receiptOrderId);
   const [receiptSettings] = useReceiptSettings();
   const { width } = useWindowDimensions();
   const [cartOpen, setCartOpen] = useState(false);
@@ -135,6 +136,11 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   useEffect(() => {
     if (sale.stage.kind !== 'tender') { setCancelling(false); setVoidError(undefined); }
   }, [sale.stage.kind]);
+  // v2's autoShowReceipt off (use-complete-order-flow.ts): with no auto print either, a finished sale goes straight
+  // back to an empty till, once per order. With auto print on, the receipt stage renders so the print area exists.
+  useEffect(() => {
+    if (receiptOrderId !== null && !receiptSettings.autoShow && !receiptSettings.autoPrint) sale.newSale();
+  }, [sale.stage.kind, receiptOrderId]);
 
   async function voidTenders(payments: readonly Payment[], reason: TenderVoid['reason']): Promise<boolean> {
     try {
@@ -432,7 +438,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         <>
           <ReceiptPaidMoment posOrder={receiptOrder} locale={props.locale} onClose={sale.newSale} />
           <ReceiptZoom>
-          <ReceiptPrintSheet orderId={orderId} autoPrint={receiptSettings.autoPrint}>
+          <ReceiptPrintSheet orderId={orderId} autoPrint={receiptSettings.autoPrint}
+            onAutoPrinted={receiptSettings.autoShow ? undefined : sale.newSale}>
           <Receipt order={sale.stage.order} posOrder={receiptOrder} store={{ name: props.storeName }}
             cashier={props.cashierName} registerId={REGISTER_ID} newSale={sale.newSale}
             doneLabel={receiptSettings.autoPrint ? 'Print receipt · New sale' : 'New sale'} />
