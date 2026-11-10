@@ -236,7 +236,7 @@ test('the sale receipt stage shows its print area inside the zoom preview', asyn
 test('an Orders reprint shows the receipt inside the zoom preview', async () => {
   const list = vi.fn<OrderHistorySource['list']>(async () => ({ orders: [storeOrder], hasMore: false }));
   await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
-  expect(await screen.findByText('Order 901 · 2 items')).not.toBeNull();
+  expect(await screen.findByTestId('history-row-901')).not.toBeNull();
   fireEvent.click(screen.getByTestId(`history-open-${storeOrder.id}`));
   expect(screen.queryByTestId('receipt-preview')).toBeNull();
   fireEvent.click(screen.getByTestId('order-modal-receipt'));
