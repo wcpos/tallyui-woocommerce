@@ -8,6 +8,7 @@ import { formatMoney } from '@tallyui/core';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
 import type { CatalogueEntry, ParkedOrderSummary, Payment, TenderVoid } from '@tallyui/pos';
 import { createCustomersBlockedReason, type CashierCapabilities } from '../lib/auth/capabilities';
+import { drawerFigureText, sheetMoney } from '../lib/cashier/sheet-figures';
 import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
 import { useRegister } from '../lib/register/register-context';
 import { buildReceiptIdentity } from '../lib/receipts/receipt-identity';
@@ -52,6 +53,8 @@ export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | '
   onRemoveCashier?(uuid: string): void;
   onAddCashier?(): void;
   heldCartKey?: string;
+  // The store's wp-admin, linked from the cashier sheet.
+  adminUrl?: string;
 }
 
 export function SaleScreen(props: SaleScreenProps): JSX.Element {
@@ -329,6 +332,10 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       onSwitch={changeCashier} onAddAnother={() => changeCashier()} onSignOut={props.onSignOut}
       onRemove={props.onRemoveCashier}
       blockedReason={sale.stage.kind === 'tender' || sale.saving ? 'Finish or cancel the payment first.' : undefined}
+      storeName={props.storeName}
+      sales={outboxOrders ? { orders: outboxOrders, cashierRef: props.cashierRef, currency, locale: props.locale } : null}
+      drawerFigure={drawerFigureText(register, minor => sheetMoney(minor, currency, props.locale))}
+      adminUrl={props.adminUrl}
     /> : props.cashierControl} />;
   const cartPane = (
     <View className="flex-1 bg-background p-4">
