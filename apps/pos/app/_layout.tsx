@@ -8,6 +8,10 @@ import { CatalogueProvider } from '../lib/catalogue/catalogue-context';
 import { OutboxProvider } from '../lib/sale/outbox-context';
 import { RegisterProvider } from '../lib/register/register-context';
 import { Toaster } from '../components/toaster';
+import { applyStoredTheme } from '../lib/theme/theme-setting';
+
+// Before the first render: this device's System/Light/Dark choice (Settings > Theme).
+applyStoredTheme();
 
 export default function RootLayout() {
   return (
