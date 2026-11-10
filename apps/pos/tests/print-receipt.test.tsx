@@ -285,6 +285,7 @@ test('an Orders reprint prints from the same receipt-only area', async () => {
   await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
   expect(await screen.findByText('Order 901 · 2 items')).not.toBeNull();
   fireEvent.click(screen.getByTestId(`history-open-${storeOrder.id}`));
+  fireEvent.click(screen.getByTestId('order-modal-receipt'));
   const area = screen.getByTestId('receipt-print-area');
   expect(within(area).getByTestId('receipt-order').textContent).toBe('Order 901');
   expect(screen.queryByTestId('receipt-print-again')).toBeNull();
