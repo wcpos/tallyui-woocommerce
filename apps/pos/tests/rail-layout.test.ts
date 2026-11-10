@@ -13,6 +13,7 @@ test('isWideWindow: at least 768 wide and 480 tall, nothing in between', () => {
 test('railKeyForPath: each area by its route, settings pages under settings, null elsewhere', () => {
   expect(railKeyForPath('/catalogue')).toBe('pos');
   expect(railKeyForPath('/orders')).toBe('orders');
+  expect(railKeyForPath('/coupons')).toBe('coupons');
   expect(railKeyForPath('/customers')).toBe('customers');
   expect(railKeyForPath('/reports')).toBe('reports');
   expect(railKeyForPath('/health')).toBe('health');

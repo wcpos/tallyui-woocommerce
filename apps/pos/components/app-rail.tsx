@@ -4,7 +4,8 @@
 // (icon-only `h-12 w-12 rounded-lg` items labelled with the area's title, the selected item on the card colour,
 // `drawer-panel-permanent`, `drawer-top-group`, `drawer-bottom-group`, `drawer-item-<route>`, pressing the
 // focused item does nothing), with the version from `drawer-content/version.tsx`.
-// Deviations: no Products, Coupons or Support item (this app has none of those areas); Logs is kept after
+// Coupons sits between Orders and Customers as in v2, with v2's `discount` glyph (a circle with a percent sign).
+// Deviations: no Products or Support item (this app has neither area); Logs is kept after
 // Store health, as in drawer-content.tsx; no hover tooltip; the version does not open an About dialog.
 // TallyUI has no sidebar or rail-selected token, so the rail is `bg-muted` and the selected item `bg-card`.
 import { createContext } from 'react';
@@ -18,6 +19,7 @@ import { SOFTWARE_VERSION } from '../lib/software';
 
 const RegisterIcon = createSvgIcon('RegisterIcon', () => <><Rect x={3} y={9} width={18} height={12} rx={2} /><Line x1={7} y1={4} x2={17} y2={4} /><Line x1={12} y1={4} x2={12} y2={9} /><Line x1={7} y1={15} x2={17} y2={15} /></>);
 const ReceiptIcon = createSvgIcon('ReceiptIcon', () => <><Path d="M6 2h12v20l-3-2-3 2-3-2-3 2z" /><Line x1={9} y1={7} x2={15} y2={7} /><Line x1={9} y1={11} x2={15} y2={11} /><Line x1={9} y1={15} x2={13} y2={15} /></>);
+const CouponsIcon = createSvgIcon('CouponsIcon', () => <><Circle cx={12} cy={12} r={9} /><Line x1={9} y1={15} x2={15} y2={9} /><Circle cx={9.5} cy={9.5} r={0.5} /><Circle cx={14.5} cy={14.5} r={0.5} /></>);
 const CustomersIcon = createSvgIcon('CustomersIcon', () => <><Circle cx={9} cy={8} r={3.5} /><Path d="M2 20c0-3.5 3-6 7-6s7 2.5 7 6" /><Path d="M16 4.5a3.5 3.5 0 0 1 0 7" /><Path d="M18 14c2.5.5 4 3 4 6" /></>);
 const ReportsIcon = createSvgIcon('ReportsIcon', () => <><Line x1={4} y1={20} x2={20} y2={20} /><Rect x={5} y={11} width={3} height={6} /><Rect x={10.5} y={6} width={3} height={11} /><Rect x={16} y={9} width={3} height={8} /></>);
 const HealthIcon = createSvgIcon('HealthIcon', () => <Path d="M22 12h-4l-3 9L9 3l-3 9H2" />);
@@ -25,7 +27,7 @@ const LogsIcon = createSvgIcon('LogsIcon', () => <><Line x1={8} y1={6} x2={21} y
 const SettingsIcon = createSvgIcon('SettingsIcon', () => <><Line x1={4} y1={21} x2={4} y2={14} /><Line x1={4} y1={10} x2={4} y2={3} /><Line x1={12} y1={21} x2={12} y2={12} /><Line x1={12} y1={8} x2={12} y2={3} /><Line x1={20} y1={21} x2={20} y2={16} /><Line x1={20} y1={12} x2={20} y2={3} /><Line x1={2} y1={14} x2={6} y2={14} /><Line x1={10} y1={8} x2={14} y2={8} /><Line x1={18} y1={16} x2={22} y2={16} /></>);
 
 const GLYPH: Record<RailKey, typeof RegisterIcon> = {
-  pos: RegisterIcon, orders: ReceiptIcon, customers: CustomersIcon, reports: ReportsIcon,
+  pos: RegisterIcon, orders: ReceiptIcon, coupons: CouponsIcon, customers: CustomersIcon, reports: ReportsIcon,
   health: HealthIcon, logs: LogsIcon, settings: SettingsIcon,
 };
 

@@ -1,18 +1,18 @@
 // The app rail's areas, in v2's rail order (WCPOS monorepo `apps/main/app/(app)/(drawer)/_layout.tsx`),
 // with Logs after Store health as in drawer-content.tsx.
-export type RailKey = 'pos' | 'orders' | 'customers' | 'reports' | 'health' | 'logs' | 'settings';
+export type RailKey = 'pos' | 'orders' | 'coupons' | 'customers' | 'reports' | 'health' | 'logs' | 'settings';
 
 /** Top group, then foot group, in rail order. */
-export const RAIL_TOP: readonly RailKey[] = ['pos', 'orders', 'customers', 'reports'];
+export const RAIL_TOP: readonly RailKey[] = ['pos', 'orders', 'coupons', 'customers', 'reports'];
 export const RAIL_FOOT: readonly RailKey[] = ['health', 'logs', 'settings'];
 
 export const RAIL_HREF: Record<RailKey, string> = {
-  pos: '/catalogue', orders: '/orders', customers: '/customers', reports: '/reports',
+  pos: '/catalogue', orders: '/orders', coupons: '/coupons', customers: '/customers', reports: '/reports',
   health: '/health', logs: '/logs', settings: '/settings',
 };
 
 export const RAIL_LABEL: Record<RailKey, string> = {
-  pos: 'POS', orders: 'Orders', customers: 'Customers', reports: 'Reports',
+  pos: 'POS', orders: 'Orders', coupons: 'Coupons', customers: 'Customers', reports: 'Reports',
   health: 'Store health', logs: 'Logs', settings: 'Settings',
 };
 
