@@ -101,7 +101,7 @@ test('sells a fee, a shipping charge and a custom item and pushes them to WooCom
   expect(shippingRow.getByText('$5.00')).not.toBeNull();
   const footer = within(screen.getByTestId('cart-footer'));
   expect(within(footer.getByText('Total').parentElement!).getByText('$11.20')).not.toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   await takeCash(2000);
   const receiptOrder = await screen.findByTestId('receipt-order');
   const receipt = within(receiptOrder.parentElement!);
@@ -141,7 +141,7 @@ test('a store without order_create_v5 sells on the v3 fallback: no charges, one 
   await screen.findByText('Order store ready');
   fireEvent.click(screen.getByText('Espresso'));
   expect(screen.queryByRole('button', { name: 'Add charge' })).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   await takeCash(500);
   await waitFor(() => expect(screen.getByText('Sales are up to date.')).not.toBeNull());
   expect(fetchStub).toHaveBeenCalledTimes(1);

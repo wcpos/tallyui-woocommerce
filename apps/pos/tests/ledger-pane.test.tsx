@@ -104,7 +104,9 @@ async function renderSale(button: 'Cash' | 'Card terminal' = 'Cash', width = 900
   fireEvent.click(screen.getByText('Espresso'));
   if (width < 900) fireEvent.click(screen.getByRole('button', { name: /Open cart/ }));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
-  fireEvent.click(screen.getByRole('button', { name: button }));
+  // v2's foot: Checkout opens the tender on Cash; Card is picked on the tender pane's tiles.
+  fireEvent.click(screen.getByTestId('cart-checkout'));
+  if (button === 'Card terminal') fireEvent.click(await screen.findByTestId('checkout-method-pos_card'));
   return send;
 }
 

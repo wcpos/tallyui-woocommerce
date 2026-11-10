@@ -64,8 +64,10 @@ async function startTender(button: 'Cash' | 'Card terminal') {
   );
   await screen.findByText('Order store ready');
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: button }));
+  // v2's foot: Checkout opens the tender on Cash; Card is picked on the tender pane's tiles.
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   await screen.findByTestId('checkout-keypad');
+  if (button === 'Card terminal') fireEvent.click(screen.getByTestId('checkout-method-pos_card'));
   return send;
 }
 

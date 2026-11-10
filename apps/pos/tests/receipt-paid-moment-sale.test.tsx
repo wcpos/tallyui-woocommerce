@@ -74,7 +74,7 @@ async function paySplit(transport: { send: CommandTransport<OrderCreateEnvelope>
   await screen.findByText('Order store ready');
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   takeLeg(200);
   expect(screen.getByTestId('checkout-ledger-remaining').textContent).toBe('$4.00');
   takeLeg(400, 'pos_card');

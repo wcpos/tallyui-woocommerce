@@ -51,7 +51,7 @@ beforeEach(async () => {
   await screen.findByText('Order store ready');
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
 });
 
 afterEach(() => {
@@ -88,7 +88,7 @@ test('Cancel and void lists cash and card legs, then returns to the cart with no
   ]);
   fireEvent.click(screen.getByTestId('checkout-cancel-confirm'));
   await waitFor(() => expect(screen.queryByTestId('cancel-payment')).toBeNull());
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   expect(screen.getByTestId('checkout-ledger-totals').textContent).toContain('Paid$0.00');
   expect(screen.queryAllByTestId(/^checkout-leg-/)).toHaveLength(0);
   expect(send).not.toHaveBeenCalled();
@@ -97,7 +97,7 @@ test('Cancel and void lists cash and card legs, then returns to the cart with no
 test('Back with no leg goes straight to the cart', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Back' }));
   expect(screen.queryByTestId('cancel-payment')).toBeNull();
-  expect(screen.getByRole('button', { name: 'Cash' })).not.toBeNull();
+  expect(screen.getByTestId('cart-checkout')).not.toBeNull();
   expect(screen.queryByText('Cancel this payment?')).toBeNull();
 }, 20_000);
 
@@ -113,7 +113,7 @@ test('A new tender after cancelling does not reopen the view', async () => {
   takeLeg(200);
   fireEvent.click(screen.getByRole('button', { name: 'Back' }));
   fireEvent.click(screen.getByTestId('checkout-cancel-confirm'));
-  fireEvent.click(await screen.findByRole('button', { name: 'Cash' }));
+  fireEvent.click(await screen.findByTestId('cart-checkout'));
   takeLeg(300);
   expect(screen.queryByTestId('cancel-payment')).toBeNull();
   expect(screen.getByTestId('checkout-ledger-totals').textContent).toContain('Paid$3.00');

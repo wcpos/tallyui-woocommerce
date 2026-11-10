@@ -65,7 +65,7 @@ async function setup(online?: OnlineStatus) {
 
 async function payCash() {
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   await takeCash(1000);
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
 }
@@ -112,7 +112,7 @@ test.each([900, 390])('the switch enables the register and replaces the cart at 
   expect(screen.getByText('A session starts with a counted float, records cash paid in and out, and closes with a count that shows any difference.')).not.toBeNull();
   expect(await screen.findByTestId('open-register-card')).not.toBeNull();
   expect(screen.getByTestId('register-bar')).not.toBeNull();
-  expect(screen.queryByRole('button', { name: 'Cash' })).toBeNull();
+  expect(screen.queryByTestId('cart-checkout')).toBeNull();
 });
 
 test('open, pay out, sell, count and close, then reuse the counted float', async () => {
@@ -120,7 +120,7 @@ test('open, pay out, sell, count and close, then reuse the counted float', async
   fireEvent.click(screen.getByRole('switch', { name: 'Use register sessions' }));
   fireEvent.change(await screen.findByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
-  await screen.findByRole('button', { name: 'Cash' });
+  await screen.findByTestId('cart-checkout');
   fireEvent.click(screen.getByTestId('register-bar-open-panel'));
   fireEvent.click(await screen.findByTestId('register-panel-paid-out'));
   fireEvent.change(await screen.findByTestId('movement-amount'), { target: { value: '20.00' } });
@@ -135,7 +135,7 @@ test('open, pay out, sell, count and close, then reuse the counted float', async
   expect(within(screen.getByTestId('register-panel-expected')).getByText('$83.00')).not.toBeNull();
   fireEvent.click(screen.getByTestId('register-panel-close'));
   fireEvent.change(await screen.findByTestId('count-amount'), { target: { value: '83.00' } });
-  expect(screen.queryByRole('button', { name: 'Cash' })).toBeNull();
+  expect(screen.queryByTestId('cart-checkout')).toBeNull();
   fireEvent.click(screen.getByTestId('count-close'));
   expect((await screen.findByTestId('closure-number')).textContent).toBe('Closure #1');
   expect(screen.getByTestId('closure-counted-cash').textContent).toBe('Counted $83.00');

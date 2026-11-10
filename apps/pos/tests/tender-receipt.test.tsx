@@ -69,7 +69,7 @@ test('cash tender records and sends one sale, prints a final receipt, and starts
   expect(screen.getByText('Sales are up to date.')).not.toBeNull();
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   expect(screen.getByTestId('checkout-keypad')).not.toBeNull();
   expect(screen.queryByText('Taking payment arrives in the next update')).toBeNull();
   await takeCash(1000);
@@ -97,7 +97,7 @@ test('cash tender records and sends one sale, prints a final receipt, and starts
   expect(screen.queryByRole('button', { name: 'Remove Espresso' })).toBeNull();
   expect(send).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   await takeCash(1000);
   await screen.findByTestId('receipt-order');
   expect(screen.queryByTestId('receipt-copy')).toBeNull();

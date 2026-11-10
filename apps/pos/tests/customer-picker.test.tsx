@@ -348,7 +348,7 @@ test('sends the picked customer with a cash sale, then sends a guest after New s
   fireEvent.click(await screen.findByLabelText('Gee Four, gee@example.invalid'));
   expect(screen.getByRole('button', { name: 'Customer: Gee Four' })).not.toBeNull();
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   await takeCash(300);
   await screen.findByTestId('receipt-order');
   await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
@@ -361,7 +361,7 @@ test('sends the picked customer with a cash sale, then sends a guest after New s
   fireEvent.click(screen.getByRole('button', { name: 'New sale' }));
   expect(screen.getByText('Guest')).not.toBeNull();
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   await takeCash(300);
   await screen.findByTestId('receipt-order');
   await waitFor(() => expect(send).toHaveBeenCalledTimes(2));

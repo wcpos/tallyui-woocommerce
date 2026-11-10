@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
-import { Button, CartBar, ParkedSales, Receipt, SyncStatus, Text } from '@tallyui/components';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
+  AlertDialogTitle, Button, CartBar, ParkedSales, Receipt, SyncStatus, Text } from '@tallyui/components';
 import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
 import { formatMoney } from '@tallyui/core';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
@@ -172,10 +173,11 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     else sale.cancelTender();
   }
 
-  // A multi-payment tender is taken leg by leg: Card starts with nothing paid, never startTender's preset full-total leg.
+  // A multi-payment tender is taken leg by leg: v2's checkout opens on the balance due with no leg taken, whatever the
+  // method, so startTender's preset tender is cleared on that path (Card's is a full-total leg).
   function beginTender(method: 'cash' | 'external', options?: Parameters<typeof sale.startTender>[1]) {
     sale.startTender(method, options);
-    if (method === 'external' && outbox.enabled && props.multiplePayments === true) sale.setTender(null);
+    if (outbox.enabled && props.multiplePayments === true) sale.setTender(null);
   }
 
   async function gatedStartTender(method: 'cash' | 'external') {
@@ -313,6 +315,16 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     }
   }
 
+  // v2's cart foot (cart/foot.tsx, buttons/pay.tsx): one "Checkout {total}" opens the tender on Cash, where the cashier
+  // picks the method, and a ⋮ menu holds Void. v2 voids at once and offers Undo; the open sale here has no server copy
+  // to restore, so Void asks first.
+  const [voidOpen, setVoidOpen] = useState(false);
+  const voidOffered = sale.order.lineItems.length > 0 && sale.order.payments.length === 0;
+  const checkout = {
+    onCheckout: () => { void gatedStartTender('cash'); },
+    actions: voidOffered ? [{ label: 'Void', destructive: true, onPress: () => setVoidOpen(true) }] : [],
+  };
+
   function onSelect(doc: any) {
     try {
       const entries = catalogueEntries([doc], connector.traits.product, { currency });
@@ -402,8 +414,25 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           {/* M6's order notes can take the price-change reason via onPriceChange. */}
           <CartWithSettings sale={{ ...sale, startTender: gatedStartTender }} canEditPrice taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)}
             afterSubtotal={couponsOffered && props.couponCollections ? <CouponRows sale={sale} /> : undefined}
+            checkout={checkout}
             position={viewState.position} onPositionChange={position => setViewState({ ...viewState, position })}
             openOrders={<OpenOrderTabs parked={parked} current={sale.order} currency={currency} locale={props.locale} onSelect={onResume} onNew={onPark} onError={setMessage} />} />
+          {voidOpen && <AlertDialog open onOpenChange={next => { if (!next) setVoidOpen(false); }}>
+            <AlertDialogContent testID="cart-void-dialog">
+              <AlertDialogHeader>
+                <AlertDialogTitle>Void this sale?</AlertDialogTitle>
+                <AlertDialogDescription>Its items are removed. This can't be undone.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel asChild onPress={() => setVoidOpen(false)}>
+                  <Button variant="outline" testID="cart-void-keep"><Text>Keep sale</Text></Button>
+                </AlertDialogCancel>
+                <AlertDialogAction asChild onPress={() => { setVoidOpen(false); sale.newSale(); }}>
+                  <Button variant="destructive" testID="cart-void-confirm"><Text>Void sale</Text></Button>
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>}
         </>
       ) : sale.stage.kind === 'tender' ? outbox.enabled ? (props.multiplePayments === true ? (
         cancelling && sale.order.payments.length > 0 ? (

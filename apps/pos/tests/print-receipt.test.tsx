@@ -79,7 +79,7 @@ async function setup(send: CommandTransport<OrderCreateEnvelope>['send'], histor
 
 async function payCash() {
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   await takeCash(300);
   await vi.waitFor(() => expect(screen.getByTestId('receipt-order')).not.toBeNull());
   return /^Order ([a-f0-9]{8})/.exec(screen.getByTestId('receipt-order').textContent!)![1];

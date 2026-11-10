@@ -72,7 +72,7 @@ async function renderSale(multiplePayments?: boolean) {
   await screen.findByText('Order store ready');
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
 }
 
 function addCash() {
@@ -114,7 +114,7 @@ test('Cancel and void journals every leg with the same sale id', async () => {
   takeLeg(100, 'pos_card');
   fireEvent.click(screen.getByRole('button', { name: 'Back' }));
   fireEvent.click(screen.getByTestId('checkout-cancel-confirm'));
-  expect(await screen.findByRole('button', { name: 'Cash' })).not.toBeNull();
+  expect(await screen.findByTestId('cart-checkout')).not.toBeNull();
   const rows = (await collection.find().exec()).map(doc => doc.toJSON());
   expect(rows).toHaveLength(2);
   expect(rows.map(row => row.reason)).toEqual(['cancelled', 'cancelled']);
@@ -142,7 +142,7 @@ test('a failed Cancel and void keeps the cancel view and can be retried', async 
   expect(screen.getAllByTestId(/^checkout-cancel-leg-/)).toHaveLength(1);
   expect(await collection.find().exec()).toHaveLength(0);
   fireEvent.click(screen.getByTestId('checkout-cancel-confirm'));
-  expect(await screen.findByRole('button', { name: 'Cash' })).not.toBeNull();
+  expect(await screen.findByTestId('cart-checkout')).not.toBeNull();
   expect(await collection.find().exec()).toHaveLength(1);
   expect(screen.queryByTestId('tender-void-error')).toBeNull();
 }, 20_000);
@@ -150,7 +150,7 @@ test('a failed Cancel and void keeps the cancel view and can be retried', async 
 test('Back with no legs returns to the cart without a void', async () => {
   await renderSale(true);
   fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-  expect(screen.getByRole('button', { name: 'Cash' })).not.toBeNull();
+  expect(screen.getByTestId('cart-checkout')).not.toBeNull();
   expect(await collection.find().exec()).toHaveLength(0);
 }, 20_000);
 
@@ -162,7 +162,7 @@ test('single tender Back returns to the cart without a void', async () => {
   fireEvent.click(screen.getByTestId('checkout-keypad-key-0'));
   fireEvent.click(screen.getByTestId('checkout-keypad-key-0'));
   fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-  expect(screen.getByRole('button', { name: 'Cash' })).not.toBeNull();
+  expect(screen.getByTestId('cart-checkout')).not.toBeNull();
   expect(await collection.find().exec()).toHaveLength(0);
 }, 20_000);
 

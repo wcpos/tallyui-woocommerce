@@ -71,7 +71,7 @@ async function setup() {
 
 async function payCash() {
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   await takeCash(1000);
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
 }
@@ -93,9 +93,9 @@ test('sessions on: Cash refuses without an open session and stays in the cart', 
   act(() => app.register.setSetting(true));
   expect(app.register.enabled).toBe(true);
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   expect(await screen.findByText('Open the register to take payment.')).not.toBeNull();
-  expect(screen.getByRole('button', { name: 'Cash' })).not.toBeNull();
+  expect(screen.getByTestId('cart-checkout')).not.toBeNull();
   expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
   expect(screen.queryByTestId('checkout-keypad')).toBeNull();
   expect(await app.orders.find().exec()).toEqual([]);
@@ -113,7 +113,7 @@ test('an opened session stamps the cash sale and envelope and still shows its re
   expect(app.register.boundRegisterId).toBe(doc!.id);
   expect(getBoundRegisterId(doc, app.orders.database.name)).toBe(doc!.id);
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
   await screen.findByTestId('checkout-keypad');
   await expect(app.register.actions.startCounting()).rejects.toBeInstanceOf(RegisterTenderInProgressError);
   await takeCash(1000);
