@@ -1,7 +1,6 @@
 import { useMemo, useRef } from 'react';
-import { View } from 'react-native';
 import { Redirect, useRouter, type Href } from 'expo-router';
-import { Text } from '@tallyui/components';
+import { CatalogueUnavailable } from '../components/catalogue-unavailable';
 import { SaleScreen } from '../components/sale-screen';
 import { SessionHoldBanner } from '../components/session-hold-banner';
 import { StoreSettingsGate } from '../components/store-settings-gate';
@@ -40,9 +39,9 @@ export default function Catalogue() {
   if (!catalogue) return (
     <>
     <SessionHoldBanner />
-    <View className="flex-1 items-center justify-center bg-background p-6">
-      <Text>{error ?? `Connecting to ${session.site.name}…`}</Text>
-    </View>
+    {error
+      ? <CatalogueUnavailable message={error} onSignOut={() => { signOut(); router.replace('/connect'); }} />
+      : <CatalogueUnavailable message={`Connecting to ${session.site.name}…`} />}
     </>
   );
   return (

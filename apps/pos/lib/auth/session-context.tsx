@@ -11,6 +11,8 @@ interface SessionContextValue {
   session: Session | null;
   /** True while the store refused this session's refresh: it is kept, not cleared, until the cashier signs in again. */
   held: boolean;
+  /** Holds the current session because the store refused this access token outside a refresh; does nothing unless it is the current token. */
+  hold(accessToken: string): void;
   startReauth(): Promise<string | null>;
   cashiers: Session[];
   startAddCashier(): void;
@@ -35,6 +37,9 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
     setSession(next);
     setHeld(false);
   }, []);
+  const hold = useCallback((accessToken: string) => {
+    if (current.current?.tokens.accessToken === accessToken) setHeld(true);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -45,6 +50,8 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
       if (!previous) return;
       try {
         const next = await refreshSession(previous);
+        // A token not yet near expiry comes back unchanged; updating would clear a hold the store set outside a refresh.
+        if (next === previous) return;
         if (mounted && current.current === previous) {
           saveSession(next);
           updateSession(next);
@@ -173,7 +180,7 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
 
   const cashiers = session ? (roster[session.site.home] ?? []).filter(entry => entry.tokens.user.uuid !== session.tokens.user.uuid) : [];
   return (
-    <SessionContext.Provider value={{ session, held, ready, cashiers, startSignIn, startAddCashier, startReauth, switchCashier, removeCashier, completeSignIn, signOut }}>
+    <SessionContext.Provider value={{ session, held, hold, ready, cashiers, startSignIn, startAddCashier, startReauth, switchCashier, removeCashier, completeSignIn, signOut }}>
       {children}
     </SessionContext.Provider>
   );
