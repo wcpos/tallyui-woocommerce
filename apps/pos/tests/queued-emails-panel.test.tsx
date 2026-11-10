@@ -143,3 +143,12 @@ test('queuedAgo uses whole relative units', () => {
   expect(queuedAgo('2026-10-05T10:00:00.000Z', now)).toBe('2 days ago');
   expect(queuedAgo('2026-10-07T09:58:30.000Z', now)).toBe('1 minute ago');
 });
+
+test('Send again keeps Save to Billing on the row', async () => {
+  await collection.insert({ attempts: 1, id: 'a', status: 'failed', email: 'a@example.invalid', queuedAt: '2026-10-07T07:00:00.000Z',
+    error: 'Bad address', saveToBilling: true });
+  render(<QueuedEmailsPanel collection={collection} orders={orders} now={() => new Date('2026-10-07T10:00:00.000Z')} />);
+  fireEvent.click(await screen.findByTestId('db-queued-email-retry-a'));
+  await waitFor(async () => expect((await collection.findOne('a').exec())?.status).toBe('queued'));
+  expect((await collection.findOne('a').exec())?.saveToBilling).toBe(true);
+});
