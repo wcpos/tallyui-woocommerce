@@ -16,6 +16,7 @@ import { useRegisterSessionsSetting } from '../lib/register/register-setting';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
+import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 
 vi.mock('@tallyui/components', async importOriginal => ({
   ...await importOriginal<typeof import('@tallyui/components')>(),
@@ -36,6 +37,9 @@ beforeEach(() => {
       user: { id: 2, uuid: 'cashier', displayName: 'Paul' } },
   });
 });
+
+// Browse by now opens on category tiles; these tests drive the flat product grid, so they browse All products.
+beforeEach(() => { localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all' })); });
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 

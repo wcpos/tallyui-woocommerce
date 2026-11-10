@@ -25,6 +25,7 @@ import type { ReceiptMailer } from '../lib/receipts/receipt-mailer';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
+import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 
 function SaleScreen(props: ComponentProps<typeof SaleScreenWithoutHost>) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
@@ -56,6 +57,12 @@ beforeEach(async () => {
   orders = await addPosOrderCollection(db);
   send = vi.fn<ReceiptMailer['send']>(async () => {});
   mailer = { send };
+});
+
+// Browse by now opens on category tiles; these tests drive the flat product grid, so they browse All products.
+beforeEach(() => {
+  const data = new Map([[CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all' })]]);
+  vi.stubGlobal('localStorage', { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => { data.set(key, value); }, removeItem: (key: string) => { data.delete(key); } });
 });
 
 afterEach(async () => {
@@ -395,7 +402,7 @@ function OrderStoreReady() {
 
 test.each([true, false])('completed sale receipt UI, mailer available: %s', async available => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
-  const data = new Map<string, string>();
+  const data = new Map<string, string>([[CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all' })]]);
   vi.stubGlobal('localStorage', { getItem: (key: string) => data.get(key) ?? null,
     setItem: (key: string, value: string) => { data.set(key, value); } });
   const home = `https://shop.example/${crypto.randomUUID()}`;

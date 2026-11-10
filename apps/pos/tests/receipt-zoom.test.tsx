@@ -22,6 +22,7 @@ import { MAX_PREVIEW_ZOOM, MIN_PREVIEW_ZOOM, PAPER_DIMENSIONS, PREVIEW_ZOOM_STEP
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeLeg } from './tender-helpers';
+import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 
 const props: ComponentProps<typeof SaleScreen> = {
   storeSettings: noTaxSettings,
@@ -44,6 +45,9 @@ beforeEach(() => {
       user: { id: 2, uuid: 'cashier', displayName: 'Paul' } },
   });
 });
+
+// Browse by now opens on category tiles; these tests drive the flat product grid, so they browse All products.
+beforeEach(() => { localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all' })); });
 
 afterEach(() => {
   cleanup();

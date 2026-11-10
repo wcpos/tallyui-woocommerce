@@ -12,6 +12,9 @@ import stores from './fixtures/stores.json';
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 
+// Browse by now opens on category tiles; these tests drive the flat product grid, so they browse All products.
+beforeEach(() => { localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all' })); });
+
 afterEach(() => {
   cleanup();
   localStorage.clear();
@@ -89,7 +92,7 @@ test('Show out-of-stock products shows a sold-out product, saves the choice and 
 });
 
 test('turning Show out-of-stock products off hides them again and turns In Stock back on', () => {
-  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"showOutOfStock":true}');
+  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"showOutOfStock":true,"browseBy":"all"}');
   openSheet({ products: [...products, decaf] });
   fireEvent.click(screen.getByRole('switch', { name: 'Show out-of-stock products' }));
   expect(screen.queryByText('Decaf')).toBeNull();
@@ -97,15 +100,18 @@ test('turning Show out-of-stock products off hides them again and turns In Stock
 });
 
 test('restore hides out-of-stock products again', () => {
-  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"showOutOfStock":true}');
+  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"showOutOfStock":true,"browseBy":"all"}');
   openSheet({ products: [...products, decaf] });
   fireEvent.click(screen.getByTestId('catalogue-settings-restore'));
+  // The restored defaults open on the category tiles; All products shows every product the baseline lets through.
+  fireEvent.click(screen.getByTestId('browse-all-products'));
+  expect(screen.getByText('Espresso')).not.toBeNull();
   expect(screen.queryByText('Decaf')).toBeNull();
   expect(stored().showOutOfStock).toBe(false);
 });
 
 test('with out-of-stock products shown, pressing an applied quick filter again keeps them', () => {
-  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"showOutOfStock":true}');
+  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"showOutOfStock":true,"browseBy":"all"}');
   localStorage.setItem(QUICK_FILTERS_KEY, JSON.stringify([sale]));
   openSheet({ products: [...products, decaf] });
   fireEvent.click(screen.getByTestId('catalogue-settings-close'));
@@ -133,17 +139,18 @@ test('Sort By and Sort Direction reorder the grid and save the sort', () => {
   expect(tiles()).toEqual(['Espresso', 'Cold Brew', 'T-Shirt']);
 });
 
-test('Browse by draws v2\'s sources with only All products available', () => {
+test('Browse by draws v2\'s sources with All products and Categories available', () => {
   openSheet();
   const row = (value: string) => screen.getByTestId(`ui-settings-browse-by-${value}`);
   expect(row('all').getAttribute('aria-checked')).toBe('true');
-  for (const value of ['categories', 'tags', 'brands', 'shortcuts']) expect(row(value).getAttribute('aria-disabled')).toBe('true');
+  expect(row('categories').getAttribute('aria-disabled')).not.toBe('true');
+  for (const value of ['tags', 'brands', 'shortcuts']) expect(row(value).getAttribute('aria-disabled')).toBe('true');
   expect(row('categories').textContent).toContain('2 categories');
   expect(row('tags').textContent).toContain('No tags yet');
   expect(row('brands').textContent).toBe('Brands');
   expect(row('shortcuts').textContent).toContain('No shortcuts yet');
   const before = tiles();
-  fireEvent.click(row('categories'));
+  fireEvent.click(row('tags'));
   expect(row('all').getAttribute('aria-checked')).toBe('true');
   expect(tiles()).toEqual(before);
 });

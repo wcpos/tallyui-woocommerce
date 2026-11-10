@@ -14,7 +14,12 @@ export const PRODUCTS_WIDTH_DEFAULT = 60;
 export const PRODUCTS_WIDTH_MIN = 25;
 export const PRODUCTS_WIDTH_MAX = 75;
 export const PRODUCTS_WIDTH_STEP = 5;
-export interface AppCatalogueViewState extends CatalogueViewState { columns: CatalogueColumnSetting[]; tileFields: CatalogueTileFields; position: PanelPosition; width: number; showOutOfStock: boolean }
+// v2's browse-source.ts BROWSE_BY, as far as the app goes: Tags, Brands and Shortcuts are later slices.
+export const BROWSE_BY = ['all', 'categories'] as const;
+export type BrowseBy = (typeof BROWSE_BY)[number];
+// v2's DEFAULT_BROWSE_BY: a till opens on its categories until the cashier chooses.
+export const DEFAULT_BROWSE_BY: BrowseBy = 'categories';
+export interface AppCatalogueViewState extends CatalogueViewState { columns: CatalogueColumnSetting[]; tileFields: CatalogueTileFields; position: PanelPosition; width: number; showOutOfStock: boolean; browseBy: BrowseBy }
 // Stock and categories are columns here because ProductTable has no name sub-fields.
 export const CATALOGUE_COLUMNS: { id: CatalogueColumnId; label: string; visible: boolean }[] = [
   { id: 'name', label: 'Name', visible: true },
@@ -47,7 +52,14 @@ export const CATALOGUE_VIEW_DEFAULTS: AppCatalogueViewState = {
   width: PRODUCTS_WIDTH_DEFAULT,
   // v2's pos-products.showOutOfStock.
   showOutOfStock: false,
+  // v2's pos-products.browseBy.
+  browseBy: DEFAULT_BROWSE_BY,
 };
+
+/** v2's readBrowseBy: a missing value, or one the app does not know (a newer build wrote it), reads as the default. */
+export function readBrowseBy(raw: unknown): BrowseBy {
+  return (BROWSE_BY as readonly unknown[]).includes(raw) ? raw as BrowseBy : DEFAULT_BROWSE_BY;
+}
 
 export function normalizePanelPosition(raw: unknown): PanelPosition {
   return raw === 'right' ? 'right' : 'left';
@@ -107,6 +119,7 @@ export function loadCatalogueView(storage?: Storage): AppCatalogueViewState {
       position: normalizePanelPosition(typeof parsed === 'object' && parsed !== null ? parsed.position : undefined),
       width: normalizeProductsWidth(typeof parsed === 'object' && parsed !== null ? parsed.width : undefined),
       showOutOfStock: typeof parsed === 'object' && parsed !== null && parsed.showOutOfStock === true,
+      browseBy: readBrowseBy(typeof parsed === 'object' && parsed !== null ? parsed.browseBy : undefined),
     };
   } catch { return CATALOGUE_VIEW_DEFAULTS; }
 }

@@ -14,6 +14,7 @@ import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
+import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 
 const CHARGES: ServerCapabilities = { orderCreate: 5, lineTax: { none: true, classes: true },
   taxRounding: { granularity: 'woocommerce', roundAtSubtotal: false } };
@@ -47,6 +48,9 @@ beforeEach(() => {
   });
   vi.stubGlobal('fetch', fetchStub);
 });
+
+// Browse by now opens on category tiles; these tests drive the flat product grid, so they browse All products.
+beforeEach(() => { localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all' })); });
 
 afterEach(() => {
   cleanup();

@@ -14,6 +14,9 @@ beforeEach(() => {
   localStorage.setItem(QUICK_FILTERS_KEY, JSON.stringify(quickFilters));
 });
 
+// Browse by now opens on category tiles; these tests drive the flat product grid, so they browse All products.
+beforeEach(() => { localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all' })); });
+
 afterEach(() => {
   cleanup();
   localStorage.clear();
