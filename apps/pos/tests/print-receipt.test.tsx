@@ -81,6 +81,14 @@ async function payCash() {
   return /^Order ([a-f0-9]{8})/.exec(screen.getByTestId('receipt-order').textContent!)![1];
 }
 
+// The print counter listens from an effect, which a loaded runner may not have run yet; repeats are harmless.
+async function printUntilPrintAgain() {
+  await vi.waitFor(() => {
+    act(() => { window.dispatchEvent(new Event('afterprint')); });
+    expect(screen.getByTestId('receipt-print-again')).not.toBeNull();
+  });
+}
+
 const applied = (envelope: OrderCreateEnvelope) => ({ id: envelope.id, status: 'applied' as const,
   serverRefs: { orderId: '305', displayId: '305', totalMinor: 300 } });
 
@@ -254,7 +262,7 @@ test('the sale receipt prints from a receipt-only area at paper width', async ()
 test('Print again appears after a print and prints again', async () => {
   await setup(async batch => ({ kind: 'results', results: batch.map(applied) }));
   await payCash();
-  act(() => { window.dispatchEvent(new Event('afterprint')); });
+  await printUntilPrintAgain();
   expect(screen.getByTestId('receipt-print-again').textContent).toBe('Print again');
   const print = vi.spyOn(window, 'print').mockImplementation(() => {});
   fireEvent.click(screen.getByTestId('receipt-print-again'));
@@ -265,7 +273,7 @@ test('Print again appears after a print and prints again', async () => {
 test('Print again says why a print failed', async () => {
   await setup(async batch => ({ kind: 'results', results: batch.map(applied) }));
   await payCash();
-  act(() => { window.dispatchEvent(new Event('afterprint')); });
+  await printUntilPrintAgain();
   expect(screen.getByTestId('receipt-print-again').textContent).toBe('Print again');
   const print = vi.spyOn(window, 'print').mockImplementation(() => { throw new Error('blocked'); });
   fireEvent.click(screen.getByTestId('receipt-print-again'));
@@ -290,7 +298,7 @@ test('an Orders reprint prints from the same receipt-only area', async () => {
   const area = screen.getByTestId('receipt-print-area');
   expect(within(area).getByTestId('receipt-order').textContent).toBe('Order 901');
   expect(screen.queryByTestId('receipt-print-again')).toBeNull();
-  act(() => { window.dispatchEvent(new Event('afterprint')); });
+  await printUntilPrintAgain();
   expect(screen.getByTestId('receipt-print-again')).not.toBeNull();
   fireEvent.click(screen.getAllByRole('button', { name: 'Back' }).find(button => button.getAttribute('data-testid') !== 'orders-back')!);
   expect(document.head.querySelector('style[data-receipt-print]')).toBeNull();
