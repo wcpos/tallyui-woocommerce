@@ -436,15 +436,17 @@ test('Download CSV downloads the listed closures and revokes its object URL', as
   expect(URL.revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:closures-test');
 }, 20_000);
 
-test('CatalogueView exposes Reports only when an onOpenReports handler is supplied', () => {
+test('the drawer offers Reports only when an onOpenReports handler is supplied', () => {
   const props = { connector: createWooCommerceConnector(), currency: stores[0].currency, products,
     storeName: stores[0].name, cashierName: 'Paul', status: 'ready' as const, onSignOut: () => {} };
   const onOpenReports = vi.fn();
-  const { rerender } = render(<CatalogueView {...props} onOpenReports={onOpenReports} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Reports' }));
+  const { rerender } = render(<><CatalogueView {...props} onOpenReports={onOpenReports} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('pos-drawer-open-button'));
+  fireEvent.click(screen.getByTestId('drawer-item-reports'));
   expect(onOpenReports).toHaveBeenCalledOnce();
-  rerender(<CatalogueView {...props} />);
-  expect(screen.queryByRole('button', { name: 'Reports' })).toBeNull();
+  rerender(<><CatalogueView {...props} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('pos-drawer-open-button'));
+  expect(screen.queryByTestId('drawer-item-reports')).toBeNull();
 }, 20_000);
 
 test('the Payments tile opens a table of methods', async () => {

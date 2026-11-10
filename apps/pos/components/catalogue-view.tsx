@@ -14,11 +14,12 @@ import type { CatalogueFilters, QuickFilter } from '../lib/catalogue/quick-filte
 import type { TileTax } from '../lib/catalogue/tile-words';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { CatalogueDisplayOptions } from './catalogue-display-options';
+import { DrawerSheet } from './drawer-content';
 import { FilterBarDialog } from './filter-bar-dialog';
-import { OfflineBadge } from './offline-badge';
 import { InCartBadge } from './in-cart-badge';
 import { ProductTile } from './product-tile';
 import { QuickFilterBar } from './quick-filter-bar';
+import { RegisterBarShell } from './register-bar-shell';
 
 export interface CatalogueViewProps {
   connector: TallyConnector;
@@ -27,7 +28,7 @@ export interface CatalogueViewProps {
   storeName: string;
   cashierName: string;
   cashierControl?: ReactNode;
-  /** The register bar beside the catalogue carries Offline in its pill: v2 shows one Offline per window. */
+  /** Sessions on at the wide split: the register bar beside the catalogue carries the pill, so this bar draws none (v2: one pill per window). */
   hideOfflineBadge?: boolean;
   status: 'idle' | 'starting' | 'syncing' | 'ready' | 'error';
   notice?: { code: string; message?: string };
@@ -39,6 +40,7 @@ export interface CatalogueViewProps {
   onOpenCustomers?(): void;
   onOpenReports?(): void;
   onOpenHealth?(): void;
+  onOpenLogs?(): void;
   onOpenSettings?(): void;
   viewState?: AppCatalogueViewState;
   onViewStateChange?(next: AppCatalogueViewState): void;
@@ -49,7 +51,7 @@ export interface CatalogueViewProps {
 }
 
 export function CatalogueView({
-  connector, currency, products, storeName, cashierName, cashierControl, hideOfflineBadge, status, notice, onSignOut, onOpenOrders, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings, onSelect, onScan, message,
+  connector, currency, products, storeName, cashierName, cashierControl, hideOfflineBadge, status, notice, onSignOut, onOpenOrders, onOpenCustomers, onOpenReports, onOpenHealth, onOpenLogs, onOpenSettings, onSelect, onScan, message,
   viewState: controlledViewState, onViewStateChange,
   tax, inCartCounts,
 }: CatalogueViewProps): JSX.Element {
@@ -57,6 +59,7 @@ export function CatalogueView({
   const [quickFilters, setQuickFilters] = useQuickFilters();
   const [filters, setFilters] = useState<CatalogueFilters>({});
   const [sortOverride, setSortOverride] = useState<ProductSort | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   function scan(code: string) {
     const result = onScan?.(code);
     if (result === 'clear') setTerm('');
@@ -123,19 +126,19 @@ export function CatalogueView({
 
   return (
     <ConnectorProvider connector={connector} traitContext={{ currency }}>
-      <View className="flex-1 bg-background p-4">
-        <View className="flex-row flex-wrap items-center justify-between gap-4">
-          <Text>{storeName}</Text>
-          {!hideOfflineBadge && <OfflineBadge testID="catalogue-bar-status" />}
-          {cashierControl ?? <Text>{`Cashier: ${cashierName}`}</Text>}
+      <View className="flex-1 bg-background">
+        <RegisterBarShell storeName={storeName} hidePill={hideOfflineBadge} onOpenMenu={() => setDrawerOpen(true)}
+          avatar={<>
+            {cashierControl ?? <Text>{`Cashier: ${cashierName}`}</Text>}
+            {cashierControl == null && <Button onPress={onSignOut}><Text>Sign out</Text></Button>}
+          </>} />
+        <DrawerSheet open={drawerOpen} onOpenChange={setDrawerOpen}
+          onOpenOrders={onOpenOrders} onOpenCustomers={onOpenCustomers} onOpenReports={onOpenReports}
+          onOpenHealth={onOpenHealth} onOpenLogs={onOpenLogs} onOpenSettings={onOpenSettings} />
+        <View className="flex-1 p-4">
+        <View className="flex-row flex-wrap items-center justify-end gap-4">
           <ViewToggle value={viewState.view} onChange={view => setViewState({ ...viewState, view })} />
           <CatalogueDisplayOptions state={viewState} onChange={setViewState} />
-          {onOpenOrders && <Button onPress={onOpenOrders}><Text>Orders</Text></Button>}
-          {onOpenCustomers && <Button testID="customers-navigation" onPress={onOpenCustomers}><Text>Customers</Text></Button>}
-          {onOpenReports && <Button onPress={onOpenReports}><Text>Reports</Text></Button>}
-          {onOpenHealth && <Button testID="health-navigation" onPress={onOpenHealth}><Text>Store health</Text></Button>}
-          {onOpenSettings && <Button testID="settings-entry" onPress={onOpenSettings}><Text>Settings</Text></Button>}
-          {cashierControl == null && <Button onPress={onSignOut}><Text>Sign out</Text></Button>}
         </View>
         <Text>{statusLine}</Text>
         {message ? <Text>{message}</Text> : null}
@@ -155,6 +158,7 @@ export function CatalogueView({
           searchSlot={searchSlot}
           emptyState={emptyState}
         />}
+        </View>
       </View>
     </ConnectorProvider>
   );

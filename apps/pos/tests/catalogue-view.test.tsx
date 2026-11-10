@@ -58,21 +58,32 @@ test('calls onSignOut', () => {
   expect(onSignOut).toHaveBeenCalledOnce();
 });
 
-test('the Orders button opens orders', () => {
+test('the menu opens the drawer, and Orders closes it and opens orders', () => {
   const onOpenOrders = vi.fn();
-  render(<CatalogueView {...props} onOpenOrders={onOpenOrders} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Orders' }));
+  render(<><CatalogueView {...props} onOpenOrders={onOpenOrders} /><PortalHost /></>);
+  expect(screen.queryByRole('button', { name: 'Orders' })).toBeNull();
+  fireEvent.click(screen.getByTestId('pos-drawer-open-button'));
+  fireEvent.click(screen.getByTestId('drawer-item-orders'));
   expect(onOpenOrders).toHaveBeenCalledOnce();
+  expect(screen.queryByTestId('drawer-panel')).toBeNull();
 });
 
-test('the Settings button opens settings only when onOpenSettings is supplied', () => {
+test('Logs and Settings are in the drawer only when their handlers are supplied', () => {
+  const onOpenLogs = vi.fn();
   const onOpenSettings = vi.fn();
-  const { rerender } = render(<CatalogueView {...props} onOpenSettings={onOpenSettings} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+  const { rerender } = render(<><CatalogueView {...props} onOpenLogs={onOpenLogs} onOpenSettings={onOpenSettings} /><PortalHost /></>);
+  expect(screen.queryByTestId('settings-entry')).toBeNull();
+  fireEvent.click(screen.getByTestId('pos-drawer-open-button'));
+  fireEvent.click(screen.getByTestId('drawer-item-logs'));
+  expect(onOpenLogs).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByTestId('pos-drawer-open-button'));
+  fireEvent.click(screen.getByTestId('drawer-item-settings'));
   expect(onOpenSettings).toHaveBeenCalledOnce();
-  expect(screen.getByTestId('settings-entry')).not.toBeNull();
-  rerender(<CatalogueView {...props} />);
-  expect(screen.queryByRole('button', { name: 'Settings' })).toBeNull();
+  rerender(<><CatalogueView {...props} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('pos-drawer-open-button'));
+  expect(screen.getByTestId('drawer-panel')).not.toBeNull();
+  expect(screen.queryByTestId('drawer-item-logs')).toBeNull();
+  expect(screen.queryByTestId('drawer-item-settings')).toBeNull();
 });
 
 test('shows the syncing status', () => {

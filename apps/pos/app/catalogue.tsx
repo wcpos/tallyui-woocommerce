@@ -88,6 +88,7 @@ export default function Catalogue() {
       onOpenCustomers={() => router.push('/customers')}
       onOpenReports={() => router.push('/reports')}
       onOpenHealth={() => router.push('/health')}
+      onOpenLogs={() => router.push('/logs' as Href)}
       onOpenSettings={() => router.push('/settings' as Href)}
     />}</StoreSettingsGate>
     </>
