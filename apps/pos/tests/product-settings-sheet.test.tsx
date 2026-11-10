@@ -174,3 +174,30 @@ test('the close icon and Close both close the sheet', () => {
   fireEvent.click(screen.getByTestId('catalogue-settings-close'));
   expect(screen.queryByTestId('catalogue-settings')).toBeNull();
 });
+
+test('the out-of-stock switch comes before its label, as v2\'s FormSwitch', () => {
+  openSheet();
+  const row = screen.getByTestId('show-out-of-stock-row');
+  const toggle = screen.getByTestId('show-out-of-stock');
+  const label = screen.getByTestId('show-out-of-stock-label');
+  expect(row.contains(toggle) && row.contains(label)).toBe(true);
+  expect(toggle.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+test('pressing the label turns out-of-stock products on', () => {
+  openSheet({ products: [...products, decaf] });
+  fireEvent.click(screen.getByTestId('show-out-of-stock-label'));
+  expect(screen.getByTestId('show-out-of-stock').getAttribute('aria-checked')).toBe('true');
+  expect(stored().showOutOfStock).toBe(true);
+});
+
+test('a tile field label toggles its field, and the name column label does nothing', () => {
+  openSheet();
+  fireEvent.click(screen.getByTestId('tile-field-toggle-price-label'));
+  expect(screen.getByTestId('tile-field-toggle-price').getAttribute('aria-checked')).toBe('false');
+  expect(stored().tileFields.price).toBe(false);
+  fireEvent.click(screen.getByTestId('view-mode-segment-table'));
+  fireEvent.click(screen.getByTestId('column-toggle-name-label'));
+  expect(screen.getByTestId('column-toggle-name').getAttribute('aria-checked')).toBe('true');
+  expect(stored().columns.find((column: { id: string }) => column.id === 'name').visible).toBe(true);
+});
