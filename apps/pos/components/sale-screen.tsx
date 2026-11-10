@@ -9,6 +9,7 @@ import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
 import type { CatalogueEntry, ParkedOrderSummary, Payment, TenderVoid } from '@tallyui/pos';
 import { createCustomersBlockedReason, type CashierCapabilities } from '../lib/auth/capabilities';
 import { drawerFigureText, sheetMoney } from '../lib/cashier/sheet-figures';
+import { inCartCounts } from '../lib/catalogue/tile-words';
 import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
 import { useRegister } from '../lib/register/register-context';
 import { buildReceiptIdentity } from '../lib/receipts/receipt-identity';
@@ -75,7 +76,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const discountCodes = useMemo(() => props.couponCollections && outboxOrders
     ? saleDiscountCodes({ ...props.couponCollections, orders: outboxOrders }) : undefined, [props.couponCollections, outboxOrders]);
   const capabilities: ServerCapabilities = props.capabilities ?? DEFAULT_CAPABILITIES;
-  const { rounding } = useTax();
+  const tax = useTax();
+  const { rounding } = tax;
   // useSale's own coupon gate (codesFor): the UI shows only when applyCoupon can succeed.
   const couponsOffered = capabilities.coupons === true && (capabilities.orderCreate ?? 0) >= 6
     && !!discountCodes && discountCodes.supports({ capabilities, rounding });
@@ -87,6 +89,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     isStored: outbox.enabled ? outbox.isStored : undefined,
     discountCodes,
   });
+  const inCart = useMemo(() => inCartCounts(sale.order.lineItems), [sale.order.lineItems]);
   const printCount = useReceiptPrintCount(sale.stage.kind === 'receipt' ? sale.stage.posOrder.id : null);
   const { width } = useWindowDimensions();
   const [cartOpen, setCartOpen] = useState(false);
@@ -327,6 +330,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const browse = variants ? (
     <VariantChooser entries={variants} currency={currency} onSelect={onAdd} onClose={() => setVariants(undefined)} />
   ) : <CatalogueView {...props} hideOfflineBadge={width >= 900 && register?.enabled === true} onSelect={onSelect} onScan={onScan} message={message}
+    tax={tax} inCartCounts={inCart}
     viewState={viewState} onViewStateChange={setViewState}
     cashierControl={props.onSwitchCashier ? <CashierSheet name={props.cashierName} cashiers={props.cashiers ?? []}
       onSwitch={changeCashier} onAddAnother={() => changeCashier()} onSignOut={props.onSignOut}

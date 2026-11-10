@@ -5,7 +5,7 @@ import type { CatalogueViewState } from '@tallyui/pos';
 export const CATALOGUE_VIEW_KEY = 'tallywoo.catalogue_view.v1';
 export type CatalogueColumnId = 'name' | 'price' | 'stock' | 'category' | 'sku' | 'barcode';
 export interface CatalogueColumnSetting { id: CatalogueColumnId; visible: boolean }
-export type CatalogueTileFieldId = 'name' | 'price' | 'category' | 'sku' | 'barcode' | 'stock';
+export type CatalogueTileFieldId = 'name' | 'price' | 'tax' | 'on_sale' | 'category' | 'sku' | 'barcode' | 'stock';
 export type CatalogueTileFields = Record<CatalogueTileFieldId, boolean>;
 export type PanelPosition = 'left' | 'right';
 // WCPOS v2's pos-products.width: the products pane's share of the till in percent. Both panes keep at least 25%,
@@ -24,11 +24,13 @@ export const CATALOGUE_COLUMNS: { id: CatalogueColumnId; label: string; visible:
   { id: 'sku', label: 'SKU', visible: false },
   { id: 'barcode', label: 'Barcode', visible: false },
 ];
-// Grid tile fields in WCPOS v2's order, with v2's defaults (name and price on). v2's Tax, On Sale and Cost of
-// Goods Sold fields are left out: TallyUI has no tax display, no way to hide the was-price, and no COGS trait.
+// Grid tile fields in WCPOS v2's order, with v2's defaults (name and price on). v2's Cost of Goods Sold field is
+// left out: the connector has no COGS trait.
 export const CATALOGUE_TILE_FIELDS: { id: CatalogueTileFieldId; label: string; visible: boolean }[] = [
   { id: 'name', label: 'Name', visible: true },
   { id: 'price', label: 'Price', visible: true },
+  { id: 'tax', label: 'Tax', visible: false },
+  { id: 'on_sale', label: 'On Sale', visible: false },
   { id: 'category', label: 'Category', visible: false },
   { id: 'sku', label: 'SKU', visible: false },
   { id: 'barcode', label: 'Barcode', visible: false },

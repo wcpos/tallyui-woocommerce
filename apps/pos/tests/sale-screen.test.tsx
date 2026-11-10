@@ -329,6 +329,17 @@ test('wide: the grid and cart render together at 900px and Cold Brew costs $4.00
   expect(within(screen.getByText('Subtotal').parentElement!).getByText('$4.00')).not.toBeNull();
 });
 
+test('wide: a tile counts its quantity in the cart and loses the badge when the line goes', () => {
+  vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
+  render(<SaleScreen {...props} />);
+  expect(screen.queryByTestId('in-cart-tile-80')).toBeNull();
+  fireEvent.click(screen.getByTestId('product-tile-80'));
+  fireEvent.click(screen.getByTestId('product-tile-80'));
+  expect(screen.getByTestId('in-cart-tile-80').textContent).toBe('2');
+  fireEvent.click(screen.getByRole('button', { name: 'Remove Espresso' }));
+  expect(screen.queryByTestId('in-cart-tile-80')).toBeNull();
+});
+
 test('with no order transport, Cash shows the payment placeholder and Back to cart keeps the cart', () => {
   const data = new Map<string, string>();
   vi.stubGlobal('localStorage', {
