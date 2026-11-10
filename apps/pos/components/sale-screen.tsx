@@ -31,6 +31,7 @@ import type { ReceiptMailer } from '../lib/receipts/receipt-mailer';
 import { useReceiptEmailSender, type ReceiptEmailCollection } from '../lib/receipts/receipt-emails';
 import { ReceiptEmail } from './receipt-email';
 import { ReceiptIdentity } from './receipt-identity';
+import { ReceiptZoom } from './receipt-zoom';
 import { ReceiptPrintSheet } from './receipt-print-sheet';
 import { ReceiptPaidMoment } from './receipt-paid-moment';
 import { useReceiptSettings } from '../lib/receipts/receipt-settings';
@@ -421,6 +422,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         return (
         <>
           <ReceiptPaidMoment posOrder={receiptOrder} locale={props.locale} onClose={sale.newSale} />
+          <ReceiptZoom>
           <ReceiptPrintSheet orderId={orderId} autoPrint={receiptSettings.autoPrint}>
           <Receipt order={sale.stage.order} posOrder={receiptOrder} store={{ name: props.storeName }}
             cashier={props.cashierName} registerId={REGISTER_ID} newSale={sale.newSale}
@@ -442,6 +444,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             copies: printCount,
           })} />
           </ReceiptPrintSheet>
+          </ReceiptZoom>
           {mailer && receiptEmails && outbox.enabled ? <ReceiptEmail collection={receiptEmails}
             orderId={sale.stage.posOrder.id} defaultEmail={sale.stage.order.customer?.email ?? ''}
             localOnly={!receiptOrder.serverRefs?.orderId} /> : null}
