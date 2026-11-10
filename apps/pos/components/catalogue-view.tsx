@@ -13,6 +13,7 @@ import type { CatalogueFilters, QuickFilter } from '../lib/catalogue/quick-filte
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { CatalogueDisplayOptions } from './catalogue-display-options';
 import { FilterBarDialog } from './filter-bar-dialog';
+import { OfflineBadge } from './offline-badge';
 import { ProductTile } from './product-tile';
 import { QuickFilterBar } from './quick-filter-bar';
 
@@ -23,6 +24,8 @@ export interface CatalogueViewProps {
   storeName: string;
   cashierName: string;
   cashierControl?: ReactNode;
+  /** The register bar beside the catalogue carries Offline in its pill: v2 shows one Offline per window. */
+  hideOfflineBadge?: boolean;
   status: 'idle' | 'starting' | 'syncing' | 'ready' | 'error';
   notice?: { code: string; message?: string };
   onSelect?(doc: any): void;
@@ -38,7 +41,7 @@ export interface CatalogueViewProps {
 }
 
 export function CatalogueView({
-  connector, currency, products, storeName, cashierName, cashierControl, status, notice, onSignOut, onOpenOrders, onOpenReports, onOpenHealth, onOpenSettings, onSelect, onScan, message,
+  connector, currency, products, storeName, cashierName, cashierControl, hideOfflineBadge, status, notice, onSignOut, onOpenOrders, onOpenReports, onOpenHealth, onOpenSettings, onSelect, onScan, message,
   viewState: controlledViewState, onViewStateChange,
 }: CatalogueViewProps): JSX.Element {
   const [term, setTerm] = useState('');
@@ -109,6 +112,7 @@ export function CatalogueView({
       <View className="flex-1 bg-background p-4">
         <View className="flex-row flex-wrap items-center justify-between gap-4">
           <Text>{storeName}</Text>
+          {!hideOfflineBadge && <OfflineBadge testID="catalogue-bar-status" />}
           {cashierControl ?? <Text>{`Cashier: ${cashierName}`}</Text>}
           <ViewToggle value={viewState.view} onChange={view => setViewState({ ...viewState, view })} />
           <CatalogueDisplayOptions state={viewState} onChange={setViewState} />

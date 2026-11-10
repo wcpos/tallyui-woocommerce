@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { ClosureSheet, RegisterBar, RegisterColumn, RegisterCount, RegisterPanel, Switch, Text } from '@tallyui/components';
 import { Portal } from '@tallyui/primitives';
 import { useRegister } from '../lib/register/register-context';
-import { useOutbox } from '../lib/sale/outbox-context';
+import { useIsOnline } from '../lib/online/online-status';
 import { ClosurePrint } from './closure-print';
 
 export function RegisterSwitch() {
@@ -24,7 +24,7 @@ export function RegisterControls({ currency, storeName, locale, cartEmpty, child
   currency: string; storeName: string; locale?: string; cartEmpty: boolean; children: ReactNode;
 }) {
   const register = useRegister();
-  const outbox = useOutbox();
+  const online = useIsOnline();
   const [panelOpen, setPanelOpen] = useState(false);
   const [showClosure, setShowClosure] = useState(false);
   const hadCounting = useRef(false);
@@ -43,7 +43,7 @@ export function RegisterControls({ currency, storeName, locale, cartEmpty, child
   return (
     <View className="flex-1" dataSet={showClosure ? { print: 'hide' } : undefined}>
       <RegisterBar register={register} registerId={register.boundRegisterId} registerName="This till"
-        online={!outbox.enabled || outbox.state.lastRetryReason !== 'network'} multiRegister={false}
+        online={online} multiRegister={false}
         onOpenPanel={() => setPanelOpen(true)} onPressPill={() => setPanelOpen(true)} />
       <RegisterColumn register={register} registerId={register.boundRegisterId} registers={[]} onPick={() => {}}
         currency={currency} cartEmpty={cartEmpty} countSlot={<RegisterCount register={register} currency={currency} />}>
