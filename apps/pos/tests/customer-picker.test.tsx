@@ -27,6 +27,10 @@ function SaleScreen(props: ComponentProps<typeof SaleScreenWithoutHost>) {
 
 const gee: Customer = { id: '7', name: 'Gee Four', email: 'gee@example.invalid', phone: '123' };
 const summary = { id: '7', name: 'Gee Four', email: 'gee@example.invalid' };
+// The default list (search '') the picker loads on open; typed searches answer gee.
+const anna: Customer = { id: '3', name: 'Anna Bell', email: 'anna@example.invalid' };
+const annaLabel = 'Anna Bell, anna@example.invalid';
+const geeLabel = 'Gee Four, gee@example.invalid';
 const search = vi.fn<CustomerSource['search']>();
 const create = vi.fn<CustomerSource['create']>();
 const source = { search, create };
@@ -37,7 +41,7 @@ const saleProps = {
 };
 
 beforeEach(() => {
-  search.mockReset().mockResolvedValue([gee]);
+  search.mockReset().mockImplementation(async query => (query ? [gee] : [anna]));
   create.mockReset().mockResolvedValue(gee);
   onChange.mockReset();
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
@@ -96,10 +100,11 @@ test('SaleScreen explains how to grant customer creation when the known list den
 test('searches from two trimmed characters and attaches the selected summary', async () => {
   openPicker();
   expect(screen.getAllByPlaceholderText('Search Customers')).toHaveLength(1);
+  expect(search).toHaveBeenCalledExactlyOnceWith('');
   typeQuery('g');
-  expect(search).not.toHaveBeenCalled();
+  expect(search).toHaveBeenCalledExactlyOnceWith('');
   typeQuery(' g ');
-  expect(search).not.toHaveBeenCalled();
+  expect(search).toHaveBeenCalledExactlyOnceWith('');
   typeQuery('gee');
   expect(search).toHaveBeenCalledWith('gee');
   fireEvent.click(await screen.findByLabelText('Gee Four, gee@example.invalid'));
@@ -107,9 +112,76 @@ test('searches from two trimmed characters and attaches the selected summary', a
   expect(screen.queryByPlaceholderText('Search Customers')).toBeNull();
 });
 
+test('opening lists the default customers under Guest, and picking one attaches it', async () => {
+  openPicker();
+  expect(search).toHaveBeenCalledExactlyOnceWith('');
+  const option = await screen.findByLabelText(annaLabel);
+  expect(within(option).getByText('Anna Bell')).not.toBeNull();
+  expect(within(option).getByText('anna@example.invalid')).not.toBeNull();
+  const guest = screen.getByTestId('customer-option-guest');
+  expect(guest.compareDocumentPosition(option) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  fireEvent.click(option);
+  expect(onChange).toHaveBeenCalledExactlyOnceWith({ id: '3', name: 'Anna Bell', email: 'anna@example.invalid' });
+  expect(screen.queryByPlaceholderText('Search Customers')).toBeNull();
+});
+
+test('clearing the field after a typed search shows the default list again', async () => {
+  openPicker();
+  await screen.findByLabelText(annaLabel);
+  typeQuery('gee');
+  expect(await screen.findByLabelText(geeLabel)).not.toBeNull();
+  expect(screen.queryByLabelText(annaLabel)).toBeNull();
+  typeQuery('');
+  expect(await screen.findByLabelText(annaLabel)).not.toBeNull();
+  expect(screen.queryByLabelText(geeLabel)).toBeNull();
+  // The open's default list is reused, not fetched again.
+  expect(search.mock.calls).toEqual([[''], ['gee']]);
+});
+
+test('a default list that arrives after a typed search never replaces the typed results', async () => {
+  let resolveDefault!: (customers: Customer[]) => void;
+  search.mockImplementationOnce(() => new Promise(resolve => { resolveDefault = resolve; }));
+  openPicker();
+  typeQuery('gee');
+  expect(await screen.findByLabelText(geeLabel)).not.toBeNull();
+  await act(async () => { resolveDefault([anna]); });
+  expect(screen.queryByLabelText(annaLabel)).toBeNull();
+  expect(screen.getByLabelText(geeLabel)).not.toBeNull();
+  expect(screen.queryByText('No customers found')).toBeNull();
+});
+
+test('an empty default list says No customers found until the next request', async () => {
+  let resolveTyped!: (customers: Customer[]) => void;
+  search.mockResolvedValueOnce([]).mockImplementationOnce(() => new Promise(resolve => { resolveTyped = resolve; }));
+  openPicker();
+  expect(await screen.findByText('No customers found')).not.toBeNull();
+  typeQuery('gee');
+  expect(screen.queryByText('No customers found')).toBeNull();
+  await act(async () => { resolveTyped([gee]); });
+  expect(screen.getByLabelText(geeLabel)).not.toBeNull();
+  expect(screen.queryByText('No customers found')).toBeNull();
+});
+
+test('closing before the default list arrives leaves nothing behind, and reopening loads afresh', async () => {
+  let resolveDefault!: (customers: Customer[]) => void;
+  search.mockImplementationOnce(() => new Promise(resolve => { resolveDefault = resolve; }));
+  openPicker();
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  await act(async () => { resolveDefault([gee]); });
+  expect(screen.getByRole('button', { name: 'Customer: Guest' })).not.toBeNull();
+  expect(screen.queryByPlaceholderText('Search Customers')).toBeNull();
+  expect(onChange).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByTestId('cart-customer-name'));
+  expect(await screen.findByLabelText(annaLabel)).not.toBeNull();
+  expect(screen.queryByLabelText(geeLabel)).toBeNull();
+  expect(screen.queryByText('No customers found')).toBeNull();
+  expect(search.mock.calls).toEqual([[''], ['']]);
+});
+
 test('only shows results for the latest query when answers arrive out of order', async () => {
   let resolveFirst!: (customers: Customer[]) => void;
-  search.mockImplementationOnce(() => new Promise(resolve => { resolveFirst = resolve; }))
+  search.mockResolvedValueOnce([])
+    .mockImplementationOnce(() => new Promise(resolve => { resolveFirst = resolve; }))
     .mockResolvedValueOnce([{ id: '8', name: 'New Customer' }]);
   openPicker();
   typeQuery('gee');
@@ -122,19 +194,21 @@ test('only shows results for the latest query when answers arrive out of order',
   expect(onChange).toHaveBeenCalledExactlyOnceWith({ id: '8', name: 'New Customer' });
 });
 
-test('a short query clears results and invalidates a pending search', async () => {
+test('a short query shows the default list and invalidates a pending search', async () => {
   let resolvePending!: (customers: Customer[]) => void;
   openPicker();
   typeQuery('gee');
   await screen.findByLabelText('Gee Four, gee@example.invalid');
   typeQuery('g');
+  expect(await screen.findByLabelText(annaLabel)).not.toBeNull();
   expect(screen.queryByLabelText('Gee Four, gee@example.invalid')).toBeNull();
   search.mockImplementationOnce(() => new Promise(resolve => { resolvePending = resolve; }));
   typeQuery('four');
   typeQuery('');
   await act(async () => { resolvePending([gee]); });
   expect(screen.queryByLabelText('Gee Four, gee@example.invalid')).toBeNull();
-  expect(search).toHaveBeenCalledTimes(2);
+  expect(screen.getByLabelText(annaLabel)).not.toBeNull();
+  expect(search).toHaveBeenCalledTimes(3);
 });
 
 test('requires email, omits empty fields and attaches the created customer', async () => {
@@ -155,6 +229,7 @@ test('requires email, omits empty fields and attaches the created customer', asy
 });
 
 test.each(['search', 'create'] as const)('failed %s keeps the attached customer and shows the message', async method => {
+  if (method === 'search') search.mockResolvedValueOnce([anna]);
   source[method].mockRejectedValueOnce(new CustomerServiceError('network', 'Offline'));
   openPicker(gee);
   if (method === 'search') typeQuery('gee');
@@ -180,7 +255,7 @@ test('a refused create shows the store message without changing the customer', a
 });
 
 test('unauthorized search asks for sign-in without showing the underlying error', async () => {
-  search.mockRejectedValueOnce(new ConnectorUnauthorizedError('Private error detail', 401));
+  search.mockResolvedValueOnce([anna]).mockRejectedValueOnce(new ConnectorUnauthorizedError('Private error detail', 401));
   openPicker(gee);
   typeQuery('gee');
   expect(await screen.findByText('Sign in again to search customers')).not.toBeNull();

@@ -25,15 +25,25 @@ export function CustomerPicker({ source, customer, onChange, createBlockedReason
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [results, setResults] = useState<Customer[]>([]);
+  const [empty, setEmpty] = useState(false);
   const [error, setError] = useState<string>();
   const [values, setValues] = useState({ firstName: '', lastName: '', email: '', phone: '', address: '' });
   const request = useRef(0);
+  // The default list (search '') for this open, shared by the open and every short query until close.
+  const defaults = useRef<Promise<Customer[]> | null>(null);
+
+  function openPanel() {
+    setOpen(true);
+    void load('');
+  }
 
   function close() {
     request.current++;
+    defaults.current = null;
     setOpen(false);
     setCreating(false);
     setResults([]);
+    setEmpty(false);
     setError(undefined);
   }
 
@@ -48,18 +58,37 @@ export function CustomerPicker({ source, customer, onChange, createBlockedReason
       : `Could not reach the store's customers: ${(cause as Error).message}`);
   }
 
-  async function search(text: string) {
+  // v2 CustomerSearch: the store's customers before anything is typed (TallyUI 3.14.0 search '').
+  function defaultList() {
+    if (!defaults.current) {
+      const loading = source.search('');
+      defaults.current = loading;
+      // A failed default load is not kept, so the next short query asks again.
+      loading.catch(() => { if (defaults.current === loading) defaults.current = null; });
+    }
+    return defaults.current;
+  }
+
+  async function load(query: string) {
     const current = ++request.current;
     setResults([]);
+    setEmpty(false);
     setError(undefined);
-    const trimmed = text.trim();
-    if (trimmed.length < 2) return;
     try {
-      const found = await source.search(trimmed);
-      if (current === request.current) setResults(found);
+      const found = await (query ? source.search(query) : defaultList());
+      if (current === request.current) {
+        setResults(found);
+        setEmpty(found.length === 0);
+      }
     } catch (cause) {
       if (current === request.current) showError(cause);
     }
+  }
+
+  function search(text: string) {
+    const trimmed = text.trim();
+    // Under two characters, including a cleared field, shows the default list again.
+    void load(trimmed.length < 2 ? '' : trimmed);
   }
 
   async function create() {
@@ -83,7 +112,7 @@ export function CustomerPicker({ source, customer, onChange, createBlockedReason
     <View className="flex-row items-center gap-2">
       <Text className="text-muted-foreground">Customer</Text>
       <Pressable accessibilityRole="button" testID="cart-customer-name"
-        accessibilityLabel={`Customer: ${customer ? customer.name : 'Guest'}`} onPress={() => setOpen(true)}
+        accessibilityLabel={`Customer: ${customer ? customer.name : 'Guest'}`} onPress={openPanel}
         className="rounded-full border border-border bg-card px-3 min-h-9 flex-row items-center gap-2">
         <Initials testID="cart-customer-initials" text={customer ? customerInitials(customer) : 'GU'} />
         <Text numberOfLines={1}>{customer ? customer.name : 'Guest'}</Text>
@@ -103,6 +132,8 @@ export function CustomerPicker({ source, customer, onChange, createBlockedReason
           </Pressable>
           <CustomerSelect customers={results} selected={null} onSelect={pick} onSearch={search}
             placeholder="Search Customers" traits={customerTraits} />
+          {/* v2 common.no_customers_found */}
+          {empty ? <Text>No customers found</Text> : null}
           <Button disabled={createBlockedReason !== undefined} onPress={() => {
             request.current++;
             setError(undefined);
