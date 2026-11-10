@@ -55,10 +55,16 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
     if (multi) {
       taking.current = true;
       // One leg of several: cash carries what was tendered, card what applies; the leg that covers the balance completes the sale.
-      const id = method.method === 'cash'
-        ? sale.addTender({ method: 'cash', amountMinor: state.entryMinor })
-        : sale.addTender({ method: 'external', amountMinor: applied, ...(reference ? { reference } : {}) });
-      if (id === null) { taking.current = false; return; }
+      // A refusal (null) or a throw frees the next tap; the throw still propagates.
+      let id: ReturnType<typeof sale.addTender> = null;
+      try {
+        id = method.method === 'cash'
+          ? sale.addTender({ method: 'cash', amountMinor: state.entryMinor })
+          : sale.addTender({ method: 'external', amountMinor: applied, ...(reference ? { reference } : {}) });
+      } finally {
+        if (id === null) taking.current = false;
+      }
+      if (id === null) return;
       setReference('');
       if (applied >= balance) { void sale.complete(); return; }
       dispatch({ type: 'tender-recorded', rowsSinceFrom: [], balanceMinor: balance - applied });
