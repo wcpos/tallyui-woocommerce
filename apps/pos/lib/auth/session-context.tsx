@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import type { JSX, ReactNode } from 'react';
 import { buildAuthUrl, LoginError, newState, parseCallback } from './login';
 import { discoverSite } from './site';
+import type { ConnectStage } from './site';
 import { clearSession, loadCashiers, loadSession, PENDING_KEY, refreshSession, saveCashiers, saveSession, SessionExpiredError } from './session';
 import type { Session } from './session';
 
@@ -12,7 +13,7 @@ interface SessionContextValue {
   switchCashier(uuid: string): Promise<void>;
   removeCashier(uuid: string): void;
   ready: boolean;
-  startSignIn(siteInput: string): Promise<void>;
+  startSignIn(siteInput: string, onStage?: (stage: ConnectStage) => void): Promise<void>;
   completeSignIn(search: string): Session;
   signOut(): void;
 }
@@ -54,9 +55,10 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
     return () => { mounted = false; clearInterval(interval); };
   }, [updateSession]);
 
-  async function startSignIn(siteInput: string): Promise<void> {
-    const site = await discoverSite(siteInput);
+  async function startSignIn(siteInput: string, onStage?: (stage: ConnectStage) => void): Promise<void> {
+    const site = await discoverSite(siteInput, undefined, onStage);
     const state = newState();
+    onStage?.('saving');
     try {
       globalThis.sessionStorage.setItem(PENDING_KEY, JSON.stringify({ state, site }));
     } catch {}

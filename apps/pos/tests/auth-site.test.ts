@@ -80,3 +80,27 @@ test.each([{ ...index, namespaces: ['wp/v2'] }, { ...index, authentication: {} }
     });
   },
 );
+
+test('reports the discovery stages in order', async () => {
+  const fetchImpl = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>().mockResolvedValue(Response.json(index));
+  const onStage = vi.fn();
+  await discoverSite(home, fetchImpl as unknown as typeof fetch, onStage);
+  expect(onStage.mock.calls.map(call => call[0])).toEqual(['finding-store', 'checking-wordpress', 'checking-wcpos']);
+});
+
+test('stops reporting at the check that fails', async () => {
+  const fetchImpl = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>().mockResolvedValue(new Response('<html>Store</html>'));
+  const onStage = vi.fn();
+  await expect(discoverSite(home, fetchImpl as unknown as typeof fetch, onStage)).rejects.toMatchObject({
+    code: 'not_wordpress', message: 'Site does not seem to be a WordPress site',
+  });
+  expect(onStage.mock.calls.map(call => call[0])).toEqual(['finding-store', 'checking-wordpress']);
+});
+
+test('reports an older WCPOS API as outdated', async () => {
+  const fetchImpl = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
+    .mockResolvedValue(Response.json({ ...index, namespaces: ['wcpos/v1', 'wp/v2'] }));
+  await expect(discoverSite(home, fetchImpl as unknown as typeof fetch)).rejects.toMatchObject({
+    code: 'wcpos_outdated', message: 'Please update your WCPOS plugin',
+  });
+});
