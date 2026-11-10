@@ -33,6 +33,7 @@ export interface CatalogueViewProps {
   message?: string;
   onSignOut(): void;
   onOpenOrders?(): void;
+  onOpenCustomers?(): void;
   onOpenReports?(): void;
   onOpenHealth?(): void;
   onOpenSettings?(): void;
@@ -41,7 +42,7 @@ export interface CatalogueViewProps {
 }
 
 export function CatalogueView({
-  connector, currency, products, storeName, cashierName, cashierControl, hideOfflineBadge, status, notice, onSignOut, onOpenOrders, onOpenReports, onOpenHealth, onOpenSettings, onSelect, onScan, message,
+  connector, currency, products, storeName, cashierName, cashierControl, hideOfflineBadge, status, notice, onSignOut, onOpenOrders, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings, onSelect, onScan, message,
   viewState: controlledViewState, onViewStateChange,
 }: CatalogueViewProps): JSX.Element {
   const [term, setTerm] = useState('');
@@ -117,6 +118,7 @@ export function CatalogueView({
           <ViewToggle value={viewState.view} onChange={view => setViewState({ ...viewState, view })} />
           <CatalogueDisplayOptions state={viewState} onChange={setViewState} />
           {onOpenOrders && <Button onPress={onOpenOrders}><Text>Orders</Text></Button>}
+          {onOpenCustomers && <Button testID="customers-navigation" onPress={onOpenCustomers}><Text>Customers</Text></Button>}
           {onOpenReports && <Button onPress={onOpenReports}><Text>Reports</Text></Button>}
           {onOpenHealth && <Button testID="health-navigation" onPress={onOpenHealth}><Text>Store health</Text></Button>}
           {onOpenSettings && <Button testID="settings-entry" onPress={onOpenSettings}><Text>Settings</Text></Button>}
