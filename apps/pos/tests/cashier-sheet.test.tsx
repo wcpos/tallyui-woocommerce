@@ -17,6 +17,24 @@ function SaleScreen(props: SaleScreenProps) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
 }
 
+// The Cart sets no testID on a line. Each line sits in its own wrapper: the CartLine row first
+// (Qty, Item, Price when the cart is wide enough, Total cells), then the line's actions, Increase <name> among them.
+// unitPrice is undefined when the Price column folds away.
+function cartLine(name: string) {
+  // By its aria-label, not getByRole: a role query re-reads every button's name and is slow inside waitFor.
+  let node: HTMLElement | null = screen.getByLabelText(`Increase ${name}`);
+  while (node && !(node.firstElementChild && within(node.firstElementChild as HTMLElement).queryByText(name))) node = node.parentElement;
+  if (!node) throw new Error(`No cart line for ${name}`);
+  const cells = Array.from(node.firstElementChild!.children);
+  // Collapses whitespace as getByText's default normalizer does.
+  const text = (cell: Element) => cell.textContent!.replace(/\s+/g, ' ').trim();
+  return {
+    quantity: text(cells[0]),
+    unitPrice: cells.length === 4 ? text(cells[2].lastElementChild!) : undefined,
+    total: text(cells[cells.length - 1]),
+  };
+}
+
 addRxPlugin(RxDBMigrationSchemaPlugin);
 
 const props: SaleScreenProps = {
@@ -170,7 +188,7 @@ test('a held cart comes back when its cashier\'s screen mounts once the catalogu
     expect(localStorage.getItem('held-test')).toBe(cart.id);
     expect(await parkedCarts.find().exec()).toHaveLength(1);
     view.rerender(<SaleScreen {...props} parkedCarts={parkedCarts} status="ready" />);
-    await screen.findByText('$3.00 × 2');
+    await waitFor(() => expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: '$3.00', total: '$6.00' }));
     expect(await parkedCarts.find().exec()).toEqual([]);
     expect(localStorage.getItem('held-test')).toBeNull();
   });
