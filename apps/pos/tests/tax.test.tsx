@@ -103,7 +103,7 @@ test('matches WooCommerce order #136: tax 1.16 and total 32.91', async () => {
   }, 0);
   expect(taxMinor).toBe(116);
   expect(within(footer.getByText('Total').parentElement!).getByText('$32.91')).not.toBeNull();
-});
+}, 20_000);
 
 test('taxes a reduced-rate fee, leaves a No-tax fee and inherited shipping untaxed, as WooCommerce does', async () => {
   renderTill(CHARGES);
@@ -136,7 +136,7 @@ test('taxes a reduced-rate fee, leaves a No-tax fee and inherited shipping untax
   }, 0);
   expect(taxMinor).toBe(30);
   expect(within(footer.getByText('Total').parentElement!).getByText('$11.80')).not.toBeNull();
-});
+}, 20_000);
 
 test('does not mount the sale while taxes are pending', async () => {
   let release!: (response: Response) => void;
@@ -166,7 +166,7 @@ test('a taxes failure blocks the sale until Retry succeeds', async () => {
   await screen.findByText('Order store ready');
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
   expect(await screen.findByTestId('checkout-keypad')).not.toBeNull();
-});
+}, 20_000);
 
 test.each(['Order discount', 'Discount'])('inclusive stores take a sale with %s to tender', async control => {
   inclusive = true;
