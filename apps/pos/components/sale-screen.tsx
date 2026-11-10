@@ -35,6 +35,7 @@ import { RegisterControls, RegisterSwitch } from './register-controls';
 import { CancelPaymentView } from './cancel-payment-view';
 import { CashierSheet, type CashierOption } from './cashier-sheet';
 import { CouponEntry, CouponRows } from './coupon-entry';
+import { OpenOrderTabs } from './open-order-tabs';
 import { PanelResizeHandle } from './panel-resize-handle';
 
 // The till id; the bound register is the drawer.
@@ -363,6 +364,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           {/* M6's order notes can take the price-change reason via onPriceChange. */}
           <Cart sale={{ ...sale, startTender: gatedStartTender }} canEditPrice taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)}
             afterSubtotal={couponsOffered && props.couponCollections ? <CouponRows sale={sale} /> : undefined} />
+          <OpenOrderTabs parked={parked} current={sale.order} currency={currency} locale={props.locale} onSelect={onResume} onNew={onPark} onError={setMessage} />
         </>
       ) : sale.stage.kind === 'tender' ? outbox.enabled ? (props.multiplePayments === true ? (
         cancelling && sale.order.payments.length > 0 ? (
