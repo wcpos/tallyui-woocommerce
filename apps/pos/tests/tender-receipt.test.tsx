@@ -14,6 +14,7 @@ import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { takeCash } from './tender-helpers';
 
 function SaleScreen(props: ComponentProps<typeof SaleScreenWithoutHost>) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
@@ -65,12 +66,9 @@ test('cash tender records and sends one sale, prints a final receipt, and starts
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
-  expect(screen.getByText('Cash Tendered')).not.toBeNull();
+  expect(screen.getByTestId('checkout-keypad')).not.toBeNull();
   expect(screen.queryByText('Taking payment arrives in the next update')).toBeNull();
-  const complete = screen.getByRole('button', { name: 'Complete sale' });
-  const tender = within(complete.parentElement!);
-  fireEvent.change(tender.getByRole('textbox'), { target: { value: '10.00' } });
-  fireEvent.click(complete);
+  await takeCash(1000);
   const receiptOrder = await screen.findByTestId('receipt-order');
   const receipt = within(receiptOrder.parentElement!);
   expect(receipt.getByText(stores[0].name)).not.toBeNull();
@@ -96,9 +94,7 @@ test('cash tender records and sends one sale, prints a final receipt, and starts
   expect(send).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
-  const secondComplete = screen.getByRole('button', { name: 'Complete sale' });
-  fireEvent.change(within(secondComplete.parentElement!).getByRole('textbox'), { target: { value: '10.00' } });
-  fireEvent.click(secondComplete);
+  await takeCash(1000);
   await screen.findByTestId('receipt-order');
   expect(screen.queryByTestId('receipt-copy')).toBeNull();
 }, 20_000);

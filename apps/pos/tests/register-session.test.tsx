@@ -15,6 +15,7 @@ import { RegisterProvider, useRegister } from '../lib/register/register-context'
 import { useRegisterSessionsSetting } from '../lib/register/register-setting';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { takeCash } from './tender-helpers';
 
 vi.mock('@tallyui/components', async importOriginal => ({
   ...await importOriginal<typeof import('@tallyui/components')>(),
@@ -67,9 +68,7 @@ async function setup() {
 async function payCash() {
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
-  const complete = await screen.findByRole('button', { name: 'Complete sale' });
-  fireEvent.change(within(complete.parentElement!).getByRole('textbox'), { target: { value: '10.00' } });
-  fireEvent.click(complete);
+  await takeCash(1000);
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
 }
 
@@ -94,7 +93,7 @@ test('sessions on: Cash refuses without an open session and stays in the cart', 
   expect(await screen.findByText('Open the register to take payment.')).not.toBeNull();
   expect(screen.getByRole('button', { name: 'Cash' })).not.toBeNull();
   expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
-  expect(screen.queryByText('Cash Tendered')).toBeNull();
+  expect(screen.queryByTestId('checkout-keypad')).toBeNull();
   expect(await app.orders.find().exec()).toEqual([]);
   expect(app.send).not.toHaveBeenCalled();
 });
@@ -111,10 +110,9 @@ test('an opened session stamps the cash sale and envelope and still shows its re
   expect(getBoundRegisterId(doc, app.orders.database.name)).toBe(doc!.id);
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
-  const complete = await screen.findByRole('button', { name: 'Complete sale' });
+  await screen.findByTestId('checkout-keypad');
   await expect(app.register.actions.startCounting()).rejects.toBeInstanceOf(RegisterTenderInProgressError);
-  fireEvent.change(within(complete.parentElement!).getByRole('textbox'), { target: { value: '10.00' } });
-  fireEvent.click(complete);
+  await takeCash(1000);
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
   await waitFor(() => expect(app.send).toHaveBeenCalledTimes(1));
   const rows = await app.orders.find().exec();

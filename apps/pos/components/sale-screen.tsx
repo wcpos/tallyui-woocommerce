@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
-import { Button, CartBar, ParkedSales, Receipt, SplitTender, SyncStatus, Tender, Text } from '@tallyui/components';
+import { Button, CartBar, ParkedSales, Receipt, SplitTender, SyncStatus, Text } from '@tallyui/components';
 import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
 import { formatMoney } from '@tallyui/core';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
@@ -39,6 +39,7 @@ import { CouponEntry, CouponRows } from './coupon-entry';
 import { OpenOrderTabs } from './open-order-tabs';
 import { PanelResizeHandle } from './panel-resize-handle';
 import { CartWithSettings } from './cart-settings';
+import { TenderPane } from './tender-pane';
 
 // The till id; the bound register is the drawer.
 const REGISTER_ID = 'web';
@@ -405,7 +406,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             <SplitTender sale={{ ...sale, cancelTender: requestCancel, removeTender: id => { void removeLeg(id); } }} />
           </>
         )
-      ) : <Tender sale={sale} />) : (
+      ) : <TenderPane sale={sale} />) : (
         <>
           <Text>Taking payment arrives in the next update</Text>
           <Button onPress={() => sale.cancelTender()}><Text>Back to cart</Text></Button>

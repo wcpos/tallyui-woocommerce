@@ -16,6 +16,7 @@ import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import { noTaxSettings } from './fixtures/store-settings';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { takeCash } from './tender-helpers';
 
 function SaleScreen(props: SaleScreenProps) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
@@ -143,9 +144,7 @@ test('a finished sale on the receipt screen is never parked', async () => {
     await screen.findByText('Order store ready');
     fireEvent.click(screen.getByText('Espresso'));
     fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
-    const complete = screen.getByRole('button', { name: 'Complete sale' });
-    fireEvent.change(within(complete.parentElement!).getByRole('textbox'), { target: { value: '3.00' } });
-    fireEvent.click(complete);
+    await takeCash(300);
     await screen.findByTestId('receipt-order');
     await act(async () => { expect(await runBeforeLeave()).toBeNull(); });
     expect(await parkedCarts.find().exec()).toEqual([]);
