@@ -1,21 +1,24 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test } from 'vitest';
-import { createRxDatabase, type RxCollection, type RxDatabase } from 'rxdb';
+import { addRxPlugin, createRxDatabase, type RxCollection, type RxDatabase } from 'rxdb';
+import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { addPosOrderCollection, type PosOrder } from '@tallyui/pos';
 import { QueuedEmailsPanel, queuedAgo } from '../components/queued-emails-panel';
-import { receiptEmailSchema, type ReceiptEmailCollection } from '../lib/receipts/receipt-emails';
+import { receiptEmailSchema, receiptEmailMigrationStrategies, type ReceiptEmailCollection } from '../lib/receipts/receipt-emails';
 
 let db: RxDatabase;
 let collection: ReceiptEmailCollection;
 let orders: RxCollection<PosOrder>;
 
+addRxPlugin(RxDBMigrationSchemaPlugin);
+
 beforeEach(async () => {
   db = await createRxDatabase({ name: `queued_emails_${crypto.randomUUID()}`, multiInstance: false,
     storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }) });
   ({ receipt_emails: collection } = await db.addCollections<{ receipt_emails: ReceiptEmailCollection }>({
-    receipt_emails: { schema: receiptEmailSchema },
+    receipt_emails: { schema: receiptEmailSchema, migrationStrategies: receiptEmailMigrationStrategies },
   }));
   orders = await addPosOrderCollection(db);
 });
@@ -25,12 +28,12 @@ afterEach(async () => {
   await db.close();
 });
 
-test('lists waiting and failed emails oldest first with their order number', async () => {
-  await collection.insert({ id: 'b', status: 'queued', email: 'b@example.invalid', queuedAt: '2026-10-07T09:55:00.000Z' });
-  await collection.insert({ id: 'a', status: 'failed', email: 'a@example.invalid', queuedAt: '2026-10-07T07:00:00.000Z',
+test('lists waiting and failed emails with their order number and tries', async () => {
+  await collection.insert({ attempts: 1, id: 'b', status: 'queued', email: 'b@example.invalid', queuedAt: '2026-10-07T09:55:00.000Z' });
+  await collection.insert({ attempts: 2, id: 'a', status: 'failed', email: 'a@example.invalid', queuedAt: '2026-10-07T07:00:00.000Z',
     error: 'The store refused the email: bad address' });
-  await collection.insert({ id: 'c', status: 'sending', email: 'c@example.invalid', queuedAt: '2026-10-07T09:59:59.000Z' });
-  await collection.insert({ id: 'd', status: 'sent', email: 'd@example.invalid', queuedAt: '2026-10-07T09:00:00.000Z' });
+  await collection.insert({ attempts: 0, id: 'c', status: 'sending', email: 'c@example.invalid', queuedAt: '2026-10-07T09:59:59.000Z' });
+  await collection.insert({ attempts: 0, id: 'd', status: 'sent', email: 'd@example.invalid', queuedAt: '2026-10-07T09:00:00.000Z' });
   for (const id of ['a', 'b', 'c']) {
     await orders.insert({ id, createdAt: '2026-10-07T07:00:00.000Z', updatedAt: '2026-10-07T07:00:00.000Z',
       currency: 'USD', pricesIncludeTax: false, lines: [], payments: [], customer: null,
@@ -50,8 +53,8 @@ test('lists waiting and failed emails oldest first with their order number', asy
   expect(screen.getByTestId('db-queued-email-failed-a').textContent).toBe('failed');
   expect(screen.getByTestId('db-queued-email-pending-b').textContent).toBe('waiting');
   expect(screen.getByTestId('db-queued-email-pending-c').textContent).toBe('waiting');
-  expect(screen.getByText('queued 3 hours ago')).not.toBeNull();
-  expect(screen.getByText('queued 5 minutes ago')).not.toBeNull();
+  expect(screen.getByText('queued 3 hours ago · 2 tries')).not.toBeNull();
+  expect(screen.getByText('queued 5 minutes ago · 1 try')).not.toBeNull();
   expect(screen.getByText('The store refused the email: bad address')).not.toBeNull();
   expect(screen.getByTestId('db-queued-email-retry-a')).not.toBeNull();
   expect(screen.queryByTestId('db-queued-email-retry-b')).toBeNull();
@@ -63,15 +66,26 @@ test('lists waiting and failed emails oldest first with their order number', asy
   expect(await screen.findByText('b@example.invalid · #1235')).not.toBeNull();
 });
 
+test('lists failed emails first, then the rest oldest first', async () => {
+  await collection.insert({ id: 'w1', status: 'queued', email: 'w1@example.invalid', queuedAt: '2026-10-07T08:00:00.000Z', attempts: 0 });
+  await collection.insert({ id: 'f1', status: 'failed', email: 'f1@example.invalid', queuedAt: '2026-10-07T09:00:00.000Z', attempts: 0 });
+  await collection.insert({ id: 'w2', status: 'sending', email: 'w2@example.invalid', queuedAt: '2026-10-07T08:30:00.000Z', attempts: 0 });
+  await collection.insert({ id: 'f2', status: 'failed', email: 'f2@example.invalid', queuedAt: '2026-10-07T09:30:00.000Z', attempts: 0 });
+  render(<QueuedEmailsPanel collection={collection} orders={orders} now={() => new Date('2026-10-07T10:00:00.000Z')} />);
+  expect((await screen.findAllByTestId(/^db-queued-email-row-/)).map(row => row.getAttribute('data-testid')))
+    .toEqual(['db-queued-email-row-f1', 'db-queued-email-row-f2', 'db-queued-email-row-w1', 'db-queued-email-row-w2']);
+  expect(screen.getByTestId('db-queued-emails')).not.toBeNull();
+});
+
 test('shows the pending body when nothing has failed', async () => {
-  await collection.insert({ id: 'a', status: 'queued', email: 'a@example.invalid', queuedAt: '2026-10-07T09:55:00.000Z' });
+  await collection.insert({ attempts: 0, id: 'a', status: 'queued', email: 'a@example.invalid', queuedAt: '2026-10-07T09:55:00.000Z' });
   render(<QueuedEmailsPanel collection={collection} orders={orders} now={() => new Date('2026-10-07T10:00:00.000Z')} />);
   expect(await screen.findByText('1 receipt email waiting to go out')).not.toBeNull();
   expect(screen.getByText('These are waiting for another send attempt. They may be retried automatically while this device can reach your store, but delivery is not guaranteed.')).not.toBeNull();
 });
 
 test('Send again requeues a failed email', async () => {
-  await collection.insert({ id: 'a', status: 'failed', email: 'a@example.invalid', queuedAt: '2026-10-07T07:00:00.000Z', error: 'Bad address' });
+  await collection.insert({ attempts: 0, id: 'a', status: 'failed', email: 'a@example.invalid', queuedAt: '2026-10-07T07:00:00.000Z', error: 'Bad address' });
   render(<QueuedEmailsPanel collection={collection} orders={orders} now={() => new Date('2026-10-07T10:00:00.000Z')} />);
   fireEvent.click(await screen.findByTestId('db-queued-email-retry-a'));
   await waitFor(async () => {
@@ -83,7 +97,7 @@ test('Send again requeues a failed email', async () => {
 });
 
 test('Send again does nothing once the email is no longer failed', async () => {
-  const row = await collection.insert({ id: 'a', status: 'failed', email: 'a@example.invalid', queuedAt: '2026-10-07T07:00:00.000Z' });
+  const row = await collection.insert({ attempts: 0, id: 'a', status: 'failed', email: 'a@example.invalid', queuedAt: '2026-10-07T07:00:00.000Z' });
   render(<QueuedEmailsPanel collection={collection} orders={orders} now={() => new Date('2026-10-07T10:00:00.000Z')} />);
   const retry = await screen.findByTestId('db-queued-email-retry-a');
   await row.incrementalPatch({ status: 'sending' });
@@ -93,8 +107,8 @@ test('Send again does nothing once the email is no longer failed', async () => {
 });
 
 test('Remove deletes a waiting or failed email', async () => {
-  await collection.insert({ id: 'a', status: 'failed', email: 'a@example.invalid', queuedAt: '2026-10-07T07:00:00.000Z' });
-  await collection.insert({ id: 'b', status: 'queued', email: 'b@example.invalid', queuedAt: '2026-10-07T09:55:00.000Z' });
+  await collection.insert({ attempts: 0, id: 'a', status: 'failed', email: 'a@example.invalid', queuedAt: '2026-10-07T07:00:00.000Z' });
+  await collection.insert({ attempts: 0, id: 'b', status: 'queued', email: 'b@example.invalid', queuedAt: '2026-10-07T09:55:00.000Z' });
   render(<QueuedEmailsPanel collection={collection} orders={orders} now={() => new Date('2026-10-07T10:00:00.000Z')} />);
   fireEvent.click(await screen.findByTestId('db-queued-email-remove-b'));
   await waitFor(async () => expect(await collection.findOne('b').exec()).toBeNull());
@@ -103,8 +117,8 @@ test('Remove deletes a waiting or failed email', async () => {
 });
 
 test('Remove refuses an email that is already sending', async () => {
-  await collection.insert({ id: 'c', status: 'sending', email: 'c@example.invalid', queuedAt: '2026-10-07T09:59:59.000Z' });
-  await collection.insert({ id: 'a', status: 'failed', email: 'a@example.invalid', queuedAt: '2026-10-07T07:00:00.000Z' });
+  await collection.insert({ attempts: 0, id: 'c', status: 'sending', email: 'c@example.invalid', queuedAt: '2026-10-07T09:59:59.000Z' });
+  await collection.insert({ attempts: 0, id: 'a', status: 'failed', email: 'a@example.invalid', queuedAt: '2026-10-07T07:00:00.000Z' });
   render(<QueuedEmailsPanel collection={collection} orders={orders} now={() => new Date('2026-10-07T10:00:00.000Z')} />);
   fireEvent.click(await screen.findByTestId('db-queued-email-remove-c'));
   expect(await screen.findByText('Delivery has already started and can’t be cancelled. The customer may still receive this email.')).not.toBeNull();
@@ -112,11 +126,11 @@ test('Remove refuses an email that is already sending', async () => {
 });
 
 test('renders nothing when the queue is empty or only sent', async () => {
-  await collection.insert({ id: 'd', status: 'sent', email: 'd@example.invalid', queuedAt: '2026-10-07T09:00:00.000Z' });
+  await collection.insert({ attempts: 0, id: 'd', status: 'sent', email: 'd@example.invalid', queuedAt: '2026-10-07T09:00:00.000Z' });
   render(<QueuedEmailsPanel collection={collection} orders={orders} now={() => new Date('2026-10-07T10:00:00.000Z')} />);
   await waitFor(() => expect(screen.queryByTestId('db-queued-emails-callout')).toBeNull());
   await act(async () => {
-    await collection.insert({ id: 'a', status: 'queued', email: 'a@example.invalid', queuedAt: '2026-10-07T09:55:00.000Z' });
+    await collection.insert({ attempts: 0, id: 'a', status: 'queued', email: 'a@example.invalid', queuedAt: '2026-10-07T09:55:00.000Z' });
   });
   expect(await screen.findByTestId('db-queued-emails-callout')).not.toBeNull();
 });

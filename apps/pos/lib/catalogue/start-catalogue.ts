@@ -7,7 +7,7 @@ import { appStorage } from '../app-storage';
 import type { Session } from '../auth/session';
 import { fetchCashierCapabilities, type CashierCapabilities } from '../auth/capabilities';
 import { parkedCartSchema, parkedCartMigrationStrategies, type ParkedCartCollection } from '../sale/parked-carts';
-import { receiptEmailSchema, type ReceiptEmailCollection } from '../receipts/receipt-emails';
+import { receiptEmailSchema, receiptEmailMigrationStrategies, type ReceiptEmailCollection } from '../receipts/receipt-emails';
 import { fetchStoreInfo } from './store-info';
 import type { StoreInfo } from './store-info';
 
@@ -58,7 +58,7 @@ export async function startCatalogue(
     parked_carts: ParkedCartCollection; receipt_emails: ReceiptEmailCollection;
   }>({
     parked_carts: { schema: parkedCartSchema, migrationStrategies: parkedCartMigrationStrategies },
-    receipt_emails: { schema: receiptEmailSchema },
+    receipt_emails: { schema: receiptEmailSchema, migrationStrategies: receiptEmailMigrationStrategies },
   });
   const replication = startReplication({ collection: db.products, adapter: connector.replication!.products!, context });
   const couponReplication = startReplication({ collection: db.coupons, adapter: connector.replication!.coupons!, context });

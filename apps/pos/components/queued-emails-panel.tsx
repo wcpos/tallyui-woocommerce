@@ -23,7 +23,8 @@ export function QueuedEmailsPanel({ collection, orders, now = () => new Date() }
   const [message, setMessage] = useState<string | null>(null);
   useEffect(() => {
     const subscription = collection.find({ selector: { status: { $in: ['queued', 'sending', 'failed'] } },
-      sort: [{ queuedAt: 'asc' }] }).$.subscribe(docs => setRows(docs.map(doc => doc.toJSON())));
+      sort: [{ queuedAt: 'asc' }] }).$.subscribe(docs => setRows(docs.map(doc => doc.toJSON()).sort(
+        (a, b) => (a.status === 'failed') === (b.status === 'failed') ? a.queuedAt.localeCompare(b.queuedAt) : a.status === 'failed' ? -1 : 1)));
     return () => subscription.unsubscribe();
   }, [collection]);
   useEffect(() => {
@@ -74,7 +75,7 @@ export function QueuedEmailsPanel({ collection, orders, now = () => new Date() }
     : failed > 1 ? `${failed} of these could not be sent and have stopped trying. Review the reasons below, then remove them or send them again.`
     : 'These are waiting for another send attempt. They may be retried automatically while this device can reach your store, but delivery is not guaranteed.';
   return (
-    <View className="gap-3">
+    <View testID="db-queued-emails" className="gap-3">
       <View testID="db-queued-emails-callout" className="gap-3 rounded-lg border border-border p-4">
         <Text className="font-semibold">{`${rows.length} receipt email${rows.length === 1 ? '' : 's'} waiting to go out`}</Text>
         <Text>{body}</Text>
@@ -84,8 +85,8 @@ export function QueuedEmailsPanel({ collection, orders, now = () => new Date() }
           <Badge variant={row.status === 'failed' ? 'destructive' : 'warning'} label={row.status === 'failed' ? 'failed' : 'waiting'}
             testID={`db-queued-email-${row.status === 'failed' ? 'failed' : 'pending'}-${row.id}`} />
           </View>
-          <Text>{`queued ${queuedAgo(row.queuedAt, now())}`}</Text>
-          {row.error && <Text>{row.error}</Text>}
+          <Text>{`queued ${queuedAgo(row.queuedAt, now())}${row.attempts > 0 ? ` · ${row.attempts} ${row.attempts === 1 ? 'try' : 'tries'}` : ''}`}</Text>
+          {row.error ? <Text>{row.error}</Text> : null}
           <View className="flex-row gap-2">
             {row.status === 'failed' && <Button testID={`db-queued-email-retry-${row.id}`} disabled={busy}
               onPress={() => { void sendAgain(row.id); }}><Text>Send again</Text></Button>}
