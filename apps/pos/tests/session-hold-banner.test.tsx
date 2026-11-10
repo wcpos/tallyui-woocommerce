@@ -4,10 +4,11 @@ import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import type { OrderCreateEnvelope } from '@tallyui/core';
 import type { CommandTransport, PosOrder } from '@tallyui/pos';
 import { SessionHoldBanner, sessionHoldCopy } from '../components/session-hold-banner';
-import { loadSession, PENDING_KEY, saveSession } from '../lib/auth/session';
+import { loadSession, PENDING_KEY, saveSession, SessionExpiredError } from '../lib/auth/session';
 import type { Session } from '../lib/auth/session';
 import { SessionProvider, useSession } from '../lib/auth/session-context';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
+import { setBeforeLeave } from '../lib/sale/before-leave';
 
 let session: Session;
 let sessionApi: ReturnType<typeof useSession>;
@@ -33,6 +34,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  setBeforeLeave(null);
   vi.unstubAllGlobals();
 });
 
@@ -140,10 +142,10 @@ test('Log in signs in again for the held site and the new session ends the hold,
   expect(screen.queryByTestId('session-hold-banner')).toBeNull();
   await act(async () => { answer(new Response(null, { status: 401 })); });
   await waitFor(() => expect(screen.getByTestId('session-hold-banner-title').textContent).toBe('1 sale waiting to sync'));
-  fireEvent.click(screen.getByTestId('session-hold-login'));
+  await act(async () => { fireEvent.click(screen.getByTestId('session-hold-login')); });
   const pending = JSON.parse(sessionStorage.getItem(PENDING_KEY)!);
   expect(pending.site).toEqual(session.site);
-  expect(pending.mode).toBeUndefined();
+  expect(pending.mode).toBe('reauth');
   expect(pending.state).toEqual(expect.any(String));
   expect(pending.state.length).toBeGreaterThan(0);
   act(() => {
@@ -154,4 +156,67 @@ test('Log in signs in again for the held site and the new session ends the hold,
   expect(loadSession()?.tokens.accessToken).toBe('renewed');
   assert(outboxApi.enabled);
   expect((await outboxApi.orders!.findOne('sale-1').exec())?.syncStatus).toBe('pending');
+}, 20_000);
+
+test('Log in is refused with the reason and does not redirect when leaving is refused', async () => {
+  renderTill();
+  await screen.findByText('Order store ready');
+  await act(async () => { answer(new Response(null, { status: 401 })); });
+  await screen.findByTestId('session-hold-login');
+  const assign = vi.fn();
+  vi.stubGlobal('window', new Proxy(window, {
+    get: (target, key) => key === 'location' ? { ...target.location, assign } : Reflect.get(target, key),
+  }));
+  setBeforeLeave(async () => 'Finish or cancel the payment first.');
+  await act(async () => { fireEvent.click(screen.getByTestId('session-hold-login')); });
+  expect(screen.getByTestId('session-hold-refusal').textContent).toBe('Finish or cancel the payment first.');
+  expect(assign).not.toHaveBeenCalled();
+  setBeforeLeave(null);
+}, 20_000);
+
+test('Log in shows a thrown error and can be pressed again', async () => {
+  renderTill();
+  await screen.findByText('Order store ready');
+  await act(async () => { answer(new Response(null, { status: 401 })); });
+  await screen.findByTestId('session-hold-login');
+  const assign = vi.fn();
+  vi.stubGlobal('window', new Proxy(window, {
+    get: (target, key) => key === 'location' ? { ...target.location, assign } : Reflect.get(target, key),
+  }));
+  const handler = vi.fn(async () => { throw new Error('Park failed'); });
+  setBeforeLeave(handler);
+  await act(async () => { fireEvent.click(screen.getByTestId('session-hold-login')); });
+  expect(screen.getByTestId('session-hold-refusal').textContent).toBe('Park failed');
+  expect(assign).not.toHaveBeenCalled();
+  await act(async () => { fireEvent.click(screen.getByTestId('session-hold-login')); });
+  expect(handler).toHaveBeenCalledTimes(2);
+  expect(assign).not.toHaveBeenCalled();
+}, 20_000);
+
+test('a re-auth that returns as another user keeps the held cashier in the roster', async () => {
+  renderTill();
+  await screen.findByText('Order store ready');
+  await act(async () => { answer(new Response(null, { status: 401 })); });
+  await screen.findByTestId('session-hold-login');
+  await act(async () => { fireEvent.click(screen.getByTestId('session-hold-login')); });
+  const pending = JSON.parse(sessionStorage.getItem(PENDING_KEY)!);
+  expect(pending.mode).toBe('reauth');
+  const uuid = '22345678-1234-1234-1234-123456789abc';
+  act(() => {
+    sessionApi.completeSignIn(`?state=${pending.state}&access_token=other&refresh_token=refresh-b&expires_at=${session.tokens.expiresAt + 86400}&id=3&uuid=${uuid}&display_name=Sam`);
+  });
+  expect(sessionApi.session?.tokens.user.uuid).toBe(uuid);
+  expect(sessionApi.cashiers.map(entry => entry.tokens.user.uuid)).toContain(session.tokens.user.uuid);
+}, 20_000);
+
+test('an expiry that lands after the session changed does not hold the new session', async () => {
+  let reject!: (error: Error) => void;
+  vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>((_resolve, fail) => { reject = fail; })));
+  renderTill();
+  await screen.findByText('Order store ready');
+  act(() => { sessionApi.signOut(); });
+  await act(async () => { reject(new SessionExpiredError()); });
+  await waitFor(() => expect(sessionApi.ready).toBe(true));
+  expect(sessionApi.held).toBe(false);
+  expect(screen.queryByTestId('session-hold-banner')).toBeNull();
 }, 20_000);

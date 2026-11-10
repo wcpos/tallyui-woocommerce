@@ -5,12 +5,13 @@ import { discoverSite } from './site';
 import type { ConnectStage } from './site';
 import { clearSession, loadCashiers, loadSession, PENDING_KEY, refreshSession, saveCashiers, saveSession, SessionExpiredError } from './session';
 import type { Session } from './session';
+import { runBeforeLeave } from '../sale/before-leave';
 
 interface SessionContextValue {
   session: Session | null;
   /** True while the store refused this session's refresh: it is kept, not cleared, until the cashier signs in again. */
   held: boolean;
-  startReauth(): void;
+  startReauth(): Promise<string | null>;
   cashiers: Session[];
   startAddCashier(): void;
   switchCashier(uuid: string): Promise<void>;
@@ -81,14 +82,17 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
     window.location.assign(buildAuthUrl(site.authUrl, `${window.location.origin}/auth/callback`, state));
   }
 
-  function startReauth(): void {
+  async function startReauth(): Promise<string | null> {
     const active = current.current;
-    if (!active) return;
+    if (!active) return null;
+    const refusal = await runBeforeLeave();
+    if (refusal !== null) return refusal;
     const state = newState();
     try {
-      globalThis.sessionStorage.setItem(PENDING_KEY, JSON.stringify({ state, site: active.site }));
+      globalThis.sessionStorage.setItem(PENDING_KEY, JSON.stringify({ state, site: active.site, mode: 'reauth' }));
     } catch {}
     window.location.assign(buildAuthUrl(active.site.authUrl, `${window.location.origin}/auth/callback`, state));
+    return null;
   }
 
   const completeSignIn = useCallback((search: string): Session => {
@@ -100,6 +104,9 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
     const next = { site: pending.site, tokens: parseCallback(search, pending.state) };
     const active = current.current ?? loadSession();
     const add = pending.mode === 'add' && active && active.site.home === next.site.home && active.tokens.user.uuid !== next.tokens.user.uuid;
+    // A re-auth that comes back as someone else keeps the held cashier as another cashier, so their queued sales stay reachable.
+    const kept = pending.mode === 'reauth' && active && active.site.home === next.site.home
+      && active.tokens.user.uuid !== next.tokens.user.uuid ? active : undefined;
     if (!add) {
       saveSession(next);
       updateSession(next);
@@ -110,7 +117,8 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
       const index = others.findIndex(entry => entry.tokens.user.uuid === next.tokens.user.uuid);
       const updated = { ...entries, [next.site.home]: add
         ? index === -1 ? [...others, next] : others.map((entry, i) => i === index ? next : entry)
-        : others.filter(entry => entry.tokens.user.uuid !== next.tokens.user.uuid) };
+        : [...others.filter(entry => entry.tokens.user.uuid !== next.tokens.user.uuid
+          && entry.tokens.user.uuid !== kept?.tokens.user.uuid), ...(kept ? [kept] : [])] };
       saveCashiers(updated);
       setRoster(updated);
     }
