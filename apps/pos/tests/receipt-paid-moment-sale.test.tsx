@@ -55,7 +55,7 @@ function gatedTransport() {
 }
 
 // split-tender.test.tsx: a $6.00 sale paid on the ledger as a cash leg of 200 and a card leg of 400, the last leg completing it.
-async function paySplit(transport: { send: CommandTransport<OrderCreateEnvelope>['send'] }) {
+async function paySplit(transport: { send: CommandTransport<OrderCreateEnvelope>['send'] }, untilReceipt = true) {
   render(
     <SessionProvider>
       <OutboxProvider transportFor={() => transport} storage={getRxStorageMemory()}>
@@ -74,7 +74,7 @@ async function paySplit(transport: { send: CommandTransport<OrderCreateEnvelope>
   takeLeg(200);
   expect(screen.getByTestId('checkout-ledger-remaining').textContent).toBe('$4.00');
   takeLeg(400, 'pos_card');
-  await screen.findByTestId('receipt-order');
+  if (untilReceipt) await screen.findByTestId('receipt-order');
 }
 
 test('with auto print on, a split sale prints once, waits on the store, and Close starts a new sale', async () => {
@@ -105,4 +105,42 @@ test('with auto print off, the receipt keeps New sale and never prints', async (
   expect(screen.getByRole('button', { name: 'New sale' })).not.toBeNull();
   expect(screen.queryByRole('button', { name: 'Print receipt · New sale' })).toBeNull();
   expect(print).not.toHaveBeenCalled();
+}, 20_000);
+
+test('with auto show and auto print off, a sale goes straight back to an empty till', async () => {
+  localStorage.setItem(RECEIPT_SETTINGS_KEY, '{"autoPrint":false,"autoShow":false}');
+  const print = vi.spyOn(window, 'print').mockImplementation(() => {});
+  const { transport, release } = gatedTransport();
+  release();
+  await paySplit(transport, false);
+  expect(await screen.findByText('Scan or tap a product to start a sale.')).not.toBeNull();
+  await waitFor(() => expect(transport.send).toHaveBeenCalled());
+  expect(screen.queryByTestId('receipt-order')).toBeNull();
+  expect(screen.queryByTestId('receipt-print-area')).toBeNull();
+  expect(print).not.toHaveBeenCalled();
+}, 20_000);
+
+test('with auto show off and auto print on, a sale prints once and the till returns to an empty cart', async () => {
+  localStorage.setItem(RECEIPT_SETTINGS_KEY, '{"autoPrint":true,"autoShow":false}');
+  const print = vi.spyOn(window, 'print').mockImplementation(() => {});
+  const { transport, release } = gatedTransport();
+  release();
+  await paySplit(transport, false);
+  expect(await screen.findByText('Scan or tap a product to start a sale.')).not.toBeNull();
+  expect(print).toHaveBeenCalledTimes(1);
+  expect(screen.queryByTestId('receipt-order')).toBeNull();
+  expect(screen.queryByTestId('receipt-print-area')).toBeNull();
+}, 20_000);
+
+test('with auto show off and auto print on, a failed print keeps the receipt with the error and Print again', async () => {
+  localStorage.setItem(RECEIPT_SETTINGS_KEY, '{"autoPrint":true,"autoShow":false}');
+  const print = vi.spyOn(window, 'print').mockImplementation(() => { throw new Error('blocked'); });
+  const { transport, release } = gatedTransport();
+  release();
+  await paySplit(transport, false);
+  expect((await screen.findByTestId('print-sheet-error')).textContent).toBe('The receipt did not print: blocked');
+  expect(print).toHaveBeenCalledTimes(1);
+  expect(screen.getByTestId('receipt-order')).not.toBeNull();
+  expect(screen.getByTestId('receipt-print-again')).not.toBeNull();
+  expect(screen.queryByText('Scan or tap a product to start a sale.')).toBeNull();
 }, 20_000);

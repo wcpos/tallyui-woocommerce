@@ -43,7 +43,7 @@ function openCartSettings() {
 
 test('loadReceiptSettings falls back to off for missing, broken or unreadable storage', () => {
   const storage = memoryStorage();
-  expect(loadReceiptSettings(storage)).toEqual({ autoPrint: false });
+  expect(loadReceiptSettings(storage)).toEqual({ autoPrint: false, autoShow: true });
   storage.setItem(RECEIPT_SETTINGS_KEY, 'not json');
   expect(loadReceiptSettings(storage).autoPrint).toBe(false);
   storage.setItem(RECEIPT_SETTINGS_KEY, '{"autoPrint":"yes"}');
@@ -55,10 +55,10 @@ test('loadReceiptSettings falls back to off for missing, broken or unreadable st
 });
 
 test('saveReceiptSettings writes JSON and ignores a refusing storage', () => {
-  saveReceiptSettings({ autoPrint: true });
-  expect(localStorage.getItem(RECEIPT_SETTINGS_KEY)).toBe('{"autoPrint":true}');
+  saveReceiptSettings({ autoPrint: true, autoShow: true });
+  expect(localStorage.getItem(RECEIPT_SETTINGS_KEY)).toBe('{"autoPrint":true,"autoShow":true}');
   const refusing = { ...memoryStorage(), setItem: () => { throw new Error('quota'); } } as Storage;
-  expect(() => saveReceiptSettings({ autoPrint: false }, refusing)).not.toThrow();
+  expect(() => saveReceiptSettings({ autoPrint: false, autoShow: true }, refusing)).not.toThrow();
 });
 
 test('useReceiptSettings follows a save made elsewhere', () => {
@@ -68,7 +68,7 @@ test('useReceiptSettings follows a save made elsewhere', () => {
   }
   render(<Probe />);
   expect(screen.getByTestId('probe').textContent).toBe('off');
-  act(() => saveReceiptSettings({ autoPrint: true }));
+  act(() => saveReceiptSettings({ autoPrint: true, autoShow: true }));
   expect(screen.getByTestId('probe').textContent).toBe('on');
 });
 
@@ -111,22 +111,44 @@ test('a failed auto print shows the error and Print again', () => {
   expect(screen.getByTestId('receipt-print-again')).not.toBeNull();
 });
 
-test('the Cart Settings switch saves auto print and shows the hint', () => {
+test('the Cart Settings switch saves auto print, with no hint while auto show is on', () => {
   const autoPrint = openCartSettings();
   expect(autoPrint().getAttribute('aria-checked')).toBe('false');
   expect(screen.queryByTestId('cart-setting-auto-print-hint')).toBeNull();
   fireEvent.click(autoPrint());
-  expect(localStorage.getItem(RECEIPT_SETTINGS_KEY)).toBe('{"autoPrint":true}');
+  expect(localStorage.getItem(RECEIPT_SETTINGS_KEY)).toBe('{"autoPrint":true,"autoShow":true}');
   expect(autoPrint().getAttribute('aria-checked')).toBe('true');
+  expect(screen.queryByTestId('cart-setting-auto-print-hint')).toBeNull();
+});
+
+test('loadReceiptSettings keeps auto show on unless it is stored as exactly false', () => {
+  const storage = memoryStorage();
+  storage.setItem(RECEIPT_SETTINGS_KEY, '{"autoPrint":true}');
+  expect(loadReceiptSettings(storage)).toEqual({ autoPrint: true, autoShow: true });
+  storage.setItem(RECEIPT_SETTINGS_KEY, '{"autoShow":false}');
+  expect(loadReceiptSettings(storage).autoShow).toBe(false);
+  storage.setItem(RECEIPT_SETTINGS_KEY, '{"autoShow":"no"}');
+  expect(loadReceiptSettings(storage).autoShow).toBe(true);
+});
+
+test('the auto show switch saves both fields and the hint needs auto print on with auto show off', () => {
+  const autoPrint = openCartSettings();
+  const autoShow = () => screen.getByRole('switch', { name: 'Automatically show receipt after checkout' });
+  expect(autoShow().getAttribute('aria-checked')).toBe('true');
+  fireEvent.click(autoShow());
+  expect(localStorage.getItem(RECEIPT_SETTINGS_KEY)).toBe('{"autoPrint":false,"autoShow":false}');
+  expect(screen.queryByTestId('cart-setting-auto-print-hint')).toBeNull();
+  fireEvent.click(autoPrint());
+  expect(localStorage.getItem(RECEIPT_SETTINGS_KEY)).toBe('{"autoPrint":true,"autoShow":false}');
   expect(screen.getByTestId('cart-setting-auto-print-hint').textContent)
     .toBe('Without a receipt printer, the print dialog opens after each sale.');
 });
 
 test('Restore Default Settings turns auto print off', () => {
-  localStorage.setItem(RECEIPT_SETTINGS_KEY, '{"autoPrint":true}');
+  localStorage.setItem(RECEIPT_SETTINGS_KEY, '{"autoPrint":true,"autoShow":false}');
   const autoPrint = openCartSettings();
   expect(autoPrint().getAttribute('aria-checked')).toBe('true');
   fireEvent.click(screen.getByTestId('ui-settings-restore-defaults'));
-  expect(localStorage.getItem(RECEIPT_SETTINGS_KEY)).toBe('{"autoPrint":false}');
+  expect(localStorage.getItem(RECEIPT_SETTINGS_KEY)).toBe('{"autoPrint":false,"autoShow":true}');
   expect(autoPrint().getAttribute('aria-checked')).toBe('false');
 });
