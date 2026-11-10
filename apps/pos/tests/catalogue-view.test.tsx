@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
@@ -99,6 +99,55 @@ test('shows notices and the error status on the single status line', () => {
   expect(screen.getByText('auth')).not.toBeNull();
   rerender(<CatalogueView {...props} status="error" />);
   expect(screen.getByText('Sync failed')).not.toBeNull();
+});
+
+const ten = Array.from({ length: 10 }, (_, i) => ({ ...products[0], id: 1000 + i, name: i < 2 ? `Zebra ${i}` : `Plain ${i}`, sku: `TEN-${i}`, global_unique_id: '' }));
+
+test('the footer counts the products, or the shown of the total while a search narrows them', () => {
+  render(<CatalogueView {...props} products={ten} />);
+  expect(screen.getByTestId('data-table-count').textContent).toBe('10 products');
+  fireEvent.change(screen.getByPlaceholderText('Search name, SKU or barcode'), { target: { value: 'Zebra' } });
+  expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 2 of 10');
+  cleanup();
+  render(<CatalogueView {...props} products={[products[0]]} />);
+  expect(screen.getByTestId('data-table-count').textContent).toBe('1 product');
+});
+
+test('the footer count shows syncing and a failed sync', () => {
+  const { rerender } = render(<CatalogueView {...props} status="syncing" />);
+  expect(screen.getByTestId('data-table-count').textContent).toBe('Syncing products…');
+  rerender(<CatalogueView {...props} status="error" />);
+  expect(screen.getByTestId('data-table-count').textContent).toBe('Sync failed');
+});
+
+test('Sync calls onSync once and stays disabled while it is pending or the catalogue is syncing', async () => {
+  let finish!: () => void;
+  const onSync = vi.fn(() => new Promise<void>(resolve => { finish = resolve; }));
+  const { rerender } = render(<CatalogueView {...props} onSync={onSync} />);
+  const button = () => screen.getByTestId('catalogue-sync');
+  expect(button().getAttribute('aria-disabled')).not.toBe('true');
+  fireEvent.click(button());
+  fireEvent.click(button());
+  expect(onSync).toHaveBeenCalledOnce();
+  expect(button().getAttribute('aria-disabled')).toBe('true');
+  await act(async () => { finish(); });
+  expect(button().getAttribute('aria-disabled')).not.toBe('true');
+  rerender(<CatalogueView {...props} onSync={onSync} status="syncing" />);
+  expect(button().getAttribute('aria-disabled')).toBe('true');
+});
+
+test('a rejected sync is caught and frees the button', async () => {
+  const onSync = vi.fn(() => Promise.reject(new Error('offline')));
+  render(<CatalogueView {...props} onSync={onSync} />);
+  await act(async () => { fireEvent.click(screen.getByTestId('catalogue-sync')); });
+  expect(screen.getByTestId('catalogue-sync').getAttribute('aria-disabled')).not.toBe('true');
+});
+
+test('there is no Sync button without onSync, and the footer row comes after the grid', () => {
+  render(<CatalogueView {...props} />);
+  expect(screen.queryByTestId('catalogue-sync')).toBeNull();
+  const footer = screen.getByTestId('data-table-caption-row');
+  expect(screen.getByTestId('product-tile-80').compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
 test('distinguishes an empty catalogue from an unmatched search', () => {
