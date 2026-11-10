@@ -27,3 +27,14 @@ test('forwards the order and email with the latest context on every send', async
   expect(emailReceipt).toHaveBeenNthCalledWith(2, { ...context, headers: { Authorization: 'Bearer second' } }, '116', 'c@d.e');
   expect(getContext).toHaveBeenCalledTimes(2);
 });
+
+test('forwards saveToBilling only when the cashier switched it on', async () => {
+  const emailReceipt = vi.fn(async (_context: SyncContext, _orderId: string, _email: string, _options?: { saveToBilling?: boolean }) => {});
+  const mailer = receiptMailer({ ...createWooCommerceConnector(), emailReceipt }, () => context)!;
+  await mailer.send('115', 'a@b.c', { saveToBilling: true });
+  expect(emailReceipt).toHaveBeenNthCalledWith(1, context, '115', 'a@b.c', { saveToBilling: true });
+  await mailer.send('116', 'c@d.e', { saveToBilling: false });
+  expect(emailReceipt).toHaveBeenNthCalledWith(2, context, '116', 'c@d.e');
+  await mailer.send('117', 'e@f.g');
+  expect(emailReceipt).toHaveBeenNthCalledWith(3, context, '117', 'e@f.g');
+});

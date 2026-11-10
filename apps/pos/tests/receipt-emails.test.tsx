@@ -30,7 +30,7 @@ function SaleScreen(props: ComponentProps<typeof SaleScreenWithoutHost>) {
 }
 
 const email = 'gee@example.invalid';
-const queuedText = 'Receipt email queued. It sends when this sale has synced and the till is online.';
+const queuedText = 'Receipt email queued';
 let db: RxDatabase;
 let collection: ReceiptEmailCollection;
 let orders: RxCollection<PosOrder>;
@@ -76,6 +76,11 @@ const request = () => collection.findOne('sale').exec();
 const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
 const tick = () => act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
 const start = () => renderHook(() => useReceiptEmailSender({ collection, mailer, orders, now, sleep }));
+async function sendFromDialog() {
+  fireEvent.click(screen.getByRole('button', { name: 'Email Receipt' }));
+  await vi.waitFor(() => screen.getByLabelText('Email Address'));
+  fireEvent.click(screen.getByTestId('receipt-email-send'));
+}
 
 test('waits for sync, then the orders change sends once using the server order id', async () => {
   const sale = await order();
@@ -88,7 +93,7 @@ test('waits for sync, then the orders change sends once using the server order i
   expect((await request())?.status).toBe('queued');
   await act(async () => { await sale.incrementalPatch({ syncStatus: 'applied', serverRefs: { orderId: '115', totalMinor: 300 } }); });
   await vi.waitFor(async () => expect((await request())?.status).toBe('sent'));
-  expect(send).toHaveBeenCalledExactlyOnceWith('115', email);
+  expect(send).toHaveBeenCalledExactlyOnceWith('115', email, undefined);
   expect((await request())?.sentAt).toEqual(expect.any(String));
   await tick();
   expect(send).toHaveBeenCalledTimes(1);
@@ -107,15 +112,15 @@ test('waits offline and sends once on the online event', async () => {
   expect((await request())?.attempts).toBe(0);
   act(() => window.dispatchEvent(new Event('online')));
   await vi.waitFor(async () => expect((await request())?.status).toBe('sent'));
-  expect(send).toHaveBeenCalledExactlyOnceWith('115', email);
+  expect(send).toHaveBeenCalledExactlyOnceWith('115', email, undefined);
 });
 
 test('a failed send is not retried by ticks; Send again queues exactly one more attempt', async () => {
   await order('sale', true);
   send.mockRejectedValueOnce(new CustomerServiceError('invalid', 'Invalid order ID'));
   start();
-  render(<ReceiptEmail collection={collection} orderId="sale" defaultEmail={email} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Email receipt' }));
+  render(<><ReceiptEmail collection={collection} orderId="sale" defaultEmail={email} /><PortalHost /></>);
+  await sendFromDialog();
   await vi.waitFor(() => expect(screen.getByText('The store refused the email: Invalid order ID')).not.toBeNull());
   expect((await request())?.status).toBe('failed');
   await tick();
@@ -123,9 +128,9 @@ test('a failed send is not retried by ticks; Send again queues exactly one more 
   act(() => window.dispatchEvent(new Event('online')));
   await settle();
   expect(send).toHaveBeenCalledTimes(1);
-  fireEvent.click(screen.getByRole('button', { name: 'Send again' }));
-  await vi.waitFor(() => expect(screen.getByText(`Receipt emailed to ${email}`)).not.toBeNull());
-  expect(send).toHaveBeenNthCalledWith(2, '115', email);
+  await sendFromDialog();
+  await vi.waitFor(() => expect(screen.getByText('Email sent')).not.toBeNull());
+  expect(send).toHaveBeenNthCalledWith(2, '115', email, undefined);
   expect(send).toHaveBeenCalledTimes(2);
   expect((await request())?.error).toBe('');
   expect((await request())?.attempts).toBe(1);
@@ -138,14 +143,14 @@ test('recovers an interrupted send as queued and posts it once', async () => {
   await collection.insert({ id: 'sale', email, status: 'sending', queuedAt: new Date().toISOString(), attempts: 0 });
   start();
   await vi.waitFor(async () => expect((await request())?.status).toBe('sent'));
-  expect(send).toHaveBeenCalledExactlyOnceWith('115', email);
+  expect(send).toHaveBeenCalledExactlyOnceWith('115', email, undefined);
   expect((await request())?.attempts).toBe(1);
 });
 
 test('validates addresses and shows the refusal without queuing', async () => {
   await expect(queueReceiptEmail(collection, 'sale', 'nobody')).rejects.toThrow('Enter an email address');
-  render(<ReceiptEmail collection={collection} orderId="sale" defaultEmail="nobody" />);
-  fireEvent.click(screen.getByRole('button', { name: 'Email receipt' }));
+  render(<><ReceiptEmail collection={collection} orderId="sale" defaultEmail="nobody" /><PortalHost /></>);
+  await sendFromDialog();
   await vi.waitFor(() => expect(screen.getByText('Enter an email address')).not.toBeNull());
   expect(await request()).toBeNull();
 });
@@ -156,7 +161,7 @@ test('upserts one trimmed request per order and clears error and sentAt', async 
     sentAt: '2026-01-01T00:01:00.000Z', error: 'Previous error' });
   const now = new Date('2026-02-01T00:00:00.000Z');
   await queueReceiptEmail(collection, 'sale', ' a@b.c ', now);
-  expect((await request())?.toJSON()).toEqual({ id: 'sale', email: 'a@b.c', status: 'queued', queuedAt: now.toISOString(), attempts: 0 });
+  expect((await request())?.toJSON()).toEqual({ id: 'sale', email: 'a@b.c', status: 'queued', queuedAt: now.toISOString(), attempts: 0, saveToBilling: false });
   expect(await collection.find().exec()).toHaveLength(1);
 });
 
@@ -186,7 +191,7 @@ test.each([
   await settle();
   expect((await request())?.status).toBe('failed');
   expect((await request())?.error).toBe(expected);
-  expect(send).toHaveBeenCalledExactlyOnceWith('115', email);
+  expect(send).toHaveBeenCalledExactlyOnceWith('115', email, undefined);
 });
 
 test('sends oldest first, persists sending before the call and stays single-flight', async () => {
@@ -199,7 +204,7 @@ test('sends oldest first, persists sending before the call and stays single-flig
   send.mockImplementationOnce(async () => { await delivered; });
   start();
   await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
-  expect(send).toHaveBeenNthCalledWith(1, '115', 'older@example.invalid');
+  expect(send).toHaveBeenNthCalledWith(1, '115', 'older@example.invalid', undefined);
   expect((await collection.findOne('other').exec())?.status).toBe('sending');
   expect((await request())?.status).toBe('queued');
   await tick();
@@ -208,7 +213,7 @@ test('sends oldest first, persists sending before the call and stays single-flig
   expect(send).toHaveBeenCalledTimes(1);
   await act(async () => { finish(); });
   await vi.waitFor(async () => expect((await request())?.status).toBe('sent'));
-  expect(send).toHaveBeenNthCalledWith(2, '115', email);
+  expect(send).toHaveBeenNthCalledWith(2, '115', email, undefined);
   expect(send).toHaveBeenCalledTimes(2);
   expect(sleep).toHaveBeenCalledExactlyOnceWith(SEND_SPACING_MS);
 });
@@ -264,7 +269,7 @@ test('a connectivity failure stops the pass', async () => {
   expect((await request())?.toJSON()).toMatchObject({ status: 'queued', attempts: 0 });
   await tick();
   await vi.waitFor(async () => expect((await request())?.status).toBe('sent'));
-  expect(send).toHaveBeenNthCalledWith(2, '115', email);
+  expect(send).toHaveBeenNthCalledWith(2, '115', email, undefined);
   expect((await collection.findOne('other').exec())?.toJSON()).toMatchObject({ status: 'queued', attempts: 1 });
 });
 
@@ -425,21 +430,39 @@ test.each([true, false])('completed sale receipt UI, mailer available: %s', asyn
   fireEvent.click(complete);
   await vi.waitFor(() => expect(screen.getByTestId('receipt-order')).not.toBeNull());
   if (available) {
-    expect((screen.getByPlaceholderText('Email address') as HTMLInputElement).value).toBe(email);
-    fireEvent.click(screen.getByRole('button', { name: 'Email receipt' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Email Receipt' }));
+    expect((await vi.waitFor(() => screen.getByLabelText('Email Address')) as HTMLInputElement).value).toBe(email);
+    expect(screen.getByTestId('receipt-email-send').textContent).toBe('Send when online');
+    fireEvent.click(screen.getByTestId('receipt-email-send'));
     await vi.waitFor(() => expect(screen.getByText(queuedText)).not.toBeNull());
+    expect(screen.queryByLabelText('Email Address')).toBeNull();
     expect(send).not.toHaveBeenCalled();
     await act(async () => { sync(); });
     await vi.waitFor(() => expect(screen.getByText('Sending the receipt…')).not.toBeNull());
-    expect(send).toHaveBeenCalledExactlyOnceWith('115', email);
+    expect(send).toHaveBeenCalledExactlyOnceWith('115', email, undefined);
     await act(async () => { finish(); });
-    await vi.waitFor(() => expect(screen.getByText(`Receipt emailed to ${email}`)).not.toBeNull());
+    await vi.waitFor(() => expect(screen.getByText('Email sent')).not.toBeNull());
   } else {
-    expect(screen.queryByPlaceholderText('Email address')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Email receipt' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Email Receipt' })).toBeNull();
     await act(async () => { sync(); finish(); });
     expect(await collection.find().exec()).toEqual([]);
     expect(send).not.toHaveBeenCalled();
   }
   await vi.waitFor(() => expect(screen.getByText('Sales are up to date.')).not.toBeNull());
 }, 20_000);
+
+test('a queued email keeps Save to Billing for the send', async () => {
+  await order('sale', true);
+  await queueReceiptEmail(collection, 'sale', email, undefined, { saveToBilling: true });
+  start();
+  await vi.waitFor(async () => expect((await request())?.status).toBe('sent'));
+  expect(send).toHaveBeenCalledExactlyOnceWith('115', email, { saveToBilling: true });
+});
+
+test('an email queued without the switch sends without Save to Billing', async () => {
+  await order('sale', true);
+  await queueReceiptEmail(collection, 'sale', email);
+  start();
+  await vi.waitFor(async () => expect((await request())?.status).toBe('sent'));
+  expect(send).toHaveBeenCalledExactlyOnceWith('115', email, undefined);
+});

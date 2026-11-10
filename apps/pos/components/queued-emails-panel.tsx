@@ -46,7 +46,9 @@ export function QueuedEmailsPanel({ collection, orders, now = () => new Date() }
     setMessage(null);
     try {
       const latest = await collection.findOne(id).exec();
-      if (latest?.status === 'failed') await queueReceiptEmail(collection, id, latest.email);
+      if (latest?.status === 'failed') {
+        await queueReceiptEmail(collection, id, latest.email, undefined, { saveToBilling: latest.saveToBilling === true });
+      }
     } catch {
       setMessage('Couldn’t send that email.');
     } finally { setBusy(false); }

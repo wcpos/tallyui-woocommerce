@@ -60,10 +60,12 @@ export const receiptEmailSchema: RxJsonSchema<ReceiptEmail> = {
 };
 export const receiptEmailMigrationStrategies = { 1: (doc: any) => ({ ...doc, attempts: 0 }) };
 
-export async function queueReceiptEmail(collection: ReceiptEmailCollection, orderId: string, email: string, now = new Date()) {
+export async function queueReceiptEmail(collection: ReceiptEmailCollection, orderId: string, email: string, now = new Date(),
+  options: { saveToBilling?: boolean } = {}) {
   const trimmed = email.trim();
   if (!trimmed.includes('@')) throw new Error('Enter an email address');
-  return collection.upsert({ id: orderId, email: trimmed, status: 'queued', queuedAt: now.toISOString(), attempts: 0 });
+  return collection.upsert({ id: orderId, email: trimmed, status: 'queued', queuedAt: now.toISOString(), attempts: 0,
+    saveToBilling: options.saveToBilling === true });
 }
 
 export function useReceiptEmailSender({ collection, mailer, orders, now = defaultNow, sleep = defaultSleep }: {
@@ -101,7 +103,7 @@ export function useReceiptEmailSender({ collection, mailer, orders, now = defaul
             const attempts = current.attempts + 1;
             const attemptedAt = new Date(now()).toISOString();
             let failure: EmailSendFailure | undefined;
-            try { await mailer!.send(orderId, current.email); } catch (cause) { failure = classifyEmailSendError(cause); }
+            try { await mailer!.send(orderId, current.email, current.saveToBilling ? { saveToBilling: true } : undefined); } catch (cause) { failure = classifyEmailSendError(cause); }
             if (!failure) {
               await current.incrementalPatch({ status: 'sent', attempts, lastAttemptAt: attemptedAt, sentAt: attemptedAt, error: '' });
             } else if (failure.kind === 'permanent' || attempts >= MAX_SEND_ATTEMPTS) {
