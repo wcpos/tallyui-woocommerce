@@ -288,6 +288,35 @@ test('a remounted sender leaves a send still in flight alone', async () => {
   expect(send).toHaveBeenCalledTimes(1);
 });
 
+test('a send that finishes during mount recovery is not posted again', async () => {
+  let finish!: () => void;
+  const delivered = new Promise<void>(resolve => { finish = resolve; });
+  send.mockImplementationOnce(async () => { await delivered; });
+  await order('sale', true);
+  await queueReceiptEmail(collection, 'sale', email);
+  const first = start();
+  await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+  expect((await request())?.status).toBe('sending');
+  first.unmount();
+  const realFind = collection.find.bind(collection);
+  vi.spyOn(collection, 'find').mockImplementationOnce(((query: any) => {
+    const q = realFind(query);
+    const exec = q.exec.bind(q);
+    return Object.assign(q, { exec: async () => {
+      const rows = await exec();
+      finish();
+      await vi.waitFor(async () => expect((await request())?.status).toBe('sent'));
+      return rows;
+    } });
+  }) as typeof collection.find);
+  start();
+  await settle();
+  await tick();
+  await settle();
+  expect((await request())?.toJSON()).toMatchObject({ status: 'sent', attempts: 1 });
+  expect(send).toHaveBeenCalledTimes(1);
+});
+
 test('a v0 receipt email migrates to v1 with no attempts', async () => {
   const v0Schema: RxJsonSchema<Omit<ReceiptEmailRow, 'attempts' | 'nextAttemptAt' | 'lastAttemptAt' | 'saveToBilling'>> = {
     version: 0, primaryKey: 'id', type: 'object',

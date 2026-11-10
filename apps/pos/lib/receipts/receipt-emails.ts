@@ -129,9 +129,11 @@ export function useReceiptEmailSender({ collection, mailer, orders, now = defaul
       const interrupted = await collection.find({ selector: { status: 'sending' } }).exec();
       for (const doc of interrupted) {
         if (stopped) return;
-        if (claims(collection).has(doc.id)) continue;
+        // Decide on the latest revision inside the write queue: the send may have
+        // finished, or still be claimed by an earlier mount, since the query ran.
         // v2 is at-least-once; a send cut off by a reload is posted again.
-        await doc.incrementalPatch({ status: 'queued' });
+        await doc.incrementalModify(latest =>
+          latest.status === 'sending' && !claims(collection).has(latest.id) ? { ...latest, status: 'queued' } : latest);
       }
       ready = true;
       await tick();
