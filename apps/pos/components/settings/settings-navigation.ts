@@ -3,4 +3,5 @@ import type { SettingsNavItem } from './settings-area';
 export const SETTINGS_DEFAULT_HREF = '/settings/general';
 export const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
   { href: '/settings/general', label: 'General', testID: 'settings-nav-general' },
+  { href: '/settings/tax', label: 'Tax', testID: 'settings-nav-tax' },
 ];

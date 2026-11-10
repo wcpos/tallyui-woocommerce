@@ -15,8 +15,8 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 const store = { id: 1, name: 'Corner Café', currency: 'AUD', locale: 'en_AU' };
 const siteHome = 'https://shop.example/';
 
-test('the nav lists only General, with the v2 test id and href', () => {
-  expect(SETTINGS_NAV_ITEMS).toEqual([{ href: '/settings/general', label: 'General', testID: 'settings-nav-general' }]);
+test('the nav lists General then Tax, with the v2 test ids and hrefs', () => {
+  expect(SETTINGS_NAV_ITEMS).toEqual([{ href: '/settings/general', label: 'General', testID: 'settings-nav-general' }, { href: '/settings/tax', label: 'Tax', testID: 'settings-nav-tax' }]);
   expect(SETTINGS_DEFAULT_HREF).toBe('/settings/general');
   render(
     <SettingsArea items={SETTINGS_NAV_ITEMS} currentHref="/settings/general" onNavigate={vi.fn()} onBack={vi.fn()}>
@@ -24,7 +24,7 @@ test('the nav lists only General, with the v2 test id and href', () => {
     </SettingsArea>
   );
   expect(screen.getByTestId('settings-nav-general')).not.toBeNull();
-  expect(screen.queryByTestId('settings-nav-tax')).toBeNull();
+  expect(screen.getByTestId('settings-nav-tax')).not.toBeNull();
   expect(screen.queryByTestId('settings-nav-theme')).toBeNull();
   expect(within(screen.getByTestId('settings-screen')).getByText('page body')).not.toBeNull();
   expect(screen.getByTestId('settings-navigation')).not.toBeNull();

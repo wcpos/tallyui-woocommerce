@@ -1,19 +1,22 @@
 import type { JSX } from 'react';
 import { Linking, View } from 'react-native';
-import { Button, SettingsGroup, SettingsRow, Text } from '@tallyui/components';
+import { Button, SettingsGroup, SettingsRow, Switch, Text } from '@tallyui/components';
 import type { StoreInfo } from '../../lib/catalogue/store-info';
 
 export function wooSettingsUrl(siteHome: string): string {
   return `${siteHome.replace(/\/+$/, '')}/wp-admin/admin.php?page=wc-settings`;
 }
 
-function LockedRow({ testID, label, value, href }: {
-  testID: string; label: string; value: string | undefined; href: string;
+export function LockedRow({ testID, label, value, href }: {
+  testID: string; label: string; value: string | boolean | undefined; href: string;
 }) {
   return (
     <SettingsRow testID={testID} label={label} action={
       <View className="flex-row items-center gap-3">
-        <Text testID={`${testID}-value`}>{value || '—'}</Text>
+        {/* v2 PropertyRow: a locked boolean is a disabled switch, an empty locked value a dash. */}
+        {typeof value === 'boolean'
+          ? <Switch testID={`${testID}-switch`} accessibilityLabel={label} checked={value} onCheckedChange={() => {}} disabled />
+          : <Text testID={`${testID}-value`}>{value || '—'}</Text>}
         <Text className="text-xs text-muted-foreground">Set in WooCommerce</Text>
         <Button variant="link" size="sm" accessibilityRole="link" testID={`${testID}-open`}
           onPress={() => { void Linking.openURL(href); }}><Text>Open</Text></Button>
