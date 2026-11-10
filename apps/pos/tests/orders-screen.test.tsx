@@ -123,18 +123,34 @@ const storeOrder: StoreOrder = {
   discountMinor: 0, discountTaxMinor: 0, taxMinor: 0, totalMinor: 600,
 };
 
-test('store history is listed under Recent and opens as a reprint', async () => {
+test('store history opens its detail, and Receipt there opens the reprint', async () => {
   const list = vi.fn<OrderHistorySource['list']>(async () => ({ orders: [storeOrder], hasMore: false }));
   await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
   expect(await screen.findByText('Order 901 · 2 items')).not.toBeNull();
   expect(within(section('Recent')!).getByText(/Completed$/)).not.toBeNull();
   fireEvent.click(screen.getByTestId(`history-open-${storeOrder.id}`));
+  expect(screen.getByTestId('order-modal-title').textContent).toBe('Order #901');
+  expect(screen.getByTestId('order-modal-status').textContent).toBe('Completed');
+  expect(screen.queryByPlaceholderText('Search Orders')).toBeNull();
+  expect(screen.queryByTestId('receipt-reprint')).toBeNull();
+  act(() => {
+    for (const key of [...'12345678', 'Enter']) {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    }
+  });
+  expect(list).toHaveBeenCalledTimes(1);
+  const back = () => screen.getAllByRole('button', { name: 'Back' }).find(button => button.getAttribute('data-testid') !== 'orders-back')!;
+  fireEvent.click(screen.getByTestId('order-modal-receipt'));
   expect(screen.getByTestId('receipt-reprint').textContent).toBe('Reprint 1');
   expect(screen.getByTestId('receipt-order').textContent).toBe('Order 901');
-  fireEvent.click(screen.getAllByRole('button', { name: 'Back' }).find(button => button.getAttribute('data-testid') !== 'orders-back')!);
-  expect(screen.getByText('Order 901 · 2 items')).not.toBeNull();
-  fireEvent.click(screen.getByTestId(`history-open-${storeOrder.id}`));
+  fireEvent.click(back());
+  expect(screen.getByTestId('order-modal-title')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('order-modal-receipt'));
   expect(screen.getByTestId('receipt-reprint').textContent).toBe('Reprint 2');
+  fireEvent.click(back());
+  fireEvent.click(screen.getByTestId('order-modal-close'));
+  expect(screen.getByText('Order 901 · 2 items')).not.toBeNull();
+  expect((screen.getByPlaceholderText('Search Orders') as HTMLInputElement).value).toBe('');
   expect(list).toHaveBeenCalledTimes(1);
 });
 

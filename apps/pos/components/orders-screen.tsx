@@ -6,6 +6,7 @@ import { buildReceiptDataFromPosOrder, buildReceiptDataFromStoreOrder, type PosO
 import { useOutbox } from '../lib/sale/outbox-context';
 import { useRegister } from '../lib/register/register-context';
 import { matchesOrderSearch, toHistoryRow, type OrderHistorySource } from '../lib/orders/order-history';
+import { OrderDetailView } from './order-detail';
 import { ReceiptPrintSheet } from './receipt-print-sheet';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 
@@ -25,6 +26,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName }: {
   const [loading, setLoading] = useState(history !== null);
   const [failed, setFailed] = useState(false);
   const [opened, setOpened] = useState<{ data: ReturnType<typeof buildReceiptDataFromPosOrder>; posOrder?: PosOrder } | null>(null);
+  const [viewing, setViewing] = useState<StoreOrder | null>(null);
   const [term, setTerm] = useState('');
   const [search, setSearch] = useState('');
   const request = useRef(0);
@@ -64,7 +66,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName }: {
   }, [outbox.enabled, history, search]);
 
   function scan(code: string) { setTerm(code); setSearch(code.trim()); }
-  useWedgeScanner(scan, outbox.enabled && opened === null);
+  useWedgeScanner(scan, outbox.enabled && opened === null && viewing === null);
 
   function clear() { setTerm(''); setSearch(''); }
 
@@ -92,10 +94,11 @@ export function OrdersScreen({ onBack, history, storeName, cashierName }: {
         <Text accessibilityRole="header">Orders</Text>
         <Button testID="orders-back" onPress={onBack}><Text>Back</Text></Button>
       </View>
-      {outbox.enabled && !opened && <View className="px-4 pb-2"><SearchInput testID="search-orders" value={term} onChangeText={setTerm} placeholder="Search Orders" /></View>}
+      {outbox.enabled && !opened && !viewing && <View className="px-4 pb-2"><SearchInput testID="search-orders" value={term} onChangeText={setTerm} placeholder="Search Orders" /></View>}
       {outbox.enabled
         ? opened
           ? <ReceiptPrintSheet orderId={opened.posOrder?.id ?? opened.data.header.orderNumber}><Receipt receipt={opened.data} posOrder={opened.posOrder} newSale={() => setOpened(null)} doneLabel="Back" /></ReceiptPrintSheet>
+          : viewing ? <OrderDetailView order={viewing} onReceipt={() => open(toHistoryRow(viewing))} onClose={() => setViewing(null)} />
           : local.length === 0 && orders.length === 0 && !failed
             ? loading
               ? <View testID="orders-loading" className="flex-1" />
@@ -109,7 +112,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName }: {
                     <Text testID="no-data-message-description" className="text-center text-muted-foreground">Sales you take will appear here.</Text>
                   </View>
             : <OrdersList orders={local} onRetry={ids => outbox.requeue(ids)} stuck={outbox.state.stuck}
-              history={orders.map(toHistoryRow)} onOpen={open} footer={footer} />
+              history={orders.map(toHistoryRow)} onOpen={row => { if ('placedAt' in row) setViewing(orders.find(order => order.id === row.id) ?? null); else open(row); }} footer={footer} />
         : <View className="p-4"><Text>Orders show once the store is connected.</Text></View>}
     </View>
   );
