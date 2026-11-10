@@ -64,3 +64,12 @@ export function printReceipt(): string | null {
     return `The receipt did not print: ${error instanceof Error ? error.message : String(error)}`;
   }
 }
+
+// One auto-print attempt per sale, in memory: a remount or replay of the receipt stage never prints again.
+const autoPrinted = new Set<string>();
+
+export function claimReceiptAutoPrint(orderId: string): boolean {
+  if (autoPrinted.has(orderId)) return false;
+  autoPrinted.add(orderId);
+  return true;
+}
