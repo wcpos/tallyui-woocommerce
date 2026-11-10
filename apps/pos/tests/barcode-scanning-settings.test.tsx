@@ -44,7 +44,7 @@ test('the page shows the four Scanning rows with the v2 defaults', () => {
   render(<BarcodeScanningSettings />);
   expect(screen.getByTestId('screen-settings-barcode-scanning')).not.toBeNull();
   for (const text of [
-    'Barcode Scanning', 'Scanning', 'Barcode Average Time Input Threshold (ms)', 'Barcode Minimum Length',
+    'Scanning', 'Barcode Average Time Input Threshold (ms)', 'Barcode Minimum Length',
     'Barcode Scanner Prefix', 'Barcode Scanner Suffix', 'Barcode Scanning Test',
   ]) expect(screen.getByText(text)).not.toBeNull();
   expect(value('settings-barcode-threshold')).toBe('24');

@@ -29,7 +29,6 @@ export function GeneralSettings(props: { store: StoreInfo; siteHome: string }): 
   const href = wooSettingsUrl(props.siteHome);
   return (
     <View testID="screen-settings-general" className="gap-5">
-      <Text className="text-2xl font-semibold">General</Text>
       <SettingsGroup title="Store" testID="settings-general-store">
         <LockedRow testID="settings-general-locked-name" label="Store Name" value={props.store.name} href={href} />
         <LockedRow testID="settings-general-locked-currency" label="Currency" value={props.store.currency} href={href} />

@@ -18,7 +18,7 @@ test('Tax shows the calculation rows read-only, each set in WooCommerce', () => 
   const { container } = render(<TaxSettings settings={settings} siteHome={siteHome} />);
   expect(screen.getByTestId('screen-settings-tax')).not.toBeNull();
   expect(screen.getByTestId('settings-tax-calculation')).not.toBeNull();
-  expect(screen.getByText('Tax')).not.toBeNull();
+  expect(screen.queryByText('Tax')).toBeNull();
   expect(screen.getByText('Calculation')).not.toBeNull();
   expect(screen.getByText('Prices entered with tax')).not.toBeNull();
   expect(screen.getByText('Shipping tax class')).not.toBeNull();

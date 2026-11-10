@@ -65,7 +65,7 @@ test('applyStoredTheme applies the saved choice, and System when none is saved',
 test('the Theme page offers the ten v2 themes in order with the v2 copy, System selected by default', () => {
   render(<ThemeSettings />);
   expect(screen.getByTestId('screen-settings-theme')).not.toBeNull();
-  expect(screen.getByText('Theme')).not.toBeNull();
+  expect(screen.queryByText('Theme')).toBeNull();
   expect(screen.getByText('Appearance')).not.toBeNull();
   expect(screen.getByText('Choose a theme for the app. Custom themes provide different color schemes.')).not.toBeNull();
   expect(screen.getByTestId('settings-theme-status').textContent).toBe('Following system theme');
