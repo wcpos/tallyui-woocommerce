@@ -15,7 +15,7 @@ import type { Catalogue } from '../lib/catalogue/start-catalogue';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
-import { takeCash } from './tender-helpers';
+import { takeCash, takeLeg } from './tender-helpers';
 
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
@@ -65,17 +65,13 @@ test.each([true, false, undefined])('uses the advertised tender UI with multiple
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
   if (multiplePayments === true) {
-    expect(screen.getByTestId('split-tender-summary')).not.toBeNull();
-    expect(screen.queryByTestId('checkout-keypad')).toBeNull();
-    fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '2.00' } });
-    fireEvent.click(screen.getByTestId('split-tender-add-button'));
-    fireEvent.click(screen.getByTestId('split-tender-method-card'));
-    expect((screen.getByLabelText('Tender amount') as HTMLInputElement).value).toBe('4.00');
-    fireEvent.click(screen.getByTestId('split-tender-add-button'));
-    fireEvent.click(screen.getByRole('button', { name: 'Complete sale' }));
+    expect(screen.getByTestId('checkout-ledger')).not.toBeNull();
+    takeLeg(200);
+    expect(screen.getByTestId('checkout-ledger-remaining').textContent).toBe('$4.00');
+    takeLeg(400, 'pos_card');
   } else {
     expect(screen.getByTestId('checkout-keypad')).not.toBeNull();
-    expect(screen.queryByTestId('split-tender-summary')).toBeNull();
+    expect(screen.queryByTestId('checkout-ledger')).toBeNull();
     await takeCash(600);
   }
   const receipt = within((await screen.findByTestId('receipt-order')).parentElement!);
@@ -117,11 +113,8 @@ test('the existing outbox transport sees a catalogue capability that arrives lat
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
-  fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '2.00' } });
-  fireEvent.click(screen.getByTestId('split-tender-add-button'));
-  fireEvent.click(screen.getByTestId('split-tender-method-card'));
-  fireEvent.click(screen.getByTestId('split-tender-add-button'));
-  fireEvent.click(screen.getByRole('button', { name: 'Complete sale' }));
+  takeLeg(200);
+  takeLeg(400, 'pos_card');
   await screen.findByTestId('receipt-order');
   await waitFor(() => expect(screen.getByText('Sales are up to date.')).not.toBeNull());
   expect(fetchStub).toHaveBeenCalledTimes(1);

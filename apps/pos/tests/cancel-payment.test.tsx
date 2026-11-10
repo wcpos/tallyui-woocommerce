@@ -13,6 +13,7 @@ import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { takeLeg } from './tender-helpers';
 
 let send: ReturnType<typeof vi.fn<CommandTransport<OrderCreateEnvelope>['send']>>;
 
@@ -63,25 +64,22 @@ function OrderStoreReady() {
 }
 
 test('Back with a cash leg asks before cancelling, and Keep taking payment returns with the leg', () => {
-  fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '2.00' } });
-  fireEvent.click(screen.getByTestId('split-tender-add-button'));
+  takeLeg(200);
   fireEvent.click(screen.getByRole('button', { name: 'Back' }));
   expect(screen.getByText('Cancel this payment?')).not.toBeNull();
   expect(screen.getByText('Money already taken has to go back to the customer:')).not.toBeNull();
   expect(screen.queryAllByTestId(/^checkout-cancel-leg-/).map(element => element.textContent)).toEqual(['Return $2.00 cash to the customer']);
-  expect(screen.queryByTestId('split-tender-summary')).toBeNull();
+  expect(screen.queryByTestId('checkout-tender')).toBeNull();
   fireEvent.click(screen.getByTestId('checkout-cancel-keep-going'));
-  expect(screen.getByTestId('split-tender-summary').textContent).toContain('Paid: $2.00');
-  expect(screen.queryAllByTestId(/^split-tender-row-/)).toHaveLength(1);
+  expect(screen.getByTestId('checkout-ledger-totals').textContent).toContain('Paid$2.00');
+  expect(screen.queryAllByTestId(/^checkout-leg-/)).toHaveLength(1);
 }, 20_000);
 
 test('Cancel and void lists cash and card legs, then returns to the cart with nothing paid', async () => {
-  fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '2.00' } });
-  fireEvent.click(screen.getByTestId('split-tender-add-button'));
-  fireEvent.click(screen.getByTestId('split-tender-method-card'));
-  fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '1.00' } });
+  takeLeg(200);
+  fireEvent.click(screen.getByTestId('checkout-method-pos_card'));
   fireEvent.change(screen.getByLabelText('Terminal reference'), { target: { value: 'T-1' } });
-  fireEvent.click(screen.getByTestId('split-tender-add-button'));
+  takeLeg(100, 'pos_card');
   fireEvent.click(screen.getByRole('button', { name: 'Back' }));
   expect(screen.queryAllByTestId(/^checkout-cancel-leg-/).map(element => element.textContent)).toEqual([
     'Return $2.00 cash to the customer', 'Void $1.00 on Card',
@@ -89,8 +87,8 @@ test('Cancel and void lists cash and card legs, then returns to the cart with no
   fireEvent.click(screen.getByTestId('checkout-cancel-confirm'));
   await waitFor(() => expect(screen.queryByTestId('cancel-payment')).toBeNull());
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
-  expect(screen.getByTestId('split-tender-summary').textContent).toContain('Paid: $0.00');
-  expect(screen.queryAllByTestId(/^split-tender-row-/)).toHaveLength(0);
+  expect(screen.getByTestId('checkout-ledger-totals').textContent).toContain('Paid$0.00');
+  expect(screen.queryAllByTestId(/^checkout-leg-/)).toHaveLength(0);
   expect(send).not.toHaveBeenCalled();
 }, 20_000);
 
@@ -103,21 +101,18 @@ test('Back with no leg goes straight to the cart', () => {
 
 test('The Cancel payment button opens the same view', () => {
   expect(screen.queryByTestId('checkout-cancel-payment')).toBeNull();
-  fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '2.00' } });
-  fireEvent.click(screen.getByTestId('split-tender-add-button'));
+  takeLeg(200);
   fireEvent.click(screen.getByTestId('checkout-cancel-payment'));
   expect(screen.getByTestId('cancel-payment')).not.toBeNull();
   expect(screen.queryAllByTestId(/^checkout-cancel-leg-/).map(element => element.textContent)).toEqual(['Return $2.00 cash to the customer']);
 }, 20_000);
 
 test('A new tender after cancelling does not reopen the view', async () => {
-  fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '2.00' } });
-  fireEvent.click(screen.getByTestId('split-tender-add-button'));
+  takeLeg(200);
   fireEvent.click(screen.getByRole('button', { name: 'Back' }));
   fireEvent.click(screen.getByTestId('checkout-cancel-confirm'));
   fireEvent.click(await screen.findByRole('button', { name: 'Cash' }));
-  fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '3.00' } });
-  fireEvent.click(screen.getByTestId('split-tender-add-button'));
+  takeLeg(300);
   expect(screen.queryByTestId('cancel-payment')).toBeNull();
-  expect(screen.getByTestId('split-tender-summary').textContent).toContain('Paid: $3.00');
+  expect(screen.getByTestId('checkout-ledger-totals').textContent).toContain('Paid$3.00');
 }, 20_000);

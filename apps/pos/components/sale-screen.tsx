@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
-import { Button, CartBar, ParkedSales, Receipt, SplitTender, SyncStatus, Text } from '@tallyui/components';
+import { Button, CartBar, ParkedSales, Receipt, SyncStatus, Text } from '@tallyui/components';
 import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
 import { formatMoney } from '@tallyui/core';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
@@ -42,6 +42,7 @@ import { OpenOrderTabs } from './open-order-tabs';
 import { PanelResizeHandle } from './panel-resize-handle';
 import { CartWithSettings } from './cart-settings';
 import { TenderPane } from './tender-pane';
+import { LedgerPane } from './ledger-pane';
 
 // The till id; the bound register is the drawer.
 const REGISTER_ID = 'web';
@@ -164,12 +165,18 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     else sale.cancelTender();
   }
 
+  // A multi-payment tender is taken leg by leg: Card starts with nothing paid, never startTender's preset full-total leg.
+  function beginTender(method: 'cash' | 'external', options?: Parameters<typeof sale.startTender>[1]) {
+    sale.startTender(method, options);
+    if (method === 'external' && outbox.enabled && props.multiplePayments === true) sale.setTender(null);
+  }
+
   async function gatedStartTender(method: 'cash' | 'external') {
-    if (!register?.enabled) { register?.setTenderInProgress(true); return sale.startTender(method); }
+    if (!register?.enabled) { register?.setTenderInProgress(true); return beginTender(method); }
     try {
       const session = await register.requireSaleSession();
       register?.setTenderInProgress(true);
-      sale.startTender(method, { session: session ?? undefined });
+      beginTender(method, { session: session ?? undefined });
     } catch (error) {
       if (!(error instanceof RegisterSessionRequiredError)) throw error;
       setMessage('Open the register to take payment.');
@@ -406,7 +413,9 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           <>
             {voidError ? <Text testID="tender-void-error" accessibilityRole="alert" className="text-destructive">{voidError}</Text> : null}
             {sale.order.payments.length > 0 ? <Button variant="ghost" testID="checkout-cancel-payment" onPress={requestCancel}><Text>Cancel payment</Text></Button> : null}
-            <SplitTender sale={{ ...sale, cancelTender: requestCancel, removeTender: id => { void removeLeg(id); } }} />
+            <TenderPane multi sale={{ ...sale, cancelTender: requestCancel }} />
+            {/* One column below 900: the legs sit under the tender (wide, the ledger has the products panel). */}
+            {width < 900 ? <LedgerPane order={sale.order} onRemove={id => { void removeLeg(id); }} /> : null}
           </>
         )
       ) : <TenderPane sale={sale} />) : (
@@ -459,10 +468,14 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     </View>
   );
 
+  // WCPOS v2's two-pane checkout: during a multi-payment tender the ledger takes the products panel, beside the tender.
+  const multiTender = outbox.enabled && props.multiplePayments === true && sale.stage.kind === 'tender';
   if (width >= 900) {
     const shown = liveWidth ?? viewState.width;
     const productsPanel = <View key="products" testID="pos-products-panel"
-      style={{ flexGrow: shown, flexShrink: 1, flexBasis: 0 }}>{browse}</View>;
+      style={{ flexGrow: shown, flexShrink: 1, flexBasis: 0 }}>{multiTender ? <View testID="checkout-ledger-column" className="flex-1 bg-muted p-4">
+        <LedgerPane closing order={sale.order} onRemove={cancelling ? undefined : id => { void removeLeg(id); }} />
+      </View> : browse}</View>;
     const cartPanel = <View key="cart" testID="pos-cart-panel"
       style={{ flexGrow: 100 - shown, flexShrink: 1, flexBasis: 0 }}
       className={`${viewState.position === 'right' ? 'border-r' : 'border-l'} border-border`}>{cart}</View>;
