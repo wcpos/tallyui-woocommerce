@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ComponentProps, JSX } from 'react';
+import type { ComponentProps, JSX, ReactNode } from 'react';
 import { View } from 'react-native';
 import { Button, Cart, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SettingsGroup, Text } from '@tallyui/components';
 import { CATALOGUE_VIEW_DEFAULTS } from '../lib/catalogue/catalogue-view-state';
@@ -32,6 +32,16 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
               onPress={() => onPositionChange('left')}><Text>Cart right</Text></Button>
           </View>
         </SettingsGroup>
+        <SettingsGroup title="Open orders position">
+          <View className="flex-row gap-4">
+            <Button testID="cart-setting-open-orders-top" variant={settings.openOrdersPosition === 'top' ? 'default' : 'outline'}
+              aria-selected={settings.openOrdersPosition === 'top'}
+              onPress={() => onSettingsChange({ ...settings, openOrdersPosition: 'top' })}><Text>Top</Text></Button>
+            <Button testID="cart-setting-open-orders-bottom" variant={settings.openOrdersPosition === 'bottom' ? 'default' : 'outline'}
+              aria-selected={settings.openOrdersPosition === 'bottom'}
+              onPress={() => onSettingsChange({ ...settings, openOrdersPosition: 'bottom' })}><Text>Bottom</Text></Button>
+          </View>
+        </SettingsGroup>
         <SettingsGroup title="Sort items">
           <Select value={{ value: settings.sortLines, label: LINE_SORTS.find(sort => sort.id === settings.sortLines)!.label }}
             onValueChange={option => { if (option) onSettingsChange({ ...settings, sortLines: normalizeLineSort(option.value) }); }}>
@@ -60,16 +70,20 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
 export type CartWithSettingsProps = ComponentProps<typeof Cart> & {
   position: PanelPosition;
   onPositionChange(next: PanelPosition): void;
+  openOrders?: ReactNode; // the open-order tab strip, placed by settings.openOrdersPosition
 };
 
-export function CartWithSettings({ position, onPositionChange, sale, ...cartProps }: CartWithSettingsProps): JSX.Element {
+export function CartWithSettings({ position, onPositionChange, openOrders, sale, ...cartProps }: CartWithSettingsProps): JSX.Element {
   const [settings, setSettings] = useCartSettings();
+  const openOrdersStrip = <View testID="cart-open-orders">{openOrders}</View>;
   return <>
+    {settings.openOrdersPosition === 'top' && openOrdersStrip}
     {/* The cart's head row: v2 opens Cart Settings from the cart header (pos/cart/cart-header.tsx). */}
     <View testID="cart-head" className="flex-row justify-end">
       <CartSettingsDialog position={position} onPositionChange={onPositionChange} settings={settings} onSettingsChange={setSettings} />
     </View>
     {/* Sort a copy for display only: the order builder's lineItems keep the add order (receipts, parking, the order). */}
     <Cart {...cartProps} sale={{ ...sale, order: { ...sale.order, lineItems: sortCartLines(sale.order.lineItems, settings.sortLines) } }} />
+    {settings.openOrdersPosition !== 'top' && openOrdersStrip}
   </>;
 }
