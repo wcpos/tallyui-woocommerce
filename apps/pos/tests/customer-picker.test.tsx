@@ -46,16 +46,16 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 function openPicker(customer: Customer | null = null) {
   render(<CustomerPicker source={source} customer={customer} onChange={onChange} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Change customer' }));
+  fireEvent.click(screen.getByTestId('cart-customer-name'));
 }
 
 function typeQuery(value: string) {
-  fireEvent.change(screen.getByPlaceholderText('Search name, email or phone'), { target: { value } });
+  fireEvent.change(screen.getByPlaceholderText('Search Customers'), { target: { value } });
 }
 
 test('blocks new customers and shows the supplied reason', () => {
   render(<CustomerPicker source={source} customer={null} onChange={onChange} createBlockedReason="Locked because" />);
-  fireEvent.click(screen.getByRole('button', { name: 'Change customer' }));
+  fireEvent.click(screen.getByTestId('cart-customer-name'));
   const button = screen.getByRole('button', { name: 'New customer' });
   expect(button.getAttribute('aria-disabled')).toBe('true');
   fireEvent.click(button);
@@ -65,14 +65,14 @@ test('blocks new customers and shows the supplied reason', () => {
 
 test('SaleScreen closes creation when cashier permissions have not been read', () => {
   render(<SaleScreen storeSettings={noTaxSettings} {...saleProps} customers={source} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Change customer' }));
+  fireEvent.click(screen.getByTestId('cart-customer-name'));
   expect(screen.getByRole('button', { name: 'New customer' }).getAttribute('aria-disabled')).toBe('true');
   expect(screen.getByText('Your permissions have not been read from the store.')).not.toBeNull();
 });
 
 test('SaleScreen allows a cashier with create_customers to open the form', () => {
   render(<SaleScreen storeSettings={noTaxSettings} {...saleProps} customers={source} cashier={{ known: true, granted: ['create_customers'] }} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Change customer' }));
+  fireEvent.click(screen.getByTestId('cart-customer-name'));
   const button = screen.getByRole('button', { name: 'New customer' });
   expect(button.getAttribute('aria-disabled')).toBeNull();
   fireEvent.click(button);
@@ -81,14 +81,14 @@ test('SaleScreen allows a cashier with create_customers to open the form', () =>
 
 test('SaleScreen explains how to grant customer creation when the known list denies it', () => {
   render(<SaleScreen storeSettings={noTaxSettings} {...saleProps} customers={source} cashier={{ known: true, granted: [] }} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Change customer' }));
+  fireEvent.click(screen.getByTestId('cart-customer-name'));
   expect(screen.getByRole('button', { name: 'New customer' }).getAttribute('aria-disabled')).toBe('true');
   expect(screen.getByText(CREATE_CUSTOMERS_DENIED)).not.toBeNull();
 });
 
 test('searches from two trimmed characters and attaches the selected summary', async () => {
   openPicker();
-  expect(screen.getAllByPlaceholderText('Search name, email or phone')).toHaveLength(1);
+  expect(screen.getAllByPlaceholderText('Search Customers')).toHaveLength(1);
   typeQuery('g');
   expect(search).not.toHaveBeenCalled();
   typeQuery(' g ');
@@ -97,7 +97,7 @@ test('searches from two trimmed characters and attaches the selected summary', a
   expect(search).toHaveBeenCalledWith('gee');
   fireEvent.click(await screen.findByLabelText('Gee Four, gee@example.invalid'));
   expect(onChange).toHaveBeenCalledExactlyOnceWith(summary);
-  expect(screen.queryByPlaceholderText('Search name, email or phone')).toBeNull();
+  expect(screen.queryByPlaceholderText('Search Customers')).toBeNull();
 });
 
 test('only shows results for the latest query when answers arrive out of order', async () => {
@@ -159,7 +159,7 @@ test.each(['search', 'create'] as const)('failed %s keeps the attached customer 
   expect(await screen.findByText("Could not reach the store's customers: Offline")).not.toBeNull();
   expect(onChange).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-  expect(screen.getByText('Customer: Gee Four')).not.toBeNull();
+  expect(screen.getByRole('button', { name: 'Customer: Gee Four' })).not.toBeNull();
 });
 
 test('a refused create shows the store message without changing the customer', async () => {
@@ -183,14 +183,49 @@ test('unauthorized search asks for sign-in without showing the underlying error'
 
 test('Guest clears the attached customer', () => {
   render(<CustomerPicker source={source} customer={gee} onChange={onChange} />);
-  expect(screen.getByText('Customer: Gee Four')).not.toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Guest' }));
+  expect(screen.getByRole('button', { name: 'Customer: Gee Four' })).not.toBeNull();
+  fireEvent.click(screen.getByTestId('cart-customer-name'));
+  fireEvent.click(screen.getByTestId('customer-option-guest'));
   expect(onChange).toHaveBeenCalledExactlyOnceWith(null);
+});
+
+test('a guest order shows the Customer label and a Guest chip', () => {
+  render(<CustomerPicker source={source} customer={null} onChange={onChange} />);
+  expect(screen.getByText('Customer')).not.toBeNull();
+  const chip = screen.getByTestId('cart-customer-name');
+  expect(within(chip).getByTestId('cart-customer-initials').textContent).toBe('GU');
+  expect(within(chip).getByText('Guest')).not.toBeNull();
+  expect(screen.queryByRole('button', { name: 'Change customer' })).toBeNull();
+});
+
+test('a customer chip shows initials and the name under the customer accessible name', () => {
+  render(<CustomerPicker source={source} customer={gee} onChange={onChange} />);
+  const chip = screen.getByRole('button', { name: 'Customer: Gee Four' });
+  expect(chip.getAttribute('data-testid')).toBe('cart-customer-name');
+  expect(within(chip).getByTestId('cart-customer-initials').textContent).toBe('GF');
+  expect(within(chip).getByText('Gee Four')).not.toBeNull();
+});
+
+test('the Guest option clears the customer and closes the panel', () => {
+  openPicker(gee);
+  expect(screen.getByPlaceholderText('Search Customers')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('customer-option-guest'));
+  expect(onChange).toHaveBeenCalledExactlyOnceWith(null);
+  expect(screen.queryByPlaceholderText('Search Customers')).toBeNull();
+});
+
+test('a guest order still lists Guest first above Search Customers', () => {
+  openPicker();
+  const guest = screen.getByTestId('customer-option-guest');
+  expect(guest.getAttribute('role')).toBe('button');
+  expect(within(guest).getByText('GU')).not.toBeNull();
+  expect(within(guest).getByText('Guest')).not.toBeNull();
+  expect(screen.getByPlaceholderText('Search Customers')).not.toBeNull();
 });
 
 test.each([undefined, null])('no customer controls without a source (%s)', customers => {
   render(<SaleScreen storeSettings={noTaxSettings} {...saleProps} customers={customers} />);
-  expect(screen.queryByRole('button', { name: 'Change customer' })).toBeNull();
+  expect(screen.queryByTestId('cart-customer-name')).toBeNull();
   expect(screen.queryByText('Guest')).toBeNull();
 });
 
@@ -226,10 +261,10 @@ test('sends the picked customer with a cash sale, then sends a guest after New s
   );
   await screen.findByText('Order store ready');
   expect(screen.getByText('Guest')).not.toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Change customer' }));
+  fireEvent.click(screen.getByTestId('cart-customer-name'));
   typeQuery('gee');
   fireEvent.click(await screen.findByLabelText('Gee Four, gee@example.invalid'));
-  expect(screen.getByText('Customer: Gee Four')).not.toBeNull();
+  expect(screen.getByRole('button', { name: 'Customer: Gee Four' })).not.toBeNull();
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
   await takeCash(300);
