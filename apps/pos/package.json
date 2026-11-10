@@ -5,8 +5,8 @@
   "main": "expo-router/entry",
   "engines": { "node": "^22.13.0" },
   "scripts": {
-    "dev": "expo start",
-    "web": "expo start --web",
+    "dev": "tallyui-build-sqlite-worker public/ && expo start",
+    "web": "tallyui-build-sqlite-worker public/ && expo start --web",
     "ios": "expo start --ios",
     "android": "expo start --android",
     "build": "tallyui-build-sqlite-worker public/ && expo export --platform web",

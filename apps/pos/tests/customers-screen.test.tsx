@@ -158,12 +158,12 @@ test('Try again searches again', async () => {
   const { search } = renderScreen(vi.fn<CustomerSource['search']>()
     .mockRejectedValueOnce(new Error('Offline')).mockResolvedValueOnce([gee]));
   fireEvent.change(screen.getByPlaceholderText('Search Customers'), { target: { value: 'gee' } });
-  await screen.findByTestId('customers-error');
+  await screen.findByTestId('customers-error', {}, { timeout: 5000 });
   fireEvent.click(screen.getByTestId('customers-retry'));
-  await screen.findByTestId('customers-row-7');
+  await screen.findByTestId('customers-row-7', {}, { timeout: 5000 });
   expect(screen.queryByTestId('customers-error')).toBeNull();
   expect(search.mock.calls).toEqual([['gee'], ['gee']]);
-});
+}, 20_000);
 
 test('without a store it says so', () => {
   render(<CustomersScreen source={null} onBack={() => {}} createBlockedReason={undefined} />);

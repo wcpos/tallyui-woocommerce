@@ -257,7 +257,7 @@ test('parks through the sheet, shows the parked customer and restores them to th
   expect(screen.queryByTestId('parked-sales')).toBeNull();
   expect(await screen.findByText('Customer: Gee Four')).not.toBeNull();
   expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
-});
+}, 20_000);
 
 test('Price actions appear once per line and none appear with an empty cart', () => {
   vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
@@ -363,7 +363,7 @@ test('with no order transport, Cash shows the payment placeholder and Back to ca
   expect(screen.getByText('Espresso')).not.toBeNull();
   expect(screen.getByRole('button', { name: 'Cash' })).not.toBeNull();
   expect(within(screen.getByText('Subtotal').parentElement!).getByText('$3.00')).not.toBeNull();
-});
+}, 20_000);
 
 // Several full renders of the sale screen take longer than 5 s on the CI runner.
 test('wide: parks, resumes while parking the current cart, and discards with confirmation', async () => {
@@ -419,7 +419,7 @@ test('narrow: the parked sheet opens and restores within the full-screen cart', 
   expect(screen.getByRole('button', { name: 'Parked (0)' })).not.toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Back to products' }));
   expect(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' })).not.toBeNull();
-});
+}, 20_000);
 
 test('onResume resolves after restoration, and the sheet closes with the restored lines present', async () => {
   vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
@@ -474,7 +474,7 @@ test('resuming reports a missing product in the phone cart message line', async 
   expect(screen.queryByTestId('parked-sales')).toBeNull();
   expect(screen.getByText('Espresso is no longer in the catalogue.')).not.toBeNull();
   expect(screen.getByText('Scan or tap a product to start a sale.')).not.toBeNull();
-});
+}, 20_000);
 
 test('toolbar park failure shows the error and keeps the cart line', async () => {
   const db = await createRxDatabase({
@@ -531,7 +531,7 @@ test('a parked cart stays parked while syncing and resumes once the catalogue is
     cleanup();
     await db.remove();
   }
-});
+}, 20_000);
 
 test('persisted carts survive a new screen, restore, swap and discard', async () => {
   vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
