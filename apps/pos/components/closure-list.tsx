@@ -22,7 +22,7 @@ export function resultText(varianceMinor: number, money: (amount: number) => str
   return varianceMinor === 0 ? 'Exact' : `${money(Math.abs(varianceMinor))} ${varianceMinor < 0 ? 'short' : 'over'}`;
 }
 
-export function ClosureList({ rows, sessionRows, openSessions, blind, today, currency, locale, resolveCashierName, onReprint }: {
+export function ClosureList({ rows, sessionRows, openSessions, blind, today, currency, locale, resolveCashierName, onReprint, onOpen }: {
   rows: readonly Closure[];
   /** Rendered under the Today heading, at the head of the list (the open-session card). */
   sessionRows?: ReactNode;
@@ -35,6 +35,8 @@ export function ClosureList({ rows, sessionRows, openSessions, blind, today, cur
   locale: string;
   resolveCashierName(id: string): string;
   onReprint(closure: Closure): void;
+  /** A tap on a closure row's figures opens its detail panel. */
+  onOpen?(closure: Closure): void;
 }): JSX.Element {
   const [filter, setFilter] = useState<ClosureFilter>('all');
   const money = (amount: number) => formatMoney({ amount, currency }, locale) ?? '';
@@ -90,19 +92,21 @@ export function ClosureList({ rows, sessionRows, openSessions, blind, today, cur
             const closed = formatClosureDate(c.closed_at, { timezone: 'device', locale });
             const v = c.variance.cash ?? 0;
             return <View key={c.id} testID={`closure-row-${c.id}`} className="flex-row items-center gap-2 border-b border-border py-2">
-              <View className="flex-1 gap-0.5">
-                <View className="flex-row flex-wrap items-center gap-2">
-                  <Text testID={`closure-title-${c.id}`} className="font-medium">{`Closure ${c.number} · ${typeof c.breakdowns.register_name === 'string' ? c.breakdowns.register_name : 'This till'}`}</Text>
-                  {(c.corrections_count ?? 0) > 0 && <Text testID={`closure-badge-${c.id}`} className="text-xs font-semibold text-warning">Corrected</Text>}
+              <Pressable testID={`closure-open-${c.id}`} accessibilityRole="button" accessibilityLabel={`Open closure ${c.number}`} className="flex-1 flex-row items-center gap-2" onPress={() => onOpen?.(c)}>
+                <View className="flex-1 gap-0.5">
+                  <View className="flex-row flex-wrap items-center gap-2">
+                    <Text testID={`closure-title-${c.id}`} className="font-medium">{`Closure ${c.number} · ${typeof c.breakdowns.register_name === 'string' ? c.breakdowns.register_name : 'This till'}`}</Text>
+                    {(c.corrections_count ?? 0) > 0 && <Text testID={`closure-badge-${c.id}`} className="text-xs font-semibold text-warning">Corrected</Text>}
+                  </View>
+                  <Text testID={`closure-subline-${c.id}`} className="text-sm text-muted-foreground">{`${open.time} → ${closed.time} · ${c.closed_by ? resolveCashierName(c.closed_by) : 'Cashier'}`}</Text>
                 </View>
-                <Text testID={`closure-subline-${c.id}`} className="text-sm text-muted-foreground">{`${open.time} → ${closed.time} · ${c.closed_by ? resolveCashierName(c.closed_by) : 'Cashier'}`}</Text>
-              </View>
-              {!blind && <Text testID={`closure-expected-${c.id}`} className="w-24 text-right tabular-nums">{money(c.expected.cash ?? 0)}</Text>}
-              <Text testID={`closure-counted-${c.id}`} className="w-24 text-right tabular-nums">{money(c.counted.cash ?? 0)}</Text>
-              {!blind && <>
-                <Text testID={`closure-difference-${c.id}`} className={`w-24 text-right tabular-nums ${drawerResultClass(v)}`}>{signedMoney(v, money)}</Text>
-                <Text testID={`closure-result-${c.id}`} className={`w-24 text-right font-semibold ${drawerResultClass(v)}`}>{resultWord(v)}</Text>
-              </>}
+                {!blind && <Text testID={`closure-expected-${c.id}`} className="w-24 text-right tabular-nums">{money(c.expected.cash ?? 0)}</Text>}
+                <Text testID={`closure-counted-${c.id}`} className="w-24 text-right tabular-nums">{money(c.counted.cash ?? 0)}</Text>
+                {!blind && <>
+                  <Text testID={`closure-difference-${c.id}`} className={`w-24 text-right tabular-nums ${drawerResultClass(v)}`}>{signedMoney(v, money)}</Text>
+                  <Text testID={`closure-result-${c.id}`} className={`w-24 text-right font-semibold ${drawerResultClass(v)}`}>{resultWord(v)}</Text>
+                </>}
+              </Pressable>
               <Button testID={`closure-reprint-${c.id}`} variant="outline" size="sm" onPress={() => onReprint(c)}><Text>Reprint</Text></Button>
             </View>;
           })}

@@ -346,6 +346,33 @@ test('Reprint prints the mounted Copy document once without changing the closure
   expect((await collection.findOne(closure.id).exec())!.toJSON()).toEqual(before);
 }, 20_000);
 
+test('tapping a closure opens its panel, Print closure prints the Copy and Close returns', async () => {
+  const app = await setup();
+  await openRegister();
+  await payCash();
+  await waitFor(() => expect(app.register.salesCount).toBe(1));
+  await closeRegister('103.00');
+  const closure = app.register.lastClosure!;
+  fireEvent.click(await screen.findByTestId(`closure-open-${closure.id}`));
+  await screen.findByTestId('closure-panel');
+  expect(screen.getByTestId('closure-panel-title').textContent).toBe('Closure 1');
+  expect(screen.getByTestId('closure-figure-expected').textContent).toBe('$103.00');
+  expect(screen.getByTestId('closure-figure-counted').textContent).toBe('$103.00');
+  expect(screen.getByTestId('closure-result-word').textContent).toBe('Variance · Exact');
+  expect(screen.queryByTestId('closure-recount')).toBeNull();
+  const printedDocuments: (string | null | undefined)[] = [];
+  const print = vi.spyOn(window, 'print').mockImplementation(() => {
+    printedDocuments.push(screen.queryByTestId('closure-print-document')?.textContent);
+  });
+  fireEvent.click(screen.getByTestId('closure-reprint'));
+  await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+  expect(printedDocuments[0]).toContain('Closure #1');
+  expect(printedDocuments[0]).toContain('Copy');
+  expect(screen.getByTestId('closure-panel')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('closure-panel-close'));
+  await waitFor(() => expect(screen.queryByTestId('closure-panel')).toBeNull());
+}, 20_000);
+
 test('Print X report prints the mounted open session with its expected cash', async () => {
   const app = await setup();
   await openRegister();
