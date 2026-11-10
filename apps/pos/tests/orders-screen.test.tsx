@@ -1,11 +1,11 @@
 import { noTaxSettings } from './fixtures/store-settings';
 import type { ComponentProps } from 'react';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
-import type { OrderCreateEnvelope, StoreOrder } from '@tallyui/core';
+import type { OrderCreateEnvelope, StoreOrder, StoreOrderPage } from '@tallyui/core';
 import type { CommandTransport } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
 import { OrdersScreen } from '../components/orders-screen';
@@ -51,12 +51,12 @@ function OrderStoreReady() {
   return outbox.enabled && outbox.orders ? <span>Order store ready</span> : null;
 }
 
-async function setup(send: CommandTransport<OrderCreateEnvelope>['send'], history: OrderHistorySource | null = null) {
+async function setup(send: CommandTransport<OrderCreateEnvelope>['send'], history: OrderHistorySource | null = null, withSale = true) {
   render(
     <SessionProvider>
       <OutboxProvider transportFor={() => ({ send })} storage={getRxStorageMemory()}>
         <OrderStoreReady />
-        <SaleScreen {...props} />
+        {withSale && <SaleScreen {...props} />}
         <OrdersScreen onBack={() => {}} history={history} storeName={props.storeName} cashierName={props.cashierName} />
         <PortalHost />
       </OutboxProvider>
@@ -171,4 +171,97 @@ test('a failed history load says so and Try again reloads', async () => {
   fireEvent.click(screen.getByTestId('orders-history-retry'));
   expect(await screen.findByText('Order 901 · 2 items')).not.toBeNull();
   expect(list.mock.calls).toEqual([[1], [1]]);
+});
+
+test('Search Orders asks the store after a pause and starts again at page 1', async () => {
+  const list = vi.fn<OrderHistorySource['list']>()
+    .mockResolvedValueOnce({ orders: [storeOrder], hasMore: true })
+    .mockResolvedValueOnce({ orders: [{ ...storeOrder, id: '903', reference: '903' }], hasMore: false })
+    .mockResolvedValueOnce({ orders: [{ ...storeOrder, id: '902', reference: '902' }], hasMore: false });
+  await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
+  fireEvent.click(await screen.findByTestId('orders-load-more'));
+  expect(await screen.findByText('Order 903 · 2 items')).not.toBeNull();
+  const input = screen.getByPlaceholderText('Search Orders');
+  fireEvent.change(input, { target: { value: '9' } });
+  fireEvent.change(input, { target: { value: '90' } });
+  fireEvent.change(input, { target: { value: '902' } });
+  expect(await screen.findByText('Order 902 · 2 items')).not.toBeNull();
+  expect(screen.queryByText('Order 901 · 2 items')).toBeNull();
+  expect(screen.queryByText('Order 903 · 2 items')).toBeNull();
+  expect(screen.queryByTestId('orders-load-more')).toBeNull();
+  expect(list.mock.calls).toEqual([[1], [2], [1, '902']]);
+});
+
+test('a slower earlier search does not replace a later one', async () => {
+  let resolveFirst!: (page: StoreOrderPage) => void;
+  const list = vi.fn<OrderHistorySource['list']>()
+    .mockResolvedValueOnce({ orders: [storeOrder], hasMore: false })
+    .mockReturnValueOnce(new Promise<StoreOrderPage>(resolve => { resolveFirst = resolve; }))
+    .mockResolvedValueOnce({ orders: [{ ...storeOrder, id: '902', reference: '902' }], hasMore: false });
+  await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
+  expect(await screen.findByText('Order 901 · 2 items')).not.toBeNull();
+  const input = screen.getByPlaceholderText('Search Orders');
+  fireEvent.change(input, { target: { value: '903' } });
+  await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+  fireEvent.change(input, { target: { value: '902' } });
+  expect(await screen.findByText('Order 902 · 2 items')).not.toBeNull();
+  await act(async () => {
+    resolveFirst({ orders: [{ ...storeOrder, id: '903', reference: '903' }], hasMore: false });
+  });
+  expect(screen.queryByText('Order 903 · 2 items')).toBeNull();
+  expect(screen.getByText('Order 902 · 2 items')).not.toBeNull();
+});
+
+test("Search Orders filters this till's own sales", async () => {
+  const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => ({ kind: 'results', results: batch.map(applied) }));
+  await setup(send);
+  const reference = await payCash();
+  const row = `Order ${reference} · #305 · 1 item`;
+  await vi.waitFor(() => expect(within(section('Recent')!).getByText(row)).not.toBeNull());
+  const input = screen.getByPlaceholderText('Search Orders');
+  fireEvent.change(input, { target: { value: 'latte' } });
+  expect((await screen.findByTestId('no-data-message-title')).textContent).toBe('No orders match these filters');
+  expect(screen.queryByText(row)).toBeNull();
+  fireEvent.change(input, { target: { value: reference } });
+  expect(await screen.findByText(row)).not.toBeNull();
+}, 20_000);
+
+test('with nothing matching it says so and Clear filters lists every order again', async () => {
+  const list = vi.fn<OrderHistorySource['list']>()
+    .mockResolvedValueOnce({ orders: [storeOrder], hasMore: false })
+    .mockResolvedValueOnce({ orders: [], hasMore: false })
+    .mockResolvedValueOnce({ orders: [storeOrder], hasMore: false });
+  await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
+  expect(await screen.findByText('Order 901 · 2 items')).not.toBeNull();
+  const input = screen.getByPlaceholderText('Search Orders') as HTMLInputElement;
+  fireEvent.change(input, { target: { value: 'nope' } });
+  expect(await screen.findByText('No orders match these filters')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('no-data-message-action'));
+  expect(await screen.findByText('Order 901 · 2 items')).not.toBeNull();
+  expect(input.value).toBe('');
+  expect(list.mock.calls).toEqual([[1], [1, 'nope'], [1]]);
+});
+
+test("with no orders it shows v2's empty copy", async () => {
+  const list = vi.fn<OrderHistorySource['list']>().mockResolvedValue({ orders: [], hasMore: false });
+  await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
+  expect((await screen.findByTestId('no-data-message-title')).textContent).toBe('No orders yet');
+  expect(screen.getByTestId('no-data-message-description').textContent).toBe('Sales you take will appear here.');
+  expect(screen.queryByTestId('no-data-message-action')).toBeNull();
+});
+
+test('a wedge scan searches Orders at once', async () => {
+  const list = vi.fn<OrderHistorySource['list']>()
+    .mockResolvedValueOnce({ orders: [storeOrder], hasMore: false })
+    .mockResolvedValueOnce({ orders: [{ ...storeOrder, id: '902', reference: '902' }], hasMore: false });
+  await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list }, false);
+  expect(await screen.findByText('Order 901 · 2 items')).not.toBeNull();
+  act(() => {
+    for (const key of [...'12345678', 'Enter']) {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    }
+  });
+  expect((screen.getByPlaceholderText('Search Orders') as HTMLInputElement).value).toBe('12345678');
+  expect(await screen.findByText('Order 902 · 2 items')).not.toBeNull();
+  expect(list.mock.calls).toEqual([[1], [1, '12345678']]);
 });

@@ -1,7 +1,7 @@
 import { expect, test, vi } from 'vitest';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import type { StoreOrder, SyncContext, TallyConnector } from '@tallyui/core';
-import { orderHistorySource, toHistoryRow } from '../lib/orders/order-history';
+import { matchesOrderSearch, orderHistorySource, toHistoryRow, type SearchableOrder } from '../lib/orders/order-history';
 
 const order: StoreOrder = {
   id: '901', reference: '901', status: 'on-hold', placedAt: '2026-10-15T10:00:00Z',
@@ -32,4 +32,25 @@ test('orderHistorySource asks for 25 a page', async () => {
   const source = orderHistorySource({ ...createWooCommerceConnector(), listOrders }, () => context)!;
   await expect(source.list(2)).resolves.toEqual(page);
   expect(listOrders).toHaveBeenCalledWith(context, { page: 2, perPage: 25 });
+});
+
+test('orderHistorySource passes a search to listOrders', async () => {
+  const listOrders = vi.fn<NonNullable<TallyConnector['listOrders']>>(async () => ({ orders: [order], hasMore: false }));
+  const source = orderHistorySource({ ...createWooCommerceConnector(), listOrders }, () => context)!;
+  await source.list(1, 'ada');
+  expect(listOrders).toHaveBeenLastCalledWith(context, { page: 1, perPage: 25, search: 'ada' });
+  await source.list(1, '');
+  expect(listOrders).toHaveBeenLastCalledWith(context, { page: 1, perPage: 25 });
+});
+
+test('matchesOrderSearch matches the id, store number, customer, line name and SKU', () => {
+  const local: SearchableOrder = {
+    id: 'till-0001-abcd1234', lines: [{ name: 'Flat White', sku: 'FW-1' }],
+    customer: { name: 'Ada Lovelace', email: 'ada@example.com' }, serverRefs: { orderId: '305', displayId: '305' },
+  };
+  for (const search of ['abcd1234', '305', 'ada', 'EXAMPLE.COM', 'flat', 'fw-1', '  ']) {
+    expect(matchesOrderSearch(local, search)).toBe(true);
+  }
+  expect(matchesOrderSearch(local, 'latte')).toBe(false);
+  expect(matchesOrderSearch({ ...local, customer: null, serverRefs: undefined }, '305')).toBe(false);
 });

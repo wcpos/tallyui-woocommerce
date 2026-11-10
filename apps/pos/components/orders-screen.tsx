@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { Button, OrdersList, Receipt, Text, type OrderHistoryRow } from '@tallyui/components';
+import { Button, OrdersList, Receipt, SearchInput, Text, type OrderHistoryRow } from '@tallyui/components';
 import type { StoreOrder } from '@tallyui/core';
 import { buildReceiptDataFromPosOrder, buildReceiptDataFromStoreOrder, type PosOrder, type ReceiptConfig } from '@tallyui/pos';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { useRegister } from '../lib/register/register-context';
-import { toHistoryRow, type OrderHistorySource } from '../lib/orders/order-history';
+import { matchesOrderSearch, toHistoryRow, type OrderHistorySource } from '../lib/orders/order-history';
+import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 
 // The till id; the bound register is the drawer.
 const REGISTER_ID = 'web';
+// v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
+const SEARCH_DEBOUNCE_MS = 250;
 
 export function OrdersScreen({ onBack, history, storeName, cashierName }: {
   onBack(): void; history: OrderHistorySource | null; storeName: string; cashierName: string;
@@ -18,30 +21,51 @@ export function OrdersScreen({ onBack, history, storeName, cashierName }: {
   const [orders, setOrders] = useState<StoreOrder[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(history !== null);
   const [failed, setFailed] = useState(false);
   const [opened, setOpened] = useState<{ data: ReturnType<typeof buildReceiptDataFromPosOrder>; posOrder?: PosOrder } | null>(null);
+  const [term, setTerm] = useState('');
+  const [search, setSearch] = useState('');
+  const request = useRef(0);
   // The count is in memory only, for each order opened in this screen.
   const counts = useRef(new Map<string, number>());
 
-  async function loadPage(nextPage: number) {
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(term.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [term]);
+
+  async function loadPage(nextPage: number, query: string) {
+    const mine = ++request.current;
+    if (nextPage === 1) {
+      setOrders([]);
+      setHasMore(false);
+      setPage(0);
+    }
     setLoading(true);
     setFailed(false);
     try {
-      const result = await history!.list(nextPage);
+      const result = await (query ? history!.list(nextPage, query) : history!.list(nextPage));
+      if (mine !== request.current) return;
       setOrders(current => [...new Map([...current, ...result.orders].map(order => [order.id, order])).values()]);
       setHasMore(result.hasMore);
       setPage(nextPage);
     } catch {
+      if (mine !== request.current) return;
       setFailed(true);
     } finally {
-      setLoading(false);
+      if (mine === request.current) setLoading(false);
     }
   }
 
   useEffect(() => {
-    if (outbox.enabled && history) void loadPage(1);
-  }, [outbox.enabled, history]);
+    if (outbox.enabled && history) void loadPage(1, search);
+  }, [outbox.enabled, history, search]);
+
+  function scan(code: string) { setTerm(code); setSearch(code.trim()); }
+  useWedgeScanner(scan, outbox.enabled && opened === null);
+
+  function clear() { setTerm(''); setSearch(''); }
 
   function open(row: PosOrder | OrderHistoryRow) {
     const n = (counts.current.get(row.id) ?? 0) + 1;
@@ -53,11 +77,12 @@ export function OrdersScreen({ onBack, history, storeName, cashierName }: {
       : { data: buildReceiptDataFromPosOrder(row, config), posOrder: row });
   }
 
+  const local = outbox.enabled ? outbox.recent.filter(order => matchesOrderSearch(order, search)) : [];
   const footer = history ? <>
-    {hasMore && <Button testID="orders-load-more" disabled={loading} onPress={() => { void loadPage(page + 1); }}><Text>Load more</Text></Button>}
+    {hasMore && <Button testID="orders-load-more" disabled={loading} onPress={() => { void loadPage(page + 1, search); }}><Text>Load more</Text></Button>}
     {failed && <>
       <Text>Store orders couldn't be loaded.</Text>
-      <Button testID="orders-history-retry" disabled={loading} onPress={() => { void loadPage(page + 1); }}><Text>Try again</Text></Button>
+      <Button testID="orders-history-retry" disabled={loading} onPress={() => { void loadPage(page + 1, search); }}><Text>Try again</Text></Button>
     </>}
   </> : undefined;
   return (
@@ -66,10 +91,23 @@ export function OrdersScreen({ onBack, history, storeName, cashierName }: {
         <Text accessibilityRole="header">Orders</Text>
         <Button testID="orders-back" onPress={onBack}><Text>Back</Text></Button>
       </View>
+      {outbox.enabled && !opened && <View className="px-4 pb-2"><SearchInput testID="search-orders" value={term} onChangeText={setTerm} placeholder="Search Orders" /></View>}
       {outbox.enabled
         ? opened
           ? <Receipt receipt={opened.data} posOrder={opened.posOrder} newSale={() => setOpened(null)} doneLabel="Back" />
-          : <OrdersList orders={outbox.recent} onRetry={ids => outbox.requeue(ids)} stuck={outbox.state.stuck}
+          : local.length === 0 && orders.length === 0 && !failed
+            ? loading
+              ? <View testID="orders-loading" className="flex-1" />
+              : search !== ''
+                ? <View testID="no-data-message" className="flex-1 items-center justify-center gap-2 p-6">
+                    <Text testID="no-data-message-title" className="text-center font-medium text-foreground">No orders match these filters</Text>
+                    <Button testID="no-data-message-action" variant="ghost" size="sm" onPress={clear}><Text>Clear filters</Text></Button>
+                  </View>
+                : <View testID="no-data-message" className="flex-1 items-center justify-center gap-2 p-6">
+                    <Text testID="no-data-message-title" className="text-center font-medium text-foreground">No orders yet</Text>
+                    <Text testID="no-data-message-description" className="text-center text-muted-foreground">Sales you take will appear here.</Text>
+                  </View>
+            : <OrdersList orders={local} onRetry={ids => outbox.requeue(ids)} stuck={outbox.state.stuck}
               history={orders.map(toHistoryRow)} onOpen={open} footer={footer} />
         : <View className="p-4"><Text>Orders show once the store is connected.</Text></View>}
     </View>
