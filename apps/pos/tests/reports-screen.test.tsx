@@ -19,7 +19,7 @@ import { RegisterProvider, useRegister } from '../lib/register/register-context'
 import { dayRange } from '../lib/reports/today-sales';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
-import { takeCash } from './tender-helpers';
+import { takeCash, takeLeg } from './tender-helpers';
 
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
@@ -271,12 +271,8 @@ test('a split tender counts once per method', async () => {
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
-  fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '2.00' } });
-  fireEvent.click(screen.getByTestId('split-tender-add-button'));
-  fireEvent.click(screen.getByTestId('split-tender-method-card'));
-  expect((screen.getByLabelText('Tender amount') as HTMLInputElement).value).toBe('4.00');
-  fireEvent.click(screen.getByTestId('split-tender-add-button'));
-  fireEvent.click(screen.getByRole('button', { name: 'Complete sale' }));
+  takeLeg(200);
+  takeLeg(400, 'pos_card');
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'New sale' }));
   await screen.findByText('Scan or tap a product to start a sale.');
@@ -454,12 +450,8 @@ test('the Payments tile opens a table of methods', async () => {
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
-  fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '2.00' } });
-  fireEvent.click(screen.getByTestId('split-tender-add-button'));
-  fireEvent.click(screen.getByTestId('split-tender-method-card'));
-  expect((screen.getByLabelText('Tender amount') as HTMLInputElement).value).toBe('4.00');
-  fireEvent.click(screen.getByTestId('split-tender-add-button'));
-  fireEvent.click(screen.getByRole('button', { name: 'Complete sale' }));
+  takeLeg(200);
+  takeLeg(400, 'pos_card');
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'New sale' }));
   await screen.findByText('Scan or tap a product to start a sale.');

@@ -14,6 +14,7 @@ import { RECEIPT_SETTINGS_KEY } from '../lib/receipts/receipt-settings';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { takeLeg } from './tender-helpers';
 
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
@@ -53,7 +54,7 @@ function gatedTransport() {
   return { transport: { send }, release };
 }
 
-// split-tender.test.tsx: a $6.00 sale paid as cash 200 + external 400, then Complete sale.
+// split-tender.test.tsx: a $6.00 sale paid on the ledger as a cash leg of 200 and a card leg of 400, the last leg completing it.
 async function paySplit(transport: { send: CommandTransport<OrderCreateEnvelope>['send'] }) {
   render(
     <SessionProvider>
@@ -70,12 +71,9 @@ async function paySplit(transport: { send: CommandTransport<OrderCreateEnvelope>
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
   fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
-  fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '2.00' } });
-  fireEvent.click(screen.getByTestId('split-tender-add-button'));
-  fireEvent.click(screen.getByTestId('split-tender-method-card'));
-  expect((screen.getByLabelText('Tender amount') as HTMLInputElement).value).toBe('4.00');
-  fireEvent.click(screen.getByTestId('split-tender-add-button'));
-  fireEvent.click(screen.getByRole('button', { name: 'Complete sale' }));
+  takeLeg(200);
+  expect(screen.getByTestId('checkout-ledger-remaining').textContent).toBe('$4.00');
+  takeLeg(400, 'pos_card');
   await screen.findByTestId('receipt-order');
 }
 

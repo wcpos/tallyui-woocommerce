@@ -14,6 +14,7 @@ import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import type { TenderVoidCollection } from '../lib/sale/tender-voids';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { takeLeg } from './tender-helpers';
 
 let collection: TenderVoidCollection;
 let orders: (ReturnType<typeof useOutbox> & { enabled: true })['orders'];
@@ -71,15 +72,14 @@ async function renderSale(multiplePayments?: boolean) {
 }
 
 function addCash() {
-  fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '2.00' } });
-  fireEvent.click(screen.getByTestId('split-tender-add-button'));
+  takeLeg(200);
 }
 
 test('Remove journals the cash leg before it leaves the sale', async () => {
   await renderSale(true);
   addCash();
-  fireEvent.click(screen.getByTestId(/^split-tender-remove-/));
-  await waitFor(() => expect(screen.queryByTestId(/^split-tender-row-/)).toBeNull());
+  fireEvent.click(screen.getByTestId(/^checkout-remove-leg-/));
+  await waitFor(() => expect(screen.queryByTestId(/^checkout-leg-/)).toBeNull());
   const rows = await collection.find().exec();
   expect(rows).toHaveLength(1);
   expect(rows[0].toJSON()).toMatchObject({
@@ -91,11 +91,9 @@ test('Remove journals the cash leg before it leaves the sale', async () => {
 test("a void carries the register id of the sale's order row", async () => {
   await renderSale(true);
   addCash();
-  fireEvent.click(screen.getByTestId(/^split-tender-remove-/));
-  await waitFor(() => expect(screen.queryByTestId(/^split-tender-row-/)).toBeNull());
-  fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '6.00' } });
-  fireEvent.click(screen.getByTestId('split-tender-add-button'));
-  fireEvent.click(screen.getByTestId('split-tender-complete'));
+  fireEvent.click(screen.getByTestId(/^checkout-remove-leg-/));
+  await waitFor(() => expect(screen.queryByTestId(/^checkout-leg-/)).toBeNull());
+  takeLeg(600);
   await waitFor(async () => expect(await orders!.find().exec()).toHaveLength(1));
   const [order] = await orders!.find().exec();
   const rows = await collection.find().exec();
@@ -108,9 +106,8 @@ test("a void carries the register id of the sale's order row", async () => {
 test('Cancel and void journals every leg with the same sale id', async () => {
   await renderSale(true);
   addCash();
-  fireEvent.click(screen.getByTestId('split-tender-method-card'));
-  fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '4.00' } });
-  fireEvent.click(screen.getByTestId('split-tender-add-button'));
+  // A card leg short of the balance: covering it would complete the sale before Back.
+  takeLeg(100, 'pos_card');
   fireEvent.click(screen.getByRole('button', { name: 'Back' }));
   fireEvent.click(screen.getByTestId('checkout-cancel-confirm'));
   expect(await screen.findByRole('button', { name: 'Cash' })).not.toBeNull();
@@ -124,9 +121,9 @@ test('a failed Remove keeps the leg and shows the write error', async () => {
   await renderSale(true);
   vi.spyOn(collection, 'bulkInsert').mockRejectedValueOnce(new Error('disk full'));
   addCash();
-  fireEvent.click(screen.getByTestId(/^split-tender-remove-/));
+  fireEvent.click(screen.getByTestId(/^checkout-remove-leg-/));
   expect((await screen.findByTestId('tender-void-error')).textContent).toContain('disk full');
-  expect(screen.getByTestId(/^split-tender-row-/)).not.toBeNull();
+  expect(screen.getByTestId(/^checkout-leg-/)).not.toBeNull();
   expect(await collection.find().exec()).toHaveLength(0);
 }, 20_000);
 
@@ -168,22 +165,19 @@ test('single tender Back returns to the cart without a void', async () => {
 test('double tapping Remove records exactly one void', async () => {
   await renderSale(true);
   addCash();
-  const remove = screen.getByTestId(/^split-tender-remove-/);
+  const remove = screen.getByTestId(/^checkout-remove-leg-/);
   fireEvent.click(remove);
   fireEvent.click(remove);
-  await waitFor(() => expect(screen.queryByTestId(/^split-tender-row-/)).toBeNull());
+  await waitFor(() => expect(screen.queryByTestId(/^checkout-leg-/)).toBeNull());
   expect(await collection.find().exec()).toHaveLength(1);
 }, 20_000);
 
-test('Remove while a failed save holds the sale records no void', async () => {
+test('a failed save hides Remove and records no void', async () => {
   await renderSale(true);
   vi.spyOn(orders!, 'insert').mockRejectedValue(new Error('disk full'));
-  fireEvent.change(screen.getByLabelText('Tender amount'), { target: { value: '6.00' } });
-  fireEvent.click(screen.getByTestId('split-tender-add-button'));
-  fireEvent.click(screen.getByTestId('split-tender-complete'));
+  takeLeg(600);
   await screen.findByText('The sale could not be saved: disk full');
-  fireEvent.click(screen.getByTestId(/^split-tender-remove-/));
-  expect(await screen.findByText('This sale is being saved. Retry to finish it.')).not.toBeNull();
-  expect(screen.getByTestId(/^split-tender-row-/)).not.toBeNull();
+  expect(screen.queryAllByTestId(/^checkout-remove-leg-/)).toHaveLength(0);
+  expect(screen.getByTestId(/^checkout-leg-/)).not.toBeNull();
   expect(await collection.find().exec()).toHaveLength(0);
 }, 20_000);
