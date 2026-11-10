@@ -7,6 +7,7 @@ import { SessionOnlineStatusProvider } from '../lib/online/online-status';
 import { CatalogueProvider } from '../lib/catalogue/catalogue-context';
 import { OutboxProvider } from '../lib/sale/outbox-context';
 import { RegisterProvider } from '../lib/register/register-context';
+import { Toaster } from '../components/toaster';
 
 export default function RootLayout() {
   return (
@@ -24,6 +25,7 @@ export default function RootLayout() {
           </CatalogueProvider>
         </SessionOnlineStatusProvider>
       </SessionProvider>
+      <Toaster />
     </>
   );
 }

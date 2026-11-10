@@ -5,6 +5,7 @@ import type { Customer } from '@tallyui/core';
 import type { CustomerSummary } from '@tallyui/pos';
 import { Button, CustomerForm, CustomerSelect, Text } from '@tallyui/components';
 import type { CustomerSource } from '../lib/customers/customer-source';
+import { toast } from '../lib/toast/toast';
 
 export function CustomerPicker({ source, customer, onChange, createBlockedReason }: {
   source: CustomerSource;
@@ -61,6 +62,7 @@ export function CustomerPicker({ source, customer, onChange, createBlockedReason
     try {
       const created = await source.create({ email, ...(firstName ? { firstName } : {}),
         ...(lastName ? { lastName } : {}), ...(phone ? { phone } : {}) });
+      toast({ type: 'success', title: `${created.name || email} saved` });
       if (current === request.current) pick(created);
     } catch (cause) {
       if (current === request.current) showError(cause);
