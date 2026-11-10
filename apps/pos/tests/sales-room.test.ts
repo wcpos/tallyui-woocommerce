@@ -51,6 +51,14 @@ const orders: PosOrder[] = [
     subtotalMinor: 7000, totalMinor: 7000, syncStatus: 'applied',
     payments: [{ id: 'p10', method: 'cash', amountMinor: 7000 }] },
 ];
+const lastWeek: PosOrder[] = [
+  { ...base, id: 'W1', createdAt: new Date(2026, 8, 29, 11, 20).toISOString(),
+    subtotalMinor: 250, totalMinor: 250, syncStatus: 'applied',
+    payments: [{ id: 'w1', method: 'cash', amountMinor: 250 }] },
+  { ...base, id: 'W2', createdAt: new Date(2026, 8, 29, 16, 45).toISOString(),
+    subtotalMinor: 950, totalMinor: 950, syncStatus: 'applied',
+    payments: [{ id: 'w2', method: 'external', amountMinor: 950 }] },
+];
 
 test('today totals every sync state in the store currency only', () => {
   expect(salesRoom(orders, { now, currency: 'USD' }).today).toMatchObject({
@@ -131,4 +139,20 @@ test('hours span both days\' sales', () => {
 
 test('runs in a non-UTC zone', () => {
   expect(new Date(2026, 9, 6, 9).getUTCHours()).toBe(16);
+}, 20_000);
+
+test('last week compares the same weekday up to the same time', () => {
+  const result = salesRoom([...orders, ...lastWeek], { now, currency: 'USD', compare: 'lastweek' });
+  expect(result.yesterday).toMatchObject({ count: 2, totalMinor: 1200 });
+  expect(result.yesterdaySoFar).toEqual({ count: 1, totalMinor: 250, averageMinor: 250 });
+  expect(result.delta).toEqual({ totalMinor: 2746, percentTenths: 10984, count: 3, averageMinor: 499 });
+  expect(result.today).toMatchObject({ count: 4, totalMinor: 2996 });
+  expect(result.hours.find(bucket => bucket.hour === 11)!.yesterday).toEqual({ count: 1, totalMinor: 250 });
+  expect(result.hours.find(bucket => bucket.hour === 16)!.yesterday).toEqual({ count: 1, totalMinor: 950 });
+}, 20_000);
+
+test('compare defaults to yesterday', () => {
+  expect(salesRoom([...orders, ...lastWeek], { now, currency: 'USD', compare: 'yesterday' }))
+    .toEqual(salesRoom([...orders, ...lastWeek], { now, currency: 'USD' }));
+  expect(salesRoom([...orders, ...lastWeek], { now, currency: 'USD' }).yesterday).toMatchObject({ count: 2, totalMinor: 1000 });
 }, 20_000);

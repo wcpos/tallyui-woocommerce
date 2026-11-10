@@ -615,3 +615,58 @@ test('a short drawer result is red, an over one green, an exact one muted', () =
   expect(drawerResultClass(50)).toBe('text-success');
   expect(drawerResultClass(0)).toBe('text-muted-foreground');
 });
+
+test('the hero compares with the same weekday last week when chosen', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 9, 6, 14, 30));
+  try {
+    const app = await setup();
+    await payCash();
+    const today = within(screen.getByTestId('reports-today'));
+    await waitFor(() => expect(today.getByText('Total: $3.00')).not.toBeNull());
+    const [order] = await app.orders.find().exec();
+    await act(async () => { await order.incrementalPatch({ createdAt: new Date(2026, 8, 29, 10, 0).toISOString() }); });
+    await waitFor(() => expect(today.getByText('Total: $0.00')).not.toBeNull());
+    expect(today.getByText('Yesterday by now: $0.00')).not.toBeNull();
+    expect(screen.getByTestId('hero-compare-lastweek').textContent).toBe('vs last Tuesday');
+    fireEvent.click(screen.getByTestId('hero-compare-lastweek'));
+    await waitFor(() => expect(today.getByText('Last Tuesday by now: $3.00')).not.toBeNull());
+    expect(today.getByText('Change: −$3.00 · −100.0%')).not.toBeNull();
+    expect(today.getByText('Orders: 0 (−1)')).not.toBeNull();
+    expect(screen.getByTestId('sales-hour-10').getAttribute('aria-label')).toBe('10:00 — today $0.00, 0 orders; last Tuesday $3.00');
+    expect(screen.getByText('Filled: today · Dashed: last Tuesday')).not.toBeNull();
+    expect(screen.getByTestId('hero-compare-lastweek').getAttribute('aria-selected')).toBe('true');
+    fireEvent.click(screen.getByTestId('hero-compare-yesterday'));
+    await waitFor(() => expect(today.getByText('Yesterday by now: $0.00')).not.toBeNull());
+  } finally {
+    vi.useRealTimers();
+  }
+}, 20_000);
+
+test('the cashier chip narrows every period figure to one cashier', async () => {
+  const app = await setup();
+  expect(screen.getByTestId('hero-cashier-all').getAttribute('aria-selected')).toBe('true');
+  expect(screen.getByTestId('hero-cashier-2').textContent).toBe('Paul');
+  await payCash();
+  const today = within(screen.getByTestId('reports-today'));
+  await waitFor(() => expect(today.getByText('Total: $3.00')).not.toBeNull());
+  const [order] = await app.orders.find().exec();
+  expect(order.cashierRef).toBe('2');
+  await act(async () => { await order.incrementalPatch({ cashierRef: '7' }); });
+  expect(screen.queryByTestId('hero-cashier-7')).toBeNull();
+  await waitFor(() => expect(today.getByText('Total: $3.00')).not.toBeNull());
+  fireEvent.click(screen.getByTestId('hero-cashier-2'));
+  await waitFor(() => expect(today.getByText('Total: $0.00')).not.toBeNull());
+  expect(today.getByText('No sales yet today.')).not.toBeNull();
+  expect(screen.queryByTestId('sales-room-payments')).toBeNull();
+  fireEvent.click(screen.getByTestId('sales-room-orders-open'));
+  const table = within(await screen.findByTestId('sales-table'));
+  expect(table.queryAllByTestId(/^sales-table-row-/)).toHaveLength(0);
+  expect(table.getByTestId('sales-table-status').textContent).toBe('0 orders · $0.00');
+  fireEvent.click(table.getByTestId('sales-table-close'));
+  await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
+  await act(async () => { await order.incrementalPatch({ cashierRef: '2' }); });
+  await waitFor(() => expect(today.getByText('Total: $3.00')).not.toBeNull());
+  fireEvent.click(screen.getByTestId('hero-cashier-all'));
+  expect(screen.getByTestId('hero-cashier-all').getAttribute('aria-selected')).toBe('true');
+}, 20_000);

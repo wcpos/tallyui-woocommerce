@@ -3,8 +3,8 @@ import { Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
 import type { HourBucket } from '../lib/reports/sales-room';
 
-export function HourlyBars({ hours, currency, locale }: {
-  hours: readonly HourBucket[]; currency: string; locale: string;
+export function HourlyBars({ hours, currency, locale, comparisonName = 'yesterday' }: {
+  hours: readonly HourBucket[]; currency: string; locale: string; comparisonName?: string;
 }) {
   if (hours.length === 0) return null;
   const money = (amount: number) => formatMoney({ amount, currency }, locale);
@@ -23,7 +23,7 @@ export function HourlyBars({ hours, currency, locale }: {
     <View testID="sales-room-hours" className="gap-2 rounded-lg border border-border p-4">
       <Text accessibilityRole="header">By hour</Text>
       {busiest && <Text>{`Busiest hour: ${String(busiest.hour).padStart(2, '0')}:00 · ${money(busiest.today.totalMinor)} · ${busiest.today.count} ${busiest.today.count === 1 ? 'order' : 'orders'}`}</Text>}
-      <Text className="text-sm text-muted-foreground">Filled: today · Dashed: yesterday</Text>
+      <Text className="text-sm text-muted-foreground">{`Filled: today · Dashed: ${comparisonName}`}</Text>
       <View className="h-32 flex-row gap-1">
         {hours.map(({ hour, today, yesterday }) => {
           const HH = String(hour).padStart(2, '0');
@@ -32,7 +32,7 @@ export function HourlyBars({ hours, currency, locale }: {
               key={hour}
               testID={`sales-hour-${HH}`}
               className="flex-1 items-center justify-end"
-              accessibilityLabel={`${HH}:00 — today ${money(today.totalMinor)}, ${today.count} ${today.count === 1 ? 'order' : 'orders'}; yesterday ${money(yesterday.totalMinor)}`}
+              accessibilityLabel={`${HH}:00 — today ${money(today.totalMinor)}, ${today.count} ${today.count === 1 ? 'order' : 'orders'}; ${comparisonName} ${money(yesterday.totalMinor)}`}
             >
               <View className="relative w-full max-w-12 flex-1 justify-end">
                 <View
