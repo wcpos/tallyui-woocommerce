@@ -14,6 +14,7 @@ import { ordersTable, paymentsTable, taxesTable } from '../lib/reports/sales-tab
 import { dayRange } from '../lib/reports/today-sales';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { ordersDatabaseName } from '../lib/sale/order-store';
+import { ClosureList } from './closure-list';
 import { ClosurePrint } from './closure-print';
 import { HourlyBars } from './hourly-bars';
 import { SalesTable } from './sales-table';
@@ -130,19 +131,17 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
             <Text accessibilityRole="header">Closures</Text>
             {closures.length > 0 && <Button testID="closures-csv" onPress={() => downloadCsv(closuresCsv(closures, currency, session?.tokens.user, storeName), `closures-${today}.csv`)}><Text>Download CSV</Text></Button>}
           </View>
-          <SessionCard currency={currency} locale={locale} resolveCashierName={resolveCashierName} onPrintXReport={() => { setReprint('x'); setPrintRequest(value => value + 1); }} />
-          {closures.length === 0 && <Text>No closures yet. A closure appears here when a register session closes.</Text>}
-          {closures.map(closure => (
-            <View key={closure.id} className="gap-2 border-b border-border py-3">
-              <Text>{`Closure #${closure.number}`}</Text>
-              <Text>{closure.business_day}</Text>
-              <Text>{`Closed: ${formatClosureDate(closure.closed_at, { timezone: 'device', locale }).datetime}`}</Text>
-              <Text>{`Cash counted: ${money(closure.counted.cash)}`}</Text>
-              <Text>{`Variance: ${money(closure.variance.cash)}`}</Text>
-              <Text>{`Period sales: ${money(closure.period_sales_total_minor)}`}</Text>
-              <Button testID={`closure-reprint-${closure.id}`} onPress={() => { setReprint(closure); setPrintRequest(value => value + 1); }}><Text>Reprint</Text></Button>
-            </View>
-          ))}
+          <ClosureList
+            rows={closures}
+            sessionRows={<SessionCard currency={currency} locale={locale} resolveCashierName={resolveCashierName} onPrintXReport={() => { setReprint('x'); setPrintRequest(value => value + 1); }} />}
+            openSessions={register.enabled && (register.session?.status === 'open' || register.session?.status === 'counting') ? 1 : 0}
+            blind={register.blind}
+            today={today}
+            currency={currency}
+            locale={locale}
+            resolveCashierName={resolveCashierName}
+            onReprint={closure => { setReprint(closure); setPrintRequest(value => value + 1); }}
+          />
         </View>
       </ScrollView>
       {reprint && <Portal name="closure-reprint">
