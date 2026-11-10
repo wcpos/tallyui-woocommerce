@@ -60,10 +60,19 @@ export const receiptEmailSchema: RxJsonSchema<ReceiptEmail> = {
 };
 export const receiptEmailMigrationStrategies = { 1: (doc: any) => ({ ...doc, attempts: 0 }) };
 
+/** zod 4's `z.string().email()` pattern (zod/v4/core/regexes `email`): v2 receipt/email.tsx validates the address with it. */
+const EMAIL_PATTERN = /^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$/;
+/** zod 4's English message for that check, the copy v2's dialog shows under the field. */
+export const INVALID_EMAIL_MESSAGE = 'Invalid email address';
+/** v2's email rule on the trimmed value: one @, a local part, a dotted domain, no spaces. */
+export function isValidEmail(value: string): boolean {
+  return EMAIL_PATTERN.test(value.trim());
+}
+
 export async function queueReceiptEmail(collection: ReceiptEmailCollection, orderId: string, email: string, now = new Date(),
   options: { saveToBilling?: boolean } = {}) {
   const trimmed = email.trim();
-  if (!trimmed.includes('@')) throw new Error('Enter an email address');
+  if (!isValidEmail(trimmed)) throw new Error(INVALID_EMAIL_MESSAGE);
   return collection.upsert({ id: orderId, email: trimmed, status: 'queued', queuedAt: now.toISOString(), attempts: 0,
     saveToBilling: options.saveToBilling === true });
 }

@@ -15,6 +15,7 @@ addRxPlugin(RxDBMigrationSchemaPlugin);
 
 const email = 'gee@example.invalid';
 const notice = 'This device can’t reach your store right now. The receipt will be emailed automatically when the connection returns.';
+const replaces = 'Replaces gee@example.invalid on this order’s billing address.';
 let db: RxDatabase;
 let collection: ReceiptEmailCollection;
 
@@ -66,13 +67,52 @@ test('Send queues the trimmed address, closes the dialog and shows the queued co
   expect((await request())?.toJSON()).toMatchObject({ email: 'other@example.invalid', status: 'queued' });
 });
 
-test('an address without @ keeps the dialog open with the refusal and queues nothing', async () => {
-  show({ defaultEmail: 'nobody' });
+test.each(['nobody', 'gee@example', 'gee@exa mple.com'])('an invalid address %j keeps the dialog open with the refusal and queues nothing', async value => {
+  show({ defaultEmail: value });
   await openDialog();
   fireEvent.click(screen.getByTestId('receipt-email-send'));
-  await vi.waitFor(() => screen.getByText('Enter an email address'));
-  expect((screen.getByLabelText('Email Address') as HTMLInputElement).value).toBe('nobody');
+  await vi.waitFor(() => expect(screen.getByTestId('receipt-email-error').textContent).toBe('Invalid email address'));
+  expect((screen.getByLabelText('Email Address') as HTMLInputElement).value).toBe(value);
   expect(await request()).toBeNull();
+});
+
+test('correcting an invalid address sends, closes the dialog and queues the corrected address', async () => {
+  show();
+  const field = await openDialog();
+  fireEvent.change(field, { target: { value: 'gee@example' } });
+  fireEvent.click(screen.getByTestId('receipt-email-send'));
+  await vi.waitFor(() => expect(screen.getByTestId('receipt-email-error').textContent).toBe('Invalid email address'));
+  fireEvent.change(field, { target: { value: 'gee@example.com' } });
+  fireEvent.click(screen.getByTestId('receipt-email-send'));
+  await vi.waitFor(() => screen.getByText('Receipt email queued'));
+  expect(screen.queryByLabelText('Email Address')).toBeNull();
+  expect((await request())?.toJSON()).toMatchObject({ email: 'gee@example.com', status: 'queued' });
+});
+
+test('with Save to Billing on, a different address shows the billing email it replaces', async () => {
+  show();
+  fireEvent.change(await openDialog(), { target: { value: 'other@example.invalid' } });
+  expect(screen.queryByTestId('receipt-email-billing-replaces')).toBeNull();
+  fireEvent.click(saveSwitch());
+  expect(screen.getByTestId('receipt-email-billing-replaces').textContent).toBe(replaces);
+  fireEvent.click(saveSwitch());
+  expect(screen.queryByTestId('receipt-email-billing-replaces')).toBeNull();
+});
+
+test('no replace notice while the address matches the billing email, spaces aside', async () => {
+  show();
+  const field = await openDialog();
+  fireEvent.click(saveSwitch());
+  expect(screen.queryByTestId('receipt-email-billing-replaces')).toBeNull();
+  fireEvent.change(field, { target: { value: ' gee@example.invalid ' } });
+  expect(screen.queryByTestId('receipt-email-billing-replaces')).toBeNull();
+});
+
+test('no replace notice when the order has no billing email', async () => {
+  show({ defaultEmail: '' });
+  fireEvent.change(await openDialog(), { target: { value: 'other@example.invalid' } });
+  fireEvent.click(saveSwitch());
+  expect(screen.queryByTestId('receipt-email-billing-replaces')).toBeNull();
 });
 
 test.each([
