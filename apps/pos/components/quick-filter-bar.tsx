@@ -1,7 +1,8 @@
 import type { JSX } from 'react';
-import { View } from 'react-native';
-import { Button, Text } from '@tallyui/components';
+import { Pressable, View } from 'react-native';
+import { Text } from '@tallyui/components';
 import type { QuickFilter } from '../lib/catalogue/quick-filters';
+import { filterChipClassName, filterChipTextClassName } from './catalogue-filter-chips';
 
 export function QuickFilterBar({ quickFilters, isActive, onPress }: {
   quickFilters: QuickFilter[];
@@ -12,10 +13,10 @@ export function QuickFilterBar({ quickFilters, isActive, onPress }: {
   return <View testID="quick-filter-bar" className="flex-row flex-wrap items-center gap-2">
     {quickFilters.map(quickFilter => {
       const active = isActive(quickFilter);
-      return <Button key={quickFilter.id} testID={`quick-filter-${quickFilter.id}`}
-        variant={active ? 'default' : 'outline'} aria-pressed={active} onPress={() => onPress(quickFilter)}>
-        <Text>{quickFilter.label}</Text>
-      </Button>;
+      return <Pressable key={quickFilter.id} testID={`quick-filter-${quickFilter.id}`} role="button"
+        aria-pressed={active} className={filterChipClassName(active)} onPress={() => onPress(quickFilter)}>
+        <Text className={filterChipTextClassName(active)}>{quickFilter.label}</Text>
+      </Pressable>;
     })}
   </View>;
 }

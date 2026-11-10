@@ -398,6 +398,7 @@ test('the Tax tile field shows nothing without the till\'s tax', () => {
 
 test('a sold-out product says Sold out instead of its price', () => {
   render(<><CatalogueView {...props} products={[{ ...products[0], stock_status: 'outofstock', stock_quantity: 0 }]} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('filter-pill-remove-stock_status'));
   expect(screen.getByTestId('tile-sold-out-80').textContent).toBe('Sold out');
   expect(screen.getByTestId('product-tile-80').textContent).not.toContain('$3.00');
   openTileFields('Price');
@@ -406,6 +407,8 @@ test('a sold-out product says Sold out instead of its price', () => {
 
 test('a variable product is never sold out and has no stock mark', () => {
   render(<><CatalogueView {...props} products={[{ ...products[2], stock_status: 'outofstock', manage_stock: true, stock_quantity: 5 }]} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('filter-pill-remove-stock_status'));
+  expect(screen.getByTestId('product-tile-102')).not.toBeNull();
   openTileFields('Stock');
   expect(screen.queryByTestId('tile-sold-out-102')).toBeNull();
   expect(screen.queryByTestId('tile-stock-102')).toBeNull();
@@ -413,6 +416,7 @@ test('a variable product is never sold out and has no stock mark', () => {
 
 test('Stock shows Backorder for a product that sells at none', () => {
   render(<><CatalogueView {...props} products={[{ ...products[0], stock_status: 'onbackorder', stock_quantity: 0 }]} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('filter-pill-remove-stock_status'));
   openTileFields('Stock');
   expect(screen.getByTestId('tile-stock-80').textContent).toBe('Backorder');
   expect(within(screen.getByTestId('product-tile-80')).getByText('$3.00')).not.toBeNull();
@@ -458,6 +462,7 @@ test('a product without a photo shows its initial on a tint and no scrim', () =>
 
 test('a sold-out tile greys its picture and an in-stock one does not', () => {
   render(<><CatalogueView {...props} products={[{ ...products[0], stock_status: 'outofstock', stock_quantity: 0 }, products[1]]} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('filter-pill-remove-stock_status'));
   expect(screen.getByTestId('tile-picture-80').style.opacity).toBe('0.4');
   expect(screen.getByTestId('tile-picture-84').style.opacity).toBe('');
 });
