@@ -8,6 +8,9 @@ import type { Session } from './session';
 
 interface SessionContextValue {
   session: Session | null;
+  /** True while the store refused this session's refresh: it is kept, not cleared, until the cashier signs in again. */
+  held: boolean;
+  startReauth(): void;
   cashiers: Session[];
   startAddCashier(): void;
   switchCashier(uuid: string): Promise<void>;
@@ -22,12 +25,14 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }): JSX.Element {
   const [session, setSession] = useState<Session | null>(null);
+  const [held, setHeld] = useState(false);
   const [roster, setRoster] = useState<Record<string, Session[]>>({});
   const [ready, setReady] = useState(false);
   const current = useRef<Session | null>(null);
   const updateSession = useCallback((next: Session | null) => {
     current.current = next;
     setSession(next);
+    setHeld(false);
   }, []);
 
   useEffect(() => {
@@ -44,9 +49,9 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
           updateSession(next);
         }
       } catch (error) {
+        // An expired session is held, not cleared: the order outbox is keyed by it, so unsent sales stay queued until the cashier signs in again (v2 session-hold-banner).
         if (mounted && current.current === previous && error instanceof SessionExpiredError) {
-          clearSession();
-          updateSession(null);
+          setHeld(true);
         }
       }
     }
@@ -74,6 +79,16 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
       globalThis.sessionStorage.setItem(PENDING_KEY, JSON.stringify({ state, site, mode: 'add' }));
     } catch {}
     window.location.assign(buildAuthUrl(site.authUrl, `${window.location.origin}/auth/callback`, state));
+  }
+
+  function startReauth(): void {
+    const active = current.current;
+    if (!active) return;
+    const state = newState();
+    try {
+      globalThis.sessionStorage.setItem(PENDING_KEY, JSON.stringify({ state, site: active.site }));
+    } catch {}
+    window.location.assign(buildAuthUrl(active.site.authUrl, `${window.location.origin}/auth/callback`, state));
   }
 
   const completeSignIn = useCallback((search: string): Session => {
@@ -150,7 +165,7 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
 
   const cashiers = session ? (roster[session.site.home] ?? []).filter(entry => entry.tokens.user.uuid !== session.tokens.user.uuid) : [];
   return (
-    <SessionContext.Provider value={{ session, ready, cashiers, startSignIn, startAddCashier, switchCashier, removeCashier, completeSignIn, signOut }}>
+    <SessionContext.Provider value={{ session, held, ready, cashiers, startSignIn, startAddCashier, startReauth, switchCashier, removeCashier, completeSignIn, signOut }}>
       {children}
     </SessionContext.Provider>
   );
