@@ -51,17 +51,18 @@ test('a stored right position puts the cart first', () => {
   expect(cartPanel.compareDocumentPosition(productsPanel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
-test('choosing Products right in settings moves the panes at once', () => {
+test('choosing Cart left in Cart Settings moves the panes at once', () => {
   render(<><SaleScreen {...props} /><PortalHost /></>);
   const productsPanel = screen.getByTestId('pos-products-panel');
   const cartPanel = screen.getByTestId('pos-cart-panel');
   expect(productsPanel.compareDocumentPosition(cartPanel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
-  fireEvent.click(screen.getByTestId('panel-position-right'));
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  fireEvent.click(screen.getByTestId('cart-setting-panel-position-left'));
   expect(screen.getByTestId('pos-products-panel')).toBe(productsPanel);
   expect(screen.getByTestId('pos-cart-panel')).toBe(cartPanel);
   expect(cartPanel.compareDocumentPosition(productsPanel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(screen.getByTestId('panel-position-right').getAttribute('aria-selected')).toBe('true');
+  expect(screen.getByTestId('cart-setting-panel-position-left').getAttribute('aria-selected')).toBe('true');
+  expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!).position).toBe('right');
 });
 
 test('narrow screens keep the stacked layout whatever the position', () => {
