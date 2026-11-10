@@ -30,8 +30,8 @@ test('empty storage loads the defaults', () => {
     { id: 'stock', visible: true }, { id: 'category', visible: true },
     { id: 'sku', visible: false }, { id: 'barcode', visible: false },
   ]);
-  expect(CATALOGUE_VIEW_DEFAULTS.tileFields).toEqual({ name: true, price: true, category: false, sku: false, barcode: false, stock: false });
-  expect(Object.keys(CATALOGUE_VIEW_DEFAULTS.tileFields)).toEqual(['name', 'price', 'category', 'sku', 'barcode', 'stock']);
+  expect(CATALOGUE_VIEW_DEFAULTS.tileFields).toEqual({ name: true, price: true, tax: false, on_sale: false, category: false, sku: false, barcode: false, stock: false });
+  expect(Object.keys(CATALOGUE_VIEW_DEFAULTS.tileFields)).toEqual(['name', 'price', 'tax', 'on_sale', 'category', 'sku', 'barcode', 'stock']);
 });
 
 test('saves the exact JSON and round-trips a table state', () => {
@@ -114,8 +114,8 @@ test('normalizes tile fields individually and drops unknown keys', () => {
   const storage = memoryStorage();
   storage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ tileFields: { sku: true, price: 'no', name: false, bogus: true } }));
   const fields = loadCatalogueView(storage).tileFields;
-  expect(fields).toEqual({ name: false, price: true, category: false, sku: true, barcode: false, stock: false });
-  expect(Object.keys(fields)).toEqual(['name', 'price', 'category', 'sku', 'barcode', 'stock']);
+  expect(fields).toEqual({ name: false, price: true, tax: false, on_sale: false, category: false, sku: true, barcode: false, stock: false });
+  expect(Object.keys(fields)).toEqual(['name', 'price', 'tax', 'on_sale', 'category', 'sku', 'barcode', 'stock']);
 });
 
 test.each(['{"view":"table","tileFields":[true]}', '{"view":"table","tileFields":"x"}'])('invalid tile fields fall back independently of the stored view: %s', raw => {

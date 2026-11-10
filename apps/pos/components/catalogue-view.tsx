@@ -4,16 +4,19 @@ import { View, useWindowDimensions } from 'react-native';
 import { ConnectorProvider } from '@tallyui/core';
 import type { TallyConnector } from '@tallyui/core';
 import { Button, defaultProductColumns, ProductGrid, ProductTable, SearchInput, Text, ViewToggle } from '@tallyui/components';
+import type { ProductTableColumn } from '@tallyui/components';
 import { productSortValue, resolveGridColumns, searchProducts, sortProducts } from '@tallyui/pos';
 import type { ProductSort } from '@tallyui/pos';
 import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
 import type { AppCatalogueViewState } from '../lib/catalogue/catalogue-view-state';
 import { isQuickFilterActive, matchesCatalogueFilters, quickFilterToQueryPatch, useQuickFilters } from '../lib/catalogue/quick-filters';
 import type { CatalogueFilters, QuickFilter } from '../lib/catalogue/quick-filters';
+import type { TileTax } from '../lib/catalogue/tile-words';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { CatalogueDisplayOptions } from './catalogue-display-options';
 import { FilterBarDialog } from './filter-bar-dialog';
 import { OfflineBadge } from './offline-badge';
+import { InCartBadge } from './in-cart-badge';
 import { ProductTile } from './product-tile';
 import { QuickFilterBar } from './quick-filter-bar';
 
@@ -39,11 +42,16 @@ export interface CatalogueViewProps {
   onOpenSettings?(): void;
   viewState?: AppCatalogueViewState;
   onViewStateChange?(next: AppCatalogueViewState): void;
+  /** The till's tax, for the tiles' Tax field; without it the field shows nothing. */
+  tax?: TileTax;
+  /** In-cart quantity by product id (SaleScreen's lines); without it no badge shows. */
+  inCartCounts?: ReadonlyMap<string, number>;
 }
 
 export function CatalogueView({
   connector, currency, products, storeName, cashierName, cashierControl, hideOfflineBadge, status, notice, onSignOut, onOpenOrders, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings, onSelect, onScan, message,
   viewState: controlledViewState, onViewStateChange,
+  tax, inCartCounts,
 }: CatalogueViewProps): JSX.Element {
   const [term, setTerm] = useState('');
   const [quickFilters, setQuickFilters] = useQuickFilters();
@@ -71,11 +79,16 @@ export function CatalogueView({
   }, [products, filters, term, searching, connector.traits.product, currency, sort]);
   const columns = useMemo(() => {
     const byId = new Map(defaultProductColumns(connector.traits.product, { currency }).map(column => [column.id, column]));
-    return viewState.columns.filter(c => c.visible).flatMap(c => {
+    const visible: ProductTableColumn[] = viewState.columns.filter(c => c.visible).flatMap(c => {
       const column = byId.get(c.id);
       return column ? [column] : [];
     });
-  }, [connector.traits.product, currency, viewState.columns]);
+    if (inCartCounts) visible.push({ id: 'in_cart', header: '', flex: 0.5, render: doc => {
+      const id = connector.traits.product.getId(doc);
+      return <InCartBadge count={inCartCounts.get(id) ?? 0} testID={`in-cart-row-${id}`} />;
+    } });
+    return visible;
+  }, [connector.traits.product, currency, viewState.columns, inCartCounts]);
   const queryState = { filters, search: term, sort };
   const isActive = (qf: QuickFilter) => isQuickFilterActive(qf, queryState, viewState.sort);
   // Like v2, a press replaces the whole filter state, and pressing the active button restores the baseline.
@@ -129,7 +142,7 @@ export function CatalogueView({
         {viewState.view === 'grid' ? <ProductGrid
           items={items}
           numColumns={numColumns}
-          renderItem={doc => <ProductTile doc={doc} fields={viewState.tileFields} onPress={onSelect ? () => onSelect(doc) : undefined} />}
+          renderItem={doc => <ProductTile doc={doc} fields={viewState.tileFields} tax={tax} inCart={inCartCounts?.get(connector.traits.product.getId(doc)) ?? 0} onPress={onSelect ? () => onSelect(doc) : undefined} />}
           searchSlot={searchSlot}
           emptyState={emptyState}
         /> : <ProductTable

@@ -327,7 +327,7 @@ test('category, barcode and stock switches show their tile fields', () => {
   const tile = within(screen.getByTestId('product-tile-80'));
   expect(tile.getByText('Coffee')).not.toBeNull();
   expect(tile.getByText('2000000000015')).not.toBeNull();
-  expect(screen.getByTestId('product-tile-80').textContent).toContain('In Stock (100)');
+  expect(screen.getByTestId('tile-stock-80').textContent).toBe('100 left');
 });
 
 test('the price tile switch hides price and keeps name visible', () => {
@@ -366,4 +366,70 @@ test('pressing a grid tile selects its product once', () => {
   fireEvent.click(screen.getByTestId('product-tile-84'));
   expect(onSelect).toHaveBeenCalledOnce();
   expect(onSelect).toHaveBeenCalledWith(products[1]);
+});
+
+function openTileFields(...labels: string[]) {
+  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
+  for (const label of labels) fireEvent.click(screen.getByRole('switch', { name: `Show ${label} on tiles` }));
+}
+
+test('the On Sale tile field strikes the regular price only when on', () => {
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  const tile = screen.getByTestId('product-tile-84');
+  expect(within(tile).getByText('$4.00')).not.toBeNull();
+  expect(screen.queryByTestId('tile-was-84')).toBeNull();
+  expect(tile.textContent).not.toContain('$5.00');
+  openTileFields('On Sale');
+  expect(screen.getByTestId('tile-was-84').textContent).toBe('$5.00');
+});
+
+test('the Tax tile field shows the till\'s tax for a taxable product', () => {
+  render(<><CatalogueView {...props} products={[{ ...products[0], tax_status: 'taxable' }]}
+    tax={{ pricesIncludeTax: false, getTaxRatePpm: () => 100000 }} /><PortalHost /></>);
+  expect(screen.queryByTestId('tile-tax-80')).toBeNull();
+  openTileFields('Tax');
+  expect(screen.getByTestId('tile-tax-80').textContent).toBe('excl. $0.30 tax');
+});
+
+test('the Tax tile field shows nothing without the till\'s tax', () => {
+  render(<><CatalogueView {...props} products={[{ ...products[0], tax_status: 'taxable' }]} /><PortalHost /></>);
+  openTileFields('Tax');
+  expect(screen.queryByTestId('tile-tax-80')).toBeNull();
+});
+
+test('a sold-out product says Sold out instead of its price', () => {
+  render(<><CatalogueView {...props} products={[{ ...products[0], stock_status: 'outofstock', stock_quantity: 0 }]} /><PortalHost /></>);
+  expect(screen.getByTestId('tile-sold-out-80').textContent).toBe('Sold out');
+  expect(screen.getByTestId('product-tile-80').textContent).not.toContain('$3.00');
+  openTileFields('Price');
+  expect(screen.queryByTestId('tile-sold-out-80')).toBeNull();
+});
+
+test('a variable product is never sold out and has no stock mark', () => {
+  render(<><CatalogueView {...props} products={[{ ...products[2], stock_status: 'outofstock', manage_stock: true, stock_quantity: 5 }]} /><PortalHost /></>);
+  openTileFields('Stock');
+  expect(screen.queryByTestId('tile-sold-out-102')).toBeNull();
+  expect(screen.queryByTestId('tile-stock-102')).toBeNull();
+});
+
+test('Stock shows Backorder for a product that sells at none', () => {
+  render(<><CatalogueView {...props} products={[{ ...products[0], stock_status: 'onbackorder', stock_quantity: 0 }]} /><PortalHost /></>);
+  openTileFields('Stock');
+  expect(screen.getByTestId('tile-stock-80').textContent).toBe('Backorder');
+  expect(within(screen.getByTestId('product-tile-80')).getByText('$3.00')).not.toBeNull();
+});
+
+test('tiles show the in-cart count and no badge at zero', () => {
+  render(<><CatalogueView {...props} inCartCounts={new Map([['80', 2]])} /><PortalHost /></>);
+  expect(screen.getByTestId('in-cart-tile-80').textContent).toBe('2');
+  expect(screen.getByLabelText('In cart: 2')).not.toBeNull();
+  expect(screen.queryByTestId('in-cart-tile-84')).toBeNull();
+});
+
+test('table rows show the in-cart count and keep their order', () => {
+  render(<><CatalogueView {...props} inCartCounts={new Map([['80', 3]])} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('view-toggle-table'));
+  expect(screen.getByTestId('in-cart-row-80').textContent).toBe('3');
+  expect(screen.queryByTestId('in-cart-row-84')).toBeNull();
+  expect(screen.getAllByTestId(/^product-row-/).map(row => row.getAttribute('data-testid'))).toEqual(['product-row-84', 'product-row-80', 'product-row-102']);
 });
