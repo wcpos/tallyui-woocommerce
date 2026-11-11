@@ -21,6 +21,7 @@ import { parkCart, restoreCart } from '../lib/sale/parked-carts';
 import { saleDiscountCodes } from '../lib/sale/discount-codes';
 import { taxClassOptions } from '../lib/sale/tax-classes';
 import { lookupCode } from '../lib/scan/lookup';
+import { scanFeedback } from '../lib/scan/scan-sound';
 import { recordTenderVoids, type TenderVoidCollection } from '../lib/sale/tender-voids';
 import type { ParkedCart, ParkedCartCollection } from '../lib/sale/parked-carts';
 import { VariantChooser } from './variant-chooser';
@@ -361,21 +362,29 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         const name = connector.traits.product.getName(product);
         const label = variant.title ? `${name} · ${variant.title}` : name;
         if (variant.stock.status === 'out_of_stock') {
+          scanFeedback('failure');
           setMessage(`${label} out of stock`);
           return 'keep';
         }
-        if (onAdd(result.entry)) setMessage(`${label} added to cart`);
+        if (onAdd(result.entry)) {
+          scanFeedback('success');
+          setMessage(`${label} added to cart`);
+        } else scanFeedback('failure');
         return 'clear';
       }
       if (result.kind === 'product') {
+        // v2's chooseVariation plays the failure tone: the scan did not add a line.
+        scanFeedback('failure');
         onSelect(result.product);
         return 'clear';
       }
+      scanFeedback('failure');
       setMessage(result.kind === 'several'
         ? `Several matches: ${result.count} products found — ${code}`
         : `Barcode not found — ${code}`);
       return 'search';
     } catch (error) {
+      scanFeedback('failure');
       setMessage(error instanceof Error ? error.message : String(error));
       return 'keep';
     }

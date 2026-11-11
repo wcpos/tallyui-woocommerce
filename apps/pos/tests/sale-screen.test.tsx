@@ -22,6 +22,8 @@ import stores from './fixtures/stores.json';
 import variations from './fixtures/variations.json';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import { openParkedList, parkedTabs } from './open-orders-helpers';
+import { SCAN_SOUND_KEY } from '../lib/scan/scan-sound';
+import { installFakeAudio, tones } from './fake-audio-context';
 
 function SaleScreen(props: SaleScreenProps) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
@@ -174,6 +176,51 @@ test('several barcode matches report the count and keep the code in search', () 
   expect(screen.getByText('Several matches: 2 products found — 2000000000015')).not.toBeNull();
   expect(input.value).toBe('2000000000015');
   expect(screen.getByRole('button', { name: 'Cart is empty' })).not.toBeNull();
+});
+
+function scanInto(input: HTMLElement, code: string) {
+  fireEvent.change(input, { target: { value: code } });
+  fireEvent.keyDown(input, { key: 'Enter' });
+}
+
+test('with scan sound on, an added product plays success and a parent or unknown code plays failure', () => {
+  installFakeAudio();
+  localStorage.setItem(SCAN_SOUND_KEY, JSON.stringify({ enabled: true, theme: 'classic' }));
+  render(<SaleScreen {...props} products={[products[0], products[1], shirt]} />);
+  const input = screen.getByPlaceholderText('Search name, SKU or barcode');
+  scanInto(input, '2000000000015');
+  expect(screen.getByText('Espresso added to cart')).not.toBeNull();
+  expect(tones()).toEqual(['sine 880', 'sine 1320']);
+  installFakeAudio();
+  scanInto(input, '999999999');
+  expect(screen.getByText('Barcode not found — 999999999')).not.toBeNull();
+  expect(tones()).toEqual(['square 330', 'square 220']);
+  installFakeAudio();
+  scanInto(input, '2000000000121');
+  expect(screen.getByText('Choose an option')).not.toBeNull();
+  expect(tones()).toEqual(['square 330', 'square 220']);
+});
+
+// useSale catches its own CartErrors, so onAdd returns false only for an error the cart rethrows: a price whose
+// minor units overflow to Infinity makes the cart builder throw a RangeError.
+test('with scan sound on, a scanned product the cart refuses plays failure, not success', () => {
+  installFakeAudio();
+  localStorage.setItem(SCAN_SOUND_KEY, JSON.stringify({ enabled: true, theme: 'classic' }));
+  render(<SaleScreen {...props} products={[{ ...products[0], price: '1e307', regular_price: '1e307', on_sale: false }]} />);
+  scanInto(screen.getByPlaceholderText('Search name, SKU or barcode'), '2000000000015');
+  expect(screen.getByText('Price must be integer minor units')).not.toBeNull();
+  expect(screen.queryByText('Espresso added to cart')).toBeNull();
+  expect(tones()).toEqual(['square 330', 'square 220']);
+});
+
+test('with scan sound off, a scan plays nothing', () => {
+  installFakeAudio();
+  render(<SaleScreen {...props} products={[products[0], products[1], shirt]} />);
+  const input = screen.getByPlaceholderText('Search name, SKU or barcode');
+  scanInto(input, '2000000000015');
+  scanInto(input, '999999999');
+  expect(screen.getByText('Barcode not found — 999999999')).not.toBeNull();
+  expect(tones()).toEqual([]);
 });
 
 test('a document wedge burst adds Espresso and shows feedback', () => {
