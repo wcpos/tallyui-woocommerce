@@ -120,8 +120,8 @@ test('yesterday excludes the day before and tomorrow', () => {
 
 test('the comparison uses yesterday up to the same time', () => {
   const { yesterdaySoFar, delta } = salesRoom(orders, { now, currency: 'USD' });
-  expect(yesterdaySoFar).toEqual({ count: 1, totalMinor: 400, averageMinor: 400 });
-  expect(delta).toEqual({ totalMinor: 2596, percentTenths: 6490, count: 3, averageMinor: 349 });
+  expect(yesterdaySoFar).toEqual({ count: 1, totalMinor: 400, averageMinor: 400, items: 0 });
+  expect(delta).toEqual({ totalMinor: 2596, percentTenths: 6490, count: 3, averageMinor: 349, items: 2 });
   expect(salesRoom(orders.filter(order => order.id.startsWith('T')), { now, currency: 'USD' }).delta.percentTenths).toBeNull();
 }, 20_000);
 
@@ -144,8 +144,8 @@ test('runs in a non-UTC zone', () => {
 test('last week compares the same weekday up to the same time', () => {
   const result = salesRoom([...orders, ...lastWeek], { now, currency: 'USD', compare: 'lastweek' });
   expect(result.yesterday).toMatchObject({ count: 2, totalMinor: 1200 });
-  expect(result.yesterdaySoFar).toEqual({ count: 1, totalMinor: 250, averageMinor: 250 });
-  expect(result.delta).toEqual({ totalMinor: 2746, percentTenths: 10984, count: 3, averageMinor: 499 });
+  expect(result.yesterdaySoFar).toEqual({ count: 1, totalMinor: 250, averageMinor: 250, items: 0 });
+  expect(result.delta).toEqual({ totalMinor: 2746, percentTenths: 10984, count: 3, averageMinor: 499, items: 2 });
   expect(result.today).toMatchObject({ count: 4, totalMinor: 2996 });
   expect(result.hours.find(bucket => bucket.hour === 11)!.yesterday).toEqual({ count: 1, totalMinor: 250 });
   expect(result.hours.find(bucket => bucket.hour === 16)!.yesterday).toEqual({ count: 1, totalMinor: 950 });
@@ -155,4 +155,30 @@ test('compare defaults to yesterday', () => {
   expect(salesRoom([...orders, ...lastWeek], { now, currency: 'USD', compare: 'yesterday' }))
     .toEqual(salesRoom([...orders, ...lastWeek], { now, currency: 'USD' }));
   expect(salesRoom([...orders, ...lastWeek], { now, currency: 'USD' }).yesterday).toMatchObject({ count: 2, totalMinor: 1000 });
+}, 20_000);
+
+const line = (id: string, quantity: number) => ({ id, productId: `product-${id}`, name: `Item ${id}`, sku: id, quantity,
+  unitPriceMinor: 100, discountMinor: 0, netMinor: 100 * quantity, taxLines: [] });
+const itemOrders: PosOrder[] = [
+  { ...base, id: 'I1', createdAt: new Date(2026, 9, 6, 9, 0).toISOString(), subtotalMinor: 300, totalMinor: 300,
+    syncStatus: 'applied', lines: [line('a', 2), line('b', 1)], payments: [{ id: 'i1', method: 'cash', amountMinor: 300 }] },
+  { ...base, id: 'I2', createdAt: new Date(2026, 9, 6, 11, 0).toISOString(), subtotalMinor: 300, totalMinor: 300,
+    syncStatus: 'applied', lines: [line('c', 3)], payments: [{ id: 'i2', method: 'cash', amountMinor: 300 }] },
+  { ...base, id: 'J1', createdAt: new Date(2026, 9, 5, 10, 0).toISOString(), subtotalMinor: 400, totalMinor: 400,
+    syncStatus: 'applied', lines: [line('d', 4)], payments: [{ id: 'j1', method: 'cash', amountMinor: 400 }] },
+  { ...base, id: 'J2', createdAt: new Date(2026, 9, 5, 15, 0).toISOString(), subtotalMinor: 500, totalMinor: 500,
+    syncStatus: 'applied', lines: [line('e', 5)], payments: [{ id: 'j2', method: 'cash', amountMinor: 500 }] },
+  { ...base, id: 'K1', createdAt: new Date(2026, 9, 6, 10, 0).toISOString(), currency: 'EUR', subtotalMinor: 700, totalMinor: 700,
+    syncStatus: 'applied', lines: [line('f', 7)], payments: [{ id: 'k1', method: 'cash', amountMinor: 700 }] },
+];
+
+test('items sums the line quantities of the orders counted today', () => {
+  expect(salesRoom(itemOrders, { now, currency: 'USD' }).today).toMatchObject({ count: 2, items: 6 });
+}, 20_000);
+
+test("the comparison's items count only the comparison day's orders before the same time", () => {
+  const result = salesRoom(itemOrders, { now, currency: 'USD' });
+  expect(result.yesterday).toMatchObject({ count: 2, items: 9 });
+  expect(result.yesterdaySoFar).toEqual({ count: 1, totalMinor: 400, averageMinor: 400, items: 4 });
+  expect(result.delta.items).toBe(2);
 }, 20_000);

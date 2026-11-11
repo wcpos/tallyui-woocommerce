@@ -7,6 +7,8 @@ export type MethodTile = { method: string; label: string; count: number; totalMi
 export type TaxRateRow = { ratePpm: number; label: string; netMinor: number; taxMinor: number; grossMinor: number };
 export type Period = {
   count: number; totalMinor: number; taxMinor: number; averageMinor: number;
+  /** Units sold: the sum of line quantities. */
+  items: number;
   pending: number; rejected: number; splitCount: number;
   byMethod: MethodTile[]; taxRates: TaxRateRow[];
 };
@@ -19,8 +21,8 @@ export type SalesRoom = {
   today: Period;
   /** The comparison day (yesterday, or the same weekday last week); the names keep the default's. */
   yesterday: Period;
-  yesterdaySoFar: { count: number; totalMinor: number; averageMinor: number };
-  delta: { totalMinor: number; percentTenths: number | null; count: number; averageMinor: number };
+  yesterdaySoFar: { count: number; totalMinor: number; averageMinor: number; items: number };
+  delta: { totalMinor: number; percentTenths: number | null; count: number; averageMinor: number; items: number };
   hours: HourBucket[];
 };
 
@@ -30,17 +32,19 @@ export function salesRoom(orders: readonly PosOrder[], options: { now: Date; cur
   const back = compare === 'lastweek' ? 7 : 1;
   const ranges = [dayRange(now), dayRange(new Date(year, month, day - back))];
   const cutoff = new Date(year, month, day - back, now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds()).toISOString();
-  const yesterdaySoFar = { count: 0, totalMinor: 0, averageMinor: 0 };
+  const yesterdaySoFar = { count: 0, totalMinor: 0, averageMinor: 0, items: 0 };
   const buckets = new Map<number, HourBucket>();
   const [today, yesterday] = ranges.map(({ startIso, endIso }, index): Period => {
     const period: Period = {
-      count: 0, totalMinor: 0, taxMinor: 0, averageMinor: 0,
+      count: 0, totalMinor: 0, taxMinor: 0, averageMinor: 0, items: 0,
       pending: 0, rejected: 0, splitCount: 0, byMethod: [], taxRates: [],
     };
     for (const order of orders) {
       if (order.currency !== currency || order.createdAt < startIso || order.createdAt >= endIso) continue;
+      const items = order.lines.reduce((sum, line) => sum + line.quantity, 0);
       period.count++;
       period.totalMinor += order.totalMinor;
+      period.items += items;
       period.taxMinor += order.taxMinor;
       if (order.syncStatus === 'pending') period.pending++;
       if (order.syncStatus === 'rejected') period.rejected++;
@@ -72,6 +76,7 @@ export function salesRoom(orders: readonly PosOrder[], options: { now: Date; cur
       if (index === 1 && order.createdAt < cutoff) {
         yesterdaySoFar.count++;
         yesterdaySoFar.totalMinor += order.totalMinor;
+        yesterdaySoFar.items += items;
       }
       const hour = new Date(order.createdAt).getHours();
       let bucket = buckets.get(hour);
@@ -106,6 +111,7 @@ export function salesRoom(orders: readonly PosOrder[], options: { now: Date; cur
       percentTenths: yesterdaySoFar.totalMinor === 0 ? null : Math.round(totalMinor * 1000 / yesterdaySoFar.totalMinor),
       count: today.count - yesterdaySoFar.count,
       averageMinor: today.averageMinor - yesterdaySoFar.averageMinor,
+      items: today.items - yesterdaySoFar.items,
     },
     hours,
   };
