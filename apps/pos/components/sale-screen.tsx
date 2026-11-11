@@ -412,7 +412,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           {/* Add coupon sits above the cart; WCPOS v2 has it in an add-items menu. Applied coupons are rows under Subtotal (afterSubtotal). */}
           {couponsOffered && props.couponCollections ? <CouponEntry sale={sale} coupons={props.couponCollections.coupons} currency={currency} /> : null}
           {/* M6's order notes can take the price-change reason via onPriceChange. */}
-          <CartWithSettings sale={{ ...sale, startTender: gatedStartTender }} canEditPrice taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)}
+          {/* B7: quantity and price open keypad popovers, as v2's cart/cells/quantity-keypad.tsx and cart/cells/price.tsx do. */}
+          <CartWithSettings sale={{ ...sale, startTender: gatedStartTender }} canEditPrice lineEditor="popover" taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)}
             afterSubtotal={couponsOffered && props.couponCollections ? <CouponRows sale={sale} /> : undefined}
             checkout={checkout}
             position={viewState.position} onPositionChange={position => setViewState({ ...viewState, position })}

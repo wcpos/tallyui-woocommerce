@@ -263,6 +263,8 @@ test('editing Espresso ×2 changes the unit price and subtotal exactly', () => {
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' }));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  // Narrow: no Price column, so no price popover; the line's Price action opens the inline form.
+  expect(screen.queryByLabelText('Edit price of Espresso')).toBeNull();
   fireEvent.click(priceAction('Espresso'));
   fireEvent.change(screen.getByRole('textbox', { name: 'Price value' }), { target: { value: '2.50' } });
   fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
@@ -318,13 +320,99 @@ test('parks through the sheet, shows the parked customer and restores them to th
   expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
 }, 20_000);
 
-test('Price actions appear once per line and none appear with an empty cart', () => {
+// B7: v2's cells/price.tsx and cells/quantity-keypad.tsx. The popovers' keypad keys are `<kind>-popover-keypad-key-<name>`.
+function typeOnKeypad(kind: 'price' | 'quantity', digits: string) {
+  for (const key of digits) fireEvent.click(screen.getByTestId(`${kind}-popover-keypad-key-${key === '.' ? 'decimal' : key}`));
+}
+
+const popoverValue = (kind: 'price' | 'quantity') => text(screen.getByTestId(`${kind}-popover-value`));
+
+test('wide: each line offers a price popover instead of the Price action, and keeps Discount', () => {
   vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
+  render(<SaleScreen {...props} />);
+  expect(screen.queryAllByTestId('price-popover-trigger')).toEqual([]);
+  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(screen.getByText('Cold Brew'));
+  expect(priceActions()).toEqual([]);
+  for (const name of ['Espresso', 'Cold Brew']) {
+    const item = within(cartItem(name));
+    expect(item.getAllByLabelText(`Edit price of ${name}`)).toHaveLength(1);
+    expect(item.getAllByLabelText(`Edit quantity of ${name}`)).toHaveLength(1);
+    expect(item.getAllByText('Discount', { exact: true })).toHaveLength(1);
+    expect(item.queryByText('Price', { exact: true })).toBeNull();
+  }
+  fireEvent.click(screen.getByLabelText('Edit price of Cold Brew'));
+  expect(within(screen.getByTestId('price-popover')).getByText('Price for Cold Brew')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('price-popover-cancel'));
+  fireEvent.click(screen.getByRole('button', { name: 'Remove Cold Brew' }));
+  expect(screen.getAllByTestId('price-popover-trigger')).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Remove Espresso' }));
+  expect(screen.queryAllByTestId('price-popover-trigger')).toEqual([]);
+});
+
+test('wide: the price popover shows the price and the −5%, −10% and −15% keys, and −10% applies 90%', () => {
+  vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
+  render(<SaleScreen {...props} />);
+  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  fireEvent.click(screen.getByLabelText('Edit price of Espresso'));
+  const popover = within(screen.getByTestId('price-popover'));
+  expect(popoverValue('price')).toBe('$3.00');
+  expect(popover.getAllByTestId(/^price-discount-/).map(text)).toEqual(['−5%', '−10%', '−15%']);
+  fireEvent.click(popover.getByTestId('price-discount-10'));
+  expect(popoverValue('price')).toBe('$2.70');
+  fireEvent.click(screen.getByTestId('price-popover-apply'));
+  expect(screen.queryByTestId('price-popover')).toBeNull();
+  expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: '$2.70', total: '$5.40' });
+  expect(within(summaryRow('Total')).getByText('$5.40')).not.toBeNull();
+});
+
+test('wide: the quantity popover sets the quantity typed on its keypad and the line total follows', () => {
+  vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
+  render(<SaleScreen {...props} />);
+  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(screen.getByLabelText('Edit quantity of Espresso'));
+  expect(within(screen.getByTestId('quantity-popover')).getByText('Quantity for Espresso')).not.toBeNull();
+  typeOnKeypad('quantity', '3');
+  expect(popoverValue('quantity')).toBe('3');
+  fireEvent.click(screen.getByTestId('quantity-popover-apply'));
+  expect(screen.queryByTestId('quantity-popover')).toBeNull();
+  expect(cartLine('Espresso')).toEqual({ quantity: '3', unitPrice: '$3.00', total: '$9.00' });
+  expect(within(summaryRow('Total')).getByText('$9.00')).not.toBeNull();
+});
+
+test('wide: Cancel closes the price popover and writes nothing', () => {
+  vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
+  render(<SaleScreen {...props} />);
+  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(screen.getByLabelText('Edit price of Espresso'));
+  typeOnKeypad('price', '1');
+  expect(popoverValue('price')).toBe('1');
+  fireEvent.click(screen.getByTestId('price-popover-cancel'));
+  expect(screen.queryByTestId('price-popover')).toBeNull();
+  expect(cartLine('Espresso')).toEqual({ quantity: '1', unitPrice: '$3.00', total: '$3.00' });
+  expect(within(summaryRow('Total')).getByText('$3.00')).not.toBeNull();
+});
+
+test('wide: a price the library refuses stays in the open popover and changes nothing', () => {
+  vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
+  render(<SaleScreen {...props} />);
+  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(screen.getByLabelText('Edit price of Espresso'));
+  typeOnKeypad('price', '9007199254740992');
+  fireEvent.click(screen.getByTestId('price-popover-apply'));
+  expect(within(screen.getByTestId('price-popover')).getByRole('alert').textContent).toBe('Enter a number.');
+  expect(cartLine('Espresso')).toEqual({ quantity: '1', unitPrice: '$3.00', total: '$3.00' });
+  expect(within(summaryRow('Total')).getByText('$3.00')).not.toBeNull();
+});
+
+test('narrow: Price actions appear once per line and none appear with an empty cart', () => {
   render(<SaleScreen {...props} />);
   expect(priceActions()).toEqual([]);
   fireEvent.click(screen.getByText('Espresso'));
-  expect(priceActions()).toEqual([priceAction('Espresso')]);
   fireEvent.click(screen.getByText('Cold Brew'));
+  fireEvent.click(screen.getByRole('button', { name: 'Open cart, 2 items, $7.00' }));
+  expect(screen.queryAllByTestId('price-popover-trigger')).toEqual([]);
   expect(priceActions()).toHaveLength(2);
   expect(within(cartItem('Espresso')).getAllByText('Price', { exact: true })).toHaveLength(1);
   expect(within(cartItem('Cold Brew')).getAllByText('Price', { exact: true })).toHaveLength(1);
@@ -361,44 +449,49 @@ test('the cart shows the Qty, Item, Price and Total column heads wide, and a pho
   expect(cartLine('Espresso')).toEqual({ quantity: '1', unitPrice: undefined, total: '$3.00' });
 });
 
+// The popover keypad cannot type past the currency's decimal places: JPY has no decimal key and ignores a typed ".",
+// and KWD drops a fourth decimal.
 test.each([
-  ['JPY', '350', '¥350', '¥700', '350.5', 'Use a whole amount.'],
-  ['KWD', '2.501', 'KWD 2.501', 'KWD 5.002', '2.5011', 'Use at most 3 decimal places.'],
+  ['JPY', '350', '¥350', '¥700', '350', '350'],
+  ['KWD', '2.501', 'KWD 2.501', 'KWD 5.002', '2.5011', '2.501'],
 ])(
-  'price edits respect the library decimal limit for %s', (currency, value, unit, total, invalid, message) => {
+  'price edits respect the library decimal limit for %s', (currency, value, unit, total, invalid, typed) => {
     vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
     render(<SaleScreen {...props} currency={currency} />);
     fireEvent.click(screen.getByText('Espresso'));
     fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
-    fireEvent.click(priceAction('Espresso'));
-    fireEvent.change(screen.getByRole('textbox', { name: 'Price value' }), { target: { value } });
-    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    fireEvent.click(screen.getByLabelText('Edit price of Espresso'));
+    typeOnKeypad('price', value);
+    fireEvent.click(screen.getByTestId('price-popover-apply'));
+    expect(screen.queryByTestId('price-popover')).toBeNull();
     expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: unit, total });
     expect(within(screen.getByText('Subtotal').parentElement!).getByText(total)).not.toBeNull();
-    fireEvent.click(priceAction('Espresso'));
-    fireEvent.change(screen.getByRole('textbox', { name: 'Price value' }), { target: { value: invalid } });
-    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
-    expect(screen.getByRole('alert').textContent).toBe(message);
-    expect(screen.getByRole('group', { name: 'Price for Espresso' })).not.toBeNull();
+    fireEvent.click(screen.getByLabelText('Edit price of Espresso'));
+    if (currency === 'JPY') expect(screen.queryByTestId('price-popover-keypad-key-decimal')).toBeNull();
+    typeOnKeypad('price', invalid);
+    fireEvent.keyDown(document, { key: '.' });
+    expect(popoverValue('price')).toBe(typed);
+    fireEvent.click(screen.getByTestId('price-popover-apply'));
     expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: unit, total });
     expect(within(screen.getByText('Subtotal').parentElement!).getByText(total)).not.toBeNull();
   },
 );
 
-test('a real setUnitPrice refusal stays inline without closing the form', () => {
+test('a real setUnitPrice refusal stays in the price popover without closing it', () => {
+  vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
   const { result } = renderHook(() => useSale({ currency: 'USD' }, { registerId: 'web', cashierRef: '2' }), {
     wrapper: ({ children }) => <TaxProvider ratesPpm={{}} pricesIncludeTax={false}>{children}</TaxProvider>,
   });
   act(() => result.current.add(catalogueEntries([products[0]], props.connector.traits.product, { currency: 'USD' })[0], props.connector.traits.product));
   const sale = result.current;
   act(() => result.current.newSale());
-  render(<Cart sale={sale} canEditPrice />);
-  fireEvent.click(screen.getByText('Price', { exact: true }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'Price value' }), { target: { value: '2.50' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
-  const form = screen.getByRole('group', { name: 'Price for Espresso' });
-  expect(within(form).getByRole('alert').textContent).toBe(`Unknown line ${sale.order.lineItems[0].id}`);
-  expect(within(form).getByRole('textbox', { name: 'Price value' })).not.toBeNull();
+  render(<><Cart sale={sale} canEditPrice lineEditor="popover" /><PortalHost /></>);
+  fireEvent.click(screen.getByLabelText('Edit price of Espresso'));
+  typeOnKeypad('price', '2.5');
+  fireEvent.click(screen.getByTestId('price-popover-apply'));
+  const popover = screen.getByTestId('price-popover');
+  expect(within(popover).getByRole('alert').textContent).toBe(`Unknown line ${sale.order.lineItems[0].id}`);
+  expect(within(popover).getByTestId('price-popover-keypad')).not.toBeNull();
   expect(result.current.order.lineItems).toEqual([]);
 });
 
