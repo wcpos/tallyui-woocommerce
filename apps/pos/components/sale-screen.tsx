@@ -400,13 +400,6 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         <>
           {props.customers ? <CustomerPicker source={props.customers} customer={sale.order.customer ?? null} onChange={sale.setCustomer}
             createBlockedReason={createCustomersBlockedReason(effective)} /> : null}
-          <View className="flex-row gap-2">
-            <Button disabled={!sale.order.lineItems.length} onPress={async () => {
-              const result = await onPark();
-              if (typeof result === 'string') setMessage(result);
-            }}><Text>Park cart</Text></Button>
-            <Button onPress={() => setParkedOpen(true)}><Text>{`Parked (${parked.length})`}</Text></Button>
-          </View>
           <ParkedSales sale={sale} parked={summaries} onPark={onPark} onResume={onResume}
             onDiscard={onDiscard} currency={currency} open={parkedOpen} onOpenChange={setParkedOpen} />
           {/* Add coupon sits above the cart; WCPOS v2 has it in an add-items menu. Applied coupons are rows under Subtotal (afterSubtotal). */}
@@ -417,7 +410,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             afterSubtotal={couponsOffered && props.couponCollections ? <CouponRows sale={sale} /> : undefined}
             checkout={checkout}
             position={viewState.position} onPositionChange={position => setViewState({ ...viewState, position })}
-            openOrders={<OpenOrderTabs parked={parked} current={sale.order} currency={currency} locale={props.locale} onSelect={onResume} onNew={onPark} onError={setMessage} />} />
+            openOrders={<OpenOrderTabs parked={parked} current={sale.order} currency={currency} locale={props.locale} onSelect={onResume} onNew={onPark} onError={setMessage}
+              onOpenList={() => setParkedOpen(true)} />} />
           {voidOpen && <AlertDialog open onOpenChange={next => { if (!next) setVoidOpen(false); }}>
             <AlertDialogContent testID="cart-void-dialog">
               <AlertDialogHeader>

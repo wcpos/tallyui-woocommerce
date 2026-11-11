@@ -21,6 +21,7 @@ import { noTaxSettings } from './fixtures/store-settings';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeLeg } from './tender-helpers';
+import { parkedTabs } from './open-orders-helpers';
 
 // The register's column wraps the cart in a layout this harness doesn't need (as in register-session.test.tsx).
 vi.mock('@tallyui/components', async importOriginal => ({
@@ -213,7 +214,8 @@ test('(e) Void sale empties the cart, and it stays empty through the persisted-c
     expect(localStorage.getItem('held-test')).toBeNull();
     view.unmount();
     render(<><SaleScreen {...props} parkedCarts={parkedCarts} heldCartKey="held-test" /><PortalHost /></>);
-    expect(await screen.findByRole('button', { name: 'Parked (0)' })).not.toBeNull();
+    expect(await screen.findByTestId('new-order-tab')).not.toBeNull();
+    expect(parkedTabs()).toHaveLength(0);
     expect(screen.queryByRole('button', { name: 'Remove Espresso' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Remove Cold Brew' })).toBeNull();
     expect(checkoutButton().getAttribute('aria-disabled')).toBe('true');

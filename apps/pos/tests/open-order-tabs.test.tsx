@@ -11,6 +11,7 @@ import { tabWho } from '../lib/sale/tab-who';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { openParkedList, parkedTabs, stripLayout } from './open-orders-helpers';
 
 function SaleScreen(props: SaleScreenProps) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
@@ -24,6 +25,9 @@ const props: SaleScreenProps = {
 };
 
 const currency = 'USD';
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const NOW = Date.parse('2026-11-10T10:10:00.000Z');
 
 function cart(id: string, parkedAt: string, names: string[], totalMinor: number, customer?: { name: string }): OpenOrderTabsParked {
   return { id, parkedAt, totalMinor, lines: names.map(name => ({ name })), customer };
@@ -66,7 +70,7 @@ test('tabWho reads the customer first, then the contents', () => {
 
 test('lists parked carts oldest first, then the current sale, then the + cell', () => {
   const { onSelect, onNew, onError } = handlers();
-  render(<OpenOrderTabs currency={currency} onSelect={onSelect} onNew={onNew} onError={onError}
+  render(<OpenOrderTabs currency={currency} onSelect={onSelect} onNew={onNew} onError={onError} now={() => NOW}
     parked={[cart('b', '2026-11-10T10:05:00.000Z', ['Cold Brew', 'Espresso'], 700),
       cart('a', '2026-11-10T10:00:00.000Z', ['Espresso'], 300, { name: 'Gee Four' })]}
     current={order(['Espresso'], 300)} />);
@@ -161,7 +165,7 @@ test('sale screen: + parks the sale into a tab and the tab brings it back', asyn
   expect(screen.getByText('Scan or tap a product to start a sale.')).not.toBeNull();
   expect(tabIds()).toHaveLength(2);
   expect(screen.getByTestId('new-order-tab').getAttribute('aria-selected')).toBe('true');
-  expect(screen.getByRole('button', { name: 'Parked (1)' })).not.toBeNull();
+  expect(parkedTabs()).toHaveLength(1);
 
   fireEvent.click(screen.getByText('Cold Brew'));
   expect(tabIds()).toHaveLength(3);
@@ -170,5 +174,81 @@ test('sale screen: + parks the sale into a tab and the tab brings it back', asyn
   expect(screen.queryByRole('button', { name: 'Remove Cold Brew' })).toBeNull();
   expect(tabIds()).toHaveLength(3);
   expect(strip()[0].textContent).toContain('Guest · Cold Brew');
-  expect(screen.getByRole('button', { name: 'Parked (1)' })).not.toBeNull();
+  expect(parkedTabs()).toHaveLength(1);
 }, 20_000);
+
+test('sale screen (e): nothing above the cart parks or lists; the strip\'s count cell opens the parked sheet', async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
+  render(<SaleScreen {...props} />);
+  fireEvent.click(screen.getByText('Espresso'));
+  await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
+  fireEvent.click(screen.getByText('Cold Brew'));
+  expect(parkedTabs()).toHaveLength(1);
+  expect(screen.queryByRole('button', { name: 'Park cart' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /^Parked \(/ })).toBeNull();
+  stripLayout(640, 300);
+  expect(screen.queryByTestId('open-orders-count')).toBeNull();
+  openParkedList();
+  expect(screen.getByRole('button', { name: '2 open' })).not.toBeNull();
+  const sheet = within(screen.getByTestId('parked-sales'));
+  expect(sheet.getByText('1 item')).not.toBeNull();
+  expect(sheet.getByText('$3.00')).not.toBeNull();
+}, 20_000);
+
+test('(a) a cart parked 5 h ago reads its amount, then its age', () => {
+  const { onSelect, onNew, onError } = handlers();
+  render(<OpenOrderTabs currency={currency} onSelect={onSelect} onNew={onNew} onError={onError} now={() => NOW}
+    parked={[cart('a', new Date(NOW - 5 * HOUR).toISOString(), ['Espresso'], 1683)]} current={order([], 0)} />);
+  expect(screen.getByTestId('open-order-tab-a-amount').textContent).toBe('$16.83 · 5 h');
+  const age = screen.getByTestId('open-order-tab-a-age');
+  expect(age.textContent).toBe('5 h');
+});
+
+test('(b) a cart under an hour old shows no age until the minute tick crosses the hour', () => {
+  vi.useFakeTimers();
+  try {
+    let now = NOW;
+    const { onSelect, onNew, onError } = handlers();
+    render(<OpenOrderTabs currency={currency} onSelect={onSelect} onNew={onNew} onError={onError} now={() => now}
+      parked={[cart('a', new Date(NOW - 59 * MINUTE).toISOString(), ['Espresso'], 300)]} current={order([], 0)} />);
+    expect(screen.queryByTestId('open-order-tab-a-age')).toBeNull();
+    expect(screen.getByTestId('open-order-tab-a-amount').textContent).toBe('$3.00');
+    now = NOW + MINUTE;
+    act(() => { vi.advanceTimersByTime(60_000); });
+    expect(screen.getByTestId('open-order-tab-a-age').textContent).toBe('1 h');
+    expect(screen.getByTestId('open-order-tab-a-amount').textContent).toBe('$3.00 · 1 h');
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test('(c) the current sale\'s tab never shows an age', () => {
+  const { onSelect, onNew, onError } = handlers();
+  render(<OpenOrderTabs currency={currency} onSelect={onSelect} onNew={onNew} onError={onError} now={() => NOW + 48 * HOUR}
+    parked={[]} current={order(['Espresso'], 300)} />);
+  expect(screen.getByTestId('open-order-tab-current-amount').textContent).toBe('$3.00');
+  expect(screen.queryByTestId('open-order-tab-current-age')).toBeNull();
+});
+
+test('(d) the open-orders count cell shows only when the tabs overflow, and opens the list', () => {
+  const { onSelect, onNew, onError } = handlers();
+  const onOpenList = vi.fn();
+  render(<OpenOrderTabs currency={currency} onSelect={onSelect} onNew={onNew} onError={onError} onOpenList={onOpenList} now={() => NOW}
+    parked={[cart('a', '2026-11-10T10:00:00.000Z', ['Espresso'], 300), cart('b', '2026-11-10T10:05:00.000Z', ['Cold Brew'], 400)]}
+    current={order(['Espresso'], 300)} />);
+  expect(screen.queryByTestId('open-orders-count')).toBeNull();
+  // 500 of tabs fit 640 less the 112 reserved for +.
+  stripLayout(640, 500);
+  expect(screen.queryByTestId('open-orders-count')).toBeNull();
+  stripLayout(640, 600);
+  const count = screen.getByTestId('open-orders-count');
+  expect(count.getAttribute('role')).toBe('button');
+  expect(screen.getByRole('button', { name: '3 open' })).toBe(count);
+  expect(count.textContent).toContain('3');
+  fireEvent.click(count);
+  expect(onOpenList).toHaveBeenCalledTimes(1);
+  expect(onSelect).not.toHaveBeenCalled();
+  expect(onNew).not.toHaveBeenCalled();
+  stripLayout(640, 500);
+  expect(screen.queryByTestId('open-orders-count')).toBeNull();
+});
