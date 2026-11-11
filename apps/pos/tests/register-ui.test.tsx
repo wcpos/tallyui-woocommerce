@@ -16,6 +16,7 @@ import { OnlineStatusContext, type OnlineStatus } from '../lib/online/online-sta
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
+import { toggleRegisterSessions } from './cart-head-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import { cartPane, openCartTab, openProductsTab, productsPane } from './phone-tabs-helpers';
 
@@ -79,7 +80,7 @@ test.each([900, 390])('Offline shows once: in the POS bar pill, then in the regi
     fireEvent.click(screen.getByText('Espresso'));
     openCartTab();
   }
-  fireEvent.click(screen.getByRole('switch', { name: 'Use register sessions' }));
+  toggleRegisterSessions();
   if (width >= 900) {
     expect((await screen.findByTestId('register-bar-pill')).textContent).toBe('Offline');
     expect(screen.getAllByTestId('register-bar-pill')).toHaveLength(1);
@@ -93,7 +94,12 @@ test.each([900, 390])('Offline shows once: in the POS bar pill, then in the regi
 
 test('sessions default off: no register UI and the cart completes a cash sale', async () => {
   const app = await setup();
-  expect(screen.getByRole('switch', { name: 'Use register sessions' }).getAttribute('aria-checked')).toBe('false');
+  // The switch sits in Cart Settings, not under the cart.
+  expect(screen.queryByRole('switch', { name: 'Use register sessions' })).toBeNull();
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  expect(within(screen.getByTestId('cart-settings')).getByRole('switch', { name: 'Use register sessions' })
+    .getAttribute('aria-checked')).toBe('false');
+  fireEvent.click(screen.getByTestId('ui-settings-close'));
   expect(screen.queryByTestId('register-bar')).toBeNull();
   expect(screen.queryByTestId('open-register-card')).toBeNull();
   await payCash();
@@ -108,11 +114,13 @@ test.each([900, 390])('the switch enables the register and replaces the cart at 
     fireEvent.click(screen.getByText('Espresso'));
     openCartTab();
   }
-  const toggle = screen.getByRole('switch', { name: 'Use register sessions' });
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  const settings = within(screen.getByTestId('cart-settings'));
+  expect(settings.getByText('Register sessions')).not.toBeNull();
+  expect(settings.getByText('A session starts with a counted float, records cash paid in and out, and closes with a count that shows any difference.')).not.toBeNull();
+  const toggle = settings.getByRole('switch', { name: 'Use register sessions' });
   fireEvent.click(toggle);
-  expect(toggle.getAttribute('aria-checked')).toBe('true');
   expect(app.register.setting).toBe(true);
-  expect(screen.getByText('A session starts with a counted float, records cash paid in and out, and closes with a count that shows any difference.')).not.toBeNull();
   expect(await screen.findByTestId('open-register-card')).not.toBeNull();
   expect(screen.getByTestId('register-bar')).not.toBeNull();
   expect(screen.queryByTestId('cart-checkout')).toBeNull();
@@ -120,7 +128,7 @@ test.each([900, 390])('the switch enables the register and replaces the cart at 
 
 test('open, pay out, sell, count and close, then reuse the counted float', async () => {
   await setup();
-  fireEvent.click(screen.getByRole('switch', { name: 'Use register sessions' }));
+  toggleRegisterSessions();
   fireEvent.change(await screen.findByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
   await screen.findByTestId('cart-checkout');
@@ -153,12 +161,16 @@ test('open, pay out, sell, count and close, then reuse the counted float', async
 
 test('switching sessions off removes the register UI and allows a sale without a session', async () => {
   const app = await setup();
-  const toggle = screen.getByRole('switch', { name: 'Use register sessions' });
-  fireEvent.click(toggle);
+  toggleRegisterSessions();
   expect(await screen.findByTestId('open-register-card')).not.toBeNull();
-  fireEvent.click(toggle);
-  expect(toggle.getAttribute('aria-checked')).toBe('false');
-  expect(app.register.session).toBeNull();
+  // The open-register card replaces the cart and its head, so Cart Settings is reached again once a session is open.
+  expect(screen.queryByTestId('cart-settings-button')).toBeNull();
+  fireEvent.change(screen.getByTestId('open-register-amount'), { target: { value: '100.00' } });
+  fireEvent.click(screen.getByTestId('open-register-button'));
+  await screen.findByTestId('cart-checkout');
+  toggleRegisterSessions();
+  expect(app.register.setting).toBe(false);
+  await waitFor(() => expect(app.register.session).toBeNull());
   expect(screen.queryByTestId('register-bar')).toBeNull();
   expect(screen.queryByTestId('open-register-card')).toBeNull();
   expect(screen.queryByTestId('register-panel')).toBeNull();

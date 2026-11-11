@@ -16,6 +16,7 @@ import stores from './fixtures/taxes/stores.json';
 import classes from './fixtures/taxes/tax-classes.json';
 import taxes from './fixtures/taxes/taxes.json';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { openAddMenuItem } from './cart-head-helpers';
 
 const connector = createWooCommerceConnector();
 const CHARGES: ServerCapabilities = { orderCreate: 5, lineTax: { none: true, classes: true },
@@ -112,19 +113,19 @@ test('matches WooCommerce order #136: tax 1.16 and total 32.91', async () => {
 test('taxes a reduced-rate fee, leaves a No-tax fee and inherited shipping untaxed, as WooCommerce does', async () => {
   renderTill(CHARGES);
   await addToCart('Croissant');
-  fireEvent.click(screen.getByRole('button', { name: 'Add charge' }));
+  openAddMenuItem('charge');
   const bag = within(screen.getByTestId('charge-form'));
   fireEvent.change(bag.getByLabelText('Name'), { target: { value: 'Bag' } });
   fireEvent.change(bag.getByLabelText('Amount'), { target: { value: '2.00' } });
   fireEvent.click(within(bag.getByRole('group', { name: 'Tax class' })).getByRole('button', { name: 'Reduced rate' }));
   fireEvent.click(bag.getByRole('button', { name: 'Apply' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Add charge' }));
+  openAddMenuItem('charge');
   const service = within(screen.getByTestId('charge-form'));
   fireEvent.change(service.getByLabelText('Name'), { target: { value: 'Service' } });
   fireEvent.change(service.getByLabelText('Amount'), { target: { value: '1.00' } });
   fireEvent.click(service.getByRole('switch', { name: 'No tax' }));
   fireEvent.click(service.getByRole('button', { name: 'Apply' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Add charge' }));
+  openAddMenuItem('charge');
   const shipping = within(screen.getByTestId('charge-form'));
   fireEvent.click(shipping.getByRole('button', { name: 'Shipping' }));
   fireEvent.change(shipping.getByLabelText('Name'), { target: { value: 'Delivery' } });
@@ -177,7 +178,9 @@ test.each(['Order discount', 'Discount'])('inclusive stores take a sale with %s 
   renderTill();
   await addToCart('Espresso');
   await screen.findByText('Order store ready');
-  fireEvent.click(screen.getByText(control, { exact: true }));
+  // The order discount is the + menu's Add discount; a line's Discount is its own line action.
+  if (control === 'Order discount') openAddMenuItem('discount');
+  else fireEvent.click(screen.getByText(control, { exact: true }));
   fireEvent.change(screen.getByLabelText('Discount value'), { target: { value: '10' } });
   fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
   fireEvent.click(screen.getByTestId('cart-checkout'));

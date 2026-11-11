@@ -22,6 +22,7 @@ import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import { openParkedList, parkedTabs } from './open-orders-helpers';
+import { openAddMenuItem } from './cart-head-helpers';
 // Applying a coupon awaits an RxDB lookup, so the 1 s default async timeout flakes on CI.
 configure({ asyncUtilTimeout: 5_000 });
 
@@ -106,8 +107,10 @@ async function addEspresso() {
   await screen.findByRole('button', { name: 'Increase Espresso' });
 }
 
+// v2's cart + menu: Add discount, then its Coupon side.
 async function openPicker() {
-  fireEvent.click(await screen.findByRole('button', { name: 'Add coupon' }));
+  openAddMenuItem('discount');
+  fireEvent.click(await screen.findByTestId('add-discount-kind-coupon'));
   await screen.findByRole('button', { name: 'save10' });
 }
 
@@ -129,13 +132,18 @@ test.each([
   await renderTill(capabilities);
   await addEspresso();
   expect(total().getByText('$3.00')).not.toBeNull();
-  expect(screen.queryByRole('button', { name: 'Add coupon' })).toBeNull();
-  expect(screen.queryByText('Add coupon')).toBeNull();
+  openAddMenuItem('discount');
+  const dialog = within(screen.getByTestId('add-discount-dialog'));
+  expect(dialog.getByRole('group', { name: 'Order discount' })).not.toBeNull();
+  expect(screen.queryByTestId('add-discount-kind-coupon')).toBeNull();
+  expect(screen.queryByPlaceholderText('Search coupons...')).toBeNull();
 }, 20_000);
 
 test('the picker lists published coupons, searches them, and shows No coupons found', async () => {
   await renderTill();
-  expect(screen.getByRole('button', { name: 'Add coupon' }).hasAttribute('disabled')).toBe(true);
+  fireEvent.click(screen.getByTestId('cart-add-menu'));
+  expect(screen.getByTestId('cart-add-menu-discount').getAttribute('aria-disabled')).toBe('true');
+  fireEvent.click(screen.getByTestId('cart-add-menu'));
   await addEspresso();
   await openPicker();
   expect(screen.getByText('Select coupon...')).not.toBeNull();

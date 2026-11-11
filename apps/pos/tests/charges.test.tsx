@@ -14,6 +14,7 @@ import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
+import { openAddMenuItem } from './cart-head-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 
 const CHARGES: ServerCapabilities = { orderCreate: 5, lineTax: { none: true, classes: true },
@@ -75,18 +76,18 @@ test('sells a fee, a shipping charge and a custom item and pushes them to WooCom
   );
   await screen.findByText('Order store ready');
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Add charge' }));
+  openAddMenuItem('charge');
   const fee = within(screen.getByTestId('charge-form'));
   fireEvent.change(fee.getByLabelText('Name'), { target: { value: 'Bag' } });
   fireEvent.change(fee.getByLabelText('Amount'), { target: { value: '0.20' } });
   fireEvent.click(fee.getByRole('button', { name: 'Apply' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Add charge' }));
+  openAddMenuItem('charge');
   const shipping = within(screen.getByTestId('charge-form'));
   fireEvent.click(shipping.getByRole('button', { name: 'Shipping' }));
   fireEvent.change(shipping.getByLabelText('Name'), { target: { value: 'Delivery' } });
   fireEvent.change(shipping.getByLabelText('Amount'), { target: { value: '5.00' } });
   fireEvent.click(shipping.getByRole('button', { name: 'Apply' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Add charge' }));
+  openAddMenuItem('charge');
   const custom = within(screen.getByTestId('charge-form'));
   fireEvent.click(custom.getByRole('button', { name: 'Custom item' }));
   fireEvent.change(custom.getByLabelText('Name'), { target: { value: 'Gift wrap' } });
@@ -140,7 +141,10 @@ test('a store without order_create_v5 sells on the v3 fallback: no charges, one 
   );
   await screen.findByText('Order store ready');
   fireEvent.click(screen.getByText('Espresso'));
-  expect(screen.queryByRole('button', { name: 'Add charge' })).toBeNull();
+  fireEvent.click(screen.getByTestId('cart-add-menu'));
+  expect(screen.getByTestId('cart-add-menu-discount')).not.toBeNull();
+  expect(screen.queryByTestId('cart-add-menu-charge')).toBeNull();
+  fireEvent.click(screen.getByTestId('cart-add-menu'));
   fireEvent.click(screen.getByTestId('cart-checkout'));
   await takeCash(500);
   await waitFor(() => expect(screen.getByText('Sales are up to date.')).not.toBeNull());
@@ -164,5 +168,8 @@ test('offers no charges when the store has no capabilities read', async () => {
   );
   await screen.findByText('Order store ready');
   fireEvent.click(screen.getByText('Espresso'));
-  expect(screen.queryByRole('button', { name: 'Add charge' })).toBeNull();
+  fireEvent.click(screen.getByTestId('cart-add-menu'));
+  expect(screen.getByTestId('cart-add-menu-discount')).not.toBeNull();
+  expect(screen.queryByTestId('cart-add-menu-charge')).toBeNull();
+  fireEvent.click(screen.getByTestId('cart-add-menu'));
 });

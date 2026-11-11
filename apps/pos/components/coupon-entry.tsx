@@ -3,7 +3,7 @@ import type { JSX } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { formatMoney, moneyFromDecimalString } from '@tallyui/core';
-import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input, Text } from '@tallyui/components';
+import { Button, DialogFooter, Input, Text } from '@tallyui/components';
 import type { useSale } from '@tallyui/pos';
 import { toast } from '../lib/toast/toast';
 
@@ -44,11 +44,11 @@ export function CouponRows({ sale }: { sale: ReturnType<typeof useSale> }): JSX.
   );
 }
 
-// WCPOS v2's coupon picker over the synced coupons (no free-text code entry).
-export function CouponEntry({ sale, coupons, currency }: {
-  sale: ReturnType<typeof useSale>; coupons: RxCollection; currency: string;
+// WCPOS v2's coupon picker over the synced coupons (no free-text code entry), the Coupon side of the cart's
+// Add discount dialog (v2 add-discount-sheet.tsx). The host dialog unmounts it on close, which clears its state.
+export function CouponPicker({ sale, coupons, currency, onClose }: {
+  sale: ReturnType<typeof useSale>; coupons: RxCollection; currency: string; onClose(): void;
 }): JSX.Element {
-  const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,53 +66,39 @@ export function CouponEntry({ sale, coupons, currency }: {
   const listed = needle ? docs.filter(doc => doc.code.toLowerCase().includes(needle)
     || (doc.description ?? '').toLowerCase().includes(needle)) : docs;
 
-  function close() {
-    setOpen(false);
-    setSearch('');
-    setSelected(null);
-    setError(null);
-  }
-
   async function apply() {
     if (!selected) return;
     setApplying(true);
     const refusal = await sale.applyCoupon(selected);
     setApplying(false);
-    if (refusal === null) close();
+    if (refusal === null) onClose();
     else setError(refusal);
   }
 
   return (
     <View className="gap-2 py-2">
-      <Button variant="outline" disabled={!sale.order.lineItems.length}
-        onPress={() => setOpen(true)}><Text>Add coupon</Text></Button>
-      {open && <Dialog open onOpenChange={next => { if (!next) close(); }}>
-        <DialogContent className="w-full max-w-lg">
-          <DialogHeader><DialogTitle>Add coupon</DialogTitle></DialogHeader>
-          <Input><Input.Field value={search} onChangeText={setSearch} placeholder="Search coupons..."
-            accessibilityLabel="Search coupons" autoCapitalize="none" /></Input>
-          <Text className="text-muted-foreground">{selected ?? 'Select coupon...'}</Text>
-          <ScrollView style={{ maxHeight: 320 }}>
-            {listed.length ? listed.map(coupon => (
-              <Pressable key={coupon.code} accessibilityRole="button" accessibilityLabel={coupon.code}
-                // react-native-web reads aria-selected, not accessibilityState.
-                accessibilityState={{ selected: selected === coupon.code }} aria-selected={selected === coupon.code} onPress={() => setSelected(coupon.code)}
-                className={`flex-row items-center justify-between gap-2 rounded-md border border-border px-3 py-2 ${selected === coupon.code ? 'bg-accent' : 'bg-card'}`}>
-                <View className="flex-1">
-                  <Text className="text-foreground">{coupon.code}</Text>
-                  <Text className="text-muted-foreground">{coupon.description || typeLabels[coupon.discount_type ?? ''] || ''}</Text>
-                </View>
-                <Text className="text-foreground">{couponAmount(coupon, currency)}</Text>
-              </Pressable>
-            )) : <Text className="text-muted-foreground">No coupons found</Text>}
-          </ScrollView>
-          {error ? <Text accessibilityRole="alert" className="text-destructive">{error}</Text> : null}
-          <DialogFooter>
-            <Button variant="outline" onPress={close}><Text>Cancel</Text></Button>
-            <Button disabled={!selected || applying} onPress={() => { void apply(); }}><Text>Apply</Text></Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>}
+      <Input><Input.Field value={search} onChangeText={setSearch} placeholder="Search coupons..."
+        accessibilityLabel="Search coupons" autoCapitalize="none" /></Input>
+      <Text className="text-muted-foreground">{selected ?? 'Select coupon...'}</Text>
+      <ScrollView style={{ maxHeight: 320 }}>
+        {listed.length ? listed.map(coupon => (
+          <Pressable key={coupon.code} accessibilityRole="button" accessibilityLabel={coupon.code}
+            // react-native-web reads aria-selected, not accessibilityState.
+            accessibilityState={{ selected: selected === coupon.code }} aria-selected={selected === coupon.code} onPress={() => setSelected(coupon.code)}
+            className={`flex-row items-center justify-between gap-2 rounded-md border border-border px-3 py-2 ${selected === coupon.code ? 'bg-accent' : 'bg-card'}`}>
+            <View className="flex-1">
+              <Text className="text-foreground">{coupon.code}</Text>
+              <Text className="text-muted-foreground">{coupon.description || typeLabels[coupon.discount_type ?? ''] || ''}</Text>
+            </View>
+            <Text className="text-foreground">{couponAmount(coupon, currency)}</Text>
+          </Pressable>
+        )) : <Text className="text-muted-foreground">No coupons found</Text>}
+      </ScrollView>
+      {error ? <Text accessibilityRole="alert" className="text-destructive">{error}</Text> : null}
+      <DialogFooter>
+        <Button variant="outline" onPress={onClose}><Text>Cancel</Text></Button>
+        <Button disabled={!selected || applying} onPress={() => { void apply(); }}><Text>Apply</Text></Button>
+      </DialogFooter>
     </View>
   );
 }
