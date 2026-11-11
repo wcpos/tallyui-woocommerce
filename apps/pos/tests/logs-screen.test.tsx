@@ -73,7 +73,12 @@ test('shows the v2 columns with the newest row first', async () => {
   await screen.findByTestId(`logs-row-${rows[0].id}`);
   expect(screen.getAllByTestId(/^logs-heading-/).map(cell => [cell.getAttribute('data-testid'), cell.textContent]))
     .toEqual([['logs-heading-time', 'Time'], ['logs-heading-level', 'Level'], ['logs-heading-event', 'Event'],
-      ['logs-heading-took', 'Took'], ['logs-heading-status', 'Status']]);
+      ['logs-heading-took', 'Duration'], ['logs-heading-status', 'Status']]);
+  for (const id of ['time', 'level', 'event', 'took', 'status']) {
+    expect(classesOf(`logs-heading-${id}`)).toEqual(expect.arrayContaining(['uppercase', 'text-xs', 'text-muted-foreground']));
+  }
+  expect(classesOf('logs-heading-took')).toContain('text-right');
+  expect(classesOf('logs-heading-status')).toContain('text-right');
   expect(screen.getAllByTestId(/^logs-row-/).map(row => row.getAttribute('data-testid')))
     .toEqual(rows.map(row => `logs-row-${row.id}`));
   expect(screen.getByTestId(`logs-took-${rows[1].id}`).textContent).toBe('1.5 s');
@@ -108,6 +113,70 @@ test('the Errors and Sync presets filter the rows and the footer count', async (
   expect(screen.getByTestId('logs-footer').textContent).toBe('Showing 3 of 3');
 });
 
+const shownRows = () => screen.queryAllByTestId(/^logs-row-/).map(row => row.getAttribute('data-testid'));
+const searchFor = (value: string) => fireEvent.change(screen.getByTestId('search-logs'), { target: { value } });
+
+test('the search narrows the rows by message, code and scope with the case ignored, and the footer follows', async () => {
+  render(<LogsScreen {...props} collection={collection} />);
+  await screen.findByTestId(`logs-row-${rows[0].id}`);
+  expect(screen.getByTestId('search-logs').getAttribute('placeholder')).toBe('Search Logs');
+  searchFor('TAX');
+  await waitFor(() => expect(shownRows()).toEqual([`logs-row-${rows[0].id}`]));
+  expect(screen.getByTestId('logs-footer').textContent).toBe('Showing 1 of 1');
+  searchFor('OutBox');
+  await waitFor(() => expect(shownRows()).toEqual([`logs-row-${rows[1].id}`]));
+  searchFor('ED');
+  await waitFor(() => expect(shownRows()).toEqual([`logs-row-${rows[0].id}`, `logs-row-${rows[1].id}`]));
+  expect(screen.getByTestId('logs-footer').textContent).toBe('Showing 2 of 2');
+});
+
+test('the search combines with the Errors preset, and no match shows the empty text', async () => {
+  render(<LogsScreen {...props} collection={collection} />);
+  await screen.findByTestId(`logs-row-${rows[0].id}`);
+  searchFor('ed');
+  await waitFor(() => expect(shownRows()).toHaveLength(2));
+  fireEvent.click(screen.getByTestId('logs-chip-errors'));
+  expect(shownRows()).toEqual([`logs-row-${rows[0].id}`]);
+  expect(screen.getByTestId('logs-footer').textContent).toBe('Showing 1 of 2');
+  searchFor('nothing like this');
+  await waitFor(() => expect(screen.getByTestId('logs-empty').textContent).toBe('No logs found'));
+  expect(shownRows()).toEqual([]);
+  expect(screen.getByTestId('logs-footer').textContent).toBe('Showing 0 of 0');
+});
+
+test("each row's chevron opens its detail with the row's fields, and pressing again hides it", async () => {
+  render(<LogsScreen {...props} collection={collection} />);
+  await screen.findByTestId(`logs-row-${rows[0].id}`);
+  for (const row of rows) expect(screen.getByTestId(`logs-chevron-${row.id}`).textContent).toBe('›');
+  const id = rows[1].id;
+  expect(screen.queryByTestId(`logs-detail-${id}`)).toBeNull();
+  fireEvent.click(screen.getByTestId(`logs-chevron-${id}`));
+  expect(screen.getByTestId(`logs-detail-${id}-code`).textContent).toBe('refused');
+  expect(screen.getByTestId(`logs-detail-${id}-duration`).textContent).toBe('1.5 s');
+  expect(screen.getByTestId(`logs-detail-${id}-log-id`).textContent).toBe(id);
+  expect(screen.queryByTestId(`logs-detail-${id}-actor`)).toBeNull();
+  expect(screen.queryByTestId(`logs-detail-${rows[0].id}`)).toBeNull();
+  fireEvent.click(screen.getByTestId(`logs-chevron-${id}`));
+  expect(screen.queryByTestId(`logs-detail-${id}`)).toBeNull();
+  fireEvent.click(screen.getByTestId(`logs-toggle-${id}`));
+  expect(screen.getByTestId(`logs-detail-${id}`)).not.toBeNull();
+});
+
+test('the chips are rounded, tinted when on, and keep aria-pressed as they are pressed', async () => {
+  render(<LogsScreen {...props} collection={collection} />);
+  await screen.findByTestId(`logs-row-${rows[0].id}`);
+  expect(classesOf('logs-chip-all')).toEqual(expect.arrayContaining(['rounded-full', 'bg-primary/10']));
+  expect(classesOf('logs-chip-sync')).toEqual(expect.arrayContaining(['rounded-full', 'border-border', 'bg-card']));
+  fireEvent.click(screen.getByTestId('logs-chip-sync'));
+  expect(screen.getByTestId('logs-chip-sync').getAttribute('aria-pressed')).toBe('true');
+  expect(screen.getByTestId('logs-chip-all').getAttribute('aria-pressed')).toBe('false');
+  expect(classesOf('logs-chip-sync')).toContain('bg-primary/10');
+  expect(classesOf('logs-chip-all')).not.toContain('bg-primary/10');
+  fireEvent.click(screen.getByTestId('logs-chip-verbose'));
+  expect(screen.getByTestId('logs-chip-verbose').getAttribute('aria-pressed')).toBe('true');
+  expect(classesOf('logs-chip-verbose')).toContain('bg-primary/10');
+});
+
 test('a level pill filters to that level and the kind chip clears it', async () => {
   render(<LogsScreen {...props} collection={collection} />);
   fireEvent.click(await screen.findByTestId(`logs-pill-${rows[1].id}`));
@@ -118,6 +187,16 @@ test('a level pill filters to that level and the kind chip clears it', async () 
   fireEvent.click(screen.getByTestId('logs-chip-kind'));
   expect(screen.queryByTestId('logs-chip-kind')).toBeNull();
   expect(screen.getAllByTestId(/^logs-row-/).map(row => row.getAttribute('data-testid'))).toEqual([`logs-row-${rows[0].id}`]);
+});
+
+test('pressing the active level pill again clears the level filter', async () => {
+  render(<LogsScreen {...props} collection={collection} />);
+  fireEvent.click(await screen.findByTestId(`logs-pill-${rows[1].id}`));
+  expect(screen.getByTestId('logs-chip-kind').textContent).toBe('warn ×');
+  expect(shownRows()).toEqual([`logs-row-${rows[1].id}`]);
+  fireEvent.click(screen.getByTestId(`logs-pill-${rows[1].id}`));
+  expect(screen.queryByTestId('logs-chip-kind')).toBeNull();
+  expect(shownRows()).toHaveLength(rows.length);
 });
 
 test('Copy debug info copies the debug text and confirms', async () => {
