@@ -25,14 +25,35 @@ export function LockedRow({ testID, label, value, href }: {
   );
 }
 
+// v2 General: "<region name> (<CODE>)". The bare code when Intl has no name for it.
+export function countryLabel(code: string | undefined): string | undefined {
+  if (!code) return undefined;
+  try {
+    const name = new Intl.DisplayNames(['en'], { type: 'region' }).of(code);
+    return name ? `${name} (${code})` : code;
+  } catch {
+    return code;
+  }
+}
+
 export function GeneralSettings(props: { store: StoreInfo; siteHome: string }): JSX.Element {
   const href = wooSettingsUrl(props.siteHome);
+  const address = props.store.address;
   return (
     <View testID="screen-settings-general" className="gap-5">
       <SettingsGroup title="Store" testID="settings-general-store">
         <LockedRow testID="settings-general-locked-name" label="Store Name" value={props.store.name} href={href} />
-        <LockedRow testID="settings-general-locked-currency" label="Currency" value={props.store.currency} href={href} />
+        <LockedRow testID="settings-general-locked-store_country" label="Store Base Country" value={countryLabel(address?.country)} href={href} />
+        {/* v2 names the state; the app shows WooCommerce's code as sent. */}
+        <LockedRow testID="settings-general-locked-store_state" label="Store Base State" value={address?.state} href={href} />
+        <LockedRow testID="settings-general-locked-store_city" label="Store Base City" value={address?.city} href={href} />
+        <LockedRow testID="settings-general-locked-store_postcode" label="Store Base Postcode" value={address?.postcode} href={href} />
+      </SettingsGroup>
+      <SettingsGroup title="Localization" testID="settings-general-localization">
         <LockedRow testID="settings-general-locked-locale" label="Language" value={props.store.locale} href={href} />
+      </SettingsGroup>
+      <SettingsGroup title="Currency & numbers" testID="settings-general-currency">
+        <LockedRow testID="settings-general-locked-currency" label="Currency" value={props.store.currency} href={href} />
       </SettingsGroup>
     </View>
   );

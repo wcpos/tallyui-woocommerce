@@ -14,9 +14,43 @@ const headers = { Authorization: 'Bearer t1' };
 test('maps the first fixture store and sends the supplied headers', async () => {
   const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(Response.json(stores));
   expect(await fetchStoreInfo(session, headers, fetchImpl as unknown as typeof fetch)).toEqual({
-    id: 0, name: stores[0].name, currency: 'USD', locale: 'en_US',
+    id: 0, name: stores[0].name, currency: 'USD', locale: 'en_US', address: {}, calcTaxes: false,
   });
   expect(fetchImpl).toHaveBeenCalledWith(`${session.site.wcposApiUrl}/stores`, { headers });
+});
+
+const respond = (fields: Record<string, unknown>) => fetchStoreInfo(session, headers,
+  vi.fn<typeof fetch>().mockResolvedValue(Response.json([{ ...stores[0], ...fields }])) as unknown as typeof fetch);
+
+test('maps the base address, the tax basis and Enable Taxes', async () => {
+  const info = await respond({
+    store_address: '1 Main St', store_address_2: 'Suite 2', store_city: 'Birmingham', store_state: 'AL',
+    store_postcode: '12345', store_country: 'US', tax_based_on: 'billing', calc_taxes: 'yes',
+  });
+  expect(info.address).toEqual({
+    address1: '1 Main St', address2: 'Suite 2', city: 'Birmingham', state: 'AL', postcode: '12345', country: 'US',
+  });
+  expect(info.taxBasedOn).toBe('billing');
+  expect(info.calcTaxes).toBe(true);
+});
+
+test('empty address fields, an unknown tax basis and an odd calc_taxes read as absent', async () => {
+  const info = await respond({
+    store_address: '', store_address_2: '', store_city: '', store_state: '', store_postcode: '', store_country: '',
+    tax_based_on: 'store', calc_taxes: 'maybe',
+  });
+  expect(Object.values(info.address ?? {}).every(value => value === undefined)).toBe(true);
+  expect(info.address?.city).toBeUndefined();
+  expect(info.taxBasedOn).toBeUndefined();
+  expect(info.calcTaxes).toBeUndefined();
+});
+
+test.each([['yes', true], ['no', false]] as const)('calc_taxes %j reads %s', async (calc, expected) => {
+  expect((await respond({ calc_taxes: calc })).calcTaxes).toBe(expected);
+});
+
+test.each(['base', 'billing', 'shipping'] as const)('tax_based_on %j is kept', async basis => {
+  expect((await respond({ tax_based_on: basis })).taxBasedOn).toBe(basis);
 });
 
 test('uppercases the currency', async () => {
