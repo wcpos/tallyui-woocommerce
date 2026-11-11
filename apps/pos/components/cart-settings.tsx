@@ -3,7 +3,7 @@ import type { ComponentProps, JSX, ReactNode } from 'react';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { Path } from 'react-native-svg';
 import type { RxCollection } from 'rxdb';
-import { Button, Cart, createSvgIcon, Dialog, DialogOverlay, DialogPortal, DialogTitle, IconButton, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Text, XIcon } from '@tallyui/components';
+import { Cart, createSvgIcon, Dialog, DialogOverlay, DialogPortal, DialogTitle, IconButton, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Text, XIcon } from '@tallyui/components';
 import { Dialog as DialogPrimitive } from '@tallyui/primitives';
 import { AppRailArea, AppRailShown, BESIDE_RAIL } from './app-rail';
 import { ChevronDownIcon, FieldLabel, SELECT_FACE } from './select-chevron';
@@ -12,7 +12,7 @@ import type { CustomerSource } from '../lib/customers/customer-source';
 import { CartAddMenu } from './cart-add-menu';
 import { RegisterSwitch } from './register-controls';
 import { CATALOGUE_VIEW_DEFAULTS } from '../lib/catalogue/catalogue-view-state';
-import { RestoreDefaultsButton } from './catalogue-display-options';
+import { RestoreDefaultsButton, SHEET_TITLE, SheetCloseButton } from './catalogue-display-options';
 import type { PanelPosition } from '../lib/catalogue/catalogue-view-state';
 import { CART_SETTINGS_DEFAULTS, isQuickDiscount, LINE_SORTS, normalizeLineSort, QUICK_DISCOUNT_SLOTS, sortCartLines, useCartSettings } from '../lib/sale/cart-settings';
 import type { CartSettings } from '../lib/sale/cart-settings';
@@ -78,7 +78,7 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
         {/* v2's DialogHeader (dialog/index.tsx: pl-4 pr-ctl) holds only the title, its dialog rank 16 px leading-none;
             the close is an absolute h-ctl square at top-1 right-1, as on the product settings sheet. */}
         <View testID="cart-settings-header" className="pl-4 pr-11">
-          <DialogTitle testID="cart-settings-title" className="text-base">Cart Settings</DialogTitle>
+          <DialogTitle testID="cart-settings-title" className={SHEET_TITLE}>Cart Settings</DialogTitle>
         </View>
         <View testID="cart-settings-close-slot" className="absolute right-1 top-1">
           <IconButton variant="ghost" className="h-11 w-11" testID="cart-settings-x" accessibilityLabel="Close" onPress={() => setOpen(false)}><XIcon size={18} /></IconButton>
@@ -128,7 +128,7 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
             onSettingsChange(CART_SETTINGS_DEFAULTS);
             saveReceiptSettings(RECEIPT_SETTINGS_DEFAULTS);
           }} />
-          <Button testID="ui-settings-close" variant="outline" onPress={() => setOpen(false)}><Text>Close</Text></Button>
+          <SheetCloseButton testID="ui-settings-close" onPress={() => setOpen(false)} />
         </View>
       </DialogPrimitive.Content>
     </DialogPortal></Dialog>}

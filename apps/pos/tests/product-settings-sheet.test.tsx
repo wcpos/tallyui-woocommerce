@@ -268,6 +268,38 @@ test('the header holds only the title; the close sits over it, as v2\'s DialogCo
   expect(screen.getByTestId('catalogue-settings-x').parentElement!.parentElement).toBe(screen.getByTestId('catalogue-settings'));
 });
 
+// v2's DialogTitle is 16 px leading-none, so the header row is 16 px tall and the first label sits at about 62 px.
+test('the title keeps leading-none beside text-base, so the header row is v2\'s 16 px, not text-base\'s 24 px line', () => {
+  openSheet();
+  expect(screen.getByTestId('catalogue-settings-title').textContent).toBe('Product settings');
+  const classes = classesOf('catalogue-settings-title');
+  expect(classes).toEqual(expect.arrayContaining(['text-base', 'leading-none']));
+  expect(classes).not.toContain('text-lg');
+  expect(screen.getByTestId('catalogue-settings-header').contains(screen.getByTestId('catalogue-settings-title'))).toBe(true);
+});
+
+test('a switch row takes v2\'s 20 px switch layout: TallyUI\'s 24 px switch overhangs by -my-0.5', () => {
+  openSheet();
+  expect(classesOf('show-out-of-stock')).toContain('-my-0.5');
+  expect(classesOf('tile-field-toggle-price')).toContain('-my-0.5');
+});
+
+test('the Sort By select takes v2\'s field box border, the light grey border token, not TallyUI\'s dark input border', () => {
+  openSheet();
+  const classes = classesOf('sort-by');
+  expect(classes).toEqual(expect.arrayContaining(['border-border', 'bg-card']));
+  expect(classes).not.toContain('border-input');
+});
+
+test('Close is v2\'s footer outline: a 1 px light border on the card, not the grey page fill', () => {
+  openSheet();
+  const classes = classesOf('catalogue-settings-close');
+  expect(classes).toEqual(expect.arrayContaining(['border', 'border-border', 'bg-card']));
+  expect(classes).not.toContain('border-input');
+  expect(classes).not.toContain('bg-background');
+  expect(screen.getByTestId('catalogue-settings-close').textContent).toBe('Close');
+});
+
 test('Tile Size\'s slider lays its track in a row and takes v2\'s 8 px track height in the list', () => {
   openSheet();
   expect(classesOf('tile-size')).toEqual(expect.arrayContaining(['flex-row', '-my-1.5']));

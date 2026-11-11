@@ -151,6 +151,19 @@ test("the display options tooltip shows on hover and is gone once Order Settings
   expect(screen.queryByRole('tooltip')).toBeNull();
 });
 
+test("Order Settings keeps v2's 16 px leading-none title, its 20 px switch layout and its outline Close with a light border", async () => {
+  await renderOrders();
+  fireEvent.click(screen.getByTestId('orders-bar-display'));
+  expect(screen.getByTestId('orders-display-title').textContent).toBe('Order Settings');
+  expect(classesOf('orders-display-title')).toEqual(expect.arrayContaining(['text-base', 'leading-none']));
+  expect(classesOf('orders-display-title')).not.toContain('text-lg');
+  expect(classesOf('orders-display-column-status')).toContain('-my-0.5');
+  const close = classesOf('orders-display-close');
+  expect(close).toEqual(expect.arrayContaining(['border', 'border-border', 'bg-card']));
+  expect(close).not.toContain('border-input');
+  expect(close).not.toContain('bg-background');
+});
+
 test("Restore Default Settings is v2's outline-destructive: a red border on the card, the label in the foreground", async () => {
   await renderOrders();
   fireEvent.click(screen.getByTestId('orders-bar-display'));

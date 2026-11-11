@@ -59,6 +59,19 @@ export function RestoreDefaultsButton({ testID, onPress }: { testID: string; onP
   </Button>;
 }
 
+/** v2's DialogFooter dismiss (dialog/index.tsx: a Button `variant="outline"`), whose outline is `border-border bg-card`
+ *  with an accent hover (button/index.tsx). TallyUI's outline is `border-input bg-background`, a dark border on the
+ *  grey page fill in Tally's tokens, so the class takes v2's tones. The catalogue, area and cart settings sheets all draw this one. */
+export function SheetCloseButton({ testID, onPress }: { testID: string; onPress(): void }): JSX.Element {
+  return <Button testID={testID} variant="outline" className="border-border bg-card web:hover:bg-accent" onPress={onPress}><Text>Close</Text></Button>;
+}
+
+/** v2's DialogTitle (dialog/index.tsx) is the dialog rank, 16 px, `leading-none`, so the header row is 16 px tall.
+ *  TallyUI's DialogTitle gives `text-lg … leading-none` and merges ours after it: a bare `text-base` would drop its
+ *  `leading-none` too (tailwind-merge clears the line height with a font size) and leave text-base's 24 px line,
+ *  8 px more than v2's. So the size and the leading travel together. */
+export const SHEET_TITLE = 'text-base leading-none';
+
 /** v2's Product settings trigger in the search row: a sliders icon with the tooltip "Product settings". */
 export function CatalogueSettingsButton({ onPress }: { onPress(): void }): JSX.Element {
   return <SettingsTrigger testID="catalogue-settings-button" label="Product settings" tooltip="Product settings" onPress={onPress} />;
@@ -88,7 +101,7 @@ export function CatalogueDisplayOptions({ state, onChange, products, quickFilter
         {/* v2's DialogHeader (dialog/index.tsx: pl-4 pr-ctl) holds only the title, its dialog rank 16 px leading-none;
             the close is an absolute h-ctl square at top-1 right-1, so the header row is the title's height. */}
         <View testID="catalogue-settings-header" className="pl-4 pr-11">
-          <DialogTitle className="text-base">Product settings</DialogTitle>
+          <DialogTitle testID="catalogue-settings-title" className={SHEET_TITLE}>Product settings</DialogTitle>
         </View>
         <View className="absolute right-1 top-1">
           <IconButton variant="ghost" className="h-11 w-11" testID="catalogue-settings-x" accessibilityLabel="Close" onPress={() => setOpen(false)}><XIcon size={18} /></IconButton>
@@ -190,7 +203,7 @@ export function CatalogueDisplayOptions({ state, onChange, products, quickFilter
         <View className="flex-row justify-between border-t border-border px-4 pt-4">
           {/* The panel position belongs to Cart Settings (v2 pos-cart.position), so restoring the products keeps it. */}
           <RestoreDefaultsButton testID="catalogue-settings-restore" onPress={() => onChange({ ...CATALOGUE_VIEW_DEFAULTS, position: state.position })} />
-          <Button testID="catalogue-settings-close" variant="outline" onPress={() => setOpen(false)}><Text>Close</Text></Button>
+          <SheetCloseButton testID="catalogue-settings-close" onPress={() => setOpen(false)} />
         </View>
       </DialogContent>
     </Dialog>}

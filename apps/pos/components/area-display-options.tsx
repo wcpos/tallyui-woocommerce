@@ -4,9 +4,9 @@
 import { useState } from 'react';
 import type { JSX } from 'react';
 import { ScrollView, View } from 'react-native';
-import { Button, Dialog, DialogContent, DialogTitle, IconButton, Text, XIcon } from '@tallyui/components';
+import { Dialog, DialogContent, DialogTitle, IconButton, Text, XIcon } from '@tallyui/components';
 import { areaColumnRows, type AreaColumn, type AreaColumnSetting, type AreaId } from '../lib/area-columns';
-import { RestoreDefaultsButton, RIGHT_SHEET, SettingsTrigger } from './catalogue-display-options';
+import { RestoreDefaultsButton, RIGHT_SHEET, SettingsTrigger, SHEET_TITLE, SheetCloseButton } from './catalogue-display-options';
 import { SwitchRow } from './select-chevron';
 
 // v2's strings (core en.json): the trigger's label (`<area>.display_options`) and the panel's title.
@@ -34,7 +34,7 @@ export function AreaDisplayOptions<Id extends string>({ area, columns, settings,
       {/* v2's `side="right" size="lg"`; the title row and the X are the catalogue sheet's, which follows v2's dialog. */}
       <DialogContent testID={`${area}-display-options`} className={RIGHT_SHEET}>
         <View className="pl-4 pr-11">
-          <DialogTitle className="text-base">{title}</DialogTitle>
+          <DialogTitle testID={`${area}-display-title`} className={SHEET_TITLE}>{title}</DialogTitle>
         </View>
         <View className="absolute right-1 top-1">
           <IconButton variant="ghost" className="h-11 w-11" testID={`${area}-display-x`} accessibilityLabel="Close" onPress={() => setOpen(false)}><XIcon size={18} /></IconButton>
@@ -51,7 +51,7 @@ export function AreaDisplayOptions<Id extends string>({ area, columns, settings,
         </ScrollView>
         <View className="flex-row justify-between border-t border-border px-4 pt-4">
           <RestoreDefaultsButton testID={`${area}-display-restore`} onPress={() => onChange(areaColumnRows(columns))} />
-          <Button testID={`${area}-display-close`} variant="outline" onPress={() => setOpen(false)}><Text>Close</Text></Button>
+          <SheetCloseButton testID={`${area}-display-close`} onPress={() => setOpen(false)} />
         </View>
       </DialogContent>
     </Dialog>}
