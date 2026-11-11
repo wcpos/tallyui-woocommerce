@@ -13,7 +13,15 @@ export interface StoreInfo {
   address?: StoreAddress;
   taxBasedOn?: TaxBasedOn;
   calcTaxes?: boolean;
+  /** v2's `default_customer`: a WordPress user id, `0` for Guest. */
+  defaultCustomerId?: number;
+  defaultCustomerIsCashier?: boolean;
+  /** WooCommerce's price format. `thousandSeparator: ''` means no grouping. */
+  numberFormat?: { position?: CurrencyPosition; thousandSeparator?: string; decimalSeparator?: string; decimals?: number };
 }
+
+export type CurrencyPosition = 'left' | 'right' | 'left_space' | 'right_space';
+const CURRENCY_POSITIONS: readonly unknown[] = ['left', 'right', 'left_space', 'right_space'] satisfies CurrencyPosition[];
 
 export class StoreAccessDeniedError extends Error {
   constructor() {
@@ -34,6 +42,17 @@ function yesNo(value: unknown): boolean | undefined {
   if (value === 'yes') return true;
   if (value === 'no') return false;
   return undefined;
+}
+
+// WooCommerce may send a count as a string (`"2"`); anything but a whole number of at least 0 reads as absent.
+function count(value: unknown): number | undefined {
+  const n = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
+  return typeof n === 'number' && Number.isInteger(n) && n >= 0 ? n : undefined;
+}
+
+// WCPOS sends a real boolean; an option read straight from WordPress is 'yes' / 'no'.
+function flag(value: unknown): boolean | undefined {
+  return typeof value === 'boolean' ? value : yesNo(value);
 }
 
 // WordPress locales use `_` (`en_US`, `de_DE_formal`), which Intl rejects, and `formatMoney` then
@@ -71,5 +90,14 @@ export async function fetchStoreInfo(
     },
     taxBasedOn: taxBasedOn(store.tax_based_on),
     calcTaxes: yesNo(store.calc_taxes),
+    defaultCustomerId: count(store.default_customer),
+    defaultCustomerIsCashier: flag(store.default_customer_is_cashier),
+    numberFormat: {
+      position: CURRENCY_POSITIONS.includes(store.currency_pos) ? store.currency_pos : undefined,
+      // An empty thousand separator is WooCommerce's "no grouping", so it is kept, unlike the other text fields.
+      thousandSeparator: typeof store.price_thousand_sep === 'string' ? store.price_thousand_sep : undefined,
+      decimalSeparator: text(store.price_decimal_sep),
+      decimals: count(store.price_num_decimals),
+    },
   };
 }

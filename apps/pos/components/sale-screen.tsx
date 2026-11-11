@@ -7,7 +7,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
 import { formatMoney } from '@tallyui/core';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
-import type { CatalogueEntry, ParkedOrderSummary, Payment, TenderVoid } from '@tallyui/pos';
+import type { CatalogueEntry, CustomerSummary, ParkedOrderSummary, Payment, TenderVoid } from '@tallyui/pos';
 import { createCustomersBlockedReason, type CashierCapabilities } from '../lib/auth/capabilities';
 import { drawerFigureText, drawerVerbs, sheetMoney } from '../lib/cashier/sheet-figures';
 import { inCartCounts } from '../lib/catalogue/tile-words';
@@ -68,6 +68,8 @@ export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | '
   heldCartKey?: string;
   // The store's wp-admin, linked from the cashier sheet.
   adminUrl?: string;
+  // Put on every new sale (v2's default customer); undefined while the app resolves it.
+  defaultCustomer?: CustomerSummary | null;
 }
 
 export function SaleScreen(props: SaleScreenProps): JSX.Element {
@@ -100,6 +102,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     onSaleCompleted: outbox.enabled ? outbox.record : undefined,
     isStored: outbox.enabled ? outbox.isStored : undefined,
     discountCodes,
+    defaultCustomer: props.defaultCustomer,
   });
   const inCart = useMemo(() => inCartCounts(sale.order.lineItems), [sale.order.lineItems]);
   const receiptOrderId = sale.stage.kind === 'receipt' ? sale.stage.posOrder.id : null;

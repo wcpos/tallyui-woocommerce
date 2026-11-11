@@ -119,8 +119,8 @@ test('General shows the store name, currency and language read-only, each set in
   expect(screen.getByTestId('settings-general-locked-name-value').textContent).toBe('Corner Café');
   expect(screen.getByTestId('settings-general-locked-currency-value').textContent).toBe('AUD');
   expect(screen.getByTestId('settings-general-locked-locale-value').textContent).toBe('en_AU');
-  // Store Name, the four base-address rows, Language and Currency.
-  expect(screen.getAllByText('Set in WooCommerce')).toHaveLength(7);
+  // Store Name, the four base-address rows, Language, Currency and the four number-format rows.
+  expect(screen.getAllByText('Set in WooCommerce')).toHaveLength(11);
   expect(screen.getByText('Store Name')).not.toBeNull();
   expect(screen.getByText('Currency')).not.toBeNull();
   expect(screen.getByText('Language')).not.toBeNull();

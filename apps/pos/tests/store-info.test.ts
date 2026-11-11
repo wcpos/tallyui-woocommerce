@@ -16,6 +16,7 @@ test('maps the first fixture store and sends the supplied headers', async () => 
   const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(Response.json(stores));
   expect(await fetchStoreInfo(session, headers, fetchImpl as unknown as typeof fetch)).toEqual({
     id: 0, name: stores[0].name, currency: 'USD', locale: 'en-US', address: {}, calcTaxes: false,
+    numberFormat: { position: 'left', thousandSeparator: ',', decimalSeparator: '.', decimals: 2 },
   });
   expect(fetchImpl).toHaveBeenCalledWith(`${session.site.wcposApiUrl}/stores`, { headers });
 });
@@ -65,6 +66,47 @@ test.each([['yes', true], ['no', false]] as const)('calc_taxes %j reads %s', asy
 
 test.each(['base', 'billing', 'shipping'] as const)('tax_based_on %j is kept', async basis => {
   expect((await respond({ tax_based_on: basis })).taxBasedOn).toBe(basis);
+});
+
+test('maps the default customer and "is cashier" from the stores response', async () => {
+  const info = await respond({ default_customer: 7, default_customer_is_cashier: true });
+  expect(info.defaultCustomerId).toBe(7);
+  expect(info.defaultCustomerIsCashier).toBe(true);
+  expect((await respond({ default_customer: 0, default_customer_is_cashier: false })))
+    .toMatchObject({ defaultCustomerId: 0, defaultCustomerIsCashier: false });
+});
+
+test.each([[true, true], [false, false], ['yes', true], ['no', false], ['maybe', undefined], [1, undefined], [undefined, undefined]] as const)(
+  'default_customer_is_cashier %j reads %j', async (value, expected) => {
+    expect((await respond({ default_customer_is_cashier: value })).defaultCustomerIsCashier).toBe(expected);
+  });
+
+test.each([[12, 12], ['12', 12], [0, 0], [-1, undefined], [2.5, undefined], ['', undefined], ['abc', undefined], [null, undefined]] as const)(
+  'default_customer %j reads %j', async (value, expected) => {
+    expect((await respond({ default_customer: value })).defaultCustomerId).toBe(expected);
+  });
+
+test('a store without the default-customer fields leaves them undefined', async () => {
+  const info = await respond({});
+  expect(info.defaultCustomerId).toBeUndefined();
+  expect(info.defaultCustomerIsCashier).toBeUndefined();
+});
+
+test('maps the number format, keeping an empty thousand separator as no grouping', async () => {
+  const info = await respond({ currency_pos: 'right_space', price_thousand_sep: '', price_decimal_sep: ',', price_num_decimals: '3' });
+  expect(info.numberFormat).toEqual({ position: 'right_space', thousandSeparator: '', decimalSeparator: ',', decimals: 3 });
+  expect(info.numberFormat!.thousandSeparator).toBe('');
+});
+
+test.each(['left', 'right', 'left_space', 'right_space'] as const)('currency_pos %j is kept', async position => {
+  expect((await respond({ currency_pos: position })).numberFormat?.position).toBe(position);
+});
+
+test('drops an invalid number format value', async () => {
+  const info = await respond({ currency_pos: 'middle', price_thousand_sep: 3, price_decimal_sep: '', price_num_decimals: '-1' });
+  expect(info.numberFormat).toEqual({ position: undefined, thousandSeparator: undefined, decimalSeparator: undefined, decimals: undefined });
+  expect((await respond({ price_num_decimals: 'two' })).numberFormat?.decimals).toBeUndefined();
+  expect((await respond({ price_num_decimals: 0 })).numberFormat?.decimals).toBe(0);
 });
 
 test('uppercases the currency', async () => {
