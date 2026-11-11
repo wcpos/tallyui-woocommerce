@@ -10,6 +10,7 @@ import { orderReference } from '@tallyui/components';
 import type { OrderCreateEnvelope, StoreSettings } from '@tallyui/core';
 import { formatClosureDate, presetRange, type Closure, type CommandTransport } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
+import { AppRailShown } from '../components/app-rail';
 import { CatalogueView } from '../components/catalogue-view';
 import { ReportsScreen } from '../components/reports-screen';
 import { SaleScreen } from '../components/sale-screen';
@@ -55,7 +56,7 @@ async function choose(name: 'cashier' | 'compare', value: string) {
   expect(screen.queryByTestId(`hero-${name}-menu`)).toBeNull();
 }
 
-async function setup({ multiplePayments, storeSettings = noTaxSettings }: { multiplePayments?: boolean; storeSettings?: StoreSettings } = {}) {
+async function setup({ multiplePayments, storeSettings = noTaxSettings, rail = false }: { multiplePayments?: boolean; storeSettings?: StoreSettings; rail?: boolean } = {}) {
   let register!: ReturnType<typeof useRegister>;
   let outbox!: ReturnType<typeof useOutbox>;
   function Probe() { register = useRegister(); outbox = useOutbox(); return null; }
@@ -70,7 +71,9 @@ async function setup({ multiplePayments, storeSettings = noTaxSettings }: { mult
           <Probe />
           <SaleScreen multiplePayments={multiplePayments} storeSettings={storeSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
             storeName={stores[0].name} locale={stores[0].locale} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}} />
-          <ReportsScreen storeName={stores[0].name} currency={stores[0].currency} locale={stores[0].locale} onBack={onBack} />
+          <AppRailShown.Provider value={rail}>
+            <ReportsScreen storeName={stores[0].name} currency={stores[0].currency} locale={stores[0].locale} onBack={onBack} />
+          </AppRailShown.Provider>
           <PortalHost />
         </RegisterProvider>
       </OutboxProvider>
@@ -599,6 +602,50 @@ test('the till strip chevron opens the Closures room under its own bar, and the 
   await screen.findByTestId('reports-hero');
   expect(screen.queryByTestId('closures-scope-row')).toBeNull();
   expect(screen.queryByTestId('reports-back-sales')).toBeNull();
+}, 20_000);
+
+/** The testIDs, in document order, each inside the bar row. */
+function inBarInOrder(bar: HTMLElement, ids: string[]) {
+  const elements = ids.map(id => screen.getByTestId(id));
+  for (const element of elements) expect(bar.contains(element)).toBe(true);
+  for (let i = 1; i < elements.length; i++) {
+    expect(elements[i - 1].compareDocumentPosition(elements[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  }
+}
+
+test("beside the rail Sales opens with v2's bar: the scope title at the start, then the bell and the avatar", async () => {
+  const app = await setup({ rail: true });
+  const bar = await screen.findByTestId('reports-bar');
+  expect(text('reports-title')).toBe(`${stores[0].name} · ${app.register.registerName}`);
+  expect(screen.getByTestId('reports-bar-title-slot').contains(screen.getByTestId('reports-title'))).toBe(true);
+  inBarInOrder(bar, ['reports-title', 'reports-bar-bell', 'reports-bar-avatar']);
+  // The rail is the navigation: no title row and no Back.
+  expect(screen.queryByTestId('reports-back')).toBeNull();
+  expect(within(bar).queryByText('Reports')).toBeNull();
+  // The rooms below keep their place: the till strip and the scope row are not in the bar.
+  expect(bar.contains(screen.getByTestId('reports-scope-strip'))).toBe(false);
+}, 20_000);
+
+test('beside the rail Closures carries the arrow back, its title, the bell and the avatar in one row', async () => {
+  await setup({ rail: true });
+  await enterClosures();
+  const bar = screen.getByTestId('reports-bar');
+  inBarInOrder(bar, ['closures-bar', 'reports-back-sales', 'closures-title', 'reports-bar-bell', 'reports-bar-avatar']);
+  expect(screen.queryByTestId('reports-title')).toBeNull();
+  expect(bar.contains(screen.getByTestId('closures-scope-row'))).toBe(false);
+  fireEvent.click(screen.getByTestId('reports-back-sales'));
+  expect(await screen.findByTestId('reports-title')).not.toBeNull();
+}, 20_000);
+
+test('with no rail the bar keeps the Reports title and Back, with the scope title on a row of its own', async () => {
+  const app = await setup();
+  const bar = await screen.findByTestId('reports-bar');
+  expect(within(bar).getByText('Reports')).not.toBeNull();
+  expect(bar.contains(screen.getByTestId('reports-back'))).toBe(true);
+  expect(bar.contains(screen.getByTestId('reports-bar-bell'))).toBe(true);
+  expect(text('reports-title')).toBe(`${stores[0].name} · ${app.register.registerName}`);
+  fireEvent.click(screen.getByTestId('reports-back'));
+  expect(app.onBack).toHaveBeenCalledOnce();
 }, 20_000);
 
 test('the Closures date menu scopes the list: Today shows only today, a wider period the earlier day too', async () => {
