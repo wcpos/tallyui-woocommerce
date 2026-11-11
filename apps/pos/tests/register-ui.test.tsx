@@ -18,7 +18,8 @@ import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
 import { sessionsOff, toggleRegisterSessions } from './cart-head-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
-import { cartPane, openCartTab, openProductsTab, productsPane } from './phone-tabs-helpers';
+import { REGISTER_SESSIONS_KEY } from '../lib/register/register-setting';
+import { cartPane, openCartTab, openProductsTab } from './phone-tabs-helpers';
 
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
@@ -86,10 +87,11 @@ test.each([900, 390])('Offline shows once: in the POS bar pill, then in the regi
     expect((await screen.findByTestId('register-bar-pill')).textContent).toBe('Offline');
     expect(screen.getAllByTestId('register-bar-pill')).toHaveLength(1);
   } else {
-    // Both phone panes stay mounted, so "once" is per pane: the one on screen.
+    // Both phone panes stay mounted, so "once" is per tab: on Cart the register bar carries it and the POS bar over both tabs draws none.
     expect((await cartPane().findAllByTestId('register-bar-pill')).map(pill => pill.textContent)).toEqual(['Offline']);
+    expect(within(screen.getByTestId('register-bar-shell')).queryByTestId('register-bar-pill')).toBeNull();
     openProductsTab();
-    expect(productsPane().getAllByTestId('register-bar-pill').map(pill => pill.textContent)).toEqual(['Offline']);
+    expect(within(screen.getByTestId('register-bar-shell')).getAllByTestId('register-bar-pill').map(pill => pill.textContent)).toEqual(['Offline']);
   }
 });
 
@@ -180,4 +182,19 @@ test('switching sessions off removes the register UI and allows a sale without a
   await payCash();
   await waitFor(() => expect(app.send).toHaveBeenCalledTimes(1));
   expect((await app.orders.find().exec())[0].toJSON()).not.toHaveProperty('sessionId');
+}, 20_000);
+
+test('phone (B12): with sessions on and the register open, the Cart tab has one menu button, the shared bar above the register bar', async () => {
+  vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  localStorage.setItem(REGISTER_SESSIONS_KEY, 'true');
+  await setup();
+  openCartTab();
+  fireEvent.change(await screen.findByTestId('open-register-amount'), { target: { value: '100.00' } });
+  fireEvent.click(screen.getByTestId('open-register-button'));
+  await screen.findByTestId('cart-checkout');
+  expect(screen.getAllByTestId('pos-drawer-open-button')).toHaveLength(1);
+  // Document order: the POS bar, then the cart pane's register bar under it.
+  const shell = screen.getByTestId('register-bar-shell');
+  const registerBar = cartPane().getByTestId('register-bar');
+  expect(shell.compareDocumentPosition(registerBar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 }, 20_000);

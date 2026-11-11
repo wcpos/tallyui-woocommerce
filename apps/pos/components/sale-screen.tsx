@@ -25,7 +25,7 @@ import { scanFeedback } from '../lib/scan/scan-sound';
 import { recordTenderVoids, type TenderVoidCollection } from '../lib/sale/tender-voids';
 import type { ParkedCart, ParkedCartCollection } from '../lib/sale/parked-carts';
 import { VariantChooser } from './variant-chooser';
-import { CatalogueView } from './catalogue-view';
+import { CatalogueView, PosBar } from './catalogue-view';
 import type { CatalogueViewProps } from './catalogue-view';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { CustomerPicker } from './customer-picker';
@@ -395,12 +395,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   }
 
   const drawerFigure = drawerFigureText(register, minor => sheetMoney(minor, currency, props.locale));
-  const browse = variants ? (
-    <VariantChooser entries={variants} currency={currency} traits={connector.traits.product} onSelect={onAdd} onClose={() => setVariants(undefined)} />
-  ) : <CatalogueView {...props} hideOfflineBadge={width >= 900 && register?.enabled === true} onSelect={onSelect} onScan={onScan} message={message}
-    tax={tax} inCartCounts={inCart}
-    viewState={viewState} onViewStateChange={setViewState}
-    cashierControl={props.onSwitchCashier ? <CashierSheet name={props.cashierName} cashiers={props.cashiers ?? []}
+  const cashierControl = props.onSwitchCashier ? <CashierSheet name={props.cashierName} cashiers={props.cashiers ?? []}
       onSwitch={changeCashier} onAddAnother={() => changeCashier()} onSignOut={props.onSignOut}
       onRemove={props.onRemoveCashier}
       blockedReason={sale.stage.kind === 'tender' || sale.saving ? 'Finish or cancel the payment first.' : undefined}
@@ -412,7 +407,13 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       // (setCartOpen(true)); on a wide screen both panes are up and setCartOpen changes nothing.
       onOpenDrawer={register?.enabled ? () => { setCartOpen(true); setRegisterPanelOpen(true); } : undefined}
       adminUrl={props.adminUrl}
-    /> : props.cashierControl} />;
+    /> : props.cashierControl;
+  const phoneLayout = width < 900;
+  const browse = variants ? (
+    <VariantChooser entries={variants} currency={currency} traits={connector.traits.product} onSelect={onAdd} onClose={() => setVariants(undefined)} />
+  ) : <CatalogueView {...props} hideOfflineBadge={!phoneLayout && register?.enabled === true} onSelect={onSelect} onScan={onScan} message={message}
+    tax={tax} inCartCounts={inCart} hideBar={phoneLayout}
+    viewState={viewState} onViewStateChange={setViewState} cashierControl={cashierControl} />;
   const cartPane = (
     <View className="flex-1 bg-background p-4">
       {width < 900 && message ? <Text>{message}</Text> : null}
@@ -432,7 +433,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             checkout={checkout}
             position={viewState.position} onPositionChange={position => setViewState({ ...viewState, position })}
             openOrders={<OpenOrderTabs parked={parked} current={sale.order} currency={currency} locale={props.locale} onSelect={onResume} onNew={onPark} onError={setMessage}
-              onOpenList={() => setParkedOpen(true)} />} />
+              onOpenList={() => setParkedOpen(true)} compact={phoneLayout} />} />
           {voidOpen && <AlertDialog open onOpenChange={next => { if (!next) setVoidOpen(false); }}>
             <AlertDialogContent testID="cart-void-dialog">
               <AlertDialogHeader>
@@ -551,6 +552,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const active = cartOpen ? 'cart' : 'products';
   return (
     <View className="flex-1 bg-background">
+      {/* One bar over both tabs, as v2's phone till. With sessions on, the Cart tab's register bar carries the pill (one pill per screen). */}
+      <PosBar {...props} cashierControl={cashierControl} hideOfflineBadge={active === 'cart' && register?.enabled === true} />
       <View testID="pos-pane-products" className="flex-1" style={active === 'products' ? undefined : { display: 'none' }}>{browse}</View>
       <View testID="pos-pane-cart" className="flex-1" style={active === 'cart' ? undefined : { display: 'none' }}>{cart}</View>
       <PosPhoneTabBar active={active} onSelect={tab => setCartOpen(tab === 'cart')}

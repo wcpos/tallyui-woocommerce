@@ -953,3 +953,30 @@ test('phone: on the Cart tab the open-order strip resumes a parked cart', async 
   expect(cartTabCount()).toBe('1');
   expect(cartLine('Espresso')).toEqual({ quantity: '1', unitPrice: undefined, total: '$3.00' });
 }, 20_000);
+
+// B12: v2's phone till draws one top bar over both tabs; wide, the bar stays in the products panel.
+test('phone: one bar with the menu, store and bell shows on both tabs, and its menu opens the drawer from the Cart tab', () => {
+  phone();
+  render(<SaleScreen {...props} />);
+  const bar = () => within(screen.getByTestId('register-bar-shell'));
+  const shown = () => [bar().getByTestId('pos-drawer-open-button'), bar().getByTestId('register-bar-place'), bar().getByTestId('register-bar-bell')];
+  expect(bar().getByTestId('register-bar-place').textContent).toBe(stores[0].name);
+  expect(shown()).toHaveLength(3);
+  openCartTab();
+  expect(shown()).toHaveLength(3);
+  expect(screen.getByTestId('register-bar-shell').closest('[data-testid="pos-pane-products"]')).toBeNull();
+  expect(screen.getAllByTestId('register-bar-shell')).toHaveLength(1);
+  expect(screen.getAllByTestId('pos-drawer-open-button')).toHaveLength(1);
+  expect(screen.queryByTestId('drawer-panel')).toBeNull();
+  fireEvent.click(screen.getByTestId('pos-drawer-open-button'));
+  expect(screen.getByTestId('drawer-panel')).not.toBeNull();
+  expect(paneShown('cart')).toBe(true);
+});
+
+test('wide: the bar renders once, inside the products panel', () => {
+  vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 1280, height: 800, scale: 1, fontScale: 1 });
+  render(<SaleScreen {...props} />);
+  expect(screen.getAllByTestId('register-bar-shell')).toHaveLength(1);
+  expect(within(screen.getByTestId('pos-products-panel')).getByTestId('pos-drawer-open-button')).not.toBeNull();
+  expect(screen.getAllByTestId('pos-drawer-open-button')).toHaveLength(1);
+});
