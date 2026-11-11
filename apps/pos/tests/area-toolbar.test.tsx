@@ -6,7 +6,9 @@ import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { createTallyDatabase } from '@tallyui/database';
 import { PortalHost } from '@tallyui/primitives';
+import { Text } from '@tallyui/components';
 import { AppRailShown } from '../components/app-rail';
+import { AreaToolbar } from '../components/area-header';
 import { CouponsScreen } from '../components/coupons-screen';
 import { CustomersScreen } from '../components/customers-screen';
 import { OrdersScreen } from '../components/orders-screen';
@@ -82,6 +84,17 @@ test("on a phone the title row carries the cluster and Back, and the search take
   expect(screen.getByTestId('coupons-bar-bell')).not.toBeNull();
   expect(screen.getByTestId('coupons-back')).not.toBeNull();
   expect(classesOf('coupons-bar-search')).not.toContain('max-w-160');
+});
+
+test.each([true, false])("a title slot is drawn before the controls (rail shown: %s), as v2's PageBar titleSlot", rail => {
+  renderArea(<AreaToolbar area="scoped" title="Scoped" onBack={vi.fn()} titleSlot={<Text testID="scoped-title">Shop · Till</Text>} />, rail);
+  const slot = screen.getByTestId('scoped-bar-title-slot');
+  expect(slot.contains(screen.getByTestId('scoped-title'))).toBe(true);
+  expect(screen.getByTestId('scoped-bar').contains(slot)).toBe(true);
+  // With the rail the slot opens the row; with none the title row (title, controls, Back) comes first.
+  const controls = screen.getByTestId('scoped-bar-controls');
+  expect(slot.compareDocumentPosition(controls) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(rail ? Node.DOCUMENT_POSITION_FOLLOWING : 0);
+  expect(screen.queryByTestId('scoped-back') === null).toBe(rail);
 });
 
 test("seven coupons with five matching the search read v2's Showing 5 of 7, beside the sync button", async () => {

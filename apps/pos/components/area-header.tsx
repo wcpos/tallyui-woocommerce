@@ -56,11 +56,14 @@ function AreaAvatar({ testID }: { testID: string }): JSX.Element | null {
  *  (`max-w-160`), then the area's own actions, then the bell and the avatar (`BarControls`). With no rail the title
  *  row carries the cluster and the search takes a row of its own, as v2's phone bar does. No area here has v2's
  *  column settings (`DisplayOptions`) yet, so no settings icon is drawn. */
-export function AreaToolbar({ area, title, onBack, search, children }: {
+export function AreaToolbar({ area, title, onBack, titleSlot, search, children }: {
   /** The testID stem: `<area>-bar`, `<area>-back`, `<area>-bar-bell`, `<area>-bar-avatar`. */
   area: string;
   title: string;
   onBack(): void;
+  /** A scoped room's title (v2 `PageBar` `titleSlot`, Reports): at the row's start beside the rail; with no rail,
+   *  a row of its own under the title row, which keeps `title` and Back. */
+  titleSlot?: ReactNode;
   search?: ReactNode;
   /** The area's own actions, drawn before the bell. */
   children?: ReactNode;
@@ -72,12 +75,16 @@ export function AreaToolbar({ area, title, onBack, search, children }: {
     <AreaAvatar testID={`${area}-bar-avatar`} />
   </View>;
   const searchBox = search ? <View testID={`${area}-bar-search`} className={railShown ? 'min-w-0 max-w-160 flex-1' : 'min-w-0 flex-1'}>{search}</View> : null;
+  const slot = titleSlot != null
+    ? <View testID={`${area}-bar-title-slot`} className="min-w-0 shrink flex-row items-center">{titleSlot}</View> : null;
   if (!railShown) return <View testID={`${area}-bar`}>
     <AreaHeader title={title} backTestID={`${area}-back`} onBack={onBack} controls={controls} />
+    {slot && <View className="flex-row px-4 pb-2">{slot}</View>}
     {searchBox && <View className="flex-row px-4 pb-2">{searchBox}</View>}
   </View>;
   return (
     <View testID={`${area}-bar`} className="flex-row items-center gap-4 px-4 pb-2 pt-4">
+      {slot}
       <View className="min-w-0 flex-1 flex-row">{searchBox}</View>
       {controls}
     </View>

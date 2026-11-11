@@ -31,7 +31,7 @@ import { SalesTable } from './sales-table';
 import { Segmented } from './segmented';
 import { SessionCard } from './session-card';
 import { TillStrip } from './till-strip';
-import { AreaHeader } from './area-header';
+import { AreaToolbar } from './area-header';
 
 // lucide `arrow-left`, v2's `arrowLeft` on `reports-back-sales`.
 const ArrowLeftIcon = createSvgIcon('ArrowLeftIcon', () => <><Path d="m12 19-7-7 7-7" /><Path d="M19 12H5" /></>);
@@ -103,6 +103,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const cashierName = cashierId === null ? 'Everyone' : reportCashierRows.find(row => row.id === cashierId)?.name ?? cashierId;
   // v2 scope.tsx `registerLabel` names the register on every print scope; Tally's reports are this device's sales, so "This till" with none.
   const registerName = register.registerName ?? 'This till';
+  const scopeTitle = `${storeName} · ${registerName}`;
   const room = salesRoom(shown, { now, currency, range, preset, comparison });
   const periodButton = <ReportsPeriod preset={preset} range={range} locale={locale} onPreset={setPreset} />;
   const chips = <ReportChips cashiers={reportCashierRows} cashierId={cashierId} onCashier={setCashierId} />;
@@ -150,18 +151,20 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
 
   return (
     <View className="flex-1 bg-background" dataSet={reprint ? { print: 'hide' } : undefined}>
-      <AreaHeader title="Reports" backTestID="reports-back" onBack={onBack} gap={false} />
+      {/* v2 bar.tsx `Bar`: ManagementBar with the scope title at the row's start and the bell and avatar at its end, in
+          both rooms; Closures puts an arrow back to Sales before the title. v2's title is a menu (chevron) choosing the
+          store and register; Tally has no store or register directory, so the title is plain text with no menu. */}
+      <AreaToolbar area="reports" title="Reports" onBack={onBack} titleSlot={reportsRoom === 'closures'
+        ? <View testID="closures-bar" className="min-w-0 shrink flex-row items-center gap-2">
+            <IconButton testID="reports-back-sales" variant="ghost" accessibilityLabel="Sales" onPress={() => setReportsRoom('sales')}>
+              <ArrowLeftIcon size={20} />
+            </IconButton>
+            <Text testID="closures-title" numberOfLines={1} className="min-w-0 shrink font-semibold text-foreground">
+              {scopeTitle}
+            </Text>
+          </View>
+        : <Text testID="reports-title" numberOfLines={1} className="min-w-0 shrink font-semibold text-foreground">{scopeTitle}</Text>} />
       {reportsRoom === 'closures' ? <>
-        {/* v2 bar.tsx `Bar room="closures"`: an arrow back to Sales before the title. Tally has no store or register
-            directory, so the title is plain text with no menu. */}
-        <View testID="closures-bar" className="flex-row items-center gap-2 px-4 pt-4">
-          <IconButton testID="reports-back-sales" variant="ghost" accessibilityLabel="Sales" onPress={() => setReportsRoom('sales')}>
-            <ArrowLeftIcon size={20} />
-          </IconButton>
-          <Text testID="closures-title" numberOfLines={1} className="min-w-0 shrink font-semibold text-foreground">
-            {`${storeName} · ${registerName}`}
-          </Text>
-        </View>
         <ScrollView contentContainerClassName="gap-4 p-4">
           {/* v2 reports/index.tsx `renderScopeRow`: the date and the cashier chip, then Export CSV at the right. */}
           <View testID="closures-scope-row" className="flex-row flex-wrap items-center gap-2">
