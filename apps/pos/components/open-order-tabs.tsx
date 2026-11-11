@@ -43,10 +43,12 @@ export interface OpenOrderTabsProps {
   onOpenList?: () => void;
   /** The clock the tab ages read; tests pass their own. */
   now?: () => number;
+  /** A phone: each tab is one line, the name then the amount (v2 TabContent's `phone`); otherwise the amount sits under the name. */
+  compact?: boolean;
 }
 
 /** The open-order strip under the cart: parked carts, the current sale, then + (WCPOS v2 cart/tabs.tsx). */
-export function OpenOrderTabs({ parked, current, currency, locale, onSelect, onNew, onError, onOpenList, now = Date.now }: OpenOrderTabsProps): JSX.Element {
+export function OpenOrderTabs({ parked, current, currency, locale, onSelect, onNew, onError, onOpenList, now = Date.now, compact = false }: OpenOrderTabsProps): JSX.Element {
   const pending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [nowMs, setNowMs] = useState(now);
@@ -86,7 +88,8 @@ export function OpenOrderTabs({ parked, current, currency, locale, onSelect, onN
     return (
       <Pressable key={id} testID={`open-order-tab-${id}`} role="tab" aria-selected={selected} disabled={busy} onPress={onPress}
         className={`h-full min-w-0 justify-center border-b-2 px-3 web:hover:bg-accent active:bg-accent ${selected ? 'border-primary' : 'border-transparent'}`}>
-        <View>
+        <View testID={`open-order-tab-${id}-content`} className={compact ? 'items-center gap-1' : undefined}
+          style={{ flexDirection: compact ? 'row' : 'column' }}>
           <Text testID={`open-order-tab-${id}-who`} numberOfLines={1}
             className={`max-w-52 ${selected ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground'}`}>{who}</Text>
           <Text testID={`open-order-tab-${id}-amount`} numberOfLines={1} className="text-muted-foreground tabular-nums">

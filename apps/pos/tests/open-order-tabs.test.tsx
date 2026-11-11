@@ -252,3 +252,32 @@ test('(d) the open-orders count cell shows only when the tabs overflow, and open
   stripLayout(640, 500);
   expect(screen.queryByTestId('open-orders-count')).toBeNull();
 });
+
+// B12: v2 TabContent's `phone`: one line, the name then the amount. jsdom applies no layout classes, so read the direction.
+const tabContent = (id: string) => screen.getByTestId(`open-order-tab-${id}-content`);
+const direction = (node: HTMLElement) => node.style.flexDirection;
+
+test('compact: a tab is one row, the name then the amount, and a stale cart keeps its age', () => {
+  const { onSelect, onNew, onError } = handlers();
+  render(<OpenOrderTabs compact currency={currency} onSelect={onSelect} onNew={onNew} onError={onError} now={() => NOW}
+    parked={[cart('a', new Date(NOW - 5 * HOUR).toISOString(), ['Espresso'], 1683)]} current={order([], 0)} />);
+  const content = tabContent('a');
+  expect(direction(content)).toBe('row');
+  expect(Array.from(content.children).map(child => child.getAttribute('data-testid'))).toEqual(['open-order-tab-a-who', 'open-order-tab-a-amount']);
+  expect(screen.getByTestId('open-order-tab-a-amount').textContent).toBe('$16.83 · 5 h');
+  expect(screen.getByTestId('open-order-tab-a-age').textContent).toBe('5 h');
+});
+
+test('wide: a tab stacks the name over the amount', () => {
+  const { onSelect, onNew, onError } = handlers();
+  render(<OpenOrderTabs currency={currency} onSelect={onSelect} onNew={onNew} onError={onError} now={() => NOW}
+    parked={[cart('a', new Date(NOW - 5 * HOUR).toISOString(), ['Espresso'], 1683)]} current={order([], 0)} />);
+  expect(direction(tabContent('a'))).toBe('column');
+});
+
+test.each([[390, 'row'], [1280, 'column']])('sale screen at %spx: the current sale\'s tab lays out as a %s', (width, expected) => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width, height: 844, scale: 1, fontScale: 1 });
+  render(<SaleScreen {...props} />);
+  fireEvent.click(screen.getByTestId('product-tile-80'));
+  expect(direction(screen.getByTestId(/^open-order-tab-.+-content$/))).toBe(expected);
+});

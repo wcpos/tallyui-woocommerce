@@ -58,17 +58,36 @@ export interface CatalogueViewProps {
   inCartCounts?: ReadonlyMap<string, number>;
   /** Re-runs the product sync for the footer's Sync button (v2 `sync-button.tsx`); without it no button shows. */
   onSync?(): Promise<void>;
+  /** The phone till draws one PosBar above both panes (v2's phone till), so the catalogue leaves its own out. */
+  hideBar?: boolean;
+}
+
+export type PosBarProps = Pick<CatalogueViewProps, 'storeName' | 'cashierName' | 'cashierControl' | 'hideOfflineBadge' | 'onSignOut'
+  | 'onOpenOrders' | 'onOpenCustomers' | 'onOpenReports' | 'onOpenHealth' | 'onOpenSettings'>;
+
+/** The till's top bar and the drawer its menu button opens: the bar owns the drawer's open state. */
+export function PosBar({ storeName, cashierName, cashierControl, hideOfflineBadge, onSignOut,
+  onOpenOrders, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings }: PosBarProps): JSX.Element {
+  const areas = { onOpenOrders, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings };
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  return <>
+    <RegisterBarShell storeName={storeName} hidePill={hideOfflineBadge} onOpenMenu={() => setDrawerOpen(true)}
+      avatar={<>
+        {cashierControl ?? <Text>{`Cashier: ${cashierName}`}</Text>}
+        {cashierControl == null && <Button onPress={onSignOut}><Text>Sign out</Text></Button>}
+      </>} />
+    <DrawerSheet open={drawerOpen} onOpenChange={setDrawerOpen} {...areas} />
+  </>;
 }
 
 export function CatalogueView({
   connector, currency, products, storeName, cashierName, cashierControl, hideOfflineBadge, status, notice, onSignOut, onOpenOrders, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings, onSelect, onScan, message,
   viewState: controlledViewState, onViewStateChange,
-  tax, inCartCounts, onSync,
+  tax, inCartCounts, onSync, hideBar,
 }: CatalogueViewProps): JSX.Element {
   const [term, setTerm] = useState('');
   const [quickFilters, setQuickFilters] = useQuickFilters();
   const [sortOverride, setSortOverride] = useState<ProductSort | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [filterBarOpen, setFilterBarOpen] = useState(false);
   function scan(code: string) {
@@ -185,14 +204,9 @@ export function CatalogueView({
   return (
     <ConnectorProvider connector={connector} traitContext={{ currency }}>
       <View className="flex-1 bg-background">
-        <RegisterBarShell storeName={storeName} hidePill={hideOfflineBadge} onOpenMenu={() => setDrawerOpen(true)}
-          avatar={<>
-            {cashierControl ?? <Text>{`Cashier: ${cashierName}`}</Text>}
-            {cashierControl == null && <Button onPress={onSignOut}><Text>Sign out</Text></Button>}
-          </>} />
-        <DrawerSheet open={drawerOpen} onOpenChange={setDrawerOpen}
-          onOpenOrders={onOpenOrders} onOpenCustomers={onOpenCustomers} onOpenReports={onOpenReports}
-          onOpenHealth={onOpenHealth} onOpenSettings={onOpenSettings} />
+        {hideBar ? null : <PosBar storeName={storeName} cashierName={cashierName} cashierControl={cashierControl}
+          hideOfflineBadge={hideOfflineBadge} onSignOut={onSignOut} onOpenOrders={onOpenOrders} onOpenCustomers={onOpenCustomers}
+          onOpenReports={onOpenReports} onOpenHealth={onOpenHealth} onOpenSettings={onOpenSettings} />}
         <View className="flex-1 p-4">
         <CatalogueDisplayOptions state={viewState} onChange={changeViewState} products={products} quickFilterCount={quickFilters.length}
           open={settingsOpen} onOpenChange={setSettingsOpen} onCustomiseFilterBar={() => setFilterBarOpen(true)} />
