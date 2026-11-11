@@ -6,26 +6,31 @@ import type { LogCollection, LogRecord } from '../lib/logs/log-store';
 import { buildDebugInfo, formatDurationMs, formatLogTime, logStats, matchesLogFilter, type LogPreset } from '../lib/logs/log-view';
 import { useVerboseDiagnostics } from '../lib/logs/verbose';
 
-// v2's Stat (packages/components/src/stat): the number above a muted label, pressable as a filter.
-function Stat({ testID, value, label, destructive = false, onPress }: {
-  testID: string; value: number; label: string; destructive?: boolean; onPress(): void;
+// v2's Stat (packages/components/src/stat): the number above a muted label, pressable as a filter when it has onPress.
+// v2's tones: bad reads destructive, good reads success.
+function Stat({ testID, value, label, tone, onPress }: {
+  testID: string; value: number; label: string; tone?: 'destructive' | 'success'; onPress?(): void;
 }): JSX.Element {
-  return (
-    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
-      className="-m-1 rounded-md p-1 web:hover:bg-accent/50">
-      <Text testID={`${testID}-value`} className={`text-lg font-semibold tabular-nums${destructive ? ' text-destructive' : ''}`}>
-        {value.toLocaleString()}</Text>
-      <Text className="text-sm text-muted-foreground">{label}</Text>
-    </Pressable>
-  );
+  const body = <>
+    <Text testID={`${testID}-value`} className={`text-lg font-semibold tabular-nums${
+      tone === 'destructive' ? ' text-destructive' : tone === 'success' ? ' text-success' : ''}`}>
+      {value.toLocaleString()}</Text>
+    <Text className="text-sm text-muted-foreground">{label}</Text>
+  </>;
+  return onPress
+    ? <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
+      className="-m-1 rounded-md p-1 web:hover:bg-accent/50">{body}</Pressable>
+    : <View testID={testID} className="-m-1 p-1">{body}</View>;
 }
 
 export function LogsScreen({ collection, storeName, siteUrl, onBack,
   copyText = typeof navigator !== 'undefined' && navigator.clipboard?.writeText
-    ? text => navigator.clipboard.writeText(text) : null, now = Date.now,
+    ? text => navigator.clipboard.writeText(text) : null, now = Date.now, waiting,
 }: {
   collection: LogCollection; storeName: string; siteUrl: string; onBack(): void;
   copyText?: ((text: string) => Promise<void>) | null; now?: () => number;
+  /** The outbox's changes waiting to send; the stat is drawn only when given. */
+  waiting?: number;
 }): JSX.Element {
   const [rows, setRows] = useState<LogRecord[]>([]);
   const [preset, setPreset] = useState<LogPreset>('all');
@@ -41,10 +46,12 @@ export function LogsScreen({ collection, storeName, siteUrl, onBack,
   // The strip counts what All shows: debug rows only while verbose is on.
   const counted = verbose ? rows : rows.filter(row => row.level !== 'debug');
   const stats = logStats(counted, now());
+  // Stuck records count every stored row: a debug row's sync outcome still counts while verbose is off.
+  const stuck = logStats(rows, now()).stuck;
   async function copyDebugInfo() {
     if (!copyText) return;
     try {
-      await copyText(buildDebugInfo({ now: now(), storeName, siteUrl, rows: counted, verbose }));
+      await copyText(buildDebugInfo({ now: now(), storeName, siteUrl, rows: counted, verbose, stuck }));
       setCopyStatus('Debug info copied');
     } catch {
       setCopyStatus("Couldn't copy debug info");
@@ -58,16 +65,21 @@ export function LogsScreen({ collection, storeName, siteUrl, onBack,
       </View>
       <View testID="logs-stats" className="mb-4 flex-row flex-wrap items-start gap-x-6 gap-y-3 border-b border-border pb-3">
         <Stat testID="logs-stat-events" value={stats.eventsToday} label="events today" onPress={() => setPreset('all')} />
-        <Stat testID="logs-stat-errors" value={stats.errorsToday} label="errors today" destructive={stats.errorsToday > 0}
-          onPress={() => setPreset('errors')} />
+        <Stat testID="logs-stat-errors" value={stats.errorsToday} label="errors today"
+          tone={stats.errorsToday > 0 ? 'destructive' : undefined} onPress={() => setPreset('errors')} />
+        {/* v2: Sync, not Errors, since a stuck record's row can be a warn the Errors chip hides. */}
+        <Stat testID="logs-stat-stuck" value={stuck.length} label="stuck records"
+          tone={stuck.length > 0 ? 'destructive' : 'success'} onPress={() => setPreset('sync')} />
+        {waiting !== undefined && <Stat testID="logs-stat-waiting" value={waiting} label="changes waiting to send"
+          tone={waiting > 0 ? 'destructive' : 'success'} />}
         <View className="flex-1" />
         {copyText !== null && <Button testID="logs-copy-debug" variant="outline" size="sm"
           onPress={() => { void copyDebugInfo(); }}><Text>Copy debug info</Text></Button>}
       </View>
       <View className="mb-4 flex-row flex-wrap items-center gap-2">
-        {(['all', 'errors', 'sync'] as const).map(value => <Button key={value} testID={`logs-chip-${value}`}
-          size="sm" variant={preset === value ? 'default' : 'outline'} aria-pressed={preset === value}
-          onPress={() => setPreset(value)}><Text>{{ all: 'All', errors: 'Errors', sync: 'Sync' }[value]}</Text></Button>)}
+        {(['all', 'actions', 'errors', 'sync'] as const).map(value => <Button key={value} testID={`logs-chip-${value}`}
+          size="sm" variant={preset === value ? 'default' : 'outline'} aria-pressed={preset === value} onPress={() => setPreset(value)}>
+          <Text>{{ all: 'All', actions: 'Actions', errors: 'Errors', sync: 'Sync' }[value]}</Text></Button>)}
         {level !== undefined && <Button testID="logs-chip-kind" variant="outline" size="sm"
           onPress={() => setLevel(undefined)}><Text>{`${level} ×`}</Text></Button>}
         <View className="flex-1" />

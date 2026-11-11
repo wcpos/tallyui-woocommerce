@@ -8,7 +8,7 @@ import type { Session } from '../auth/session';
 import { fetchCashierCapabilities, type CashierCapabilities } from '../auth/capabilities';
 import { parkedCartSchema, parkedCartMigrationStrategies, type ParkedCartCollection } from '../sale/parked-carts';
 import { receiptEmailSchema, receiptEmailMigrationStrategies, type ReceiptEmailCollection } from '../receipts/receipt-emails';
-import { attachLogStore, logRecordSchema, type LogCollection } from '../logs/log-store';
+import { attachLogStore, logRecordMigrationStrategies, logRecordSchema, type LogCollection } from '../logs/log-store';
 import { fetchStoreInfo } from './store-info';
 import type { StoreInfo } from './store-info';
 
@@ -61,7 +61,7 @@ export async function startCatalogue(
   }>({
     parked_carts: { schema: parkedCartSchema, migrationStrategies: parkedCartMigrationStrategies },
     receipt_emails: { schema: receiptEmailSchema, migrationStrategies: receiptEmailMigrationStrategies },
-    logs: { schema: logRecordSchema },
+    logs: { schema: logRecordSchema, migrationStrategies: logRecordMigrationStrategies },
   });
   const logStore = attachLogStore(logs);
   const replication = startReplication({ collection: db.products, adapter: connector.replication!.products!, context });

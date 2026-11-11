@@ -1,4 +1,4 @@
-import { callbackSink, outboxLogger, saleLogger, taxLogger, posOrdersLogger, registerSessionsLogger,
+import { callbackSink, hasActor, outboxLogger, saleLogger, taxLogger, posOrdersLogger, registerSessionsLogger,
   registerFactsLogger, registerCommandsLogger, type LogEntry, type LogLevel, type Logger } from '@tallyui/pos';
 import type { RxCollection, RxJsonSchema } from 'rxdb';
 import { isVerboseDiagnostics } from './verbose';
@@ -25,10 +25,12 @@ export function withoutWriteParameters(text: string): string {
 export interface LogRecord {
   id: string; timestamp: number; level: LogLevel; scope: string; message: string;
   code?: string; outcome?: string; durationMs?: number; detail?: string;
+  actor?: { id?: string; name?: string; role?: string };
+  syncRecord?: { collection: string; recordId: string; outcome: 'ok' | 'failed' | 'pending'; code?: string; reason?: string };
 }
 export type LogCollection = RxCollection<LogRecord>;
 export const logRecordSchema: RxJsonSchema<LogRecord> = {
-  version: 0, primaryKey: 'id', type: 'object',
+  version: 1, primaryKey: 'id', type: 'object',
   properties: {
     id: { type: 'string', maxLength: 32 },
     timestamp: { type: 'integer', minimum: 0 },
@@ -36,9 +38,21 @@ export const logRecordSchema: RxJsonSchema<LogRecord> = {
     scope: { type: 'string' }, message: { type: 'string' },
     code: { type: 'string' }, outcome: { type: 'string' }, detail: { type: 'string' },
     durationMs: { type: 'number', minimum: 0 },
+    actor: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' }, role: { type: 'string' } } },
+    syncRecord: {
+      type: 'object',
+      properties: {
+        collection: { type: 'string' }, recordId: { type: 'string' },
+        outcome: { type: 'string', enum: ['ok', 'failed', 'pending'] },
+        code: { type: 'string' }, reason: { type: 'string' },
+      },
+      required: ['collection', 'recordId', 'outcome'],
+    },
   },
   required: ['id', 'timestamp', 'level', 'scope', 'message'],
 };
+// Version 1 only adds the optional actor and syncRecord fields, so version 0 rows carry over unchanged.
+export const logRecordMigrationStrategies = { 1: (doc: any) => doc };
 let sequence = 0;
 let attachments = 0;
 
@@ -47,8 +61,18 @@ export function logRecordId(timestamp: number, sequence: number): string {
 }
 
 export function toLogRecord(entry: LogEntry, id: string): LogRecord {
-  const { timestamp, level, scope, message, data } = entry;
+  const { timestamp, level, scope, message, data, actor, syncRecord } = entry;
   const row: LogRecord = { id, timestamp, level, scope, message: withoutWriteParameters(message) };
+  if (actor && hasActor(entry)) {
+    const { id: actorId, name, role } = actor;
+    row.actor = { ...(typeof actorId === 'string' ? { id: actorId } : {}), ...(typeof name === 'string' ? { name } : {}),
+      ...(typeof role === 'string' ? { role } : {}) };
+  }
+  if (syncRecord) {
+    const { collection, recordId, outcome, code, reason } = syncRecord;
+    row.syncRecord = { collection, recordId, outcome, ...(typeof code === 'string' ? { code } : {}),
+      ...(typeof reason === 'string' ? { reason: withoutWriteParameters(reason) } : {}) };
+  }
   if (typeof data?.code === 'string') row.code = data.code;
   if (typeof data?.outcome === 'string') row.outcome = data.outcome;
   if (typeof data?.durationMs === 'number' && Number.isFinite(data.durationMs) && data.durationMs >= 0) {
