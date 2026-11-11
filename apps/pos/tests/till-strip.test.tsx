@@ -1,12 +1,14 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
+import * as ReactNative from 'react-native';
 import type { Closure } from '@tallyui/pos';
 import { TillStrip } from '../components/till-strip';
 import { useRegister } from '../lib/register/register-context';
+import { classesOf } from './classes-of';
 
 vi.mock('../lib/register/register-context', () => ({ useRegister: vi.fn() }));
 
-afterEach(() => { cleanup(); vi.mocked(useRegister).mockReset(); });
+afterEach(() => { cleanup(); vi.mocked(useRegister).mockReset(); vi.mocked(ReactNative.useWindowDimensions).mockRestore?.(); });
 
 const closure = {
   id: 'closure-1', number: 1, closed_at: new Date().toISOString(), closed_by: '2',
@@ -80,4 +82,36 @@ test('without onOpenClosure the last closure line is plain text', () => {
   register({ status: 'closed', lastClosure: closure });
   render(<TillStrip orders={null} currency="USD" locale="en-US" resolveCashierName={id => id} />);
   expect(screen.getByTestId('till-last-closure').getAttribute('role')).toBeNull();
+});
+
+// v2 reports/till-strip.tsx: wide, one `flex-row items-center gap-5` row; under 1024 (`useRoomy`) the equation drops below.
+const at = (width: number) => vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width, height: 800, scale: 1, fontScale: 1 });
+const inRow = (testID: string) => within(screen.getByTestId('till-row')).queryByTestId(testID) !== null;
+
+test('at 1280 the title, equation and actions share one row that never wraps', () => {
+  at(1280);
+  register({ status: 'open' });
+  strip();
+  expect(classesOf('till-row')).toEqual(expect.arrayContaining(['flex-row', 'items-center', 'gap-5']));
+  expect(classesOf('till-row')).not.toContain('flex-wrap');
+  expect(classesOf('till-title')).toEqual(expect.arrayContaining(['min-w-0', 'flex-1']));
+  expect(classesOf('till-equation')).toEqual(expect.arrayContaining(['flex-1', 'flex-row', 'flex-wrap', 'justify-center']));
+  expect(classesOf('till-actions')).not.toContain('flex-wrap');
+  expect(['till-title', 'till-equation', 'till-actions'].map(inRow)).toEqual([true, true, true]);
+  // The chip reads its label over its amount, as v2's does.
+  expect(classesOf('till-term-float')).not.toContain('flex-row');
+});
+
+test('under 1024 the equation drops below the row; a phone stacks a ledger over the actions', () => {
+  at(900);
+  register({ status: 'open' });
+  strip();
+  expect(['till-title', 'till-equation', 'till-actions'].map(inRow)).toEqual([true, false, true]);
+  cleanup();
+  at(500);
+  strip();
+  expect(screen.queryByTestId('till-row')).toBeNull();
+  expect(classesOf('till-term-float')).toEqual(expect.arrayContaining(['flex-1', 'flex-row']));
+  expect(screen.getByTestId('till-ledger')).toBeTruthy();
+  expect(classesOf('till-actions')).toContain('justify-between');
 });

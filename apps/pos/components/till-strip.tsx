@@ -1,15 +1,18 @@
 import { useEffect, useState, type JSX } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { Path } from 'react-native-svg';
 import { Button, createSvgIcon, IconButton, Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
 import { formatClosureDate, replacedOrderIds, type Closure, type PosOrder } from '@tallyui/pos';
+import { useIsWide } from '../lib/layout/wide';
 import { useRegister } from '../lib/register/register-context';
 import { openedAtLabel } from './session-card';
 
 // lucide `chevron-right`, v2's `chevronRight` on `till-closures`.
 const ChevronRightIcon = createSvgIcon('ChevronRightIcon', () => <Path d="m9 18 6-6-6-6" />);
+/** v2 `hooks/use-roomy.ts`: a desk, or a tablet on its side (a standing tablet is at most 834, 1032 for the largest). */
+const ROOMY_MIN_WIDTH = 1024;
 
 /** Tone of a closure's drawer result: short is destructive, over is success, exact is muted. */
 export function drawerResultClass(varianceMinor: number): string {
@@ -29,6 +32,8 @@ export function TillStrip({ orders, currency, locale, resolveCashierName, onPrin
   onOpenClosures?(): void;
 }): JSX.Element {
   const register = useRegister();
+  const phone = !useIsWide();
+  const roomy = useWindowDimensions().width >= ROOMY_MIN_WIDTH;
   const bound = register.enabled;
   const session = register.session;
   const active = bound && (session?.status === 'open' || session?.status === 'counting');
@@ -102,41 +107,57 @@ export function TillStrip({ orders, currency, locale, resolveCashierName, onPrin
     {!register.blind && <>{' · '}<Text testID="till-last-result" className={resultColor}>{resultText}</Text></>}
   </Text>;
 
+  // v2 till-strip.tsx: the equation leaves the title row on a window under 1024 or past four terms.
+  const stacked = (!phone && !roomy) || rows.length > 4;
+  const title = <View testID="till-title" className="min-w-0 flex-1 gap-1">
+    <View className="flex-row flex-wrap items-center gap-2">
+      <Text className="font-semibold">{bound ? 'This till' : 'No register on this device'}</Text>
+      {bound && <Text testID="till-status" className={active ? 'text-success' : 'text-muted-foreground'}>{active ? '● Open' : '● Closed'}</Text>}
+      {bound && since && <Text testID="till-since" className="text-muted-foreground">{since}</Text>}
+    </View>
+    {closure && lastLine && (onOpenClosure
+      ? <Pressable testID="till-last-closure" accessibilityRole="button" className="self-start" onPress={() => onOpenClosure(closure)}>{lastLine}</Pressable>
+      : lastLine)}
+  </View>;
+  // v2: beside the title the chips wrap among themselves, centred; on a phone they are a ledger, the sign inside each row.
+  const equation = rows.length > 0 && <View testID="till-equation" className={phone ? 'gap-2' : 'flex-1 flex-row flex-wrap items-center justify-center gap-2'}>
+    <View testID={phone ? 'till-ledger' : undefined} className={phone ? 'gap-1' : 'flex-row flex-wrap items-center justify-center gap-2'}>
+      {rows.map(([id, sign, label, amount]) => {
+        const primary = active && sign === '=';
+        const ink = primary ? 'text-primary-foreground' : 'text-muted-foreground';
+        return <View key={id} className="flex-row items-center gap-2">
+          {!phone && !!sign && <Text className="font-semibold text-muted-foreground">{sign}</Text>}
+          <View testID={id} className={`rounded-md px-2.5 py-1 ${primary ? 'bg-primary' : 'bg-muted'} ${phone ? 'flex-1 flex-row items-center gap-2' : ''}`}>
+            {phone && <Text className={`w-4 text-center font-semibold ${ink}`}>{sign}</Text>}
+            <Text className={`${phone ? 'flex-1' : 'text-sm'} ${ink}`}>{label}</Text>
+            <Text testID={`${id}-amount`} className={`font-semibold tabular-nums ${primary ? 'text-primary-foreground' : id === 'till-result' ? resultColor : 'text-foreground'} ${phone ? 'text-right' : ''}`}>{amount}</Text>
+          </View>
+        </View>;
+      })}
+    </View>
+    {!!note && <Text testID="till-note" className="text-muted-foreground">{note}</Text>}
+  </View>;
+  const actions = (printable || onOpenClosures) && <View testID="till-actions" className={`flex-row items-center gap-2 ${phone ? (printable ? 'justify-between' : 'justify-end') : ''}`}>
+    {/* A blind cashier gets no X-report, as on the session card: the X print carries the expected cash. */}
+    {printable && (active
+      ? <Button testID="till-xreport" variant="outline" onPress={onPrintXReport}><Text>Print X-report</Text></Button>
+      : closure && <Button testID="till-reprint" variant="outline" onPress={() => onReprint?.(closure)}><Text>Print closure</Text></Button>)}
+    {/* v2 till-strip.tsx `till-closures`: the chevron at the end of the actions is the way into Closures. */}
+    {onOpenClosures && <IconButton testID="till-closures" variant="ghost" accessibilityLabel="Closures" onPress={onOpenClosures}>
+      <ChevronRightIcon size={20} />
+    </IconButton>}
+  </View>;
+
+  // v2 till-strip.tsx: one row that never wraps (title, equation, actions); a phone stacks them.
   return (
     <View testID="reports-till" className="gap-3 rounded-lg border border-border p-4">
-      <View testID="till-title" className="gap-1">
-        <View className="flex-row flex-wrap items-center gap-2">
-          <Text className="font-semibold">{bound ? 'This till' : 'No register on this device'}</Text>
-          {bound && <Text testID="till-status" className={active ? 'text-success' : 'text-muted-foreground'}>{active ? '● Open' : '● Closed'}</Text>}
-          {bound && since && <Text testID="till-since" className="text-muted-foreground">{since}</Text>}
-        </View>
-        {closure && lastLine && (onOpenClosure
-          ? <Pressable testID="till-last-closure" accessibilityRole="button" className="self-start" onPress={() => onOpenClosure(closure)}>{lastLine}</Pressable>
-          : lastLine)}
-      </View>
-      {rows.length > 0 && <View testID="till-equation" className="flex-row flex-wrap items-center gap-2">
-        {rows.map(([id, sign, label, amount]) => {
-          const primary = active && sign === '=';
-          return <View key={id} className="flex-row items-center gap-2">
-            {!!sign && <Text className="font-semibold text-muted-foreground">{sign}</Text>}
-            <View testID={id} className={`flex-row items-center gap-2 rounded-md px-2.5 py-1 ${primary ? 'bg-primary' : 'bg-muted'}`}>
-              <Text className={`text-sm ${primary ? 'text-primary-foreground' : 'text-muted-foreground'}`}>{label}</Text>
-              <Text testID={`${id}-amount`} className={`font-semibold tabular-nums ${primary ? 'text-primary-foreground' : id === 'till-result' ? resultColor : 'text-foreground'}`}>{amount}</Text>
-            </View>
-          </View>;
-        })}
-        {!!note && <Text testID="till-note" className="text-muted-foreground">{note}</Text>}
+      {phone ? <>{title}{equation}</> : <View testID="till-row" className="flex-row items-center gap-5">
+        {title}
+        {!stacked && equation}
+        {actions}
       </View>}
-      {(printable || onOpenClosures) && <View testID="till-actions" className="flex-row flex-wrap items-center gap-2">
-        {/* A blind cashier gets no X-report, as on the session card: the X print carries the expected cash. */}
-        {printable && (active
-          ? <Button testID="till-xreport" variant="outline" onPress={onPrintXReport}><Text>Print X-report</Text></Button>
-          : closure && <Button testID="till-reprint" variant="outline" onPress={() => onReprint?.(closure)}><Text>Print closure</Text></Button>)}
-        {/* v2 till-strip.tsx `till-closures`: the chevron at the end of the actions is the way into Closures. */}
-        {onOpenClosures && <IconButton testID="till-closures" variant="ghost" accessibilityLabel="Closures" onPress={onOpenClosures}>
-          <ChevronRightIcon size={20} />
-        </IconButton>}
-      </View>}
+      {!phone && stacked && equation}
+      {phone && actions}
     </View>
   );
 }
