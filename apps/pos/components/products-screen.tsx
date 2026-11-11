@@ -22,6 +22,7 @@ import type { CatalogueFilters } from '../lib/catalogue/quick-filters';
 import { AreaHeader } from './area-header';
 import { CatalogueFilterChips } from './catalogue-filter-chips';
 import { StatusDot } from './status-dot';
+import { CaptionRowInset, TableSurface } from './table-surface';
 import type { StatusTone } from './status-dot';
 
 // v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
@@ -161,9 +162,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
       <Text testID="no-data-message-title" className="text-center font-medium text-foreground">No products found</Text>
       <Button testID="no-data-message-action" variant="ghost" size="sm" onPress={clear}><Text>Clear filters</Text></Button>
     </View>
-  ) : (
-    <>
-      {narrow ? (
+  ) : narrow ? (
         <ScrollView testID="products-body">
           {listed.map(doc => (
             <View key={doc.id} testID={`products-row-${doc.id}`} className="flex-row items-center gap-3 border-b border-border px-4 py-3">
@@ -178,12 +177,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
         </ScrollView>
       ) : (
         <ProductTable testID="products-body" items={shown} columns={columns} defaultSort={NAME_ASC} showUnsellable />
-      )}
-      <View className="border-t border-border px-4 py-2">
-        <Text testID="data-table-count" className="text-sm text-muted-foreground">{countLabel(shown.length, total)}</Text>
-      </View>
-    </>
-  );
+      );
 
   return (
     <ConnectorProvider connector={connector} traitContext={{ currency }}>
@@ -195,7 +189,12 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
         <View className="px-4 pb-2">
           <CatalogueFilterChips products={products} filters={filters} onChange={setFilters} />
         </View>
-        {body}
+        <TableSurface testID="products-table-surface">{body}</TableSurface>
+        {shown.length > 0 && (
+          <CaptionRowInset>
+            <Text testID="data-table-count" className="text-sm text-muted-foreground">{countLabel(shown.length, total)}</Text>
+          </CaptionRowInset>
+        )}
       </View>
     </ConnectorProvider>
   );

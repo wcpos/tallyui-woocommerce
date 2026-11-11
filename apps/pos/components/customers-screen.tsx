@@ -10,6 +10,7 @@ import { DEFAULT_CUSTOMER_SORT, billingLines, customerInitials, nextSort, sortCu
 import type { CustomerSort, CustomerSortField } from '../lib/customers/customer-table';
 import { AddCustomerDialog } from './add-customer-dialog';
 import { AreaHeader } from './area-header';
+import { CaptionRowInset, TableSurface } from './table-surface';
 
 // v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
 const SEARCH_DEBOUNCE_MS = 250;
@@ -99,7 +100,6 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
       {asked ? <Button testID="no-data-message-action" variant="ghost" size="sm" onPress={clear}><Text>Clear search</Text></Button> : null}
     </View>
   ) : (
-    <>
       <ScrollView testID="customers-body">
         {width < 600 ? shown.map(c => (
           <View key={c.id} testID={`customers-row-${c.id}`} className="flex-row items-center gap-3 border-b border-border px-4 py-3">
@@ -137,9 +137,8 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
           </TableBody>
         </Table>}
       </ScrollView>
-      <View className="border-t border-border px-4 py-2"><Text testID="data-table-count" className="text-sm text-muted-foreground">{`Showing ${shown.length}`}</Text></View>
-    </>
   );
+  const listing = !error && !searching && results.length > 0;
 
   return (
     <View testID="screen-customers" className="flex-1 bg-background">
@@ -152,7 +151,8 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
         </View>
         {createBlockedReason !== undefined
           ? <Text testID="customers-add-blocked" className="px-4 pb-2 text-sm text-muted-foreground">{createBlockedReason}</Text> : null}
-        {body}
+        <TableSurface testID="customers-table-surface">{body}</TableSurface>
+        {listing ? <CaptionRowInset><Text testID="data-table-count" className="text-sm text-muted-foreground">{`Showing ${shown.length}`}</Text></CaptionRowInset> : null}
         {adding ? <AddCustomerDialog source={source} onClose={() => { setAdding(false); retry(); }} /> : null}
       </> : <Text testID="customers-unavailable" className="p-4 text-muted-foreground">Customers show once the store is connected.</Text>}
     </View>

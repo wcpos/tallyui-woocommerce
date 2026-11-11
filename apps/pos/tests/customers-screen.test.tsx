@@ -12,6 +12,7 @@ import { CREATE_CUSTOMERS_DENIED } from '../lib/auth/capabilities';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { CARD_CLASSES, classesOf } from './classes-of';
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
@@ -352,4 +353,13 @@ test('the drawer lists Customers after Orders only when an onOpenCustomers handl
   rerender(<><CatalogueView {...props} /><PortalHost /></>);
   fireEvent.click(screen.getByTestId('pos-drawer-open-button'));
   expect(screen.queryByTestId('drawer-item-customers')).toBeNull();
+});
+
+test("at 1280 the table sits on v2's card, with the count under it", async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1280, height: 800, scale: 1, fontScale: 1 });
+  await findRows();
+  const surface = screen.getByTestId('customers-table-surface');
+  expect(classesOf('customers-table-surface')).toEqual(expect.arrayContaining(CARD_CLASSES));
+  expect(surface.contains(screen.getByTestId('customers-body'))).toBe(true);
+  expect(surface.contains(screen.getByTestId('data-table-count'))).toBe(false);
 });

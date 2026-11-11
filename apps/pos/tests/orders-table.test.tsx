@@ -1,11 +1,13 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
+import * as ReactNative from 'react-native';
 import type { StoreOrder } from '@tallyui/core';
 import type { PosOrder } from '@tallyui/pos';
 import { OrdersTable } from '../components/orders-table';
+import { CARD_CLASSES, classesOf } from './classes-of';
 import { dateTimeLabel, dayHeading, orderRowCells, orderTableItems, storeTone } from '../lib/orders/order-days';
 
-afterEach(() => cleanup());
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const at = (y: number, m: number, d: number, h: number, min: number) => new Date(y, m - 1, d, h, min).toISOString();
 const now = new Date(2026, 10, 10, 15, 0); // Tuesday 10 Nov 2026, 15:00 local
@@ -93,4 +95,13 @@ test("the table shows v2's columns, a day band and a count, and the chevron open
   fireEvent.click(screen.getByTestId('history-open-901'));
   expect(onOpen).toHaveBeenCalledTimes(1);
   expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ kind: 'store', order: storeOrder }));
+});
+
+test("at 1280 the orders table sits on the areas' shared card, with the count under it", () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1280, height: 800, scale: 1, fontScale: 1 });
+  render(<OrdersTable local={[]} store={[storeOrder]} onOpen={vi.fn()} now={() => now} />);
+  const surface = screen.getByTestId('orders-table-surface');
+  expect(classesOf('orders-table-surface')).toEqual(expect.arrayContaining(CARD_CLASSES));
+  expect(surface.contains(screen.getByTestId('orders-table'))).toBe(true);
+  expect(surface.contains(screen.getByTestId('data-table-count'))).toBe(false);
 });

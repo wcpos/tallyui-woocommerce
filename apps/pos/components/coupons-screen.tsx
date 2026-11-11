@@ -22,6 +22,7 @@ import type { SvgIconProps } from '@tallyui/components';
 import { AreaHeader } from './area-header';
 import { filterChipClassName, filterChipTextClassName } from './catalogue-filter-chips';
 import { StatusDot } from './status-dot';
+import { CaptionRowInset, TableSurface } from './table-surface';
 
 // v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
 const SEARCH_DEBOUNCE_MS = 250;
@@ -254,7 +255,6 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
       <Button testID="no-data-message-action" variant="ghost" size="sm" onPress={clear}><Text>Clear filters</Text></Button>
     </View>
   ) : (
-    <>
       <ScrollView testID="coupons-body">
         {width < NARROW_WIDTH ? shown.map(c => (
           <View key={c.uuid} testID={`coupons-row-${c.code}`} className="flex-row items-center gap-3 border-b border-border px-4 py-3">
@@ -283,10 +283,6 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
           </TableBody>
         </Table>}
       </ScrollView>
-      <View className="border-t border-border px-4 py-2">
-        <Text testID="data-table-count" className="text-sm text-muted-foreground">{countLabel(shown.length, total)}</Text>
-      </View>
-    </>
   );
 
   return (
@@ -303,7 +299,12 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
           )}
         </View>
       </View>
-      {body}
+      <TableSurface testID="coupons-table-surface">{body}</TableSurface>
+      {shown.length > 0 && (
+        <CaptionRowInset>
+          <Text testID="data-table-count" className="text-sm text-muted-foreground">{countLabel(shown.length, total)}</Text>
+        </CaptionRowInset>
+      )}
     </View>
   );
 }
