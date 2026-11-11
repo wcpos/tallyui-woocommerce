@@ -411,7 +411,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const phoneLayout = width < 900;
   const browse = variants ? (
     <VariantChooser entries={variants} currency={currency} traits={connector.traits.product} onSelect={onAdd} onClose={() => setVariants(undefined)} />
-  ) : <CatalogueView {...props} hideOfflineBadge={!phoneLayout && register?.enabled === true} onSelect={onSelect} onScan={onScan} message={message}
+  ) : <CatalogueView {...props} hideOfflineBadge={!phoneLayout && register?.enabled === true} onSelect={onSelect} onAddEntry={onAdd} onScan={onScan} message={message}
     tax={tax} inCartCounts={inCart} hideBar={phoneLayout}
     viewState={viewState} onViewStateChange={setViewState} cashierControl={cashierControl} />;
   const cartPane = (

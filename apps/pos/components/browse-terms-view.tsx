@@ -1,6 +1,7 @@
 // v2's browse stage pieces, flat (WCPOS monorepo `packages/core/src/screens/main/pos/products/browse/`):
 // the term set as poster tiles (term-tile.tsx, term-grid.tsx) or as table rows (term-row.tsx,
 // term-table.tsx), and the crumb above a level (packages/components/src/breadcrumb).
+import { Fragment } from 'react';
 import type { JSX, ReactNode } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { Path, Rect } from 'react-native-svg';
@@ -107,19 +108,34 @@ export function BrowseRootTable({ terms, searchSlot, onOpen }: {
 
 // v2's useSourceLabel(source) for Browse by Categories: the crumb's root is the source.
 export const CATEGORIES_LABEL = 'Categories';
+// v2's pos_products.products_crumb: the drill-in's default parent (drill-in.tsx).
+export const PRODUCTS_LABEL = 'Products';
 
 /**
  * v2's Breadcrumb over a level (browse-stage.tsx `crumb`, term-grid.tsx): the root, the source's label,
- * as a button, a chevron, then the place's name as plain text. Its one parent is the last, so it carries
- * v2's back testID.
+ * as a button, a chevron, then the place's name as plain text. With a drilled-in `product` (v2's DrillIn
+ * crumb) the place becomes a parent too, the way back to its products, and the product's name ends the
+ * row in bold. The last parent carries v2's back testID.
  */
-export function BrowseCrumb({ place, onRoot }: { place: BrowsePlace; onRoot(): void }): JSX.Element {
+export function BrowseCrumb({ place, onRoot, product }: {
+  place: BrowsePlace | null; onRoot(): void; product?: { name: string; onBack(): void };
+}): JSX.Element {
+  const placeName = place === null ? null : place.kind === 'all' ? ALL_PRODUCTS_LABEL : place.name;
+  const parents = [
+    ...place === null ? [] : [{ label: CATEGORIES_LABEL, onPress: onRoot }],
+    ...product ? [{ label: placeName ?? PRODUCTS_LABEL, onPress: product.onBack }] : [],
+  ];
   return <View testID="products-breadcrumb" className="min-h-9 flex-row flex-wrap items-center gap-1">
-    <Pressable role="button" accessibilityLabel={CATEGORIES_LABEL} testID="products-breadcrumb-back" onPress={onRoot}
-      className="justify-center rounded-md px-2 py-1 web:hover:bg-muted active:bg-muted">
-      <Text className="font-medium text-foreground">{CATEGORIES_LABEL}</Text>
-    </Pressable>
-    <ChevronRightIcon size={12} className="text-muted-foreground" />
-    <Text testID="products-breadcrumb-here" className="shrink px-1 font-semibold text-foreground">{place.kind === 'all' ? ALL_PRODUCTS_LABEL : place.name}</Text>
+    {parents.map(({ label, onPress }, index) => <Fragment key={label}>
+      <Pressable role="button" accessibilityLabel={label} onPress={onPress}
+        testID={index === parents.length - 1 ? 'products-breadcrumb-back' : 'products-breadcrumb-root'}
+        className="justify-center rounded-md px-2 py-1 web:hover:bg-muted active:bg-muted">
+        <Text className="font-medium text-foreground">{label}</Text>
+      </Pressable>
+      <ChevronRightIcon size={12} className="text-muted-foreground" />
+    </Fragment>)}
+    <Text testID="products-breadcrumb-here" className={`shrink px-1 text-foreground ${product ? 'font-bold' : 'font-semibold'}`}>
+      {product ? product.name : placeName}
+    </Text>
   </View>;
 }

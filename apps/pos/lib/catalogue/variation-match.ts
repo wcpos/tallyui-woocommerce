@@ -62,6 +62,19 @@ export function anyPicks(
   return Object.keys(picks).length ? picks : undefined;
 }
 
+/** True when some variant leaves an option group open ("Any"), so the cashier has to pick its value before it sells. */
+export function needsAnyPick(groups: VariantOptionGroup[], variants: VariantSummary[]): boolean {
+  return variants.some(variant => groups.some(group => variant.options?.[group.name] === undefined));
+}
+
+// The catalogue's stock filter values (WooCommerce's stock_status) as a variant's neutral stock status.
+const STOCK_FILTER_STATUS: Record<string, StockLevel['status']> = { instock: 'in_stock', outofstock: 'out_of_stock', onbackorder: 'backorder' };
+
+/** v2's matchesStockStatusFilter for a variation: no filter lets every variant through. */
+export function variantMatchesStock(variant: VariantSummary, stockStatus: string | undefined): boolean {
+  return stockStatus === undefined || STOCK_FILTER_STATUS[stockStatus] === variant.stock.status;
+}
+
 /** v2's variation stock badge text, or null when the badge is hidden. */
 export function variationStockText(stock: StockLevel): string | null {
   if (stock.status === 'out_of_stock') return 'Out of Stock';
