@@ -3,7 +3,8 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { Badge, Button, Text } from '@tallyui/components';
 import type { LogLevel } from '@tallyui/pos';
 import type { LogCollection, LogRecord } from '../lib/logs/log-store';
-import { buildDebugInfo, formatDurationMs, formatLogTime, logStats, matchesLogFilter, type LogPreset } from '../lib/logs/log-view';
+import { IDLE_OUTBOX_STATE, buildDebugInfo, formatDurationMs, formatLogTime, logStats, matchesLogFilter, outboxSyncStats,
+  type LogPreset, type OutboxSyncStats } from '../lib/logs/log-view';
 import { useVerboseDiagnostics } from '../lib/logs/verbose';
 
 // v2's Stat (packages/components/src/stat): the number above a muted label, pressable as a filter when it has onPress.
@@ -25,12 +26,12 @@ function Stat({ testID, value, label, tone, onPress }: {
 
 export function LogsScreen({ collection, storeName, siteUrl, onBack,
   copyText = typeof navigator !== 'undefined' && navigator.clipboard?.writeText
-    ? text => navigator.clipboard.writeText(text) : null, now = Date.now, waiting,
+    ? text => navigator.clipboard.writeText(text) : null, now = Date.now, sync,
 }: {
   collection: LogCollection; storeName: string; siteUrl: string; onBack(): void;
   copyText?: ((text: string) => Promise<void>) | null; now?: () => number;
-  /** The outbox's changes waiting to send; the stat is drawn only when given. */
-  waiting?: number;
+  /** The outboxes' stuck records and changes waiting to send (outboxSyncStats); both stats are drawn only when given. */
+  sync?: OutboxSyncStats;
 }): JSX.Element {
   const [rows, setRows] = useState<LogRecord[]>([]);
   const [preset, setPreset] = useState<LogPreset>('all');
@@ -46,12 +47,11 @@ export function LogsScreen({ collection, storeName, siteUrl, onBack,
   // The strip counts what All shows: debug rows only while verbose is on.
   const counted = verbose ? rows : rows.filter(row => row.level !== 'debug');
   const stats = logStats(counted, now());
-  // Stuck records count every stored row: a debug row's sync outcome still counts while verbose is off.
-  const stuck = logStats(rows, now()).stuck;
   async function copyDebugInfo() {
     if (!copyText) return;
     try {
-      await copyText(buildDebugInfo({ now: now(), storeName, siteUrl, rows: counted, verbose, stuck }));
+      await copyText(buildDebugInfo({ now: now(), storeName, siteUrl, rows: counted, verbose,
+        sync: sync ?? outboxSyncStats(IDLE_OUTBOX_STATE) }));
       setCopyStatus('Debug info copied');
     } catch {
       setCopyStatus("Couldn't copy debug info");
@@ -68,10 +68,10 @@ export function LogsScreen({ collection, storeName, siteUrl, onBack,
         <Stat testID="logs-stat-errors" value={stats.errorsToday} label="errors today"
           tone={stats.errorsToday > 0 ? 'destructive' : undefined} onPress={() => setPreset('errors')} />
         {/* v2: Sync, not Errors, since a stuck record's row can be a warn the Errors chip hides. */}
-        <Stat testID="logs-stat-stuck" value={stuck.length} label="stuck records"
-          tone={stuck.length > 0 ? 'destructive' : 'success'} onPress={() => setPreset('sync')} />
-        {waiting !== undefined && <Stat testID="logs-stat-waiting" value={waiting} label="changes waiting to send"
-          tone={waiting > 0 ? 'destructive' : 'success'} />}
+        {sync && <Stat testID="logs-stat-stuck" value={sync.stuck} label="stuck records"
+          tone={sync.stuck > 0 ? 'destructive' : 'success'} onPress={() => setPreset('sync')} />}
+        {sync && <Stat testID="logs-stat-waiting" value={sync.waiting} label="changes waiting to send"
+          tone={sync.waiting > 0 ? 'destructive' : 'success'} />}
         <View className="flex-1" />
         {copyText !== null && <Button testID="logs-copy-debug" variant="outline" size="sm"
           onPress={() => { void copyDebugInfo(); }}><Text>Copy debug info</Text></Button>}

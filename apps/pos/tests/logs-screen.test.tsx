@@ -1,13 +1,14 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import type { StuckRecord } from '@tallyui/pos';
+import type { OutboxState } from '@tallyui/pos';
 import { addRxPlugin, createRxDatabase, type RxDatabase } from 'rxdb';
 import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { LogsScreen } from '../components/logs-screen';
 import { logRecordId, logRecordMigrationStrategies, logRecordSchema, type LogCollection, type LogRecord } from '../lib/logs/log-store';
-import { buildDebugInfo, formatDurationMs, logStats, matchesLogFilter } from '../lib/logs/log-view';
+import { IDLE_OUTBOX_STATE, buildDebugInfo, formatDurationMs, logStats, matchesLogFilter, outboxSyncStats,
+  type OutboxSyncStats } from '../lib/logs/log-view';
 import { setVerboseDiagnostics } from '../lib/logs/verbose';
 import { memoryStorage } from './memory-storage';
 import { SOFTWARE_NAME, SOFTWARE_VERSION } from '../lib/software';
@@ -22,6 +23,12 @@ let db: RxDatabase;
 let collection: LogCollection;
 let rows: LogRecord[];
 const yesterday = new Date(2026, 10, 9, 12, 0, 0).getTime();
+const idle = outboxSyncStats(IDLE_OUTBOX_STATE);
+// An outbox state with the given stuck orders, in the order given.
+function withStuck(state: Omit<OutboxState, 'sending' | 'stuck'>, orders: { commandId: string; since: number; reason: string }[]): OutboxState {
+  return { sending: false, ...state, stuck: { commandIds: orders.map(order => order.commandId),
+    since: Math.min(...orders.map(order => order.since)), reason: orders[orders.length - 1].reason, orders } };
+}
 
 // react-native-web drops className from the DOM, so read it off the component that took the testID. The node keeps
 // the fiber it was created with, which after an update can be the stale alternate: take the one holding its props.
@@ -121,21 +128,23 @@ test('Copy debug info copies the debug text and confirms', async () => {
   fireEvent.click(screen.getByTestId('logs-copy-debug'));
   await waitFor(() => expect(screen.getByTestId('logs-copy-status').textContent).toBe('Debug info copied'));
   expect(copyText).toHaveBeenCalledTimes(1);
-  expect(copyText).toHaveBeenCalledWith(buildDebugInfo({ now: now(), storeName, siteUrl, rows, verbose: false, stuck: [] }));
+  expect(copyText).toHaveBeenCalledWith(buildDebugInfo({ now: now(), storeName, siteUrl, rows, verbose: false, sync: idle }));
 });
 
-test('Copy debug info lists a stuck debug row while verbose is off, as the stat counts it', async () => {
-  const debugRow: LogRecord = { id: logRecordId(now() + 1000, 8), timestamp: now() + 1000, level: 'debug', scope: 'outbox',
-    message: 'Retry refused', syncRecord: { collection: 'pos_orders', recordId: 'o9', outcome: 'failed', code: 'refused' } };
-  await collection.insert(debugRow);
+test("Copy debug info's text agrees with the stuck and waiting stats", async () => {
+  const sync = outboxSyncStats(withStuck({ pending: 4, rejected: 1 },
+    [{ commandId: 'c9', since: now() - 60_000, reason: 'HTTP 500' }]));
   const copyText = vi.fn().mockResolvedValue(undefined);
-  render(<LogsScreen {...props} collection={collection} copyText={copyText} />);
-  await waitFor(() => expect(screen.getByTestId('logs-stat-stuck').textContent).toBe('1stuck records'));
+  render(<LogsScreen {...props} collection={collection} copyText={copyText} sync={sync} />);
+  await screen.findByTestId(`logs-row-${rows[0].id}`);
+  expect(screen.getByTestId('logs-stat-stuck').textContent).toBe('2stuck records');
+  expect(screen.getByTestId('logs-stat-waiting').textContent).toBe('4changes waiting to send');
   fireEvent.click(screen.getByTestId('logs-copy-debug'));
   await waitFor(() => expect(copyText).toHaveBeenCalledTimes(1));
   const text = copyText.mock.calls[0][0] as string;
-  expect(text).toContain('\nStuck records: 1\n');
-  expect(text).toContain(`\nStuck records (1):\n  - ${new Date(now() + 1000).toISOString()} | failed | refused | pos_orders:o9 | Retry refused`);
+  expect(text).toContain('\nStuck records: 2\nChanges waiting to send: 4\n');
+  expect(text.endsWith(['Stuck records (2):', `  - ${new Date(now() - 60_000).toISOString()} | failing | c9 | HTTP 500`,
+    '  - 1 refused by the store: see Store health'].join('\n'))).toBe(true);
 });
 
 test('a failed copy says so', async () => {
@@ -156,51 +165,73 @@ test("buildDebugInfo lists the store, today's counts, verbose diagnostics and th
     { ...rows[2], level: 'warn' },
     { id: logRecordId(yesterday, 4), timestamp: yesterday, level: 'error', scope: 'sale', message: 'Old error' },
   ];
-  expect(buildDebugInfo({ now: now(), storeName, siteUrl, rows: debugRows, verbose: false, stuck: [] })).toBe([
+  expect(buildDebugInfo({ now: now(), storeName, siteUrl, rows: debugRows, verbose: false, sync: idle })).toBe([
     `${SOFTWARE_NAME} debug info — ${new Date(now()).toISOString()}`,
     `App version: ${SOFTWARE_VERSION}`, `Store: ${storeName}`, `Site: ${siteUrl}`,
-    'Events today: 3', 'Errors today: 2', 'Stuck records: 0', 'Verbose diagnostics: off', '', 'Recent errors (3):',
+    'Events today: 3', 'Errors today: 2', 'Stuck records: 0', 'Changes waiting to send: 0', 'Verbose diagnostics: off',
+    '', 'Recent errors (3):',
     `  - ${new Date(now()).toISOString()} | tax_failed | tax | Tax failed`,
     `  - ${new Date(now() - 1000).toISOString()} | - | outbox | Order refused`,
     `  - ${new Date(yesterday).toISOString()} | - | sale | Old error`,
     '', 'Stuck records (0):', '  none',
   ].join('\n'));
-  expect(buildDebugInfo({ now: now(), storeName, siteUrl, rows: [rows[1], rows[2]], verbose: false, stuck: [] }))
+  expect(buildDebugInfo({ now: now(), storeName, siteUrl, rows: [rows[1], rows[2]], verbose: false, sync: idle }))
     .toMatch(/Recent errors \(0\):\n  none\n\nStuck records \(0\):\n  none$/);
-  expect(buildDebugInfo({ now: now(), storeName, siteUrl, rows: [], verbose: true, stuck: [] }))
-    .toContain('Errors today: 0\nStuck records: 0\nVerbose diagnostics: on\n');
+  expect(buildDebugInfo({ now: now(), storeName, siteUrl, rows: [], verbose: true, sync: idle }))
+    .toContain('Errors today: 0\nStuck records: 0\nChanges waiting to send: 0\nVerbose diagnostics: on\n');
 });
 
-test('buildDebugInfo prints the stuck records it is given, not ones derived from rows', () => {
-  const stuck: StuckRecord[] = [
-    { key: 'pos_orders:o1', collection: 'pos_orders', recordId: 'o1', outcome: 'failed', code: 'refused', reason: 'Bad SKU',
-      lastSeen: now() - 1000 },
-    { key: 'pos_orders:o2', collection: 'pos_orders', recordId: 'o2', outcome: 'pending', reason: 'Still retrying',
-      lastSeen: now() - 2000 },
-  ];
-  const text = buildDebugInfo({ now: now(), storeName, siteUrl, rows: [], verbose: false, stuck });
-  expect(text).toContain('Errors today: 0\nStuck records: 2\nVerbose diagnostics: off\n');
-  expect(text.endsWith(['', '', 'Stuck records (2):',
-    `  - ${new Date(now() - 1000).toISOString()} | failed | refused | pos_orders:o1 | Bad SKU`,
-    `  - ${new Date(now() - 2000).toISOString()} | pending | - | pos_orders:o2 | Still retrying`,
+test('buildDebugInfo prints the outbox stats it is given, with the refused line, not records derived from rows', () => {
+  const sync = outboxSyncStats(withStuck({ pending: 5, rejected: 3 }, [
+    { commandId: 'c2', since: now() - 1000, reason: 'HTTP 503' },
+    { commandId: 'c1', since: now() - 2000, reason: 'HTTP 500' },
+  ]));
+  const text = buildDebugInfo({ now: now(), storeName, siteUrl, rows: [], verbose: false, sync });
+  expect(text).toContain('Errors today: 0\nStuck records: 5\nChanges waiting to send: 5\nVerbose diagnostics: off\n');
+  expect(text.endsWith(['', '', 'Stuck records (5):',
+    `  - ${new Date(now() - 2000).toISOString()} | failing | c1 | HTTP 500`,
+    `  - ${new Date(now() - 1000).toISOString()} | failing | c2 | HTTP 503`,
+    '  - 3 refused by the store: see Store health',
   ].join('\n'))).toBe(true);
+  expect(buildDebugInfo({ now: now(), storeName, siteUrl, rows: [], verbose: false,
+    sync: outboxSyncStats({ pending: 0, rejected: 2, sending: false }) }))
+    .toMatch(/\nStuck records \(2\):\n  - 2 refused by the store: see Store health$/);
   const failedRow: LogRecord = { id: 'f', timestamp: now(), level: 'warn', scope: 'outbox', message: 'Refused',
     syncRecord: { collection: 'pos_orders', recordId: 'o3', outcome: 'failed' } };
-  expect(buildDebugInfo({ now: now(), storeName, siteUrl, rows: [failedRow], verbose: false, stuck: [] }))
-    .toMatch(/\nStuck records: 0\n[\s\S]*\nStuck records \(0\):\n  none$/);
+  expect(buildDebugInfo({ now: now(), storeName, siteUrl, rows: [failedRow], verbose: false, sync: idle }))
+    .toMatch(/\nStuck records: 0\nChanges waiting to send: 0\n[\s\S]*\nStuck records \(0\):\n  none$/);
 });
 
-test('buildDebugInfo lists at most 10 stuck records under the full count', () => {
-  const stuck: StuckRecord[] = Array.from({ length: 11 }, (_, i) => ({ key: `pos_orders:o${i}`, collection: 'pos_orders',
-    recordId: `o${i}`, outcome: 'failed' as const, reason: `Refused ${i}`, lastSeen: now() - i * 1000 }));
-  const text = buildDebugInfo({ now: now(), storeName, siteUrl, rows: [], verbose: false, stuck });
-  expect(text).toContain('\nStuck records: 11\n');
+test('buildDebugInfo lists at most 10 failing orders under the full count', () => {
+  const orders = Array.from({ length: 11 }, (_, i) => ({ commandId: `c${i}`, since: now() - (11 - i) * 1000,
+    reason: `Failing ${i}` })).reverse();
+  const text = buildDebugInfo({ now: now(), storeName, siteUrl, rows: [], verbose: false,
+    sync: outboxSyncStats(withStuck({ pending: 11 }, orders)) });
+  expect(text).toContain('\nStuck records: 11\nChanges waiting to send: 11\n');
   const section = text.slice(text.indexOf('Stuck records (11):\n') + 'Stuck records (11):\n'.length).split('\n');
   expect(section).toHaveLength(10);
-  expect(section.every(line => line.startsWith('  - ') && line.includes('| failed | - | pos_orders:o'))).toBe(true);
-  expect(section[9]).toContain('pos_orders:o9 | Refused 9');
-  expect(text).not.toContain('pos_orders:o10');
+  expect(section.every(line => line.startsWith('  - ') && line.includes(' | failing | c'))).toBe(true);
+  expect(section[0]).toContain('| c0 | Failing 0');
+  expect(section[9]).toContain('| c9 | Failing 9');
+  expect(text).not.toContain('| c10 |');
 });
+
+test('outboxSyncStats counts pending as waiting, rejected plus stuck as stuck, and lists the failing oldest first', () => {
+  const sales = withStuck({ pending: 3, rejected: 2 }, [
+    { commandId: 'new', since: now() - 1000, reason: 'HTTP 503' },
+    { commandId: 'old', since: now() - 5000, reason: 'HTTP 500' },
+  ]);
+  const expected: OutboxSyncStats = { waiting: 3, stuck: 4, rejected: 2, failing: [
+    { commandId: 'old', since: now() - 5000, reason: 'HTTP 500' },
+    { commandId: 'new', since: now() - 1000, reason: 'HTTP 503' },
+  ] };
+  expect(outboxSyncStats(sales)).toEqual(expected);
+  expect(outboxSyncStats(sales, IDLE_OUTBOX_STATE)).toEqual(expected);
+  expect(outboxSyncStats(sales, { pending: 1, rejected: 1, sending: false }))
+    .toEqual({ ...expected, waiting: 4, stuck: 5, rejected: 3 });
+  expect(outboxSyncStats(IDLE_OUTBOX_STATE)).toEqual({ waiting: 0, stuck: 0, rejected: 0, failing: [] });
+});
+
 
 const actor = { id: '7', name: 'Jane', role: 'cashier' };
 
@@ -213,19 +244,6 @@ test('Actions matches only rows whose actor names someone, and debug ones only w
   expect(matchesLogFilter({ ...action, level: 'debug' }, 'actions')).toBe(false);
   expect(matchesLogFilter({ ...action, level: 'debug' }, 'actions', undefined, true)).toBe(true);
   expect(matchesLogFilter(action, 'actions', 'warn')).toBe(false);
-});
-
-test('logStats: an ok after a failure clears a record, a pending one is stuck, and on equal timestamps the higher id wins', () => {
-  const sync = (id: string, timestamp: number, recordId: string, outcome: 'ok' | 'failed' | 'pending'): LogRecord => ({
-    id, timestamp, level: outcome === 'failed' ? 'warn' : 'info', scope: 'outbox', message: `${recordId} ${outcome}`,
-    syncRecord: { collection: 'pos_orders', recordId, outcome } });
-  expect(logStats([sync('2', now(), 'o1', 'ok'), sync('1', now() - 1000, 'o1', 'failed')], now()).stuck).toEqual([]);
-  expect(logStats([sync('1', now(), 'o2', 'pending')], now()).stuck).toEqual([{ key: 'pos_orders:o2',
-    collection: 'pos_orders', recordId: 'o2', outcome: 'pending', reason: 'o2 pending', lastSeen: now() }]);
-  // Newest first, as the screen reads them: the ok (id 2) is the later write and clears the failure (id 1).
-  expect(logStats([sync('2', now(), 'o3', 'ok'), sync('1', now(), 'o3', 'failed')], now()).stuck).toEqual([]);
-  expect(logStats([sync('2', now(), 'o3', 'failed'), sync('1', now(), 'o3', 'ok')], now()).stuck.map(r => r.key))
-    .toEqual(['pos_orders:o3']);
 });
 
 test('a debug row matches All and Sync only while verbose is on, and never Errors', () => {
@@ -242,8 +260,8 @@ test('a debug row matches All and Sync only while verbose is on, and never Error
 test("logStats counts today's events and errors only", () => {
   const old: LogRecord = { id: 'y', timestamp: yesterday, level: 'error', scope: 'sale', message: 'Old error' };
   const midnight: LogRecord = { ...old, id: 'm', timestamp: new Date(2026, 10, 10, 0, 0, 0).getTime() };
-  expect(logStats([...rows, old, midnight], now())).toEqual({ eventsToday: 4, errorsToday: 2, stuck: [] });
-  expect(logStats([old], now())).toEqual({ eventsToday: 0, errorsToday: 0, stuck: [] });
+  expect(logStats([...rows, old, midnight], now())).toEqual({ eventsToday: 4, errorsToday: 2 });
+  expect(logStats([old], now())).toEqual({ eventsToday: 0, errorsToday: 0 });
 });
 
 test("the stat strip shows today's events and errors, and yesterday's rows are not counted", async () => {
@@ -329,42 +347,45 @@ test('the chips are All, Actions, Errors and Sync, and Actions lists only the ro
   expect(screen.getByTestId('logs-footer').textContent).toBe('Showing 1 of 4');
 });
 
-test('stuck records counts a failed record, reads destructive, and pressing it selects the Sync chip', async () => {
-  await collection.insert({ id: logRecordId(now() + 1000, 6), timestamp: now() + 1000, level: 'warn', scope: 'outbox',
-    message: 'Order refused', syncRecord: { collection: 'pos_orders', recordId: 'o1', outcome: 'failed' } });
-  render(<LogsScreen {...props} collection={collection} />);
-  await waitFor(() => expect(screen.getByTestId('logs-stat-stuck').textContent).toBe('1stuck records'));
+test('stuck records shows the outbox count with no log rows at all, reads destructive, and pressing it selects Sync', async () => {
+  await collection.find().remove();
+  render(<LogsScreen {...props} collection={collection}
+    sync={outboxSyncStats({ pending: 2, rejected: 1, sending: false })} />);
+  await screen.findByTestId('logs-empty');
+  expect(screen.getByTestId('logs-stat-stuck').textContent).toBe('1stuck records');
   expect(classesOf('logs-stat-stuck-value')).toContain('text-destructive');
   fireEvent.click(screen.getByTestId('logs-stat-stuck'));
   expect(screen.getByTestId('logs-chip-sync').getAttribute('aria-pressed')).toBe('true');
   expect(screen.getByTestId('logs-chip-errors').getAttribute('aria-pressed')).toBe('false');
 });
 
-test('stuck records reads success at 0 and counts a debug row while verbose is off', async () => {
-  render(<LogsScreen {...props} collection={collection} />);
-  await screen.findByTestId(`logs-row-${rows[0].id}`);
+test('stuck records reads success at 0, and a failed syncRecord row does not count', async () => {
+  await collection.insert({ id: logRecordId(now() + 1000, 6), timestamp: now() + 1000, level: 'warn', scope: 'outbox',
+    message: 'Order refused', syncRecord: { collection: 'pos_orders', recordId: 'o1', outcome: 'failed' } });
+  render(<LogsScreen {...props} collection={collection} sync={idle} />);
+  await screen.findByTestId(`logs-row-${logRecordId(now() + 1000, 6)}`);
   expect(screen.getByTestId('logs-stat-stuck').textContent).toBe('0stuck records');
   expect(classesOf('logs-stat-stuck-value')).toContain('text-success');
-  const debugRow: LogRecord = { id: logRecordId(now() + 1000, 7), timestamp: now() + 1000, level: 'debug', scope: 'outbox',
-    message: 'Retry refused', syncRecord: { collection: 'pos_orders', recordId: 'o9', outcome: 'failed' } };
-  await act(async () => { await collection.insert(debugRow); });
-  await waitFor(() => expect(screen.getByTestId('logs-stat-stuck').textContent).toBe('1stuck records'));
-  expect(screen.queryByTestId(`logs-row-${debugRow.id}`)).toBeNull();
 });
 
-test('changes waiting to send shows the prop, reads by its count, and is absent without it', async () => {
-  const { rerender } = render(<LogsScreen {...props} collection={collection} waiting={2} />);
+test('changes waiting to send shows sync.waiting, reads by its count, is not pressable, and both stats are absent without sync', async () => {
+  const waiting = (pending: number): OutboxSyncStats => outboxSyncStats({ pending, sending: false });
+  const { rerender } = render(<LogsScreen {...props} collection={collection} sync={waiting(2)} />);
   await screen.findByTestId(`logs-row-${rows[0].id}`);
   expect(screen.getByTestId('logs-stat-waiting').textContent).toBe('2changes waiting to send');
   expect(classesOf('logs-stat-waiting-value')).toContain('text-destructive');
+  expect(screen.getByTestId('logs-stat-waiting').getAttribute('role')).toBeNull();
+  expect(screen.getByTestId('logs-stat-stuck').getAttribute('role')).toBe('button');
   expect(screen.getAllByTestId(/^logs-stat-[a-z]+$/).map(stat => stat.getAttribute('data-testid')))
     .toEqual(['logs-stat-events', 'logs-stat-errors', 'logs-stat-stuck', 'logs-stat-waiting']);
-  rerender(<LogsScreen {...props} collection={collection} waiting={0} />);
+  rerender(<LogsScreen {...props} collection={collection} sync={waiting(0)} />);
   expect(screen.getByTestId('logs-stat-waiting').textContent).toBe('0changes waiting to send');
   expect(classesOf('logs-stat-waiting-value')).toContain('text-success');
   rerender(<LogsScreen {...props} collection={collection} />);
   expect(screen.queryByTestId('logs-stat-waiting')).toBeNull();
+  expect(screen.queryByTestId('logs-stat-stuck')).toBeNull();
 });
+
 
 test('formatDurationMs follows v2', () => {
   expect(formatDurationMs(999)).toBe('999 ms');

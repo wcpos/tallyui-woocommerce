@@ -4,6 +4,7 @@ import { Text } from '@tallyui/components';
 import { LogsScreen } from '../components/logs-screen';
 import { useSession } from '../lib/auth/session-context';
 import { useCatalogue } from '../lib/catalogue/catalogue-context';
+import { IDLE_OUTBOX_STATE, outboxSyncStats } from '../lib/logs/log-view';
 import { useOutbox } from '../lib/sale/outbox-context';
 
 export default function Logs() {
@@ -19,6 +20,6 @@ export default function Logs() {
     </View>
   );
   return <LogsScreen collection={catalogue.logs} storeName={catalogue.store.name} siteUrl={session.site.home}
-    waiting={outbox.enabled ? outbox.state.pending : 0}
+    sync={outboxSyncStats(outbox.enabled ? outbox.state : IDLE_OUTBOX_STATE)}
     onBack={() => (router.canGoBack() ? router.back() : router.replace('/health'))} />;
 }
