@@ -233,6 +233,9 @@ test('Try again searches again', async () => {
     .mockResolvedValueOnce([]).mockRejectedValueOnce(new Error('Offline')).mockResolvedValueOnce([gee]));
   fireEvent.change(searchBox(), { target: { value: 'gee' } });
   await screen.findByTestId('customers-error', {}, { timeout: 5000 });
+  // React keeps the Clear search Pressable as Try again, and RNW sets its new onPress in a passive effect: under CI
+  // load the error can show before that runs, and the click clears the box. The empty act waits a task, after it.
+  await act(async () => {});
   fireEvent.click(screen.getByTestId('customers-retry'));
   await screen.findByTestId('customers-row-7', {}, { timeout: 5000 });
   expect(screen.queryByTestId('customers-error')).toBeNull();
