@@ -243,7 +243,8 @@ test('the session card shows the open session, its expected cash and sales count
 
 test('Today starts empty and observes an Espresso cash sale', async () => {
   const app = await setup();
-  expect(screen.queryByTestId('sales-room-hours')).toBeNull();
+  // v2 draws an empty day whole: twelve 120-minute columns from 00:00.
+  expect(screen.getAllByTestId(/^sales-hour-\d\d$/)).toHaveLength(12);
   const today = within(screen.getByTestId('reports-hero'));
   expect(today.getByText('No sales yet today.')).not.toBeNull();
   expect(text('card-payments-empty')).toBe('No payments in this period.');
@@ -292,7 +293,8 @@ test('Today removes a sale when its createdAt moves to yesterday', async () => {
 
 test('the hero chart switches between By hour and Running total', async () => {
   await setup();
-  expect(screen.queryByTestId('hero-chart-toggle')).toBeNull();
+  // v2 shows the toggle on an empty day too.
+  expect(screen.getByTestId('hero-chart-toggle')).not.toBeNull();
   await payCash();
   await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
   const hero = within(screen.getByTestId('reports-hero'));
@@ -325,7 +327,8 @@ test('the hero compares with yesterday up to the same time', async () => {
     expect(text('hero-average-delta')).toBe('−$3.00');
     expect(text('hero-items')).toBe('0');
     expect(text('hero-items-delta')).toBe('−1');
-    expect(screen.getByTestId('sales-hour-10').getAttribute('aria-label')).toBe('10:00 — today $0.00, 0 orders; yesterday $3.00');
+    // One hour of sales is two 30-minute steps (v2 getNiceMinuteInterval).
+    expect(screen.getByTestId('sales-hour-1000').getAttribute('aria-label')).toBe('10:00 — today $0.00, 0 orders; yesterday $3.00');
     expect(screen.queryByTestId('hero-chart-peak')).toBeNull();
   } finally {
     vi.useRealTimers();
@@ -913,7 +916,7 @@ test('the hero compares with the same weekday last week when chosen', async () =
     expect(text('hero-orders-delta')).toBe('−1');
     expect(text('hero-average-delta')).toBe('−$3.00');
     expect(text('hero-items-delta')).toBe('−1');
-    expect(screen.getByTestId('sales-hour-10').getAttribute('aria-label')).toBe('10:00 — today $0.00, 0 orders; last Tuesday $3.00');
+    expect(screen.getByTestId('sales-hour-1000').getAttribute('aria-label')).toBe('10:00 — today $0.00, 0 orders; last Tuesday $3.00');
     expect(text('hero-chip-compare')).toBe('vs last Tuesday');
     await choose('compare', 'yesterday');
     await waitFor(() => expect(text('hero-delta')).toBe('—'));
@@ -1099,6 +1102,44 @@ test('This week counts the week by day against the week before, cut at now on it
     expect(chip.getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(chip);
     expect(screen.queryByTestId('hero-compare-menu')).toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
+}, 40_000);
+
+const runPoints = () => screen.getByTestId('hero-chart-run').getAttribute('points')!.split(' ');
+
+test("Last month's running total runs through a late sale to the month's last day", async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 9, 6, 14, 30));
+  try {
+    const app = await setup();
+    await salesAt(app, [new Date(2026, 8, 28, 10, 0)]);
+    await choosePeriod('lastMonth');
+    await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+    fireEvent.click(screen.getByText('Running total'));
+    // A closed month has no future: the line reaches day 28's sale and the 30th.
+    await waitFor(() => expect(text('hero-chart-total')).toBe('$3.00'));
+    expect(runPoints()).toHaveLength(30);
+    expect(runPoints().slice(26)).toEqual(['26.5,100', '27.5,0', '28.5,0', '29.5,0']);
+  } finally {
+    vi.useRealTimers();
+  }
+}, 40_000);
+
+test("This month, live late in the month, runs the line to today's day", async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 9, 28, 14, 30));
+  try {
+    const app = await setup();
+    await salesAt(app, [new Date(2026, 9, 27, 10, 0)]);
+    await choosePeriod('thisMonth');
+    await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+    fireEvent.click(screen.getByText('Running total'));
+    // The range ends today, the 28th: today is the last bucket and none is the future.
+    await waitFor(() => expect(text('hero-chart-total')).toBe('$3.00 now'));
+    expect(runPoints()).toHaveLength(28);
+    expect(screen.queryAllByTestId(/^sales-day-.*-future$/)).toHaveLength(0);
   } finally {
     vi.useRealTimers();
   }

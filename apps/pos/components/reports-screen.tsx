@@ -5,7 +5,7 @@ import { Path } from 'react-native-svg';
 import { createSvgIcon, IconButton, Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
 import {
-  clampClosureScope, comparisonRange, formatClosureDate, presetRange, selectClosureRows, type Closure, type DatePreset, type PosOrder,
+  clampClosureScope, comparisonRange, daysOf, formatClosureDate, presetRange, selectClosureRows, type Closure, type DatePreset, type PosOrder,
 } from '@tallyui/pos';
 import { Portal } from '@tallyui/primitives';
 import { useSession } from '../lib/auth/session-context';
@@ -78,8 +78,11 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const comparisonName = multiDay ? (preset.endsWith('Month') ? 'month before' : 'week before')
     : compare === 'yesterday' ? 'yesterday' : `last ${weekday}`;
   const { label: periodName } = periodLabel(range, preset, locale);
-  // A period's ranges end today at the latest, so only Today's hours run into the future.
-  const nowBucket = preset === 'today' ? now.getHours() : 24;
+  // A live period's buckets after now are the future: now's minute of the day, or today's place in the period's days
+  // (salesRoom's own day list). A closed period has no future, so its running line reaches the last bucket.
+  const live = range.to === storeDay(now);
+  const nowKey = !live ? Number.POSITIVE_INFINITY
+    : multiDay ? daysOf(range).indexOf(storeDay(now)) : now.getHours() * 60 + now.getMinutes();
   const today = formatClosureDate(new Date().toISOString(), { timezone: 'device', locale }).date_ymd;
   const storeKey = session ? ordersDatabaseName(session) : '';
   // `selectClosureRows` matches `cashier` against a closure's `closed_by`, the user id as a string; All passes none.
@@ -213,7 +216,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
               onChange={value => setChartView(value as typeof chartView)} />
           </View>}
           chart={<HourlyBars hours={room.hours} money={minor => money(minor) ?? ''} comparisonName={comparisonName}
-            nowHour={nowBucket} live={range.to === storeDay(now)} view={chartView} />}>
+            nowKey={nowKey} live={live} view={chartView} />}>
           {room.today.pending > 0 && <Text>{`Waiting to sync: ${room.today.pending}`}</Text>}
           {room.today.rejected > 0 && <Text>{`Not accepted by the store: ${room.today.rejected}`}</Text>}
           {room.today.count === 0 && <Text>{preset === 'today' ? 'No sales yet today.' : 'No sales in this period.'}</Text>}

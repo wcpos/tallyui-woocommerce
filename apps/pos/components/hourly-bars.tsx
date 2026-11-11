@@ -7,16 +7,21 @@ import type { HourBucket } from '../lib/reports/sales-room';
 
 const orders = (n: number) => `${n} ${n === 1 ? 'order' : 'orders'}`;
 const pad = (hour: number) => String(hour).padStart(2, '0');
+const clock = (minute: number) => `${pad(Math.floor(minute / 60))}:${pad(minute % 60)}`;
+/** Where a bucket sits on the chart's clock: its start minute on a single day, its index over several days. */
+const keyOf = (bucket: HourBucket) => bucket.day ? bucket.hour : bucket.minute;
 /** v2 measures its label with the chart font; this estimates text-xs semibold, and the plot clamps it. */
 const labelWidth = (text: string) => text.length * 7.5 + 16;
 
 /**
  * v2 reports/chart: the hero's By hour (By day over several days) bars or Running total line, the comparison dashed
- * over them. `nowHour` is the last bucket that is not in the future: an hour, or a day bucket's index. A `live`
- * period (one that runs to now) reads its running total "… now", a closed one the amount alone, as v2 does.
+ * over them. `nowKey` is where now falls on that clock: a minute of the store day, or a day bucket's index; a bucket that
+ * starts after it is the future (v2 chart.tsx `bucket.key > now`). A `live` period (one that runs to now) reads its
+ * running total "… now", a closed one the amount alone, and its By hour view draws a future bucket's comparison as a
+ * muted bar, as v2 does.
  */
-export function HourlyBars({ hours, money, comparisonName = 'yesterday', nowHour, live = true, view }: {
-  hours: readonly HourBucket[]; money(minor: number): string; comparisonName?: string; nowHour: number; live?: boolean; view: 'hour' | 'run';
+export function HourlyBars({ hours, money, comparisonName = 'yesterday', nowKey, live = true, view }: {
+  hours: readonly HourBucket[]; money(minor: number): string; comparisonName?: string; nowKey: number; live?: boolean; view: 'hour' | 'run';
 }) {
   const [primary, muted] = useCSSVariable(['--color-primary', '--color-muted-foreground'])
     .map(value => value === undefined ? undefined : String(value));
@@ -24,10 +29,11 @@ export function HourlyBars({ hours, money, comparisonName = 'yesterday', nowHour
   if (hours.length === 0) return null;
   const n = hours.length;
   const run = view === 'run';
+  const future = hours.map(bucket => live && keyOf(bucket) > nowKey);
   let busiest = -1;
   hours.forEach((bucket, i) => {
-    // The highest hour today; the earliest wins a tie.
-    if (bucket.today.totalMinor > 0 && (busiest < 0 || bucket.today.totalMinor > hours[busiest].today.totalMinor)) busiest = i;
+    // The highest bucket today that is not the future; the earliest wins a tie.
+    if (!future[i] && bucket.today.totalMinor > 0 && (busiest < 0 || bucket.today.totalMinor > hours[busiest].today.totalMinor)) busiest = i;
   });
   const compared = hours.some(bucket => bucket.yesterday.totalMinor > 0);
   const runToday: number[] = [];
@@ -36,8 +42,8 @@ export function HourlyBars({ hours, money, comparisonName = 'yesterday', nowHour
     runToday.push((runToday[i - 1] ?? 0) + bucket.today.totalMinor);
     runPrevious.push((runPrevious[i - 1] ?? 0) + bucket.yesterday.totalMinor);
   });
-  // Hours after now are the future: today's running line stops at the current hour.
-  const end = hours.filter(bucket => bucket.hour <= nowHour).length - 1;
+  // Buckets after now are the future: today's running line stops at the current one.
+  const end = hours.filter(bucket => keyOf(bucket) <= nowKey).length - 1;
   const todayEnd = runToday[end] ?? 0;
   const previousEnd = runPrevious[n - 1];
   const max = run ? Math.max(todayEnd, previousEnd) || 1
@@ -59,22 +65,29 @@ export function HourlyBars({ hours, money, comparisonName = 'yesterday', nowHour
     );
   };
   const k = Math.ceil(n / 12);
+  // Whole-hour steps keep the `sales-hour-HH` ids; 30- and 90-minute steps name the minute too.
+  const wholeHours = hours.every(bucket => bucket.minute % 60 === 0);
 
   return (
     <View testID="sales-room-hours" className="h-48 pt-6" onLayout={event => setWidth(event.nativeEvent.layout.width)}>
       <View className="flex-1 flex-row">
-        {hours.map(({ hour, day, today, yesterday }, i) => {
-          const id = day ? `sales-day-${day}` : `sales-hour-${pad(hour)}`;
-          const name = day ? String(Number(day.slice(8))) : `${pad(hour)}:00`;
+        {hours.map(({ hour, minute, day, today, yesterday }, i) => {
+          const id = day ? `sales-day-${day}` : `sales-hour-${wholeHours ? pad(hour) : clock(minute).replace(':', '')}`;
+          const name = day ? String(Number(day.slice(8))) : clock(minute);
           return (
             <View
-              key={hour}
+              key={day ?? minute}
               testID={id}
               className="flex-1 items-center justify-end px-0.5"
               accessibilityLabel={`${day ?? name} — ${day ? '' : 'today '}${money(today.totalMinor)}, ${orders(today.count)}; ${comparisonName} ${money(yesterday.totalMinor)}`}
             >
               <View className="w-full max-w-12 flex-1 justify-end">
-                {!run && (
+                {/* v2 chart.tsx: a future bucket's bar is the comparison's value, muted at full opacity. */}
+                {!run && future[i] && compared && (
+                  <View testID={`${id}-future`} className="rounded-sm bg-muted"
+                    style={{ height: `${pct(yesterday.totalMinor)}%`, opacity: 1 }} />
+                )}
+                {!run && !future[i] && (
                   <View
                     testID={`${id}-today`}
                     className="rounded-sm bg-primary"

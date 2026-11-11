@@ -33,8 +33,10 @@ export type Period = {
   byMethod: MethodTile[]; taxRates: TaxRateRow[];
 };
 export type HourBucket = {
-  /** The hour of day; on a multi-day period, the day's index in the period. */
+  /** The hour of day of `minute`; on a multi-day period, the day's index in the period. */
   hour: number;
+  /** The bucket's start in minutes after the store day's midnight; 0 on a multi-day period. */
+  minute: number;
   /** A multi-day period's store day; absent on an hourly bucket. */
   day?: string;
   today: { count: number; totalMinor: number };
@@ -48,6 +50,11 @@ export type SalesRoom = {
   delta: { totalMinor: number; percentTenths: number | null; count: number; averageMinor: number; items: number };
   hours: HourBucket[];
 };
+
+/** v2 reports/chart/utils.ts NICE_MINUTE_INTERVALS: a single day's bar sizes in minutes, for at most 12 bars. */
+const NICE_STEPS = [30, 60, 90, 120, 180, 240, 300, 360];
+const emptyBucket = (hour: number, minute: number): HourBucket =>
+  ({ hour, minute, today: { count: 0, totalMinor: 0 }, yesterday: { count: 0, totalMinor: 0 } });
 
 /**
  * The period's figures (`today`, the names kept from the one-day room) against its comparison range.
@@ -64,6 +71,8 @@ export function salesRoom(orders: readonly PosOrder[], options: {
   const days = isMultiDay(range, preset) ? [daysOf(range), daysOf(comparison)] : null;
   const yesterdaySoFar = { count: 0, totalMinor: 0, averageMinor: 0, items: 0 };
   const buckets = new Map<number, HourBucket>();
+  // A single day's sales as minutes of their own day, both days on one clock.
+  const sold: { minute: number; index: number; totalMinor: number }[] = [];
   const [today, yesterday] = ranges.map(({ startIso, endIso }, index): Period => {
     const period: Period = {
       count: 0, totalMinor: 0, taxMinor: 0, averageMinor: 0, items: 0,
@@ -112,12 +121,17 @@ export function salesRoom(orders: readonly PosOrder[], options: {
         yesterdaySoFar.totalMinor += order.totalMinor;
         yesterdaySoFar.items += items;
       }
+      const at = new Date(order.createdAt);
+      if (!days) {
+        sold.push({ minute: at.getHours() * 60 + at.getMinutes(), index, totalMinor: order.totalMinor });
+        continue;
+      }
       // A multi-day period buckets by the day's place in its range, so the comparison's days line up with the period's.
-      const hour = days ? days[index].indexOf(storeDay(new Date(order.createdAt))) : new Date(order.createdAt).getHours();
-      if (days && hour >= days[0].length) continue;
+      const hour = days[index].indexOf(storeDay(at));
+      if (hour >= days[0].length) continue;
       let bucket = buckets.get(hour);
       if (!bucket) {
-        bucket = { hour, today: { count: 0, totalMinor: 0 }, yesterday: { count: 0, totalMinor: 0 } };
+        bucket = emptyBucket(hour, 0);
         buckets.set(hour, bucket);
       }
       const hourly = index === 0 ? bucket.today : bucket.yesterday;
@@ -136,17 +150,23 @@ export function salesRoom(orders: readonly PosOrder[], options: {
   yesterdaySoFar.averageMinor = yesterdaySoFar.count === 0 ? 0 : Math.round(yesterdaySoFar.totalMinor / yesterdaySoFar.count);
   const totalMinor = today.totalMinor - yesterdaySoFar.totalMinor;
   const hours: HourBucket[] = [];
-  if (days && buckets.size > 0) {
-    // One column per day of the period, the days to come empty.
-    days[0].forEach((day, hour) => hours.push({ ...buckets.get(hour) ?? {
-      hour, today: { count: 0, totalMinor: 0 }, yesterday: { count: 0, totalMinor: 0 } }, day }));
-  } else if (buckets.size > 0) {
-    const first = Math.min(...buckets.keys());
-    const last = Math.max(...buckets.keys());
-    for (let hour = first; hour <= last; hour++) {
-      hours.push(buckets.get(hour) ?? {
-        hour, today: { count: 0, totalMinor: 0 }, yesterday: { count: 0, totalMinor: 0 },
-      });
+  if (days) {
+    // One column per day of the period, the days to come empty; v2 aggregateData draws every day, sales or none.
+    days[0].forEach((day, hour) => hours.push({ ...buckets.get(hour) ?? emptyBucket(hour, 0), day }));
+  } else {
+    // v2 getEffectiveDailyRange: the first sale's hour to the end of the last sale's, both days counted; no sale, the whole day.
+    const minutes = sold.map(sale => sale.minute);
+    const from = minutes.length ? Math.floor(Math.min(...minutes) / 60) * 60 : 0;
+    const to = minutes.length ? Math.floor(Math.max(...minutes) / 60) * 60 + 60 : 24 * 60;
+    // getNiceMinuteInterval: the smallest nice step that keeps the span to 12 bars.
+    const step = NICE_STEPS.find(nice => nice >= (to - from) / 12) ?? NICE_STEPS[NICE_STEPS.length - 1];
+    // generateAllDates: whole steps from midnight, the first at or before the span's start.
+    for (let minute = Math.floor(from / step) * step; minute < to; minute += step) hours.push(emptyBucket(Math.floor(minute / 60), minute));
+    for (const sale of sold) {
+      const bucket = hours[Math.floor((sale.minute - hours[0].minute) / step)];
+      const side = sale.index === 0 ? bucket.today : bucket.yesterday;
+      side.count++;
+      side.totalMinor += sale.totalMinor;
     }
   }
   return {
