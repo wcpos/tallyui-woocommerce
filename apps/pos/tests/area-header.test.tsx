@@ -7,6 +7,7 @@ import { createTallyDatabase } from '@tallyui/database';
 import { AppRailShown } from '../components/app-rail';
 import { AreaHeader } from '../components/area-header';
 import { CouponsScreen } from '../components/coupons-screen';
+import { classesOf } from './classes-of';
 
 const connector = createWooCommerceConnector();
 let db: Awaited<ReturnType<typeof createTallyDatabase>>;
@@ -48,7 +49,7 @@ test('the Coupons screen beside the rail has no title or Back but keeps its sear
   expect(screen.queryByTestId('coupons-back')).toBeNull();
   expect(screen.queryByRole('heading', { name: 'Coupons' })).toBeNull();
   expect(screen.queryByText('Coupons')).toBeNull();
-  expect(screen.getByTestId('area-header-gap')).not.toBeNull();
+  expect(classesOf('coupons-bar')).toContain('pt-4');
   view.unmount();
   render(<CouponsScreen coupons={db.coupons} currency="USD" locale="en_US" onBack={vi.fn()} />);
   expect(await screen.findByTestId('coupons-back')).not.toBeNull();

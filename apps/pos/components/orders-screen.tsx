@@ -11,7 +11,7 @@ import { OrderDetailSheet } from './order-detail';
 import { ReceiptPrintSheet } from './receipt-print-sheet';
 import { ReceiptZoom } from './receipt-zoom';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
-import { AreaHeader } from './area-header';
+import { AreaToolbar } from './area-header';
 
 // The till id; the bound register is the drawer.
 const REGISTER_ID = 'web';
@@ -93,8 +93,8 @@ export function OrdersScreen({ onBack, history, storeName, cashierName }: {
   </> : undefined;
   return (
     <View className="flex-1 bg-background">
-      <AreaHeader title="Orders" backTestID="orders-back" onBack={onBack} />
-      {outbox.enabled && !opened && !viewing && <View className="px-4 pb-2"><SearchInput testID="search-orders" value={term} onChangeText={setTerm} placeholder="Search Orders" /></View>}
+      <AreaToolbar area="orders" title="Orders" onBack={onBack}
+        search={outbox.enabled && !opened && !viewing ? <SearchInput testID="search-orders" value={term} onChangeText={setTerm} placeholder="Search Orders" /> : null} />
       {outbox.enabled
         ? opened
           ? <View className="min-h-0 flex-1 px-4 pb-4"><ReceiptZoom><ReceiptPrintSheet orderId={opened.posOrder?.id ?? opened.data.header.orderNumber}><Receipt receipt={opened.data} posOrder={opened.posOrder} newSale={() => setOpened(null)} doneLabel="Back" /></ReceiptPrintSheet></ReceiptZoom></View>
@@ -110,7 +110,8 @@ export function OrdersScreen({ onBack, history, storeName, cashierName }: {
                     <Text testID="no-data-message-title" className="text-center font-medium text-foreground">No orders yet</Text>
                     <Text testID="no-data-message-description" className="text-center text-muted-foreground">Sales you take will appear here.</Text>
                   </View>
-            : <OrdersTable local={local} store={orders} footer={footer}
+            : <OrdersTable local={local} store={orders} footer={footer} active={loading}
+              onSync={history ? () => { void loadPage(1, search); } : undefined}
               onOpen={row => { if (row.kind === 'store') setViewing(row.order); else open(row.order); }} />
         : <View className="p-4"><Text>Orders show once the store is connected.</Text></View>}
       {outbox.enabled && viewing && !opened && <OrderDetailSheet order={viewing} onReceipt={() => open(toHistoryRow(viewing))} onClose={() => setViewing(null)} />}

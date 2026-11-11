@@ -9,8 +9,8 @@ import type { CustomerSource } from '../lib/customers/customer-source';
 import { DEFAULT_CUSTOMER_SORT, billingLines, customerInitials, nextSort, sortCustomers } from '../lib/customers/customer-table';
 import type { CustomerSort, CustomerSortField } from '../lib/customers/customer-table';
 import { AddCustomerDialog } from './add-customer-dialog';
-import { AreaHeader } from './area-header';
-import { CaptionRowInset, TableSurface } from './table-surface';
+import { AreaToolbar } from './area-header';
+import { CaptionRowInset, TableCount, TableSurface } from './table-surface';
 
 // v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
 const SEARCH_DEBOUNCE_MS = 250;
@@ -142,17 +142,17 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
 
   return (
     <View testID="screen-customers" className="flex-1 bg-background">
-      <AreaHeader title="Customers" backTestID="customers-back" onBack={onBack} />
+      <AreaToolbar area="customers" title="Customers" onBack={onBack}
+        search={source ? <SearchInput testID="search-customers" value={term} onChangeText={setTerm} placeholder="Search Customers" /> : null}>
+        {source ? <IconButton testID="customers-add-button" accessibilityLabel="Add new customer" variant="ghost"
+          disabled={createBlockedReason !== undefined} onPress={() => setAdding(true)}><AddCustomerIcon size={20} /></IconButton> : null}
+      </AreaToolbar>
       {source ? <>
-        <View className="flex-row items-center gap-2 px-4 pb-2">
-          <View className="flex-1"><SearchInput testID="search-customers" value={term} onChangeText={setTerm} placeholder="Search Customers" /></View>
-          <IconButton testID="customers-add-button" accessibilityLabel="Add new customer" variant="ghost"
-            disabled={createBlockedReason !== undefined} onPress={() => setAdding(true)}><AddCustomerIcon size={20} /></IconButton>
-        </View>
         {createBlockedReason !== undefined
           ? <Text testID="customers-add-blocked" className="px-4 pb-2 text-sm text-muted-foreground">{createBlockedReason}</Text> : null}
         <TableSurface testID="customers-table-surface">{body}</TableSurface>
-        {listing ? <CaptionRowInset><Text testID="data-table-count" className="text-sm text-muted-foreground">{`Showing ${shown.length}`}</Text></CaptionRowInset> : null}
+        {/* The store searches its customers (limit 20) and reports no total, so the count is "Showing N". */}
+        {listing ? <CaptionRowInset><TableCount shown={shown.length} total={null} active={searching} onSync={retry} /></CaptionRowInset> : null}
         {adding ? <AddCustomerDialog source={source} onClose={() => { setAdding(false); retry(); }} /> : null}
       </> : <Text testID="customers-unavailable" className="p-4 text-muted-foreground">Customers show once the store is connected.</Text>}
     </View>

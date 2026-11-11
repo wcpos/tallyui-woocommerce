@@ -19,10 +19,10 @@ import {
   TableCell, TableHead, TableHeader, TableRow, Text, XIcon,
 } from '@tallyui/components';
 import type { SvgIconProps } from '@tallyui/components';
-import { AreaHeader } from './area-header';
+import { AreaToolbar } from './area-header';
 import { filterChipClassName, filterChipTextClassName } from './catalogue-filter-chips';
 import { StatusDot } from './status-dot';
-import { CaptionRowInset, TableSurface } from './table-surface';
+import { CaptionRowInset, TableCount, TableSurface, useCatalogueSync } from './table-surface';
 
 // v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
 const SEARCH_DEBOUNCE_MS = 250;
@@ -195,11 +195,6 @@ function FilterPill({ field, icon: Icon, label, value, choices, onChoose, onRemo
   </View>;
 }
 
-function countLabel(shown: number, total: number): string {
-  if (shown < total) return `Showing ${shown} of ${total}`;
-  return total === 1 ? '1 coupon' : `${total} coupons`;
-}
-
 function ActiveBadge({ coupon, now }: { coupon: CouponDoc; now: Date }): JSX.Element {
   const active = isActive(coupon, now);
   // v2's ActiveBadge (cells/active.tsx): StatusBadge `ok` for Active, `muted` for Inactive.
@@ -212,6 +207,7 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<CouponFilters>({});
   const { width } = useWindowDimensions();
+  const sync = useCatalogueSync();
   const locale = storeLocale?.replaceAll('_', '-');
 
   useEffect(() => {
@@ -287,9 +283,9 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
 
   return (
     <View testID="screen-coupons" className="flex-1 bg-background">
-      <AreaHeader title="Coupons" backTestID="coupons-back" onBack={onBack} />
-      <View className="gap-2 px-4 pb-2">
-        <SearchInput testID="search-coupons" value={term} onChangeText={setTerm} placeholder="Search Coupons" />
+      <AreaToolbar area="coupons" title="Coupons" onBack={onBack}
+        search={<SearchInput testID="search-coupons" value={term} onChangeText={setTerm} placeholder="Search Coupons" />} />
+      <View className="px-4 pb-2">
         <View testID="coupons-filter-chips" className="flex-row flex-wrap items-center gap-2">
           {pill('status', InfoIcon, 'Status', STATUS_CHOICES)}
           {pill('discount_type', PercentIcon, 'Discount Type', TYPE_CHOICES)}
@@ -301,9 +297,7 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
       </View>
       <TableSurface testID="coupons-table-surface">{body}</TableSurface>
       {shown.length > 0 && (
-        <CaptionRowInset>
-          <Text testID="data-table-count" className="text-sm text-muted-foreground">{countLabel(shown.length, total)}</Text>
-        </CaptionRowInset>
+        <CaptionRowInset><TableCount shown={shown.length} total={total} active={sync.active} onSync={sync.sync} /></CaptionRowInset>
       )}
     </View>
   );

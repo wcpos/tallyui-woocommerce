@@ -19,10 +19,10 @@ import { resolveStock, STOCK_LABEL } from '../lib/products/resolve-stock';
 import type { StockState } from '../lib/products/resolve-stock';
 import { matchesCatalogueFilters } from '../lib/catalogue/quick-filters';
 import type { CatalogueFilters } from '../lib/catalogue/quick-filters';
-import { AreaHeader } from './area-header';
+import { AreaToolbar } from './area-header';
 import { CatalogueFilterChips } from './catalogue-filter-chips';
 import { StatusDot } from './status-dot';
-import { CaptionRowInset, TableSurface } from './table-surface';
+import { CaptionRowInset, TableCount, TableSurface, useCatalogueSync } from './table-surface';
 import type { StatusTone } from './status-dot';
 
 // v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
@@ -87,11 +87,6 @@ function variationsLine(doc: ProductDoc): string | null {
   return count === 1 ? '1 variation' : `${count.toLocaleString()} variations`;
 }
 
-function countLabel(shown: number, total: number): string {
-  if (shown < total) return `Showing ${shown.toLocaleString()} of ${total.toLocaleString()}`;
-  return total === 1 ? '1 product' : `${total.toLocaleString()} products`;
-}
-
 function StockBadge({ doc }: { doc: ProductDoc }): JSX.Element {
   const state = resolveStock(doc);
   return <StatusDot testID={`product-stock-status-${doc.id}`} tone={STOCK_TONE[state]} label={STOCK_LABEL[state]} />;
@@ -134,6 +129,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   // v2's Products area lists every product, in stock or not: no chip is on at the start.
   const [filters, setFilters] = useState<CatalogueFilters>({});
   const { width } = useWindowDimensions();
+  const sync = useCatalogueSync();
   const locale = storeLocale?.replaceAll('_', '-');
 
   useEffect(() => {
@@ -182,18 +178,14 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   return (
     <ConnectorProvider connector={connector} traitContext={{ currency }}>
       <View testID="screen-products" className="flex-1 bg-background">
-        <AreaHeader title="Products" backTestID="products-back" onBack={onBack} />
-        <View className="px-4 pb-2">
-          <SearchInput testID="search-products" value={term} onChangeText={setTerm} placeholder="Search products" />
-        </View>
+        <AreaToolbar area="products" title="Products" onBack={onBack}
+          search={<SearchInput testID="search-products" value={term} onChangeText={setTerm} placeholder="Search products" />} />
         <View className="px-4 pb-2">
           <CatalogueFilterChips products={products} filters={filters} onChange={setFilters} />
         </View>
         <TableSurface testID="products-table-surface">{body}</TableSurface>
         {shown.length > 0 && (
-          <CaptionRowInset>
-            <Text testID="data-table-count" className="text-sm text-muted-foreground">{countLabel(shown.length, total)}</Text>
-          </CaptionRowInset>
+          <CaptionRowInset><TableCount shown={shown.length} total={total} active={sync.active} onSync={sync.sync} /></CaptionRowInset>
         )}
       </View>
     </ConnectorProvider>
