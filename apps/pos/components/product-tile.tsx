@@ -21,8 +21,9 @@ export const STACK_CARD = 'absolute rounded-lg border border-border bg-card';
 const SOLD_OUT = { opacity: 0.4 };
 // The picture fills its square (ProductImage's style overrides its size).
 const FILL = { width: '100%', height: '100%' } as const;
-// v2's POSTER_BAND: one line of name (16 px x 1.25), the money row (16 px x 1.35), a 2 px gap and the 10 px foot.
-export const BAND = { height: 54 };
+// v2's POSTER_BAND (packages/components/src/poster-tile/scrim-stops.ts l.78) at its 14 px base: one line of name
+// (14 x 1.25 = 17.5), the money row (14 x 1.35 = 18.9) and --spacing x 3 (12) for the gap and the foot.
+export const BAND = { height: 48.4 };
 // v2's scrim-stops.ts: the fade reaches 48 px above the words and eases up to 92% card colour.
 const SCRIM_REACH = 48;
 const SCRIM_STRENGTH = 0.92;
