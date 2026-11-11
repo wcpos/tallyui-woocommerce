@@ -5,6 +5,7 @@ import type { RxCollection } from 'rxdb';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { createTallyDatabase } from '@tallyui/database';
+import { PortalHost } from '@tallyui/primitives';
 import { CouponsScreen } from '../components/coupons-screen';
 
 const connector = createWooCommerceConnector();
@@ -32,7 +33,7 @@ afterEach(async () => {
 });
 
 function renderScreen(coupons: RxCollection = db.coupons, onBack = vi.fn()) {
-  const view = render(<CouponsScreen coupons={coupons} currency="USD" locale="en_US" onBack={onBack} />);
+  const view = render(<><CouponsScreen coupons={coupons} currency="USD" locale="en_US" onBack={onBack} /><PortalHost /></>);
   return { ...view, onBack };
 }
 
@@ -167,4 +168,73 @@ test('unmounting unsubscribes from the collection; documents carry no write meth
   expect(unsubscribe).not.toHaveBeenCalled();
   unmount();
   expect(unsubscribe).toHaveBeenCalledOnce();
+});
+
+const pill = (key: string) => screen.getByTestId(`filter-pill-${key}`).textContent;
+function choose(key: string, option: string) {
+  fireEvent.click(screen.getByTestId(`filter-pill-${key}`));
+  fireEvent.click(screen.getByTestId(option));
+}
+const draft = { uuid: 'c-4', id: 4, code: 'drafty', discount_type: 'fixed_cart', amount: '3', used_by: [], status: 'draft',
+  date_created_gmt: '2026-01-15T10:00:00' };
+
+test('the Status chip keeps only the chosen status, reads its label, and its clear brings every coupon back', async () => {
+  await db.coupons.insert(draft);
+  await withCoupons();
+  expect(pill('status')).toBe('Status');
+  expect(screen.queryByTestId('filter-pill-remove-status')).toBeNull();
+  choose('status', 'coupon-filter-status-draft');
+  await waitFor(() => expect(rowCodes()).toEqual(['coupons-row-drafty']));
+  expect(pill('status')).toBe('Draft');
+  fireEvent.click(screen.getByTestId('filter-pill-remove-status'));
+  await waitFor(() => expect(rowCodes()).toHaveLength(4));
+  expect(pill('status')).toBe('Status');
+});
+
+test('Discount Type keeps only that type, combines with Status, and Clear all turns both off', async () => {
+  await db.coupons.insert(draft);
+  await withCoupons();
+  choose('discount_type', 'coupon-filter-type-fixed_cart');
+  await waitFor(() => expect(rowCodes()).toEqual(['coupons-row-5dollars', 'coupons-row-drafty']));
+  expect(pill('discount_type')).toBe('Fixed Cart Discount');
+  expect(screen.queryByTestId('coupons-filter-clear-all')).toBeNull();
+  choose('status', 'coupon-filter-status-publish');
+  await waitFor(() => expect(rowCodes()).toEqual(['coupons-row-5dollars']));
+  fireEvent.click(screen.getByTestId('coupons-filter-clear-all'));
+  await waitFor(() => expect(rowCodes()).toHaveLength(4));
+  expect(pill('status')).toBe('Status');
+  expect(pill('discount_type')).toBe('Discount Type');
+  expect(screen.queryByTestId('coupons-filter-clear-all')).toBeNull();
+});
+
+test('Expires This month keeps a coupon expiring this month, not next year or never', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 9, 20, 12));
+  try {
+    const gmt = (date: Date) => date.toISOString().slice(0, 19);
+    await db.coupons.bulkInsert([
+      { uuid: 'c-5', id: 5, code: 'soon', discount_type: 'percent', amount: '5', date_expires_gmt: gmt(new Date(2026, 9, 10, 12)), ...base },
+      { uuid: 'c-6', id: 6, code: 'nextyear', discount_type: 'percent', amount: '5', date_expires_gmt: gmt(new Date(2027, 9, 10, 12)), ...base },
+    ]);
+    await withCoupons();
+    expect(pill('date_expires_gmt')).toBe('Expires');
+    choose('date_expires_gmt', 'coupon-filter-expires-thisMonth');
+    await waitFor(() => expect(rowCodes()).toEqual(['coupons-row-soon']));
+    expect(pill('date_expires_gmt')).toBe('This month');
+    expect(screen.getByTestId('filter-pill-remove-date_expires_gmt')).not.toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test('a chip with a search that matches nothing shows the empty state, and Clear filters clears both', async () => {
+  await withCoupons();
+  choose('status', 'coupon-filter-status-publish');
+  typeSearch('zzz');
+  await screen.findByText('No coupons match these filters');
+  fireEvent.click(screen.getByTestId('no-data-message-action'));
+  await waitFor(() => expect(rowCodes()).toHaveLength(3));
+  expect((screen.getByTestId('search-coupons') as HTMLInputElement).value).toBe('');
+  expect(pill('status')).toBe('Status');
+  expect(screen.queryByTestId('filter-pill-remove-status')).toBeNull();
 });

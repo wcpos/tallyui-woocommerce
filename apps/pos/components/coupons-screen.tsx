@@ -1,16 +1,26 @@
 // v2's Coupons area (WCPOS monorepo `packages/core/src/screens/main/coupons/index.tsx`), read-only: the default
 // columns of ui-settings `initial-settings.json` "coupons" without Actions, newest first (date_created_gmt desc),
 // and the cell rules of cells/active.tsx, usage.tsx, editable-amount.tsx, editable-date.tsx and discount-type.tsx.
-// Deviations: no inline editing, Add, filter chips, Actions column, column settings or sortable headers, since edits
+// The Status, Discount Type and Expires filter chips and Clear all follow v2's coupons/filter-bar/, combined with the
+// search (AND). Deviations: no inline editing, Add, Actions column, column settings or sortable headers, since edits
 // must go through the store's REST API; the coupons collection is replicated from the server, so this screen never
-// writes to it. The expiry date shows in the device's time zone, not the store's (v2's date-picker-input.tsx).
+// writes to it. The expiry date shows in the device's time zone, not the store's (v2's date-picker-input.tsx), and the
+// Expires chip offers the report date presets instead of v2's calendar.
 import { useEffect, useState } from 'react';
-import type { JSX } from 'react';
-import { ScrollView, View, useWindowDimensions } from 'react-native';
+import type { ComponentType, JSX } from 'react';
+import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
+import { Circle, Path, Rect } from 'react-native-svg';
 import type { RxCollection } from 'rxdb';
 import { formatMoney, moneyFromDecimalString } from '@tallyui/core';
-import { Badge, Button, SearchInput, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Text } from '@tallyui/components';
+import { DATE_PRESETS, inRange, presetRange } from '@tallyui/pos';
+import type { DatePreset } from '@tallyui/pos';
+import {
+  Badge, Button, createSvgIcon, SearchInput, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, Table, TableBody,
+  TableCell, TableHead, TableHeader, TableRow, Text, XIcon,
+} from '@tallyui/components';
+import type { SvgIconProps } from '@tallyui/components';
 import { AreaHeader } from './area-header';
+import { filterChipClassName, filterChipTextClassName } from './catalogue-filter-chips';
 
 // v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
 const SEARCH_DEBOUNCE_MS = 250;
@@ -19,6 +29,38 @@ const NARROW_WIDTH = 600;
 
 // v2 coupons/discount-type-label.ts with the English strings of core.json; an unknown type reads as itself.
 const TYPE_LABELS: Record<string, string> = { percent: 'Percentage', fixed_cart: 'Fixed Cart', fixed_product: 'Fixed Product' };
+
+// v2's filter-bar choices (status-pill.tsx, discount-type-pill.tsx) with the English strings of core.json.
+type Choice = { value: string; label: string; testID: string };
+const STATUS_CHOICES: Choice[] = [
+  { value: 'publish', label: 'Published', testID: 'coupon-filter-status-publish' },
+  { value: 'draft', label: 'Draft', testID: 'coupon-filter-status-draft' },
+  { value: 'pending', label: 'Pending', testID: 'coupon-filter-status-pending' },
+  { value: 'trash', label: 'Trash', testID: 'coupon-filter-status-trash' },
+];
+const TYPE_CHOICES: Choice[] = [
+  { value: 'percent', label: 'Percentage Discount', testID: 'coupon-filter-type-percent' },
+  { value: 'fixed_cart', label: 'Fixed Cart Discount', testID: 'coupon-filter-type-fixed_cart' },
+  { value: 'fixed_product', label: 'Fixed Product Discount', testID: 'coupon-filter-type-fixed_product' },
+];
+const PRESET_LABELS: Record<DatePreset, string> = {
+  today: 'Today', yesterday: 'Yesterday', thisWeek: 'This week', lastWeek: 'Last week', thisMonth: 'This month', lastMonth: 'Last month',
+};
+// Deviation from v2's date-range-pill.tsx, which opens a range calendar: Tally has no calendar component, so the chip
+// offers the report date presets, as device-local days.
+const EXPIRES_CHOICES: Choice[] = DATE_PRESETS.map(value => ({ value, label: PRESET_LABELS[value], testID: `coupon-filter-expires-${value}` }));
+
+// The chips' icons, after v2's `info`, `percent` and `calendar` (lucide).
+const InfoIcon = createSvgIcon('InfoIcon', () => <><Circle cx={12} cy={12} r={10} /><Path d="M12 16v-4" /><Path d="M12 8h.01" /></>);
+const PercentIcon = createSvgIcon('PercentIcon', () => <>
+  <Path d="M19 5 5 19" /><Circle cx={6.5} cy={6.5} r={2.5} /><Circle cx={17.5} cy={17.5} r={2.5} />
+</>);
+const CalendarIcon = createSvgIcon('CalendarIcon', () => <>
+  <Rect x={3} y={4} width={18} height={18} rx={2} /><Path d="M16 2v4" /><Path d="M8 2v4" /><Path d="M3 10h18" />
+</>);
+
+type FilterKey = 'status' | 'discount_type' | 'date_expires_gmt';
+type CouponFilters = Partial<Record<FilterKey, string>>;
 
 // The default shown columns, in v2's order, without Actions; className sizes each cell in the row's flex layout.
 const COLUMNS = [
@@ -114,6 +156,43 @@ function matches(coupon: CouponDoc, query: string): boolean {
   return coupon.code.toLowerCase().includes(needle) || (coupon.description ?? '').toLowerCase().includes(needle);
 }
 
+/** The chips, each an equality on its field (AND); Expires keeps a coupon whose expiry, a UTC instant, falls on a
+ *  device-local day of the preset's range. A coupon with no expiry never matches Expires. */
+function passes(coupon: CouponDoc, filters: CouponFilters, now: Date): boolean {
+  if (filters.status && coupon.status !== filters.status) return false;
+  if (filters.discount_type && coupon.discount_type !== filters.discount_type) return false;
+  const preset = filters.date_expires_gmt as DatePreset | undefined;
+  if (!preset) return true;
+  const expires = coupon.date_expires_gmt;
+  if (!expires || Number.isNaN(utcDate(expires).getTime())) return false;
+  return inRange(expires, presetRange(preset, now, 'device'), 'device');
+}
+
+/** One v2 filter pill in the catalogue chips' pattern: a select of choices, tinted when on, with a clear. */
+function FilterPill({ field, icon: Icon, label, value, choices, onChoose, onRemove }: {
+  field: FilterKey; icon: ComponentType<SvgIconProps>; label: string; value: string | undefined; choices: readonly Choice[];
+  onChoose(value: string): void; onRemove(): void;
+}): JSX.Element {
+  const selected = choices.find(choice => choice.value === value);
+  const active = selected !== undefined;
+  return <View className={filterChipClassName(active)}>
+    <Select value={selected && { value: selected.value, label: selected.label }}
+      onValueChange={option => { if (option) onChoose(option.value); }}>
+      <SelectTrigger testID={`filter-pill-${field}`} className="h-auto w-auto justify-start gap-1.5 rounded-none border-0 bg-transparent px-0 py-0">
+        <Icon size={16} />
+        <Text className={filterChipTextClassName(active)}>{selected?.label ?? label}</Text>
+      </SelectTrigger>
+      <SelectContent><SelectGroup>
+        {choices.map(choice => <SelectItem key={choice.value} value={choice.value} label={choice.label} testID={choice.testID}>
+          <Text>{choice.label}</Text>
+        </SelectItem>)}
+      </SelectGroup></SelectContent>
+    </Select>
+    {active && <Pressable testID={`filter-pill-remove-${field}`} role="button" accessibilityLabel="Remove" hitSlop={8}
+      onPress={onRemove}><XIcon size={14} /></Pressable>}
+  </View>;
+}
+
 function countLabel(shown: number, total: number): string {
   if (shown < total) return `Showing ${shown} of ${total}`;
   return total === 1 ? '1 coupon' : `${total} coupons`;
@@ -128,6 +207,7 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
   const [all, setAll] = useState<CouponDoc[] | null>(null);
   const [term, setTerm] = useState('');
   const [query, setQuery] = useState('');
+  const [filters, setFilters] = useState<CouponFilters>({});
   const { width } = useWindowDimensions();
   const locale = storeLocale?.replaceAll('_', '-');
 
@@ -143,10 +223,22 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
     return () => clearTimeout(timer);
   }, [term]);
 
-  function clear() { setTerm(''); setQuery(''); }
+  function clear() { setTerm(''); setQuery(''); setFilters({}); }
+  function setFilter(field: FilterKey, value: string | undefined) {
+    setFilters(current => {
+      const next = { ...current };
+      if (value === undefined) delete next[field];
+      else next[field] = value;
+      return next;
+    });
+  }
+  function pill(field: FilterKey, icon: ComponentType<SvgIconProps>, label: string, choices: readonly Choice[]): JSX.Element {
+    return <FilterPill field={field} icon={icon} label={label} value={filters[field]} choices={choices}
+      onChoose={value => setFilter(field, value)} onRemove={() => setFilter(field, undefined)} />;
+  }
 
   const now = new Date();
-  const shown = all ? (query ? all.filter(coupon => matches(coupon, query)) : all) : [];
+  const shown = all ? all.filter(coupon => (!query || matches(coupon, query)) && passes(coupon, filters, now)) : [];
   const total = all?.length ?? 0;
 
   const body = all === null ? null : total === 0 ? (
@@ -198,8 +290,16 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
   return (
     <View testID="screen-coupons" className="flex-1 bg-background">
       <AreaHeader title="Coupons" backTestID="coupons-back" onBack={onBack} />
-      <View className="px-4 pb-2">
+      <View className="gap-2 px-4 pb-2">
         <SearchInput testID="search-coupons" value={term} onChangeText={setTerm} placeholder="Search Coupons" />
+        <View testID="coupons-filter-chips" className="flex-row flex-wrap items-center gap-2">
+          {pill('status', InfoIcon, 'Status', STATUS_CHOICES)}
+          {pill('discount_type', PercentIcon, 'Discount Type', TYPE_CHOICES)}
+          {pill('date_expires_gmt', CalendarIcon, 'Expires', EXPIRES_CHOICES)}
+          {Object.keys(filters).length >= 2 && (
+            <Button testID="coupons-filter-clear-all" variant="ghost" size="sm" onPress={() => setFilters({})}><Text>Clear all</Text></Button>
+          )}
+        </View>
       </View>
       {body}
     </View>
