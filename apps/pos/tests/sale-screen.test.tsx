@@ -10,7 +10,8 @@ import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { Cart } from '@tallyui/components';
 import * as TallyComponents from '@tallyui/components';
 import { catalogueEntries, TaxProvider, useSale } from '@tallyui/pos';
-import { SaleScreen as SaleScreenWithoutHost } from '../components/sale-screen';
+import type { OutboxState } from '@tallyui/pos';
+import { SaleScreen as SaleScreenWithoutHost, syncLineShown } from '../components/sale-screen';
 import { PortalHost } from '@tallyui/primitives';
 import type { SaleScreenProps } from '../components/sale-screen';
 import { parkedCartSchema, parkedCartMigrationStrategies, type ParkedCartCollection } from '../lib/sale/parked-carts';
@@ -984,4 +985,27 @@ test('wide: the bar renders once, inside the cart panel', () => {
   expect(within(screen.getByTestId('pos-cart-panel')).getByTestId('pos-drawer-open-button')).not.toBeNull();
   expect(within(screen.getByTestId('pos-products-panel')).queryByTestId('register-bar-shell')).toBeNull();
   expect(screen.getAllByTestId('pos-drawer-open-button')).toHaveLength(1);
+});
+
+// A1: v2 draws nothing under its open-order strip while sales are up to date. The sync line shows exactly when
+// TallyUI's SyncStatus would say anything but "Sales are up to date.".
+test.each<[string, OutboxState]>([
+  ['nothing waiting', { pending: 0, sending: false }],
+  ['nothing waiting, a refused batch from earlier', { pending: 0, sending: false, refused: { status: 422, reason: 'bad' } }],
+  ['a sale waiting', { pending: 1, sending: false }],
+  ['a sale sending', { pending: 1, sending: true }],
+  ['a sale retrying', { pending: 1, sending: false, lastRetryReason: 'network', nextAttemptAt: Date.now() + 5000 }],
+  ['a sale refused', { pending: 0, rejected: 1, sending: false }],
+  ['the store missing, nothing waiting', { pending: 0, sending: false, backendMissing: { since: Date.now() } }],
+])('syncLineShown with %s matches what SyncStatus says', (_name, state) => {
+  const { container } = render(<TallyComponents.SyncStatus state={state} />);
+  expect(syncLineShown(state)).toBe(container.textContent !== 'Sales are up to date.');
+});
+
+test('syncLineShown: hidden only while nothing waits, nothing was refused and the store answers', () => {
+  expect(syncLineShown({ pending: 0, sending: false })).toBe(false);
+  expect(syncLineShown({ pending: 2, sending: false })).toBe(true);
+  expect(syncLineShown({ pending: 1, sending: false, lastRetryReason: 'network' })).toBe(true);
+  expect(syncLineShown({ pending: 0, rejected: 1, sending: false })).toBe(true);
+  expect(syncLineShown({ pending: 0, sending: false, backendMissing: { since: 0 } })).toBe(true);
 });

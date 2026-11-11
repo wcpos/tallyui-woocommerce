@@ -336,3 +336,88 @@ test('the count cell\'s chevron points up while the list is closed and down whil
   expect(within(count).queryByTestId('open-orders-chevron-up')).toBeNull();
   expect(screen.getByRole('button', { name: '3 open' })).toBe(count);
 });
+
+// A1/B12: v2 cart/tabs.tsx scrolls its strip so the open tab sits in view: centred (tab-window.ts centredOffset), clamped
+// to the row's ends; landing on first layout, sliding after. jsdom measures nothing, so the test reports each size.
+type Measured = Element & { __reactLayoutHandler: (event: { nativeEvent: { layout: { x: number; y: number; width: number; height: number } } }) => void };
+const measure = (node: Element | null, width: number) =>
+  (node as Measured).__reactLayoutHandler({ nativeEvent: { layout: { x: 0, y: 0, width, height: 52 } } });
+
+/** Report every tab's width, the tabs' content width, the strip's width and, last, the ScrollView's own width. */
+function rowLayout(strip: number, viewport: number, tabWidths: Record<string, number>) {
+  act(() => {
+    for (const [id, width] of Object.entries(tabWidths)) measure(screen.getByTestId(`open-order-tab-${id}`), width);
+    const scroll = screen.getByTestId('open-order-scroll');
+    measure(scroll.firstElementChild, Object.values(tabWidths).reduce((sum, width) => sum + width, 0));
+    measure(screen.getByTestId('open-order-strip'), strip);
+    measure(scroll, viewport);
+  });
+}
+
+// RNW puts the ScrollView's scrollTo on its host node, the node the component's ref holds.
+const spyScrollTo = () => vi.spyOn(screen.getByTestId('open-order-scroll') as unknown as { scrollTo: (options: { x: number; animated: boolean }) => void }, 'scrollTo');
+
+const twoParked = [cart('a', '2026-11-10T10:00:00.000Z', ['Espresso'], 300), cart('b', '2026-11-10T10:05:00.000Z', ['Cold Brew'], 400)];
+
+test('phone, three open orders: the strip scrolls to the open last tab on first layout, without a slide', () => {
+  const { onSelect, onNew, onError } = handlers();
+  render(<OpenOrderTabs compact currency={currency} onSelect={onSelect} onNew={onNew} onError={onError} now={() => NOW}
+    parked={twoParked} current={order(['Espresso'], 300)} />);
+  const scrollTo = spyScrollTo();
+  // 390 less the count cell (56) and + (48): a 286 row; three 105 tabs make 315.
+  rowLayout(390, 286, { a: 105, b: 105, current: 105 });
+  // centredOffset: 210 + 52.5 - 143 = 119.5, clamped to the row's end, 315 - 286 = 29.
+  expect(scrollTo).toHaveBeenCalledTimes(1);
+  expect(scrollTo).toHaveBeenLastCalledWith({ x: 29, animated: false });
+});
+
+test('an open tab wider than the row is centred, not left-aligned and not clamped to the row\'s end', () => {
+  const { onSelect, onNew, onError } = handlers();
+  render(<OpenOrderTabs compact currency={currency} onSelect={onSelect} onNew={onNew} onError={onError} now={() => NOW}
+    parked={twoParked} current={{ ...order(['Espresso'], 300), customer: { name: 'Bartholomew Featherstonehaugh-Smythe' } }} />);
+  const scrollTo = spyScrollTo();
+  // A 320 phone less the count cell (56) and + (48): a 216 row; the open sale's long name makes its tab 240, past the row.
+  rowLayout(320, 216, { a: 105, b: 105, current: 240 });
+  // centredOffset: 210 + 120 - 108 = 222, under the row's end 450 - 216 = 234; a left-aligned tab would sit at 210.
+  expect(scrollTo).toHaveBeenCalledTimes(1);
+  expect(scrollTo).toHaveBeenLastCalledWith({ x: 222, animated: false });
+});
+
+test('selecting the first tab scrolls the strip to it once it is the open sale, sliding', async () => {
+  const { onSelect, onNew, onError } = handlers();
+  const strip = (parked: OpenOrderTabsParked[], current: OpenOrderTabsCurrent) => <OpenOrderTabs compact currency={currency}
+    onSelect={onSelect} onNew={onNew} onError={onError} now={() => NOW} parked={parked} current={current} />;
+  const { rerender } = render(strip(twoParked, order(['Espresso'], 300)));
+  const scrollTo = spyScrollTo();
+  rowLayout(390, 286, { a: 105, b: 105, current: 105 });
+  expect(scrollTo).toHaveBeenLastCalledWith({ x: 29, animated: false });
+  await act(async () => { fireEvent.click(screen.getByTestId('open-order-tab-a')); });
+  expect(onSelect).toHaveBeenCalledWith('a');
+  // Tally's resume parks the open sale as the newest cart, so the cart picked becomes the open sale, at the right.
+  rerender(strip([twoParked[1], cart('was-open', '2026-11-10T10:10:00.000Z', ['Espresso'], 300)],
+    { id: 'a', lineItems: [{ name: 'Espresso' }], customer: null, totalMinor: 300 }));
+  expect(screen.getByTestId('open-order-tab-a').getAttribute('aria-selected')).toBe('true');
+  rowLayout(390, 286, { b: 105, 'was-open': 105, a: 140 });
+  // 210 + 70 - 143 = 137, clamped to 350 - 286 = 64.
+  expect(scrollTo).toHaveBeenLastCalledWith({ x: 64, animated: true });
+});
+
+test('on the blank cart the strip scrolls to its end, where + is the open tab', () => {
+  const { onSelect, onNew, onError } = handlers();
+  render(<OpenOrderTabs compact currency={currency} onSelect={onSelect} onNew={onNew} onError={onError} now={() => NOW}
+    parked={[...twoParked, cart('c', '2026-11-10T10:07:00.000Z', ['Croissant'], 500)]} current={order([], 0)} />);
+  const scrollTo = spyScrollTo();
+  // 390 less the count cell (56) and the unfolded + (112): a 222 row; 315 of tabs.
+  rowLayout(390, 222, { a: 105, b: 105, c: 105 });
+  expect(scrollTo).toHaveBeenLastCalledWith({ x: 93, animated: false });
+});
+
+test('tabs that fit the strip are never scrolled', () => {
+  const { onSelect, onNew, onError } = handlers();
+  render(<OpenOrderTabs currency={currency} onSelect={onSelect} onNew={onNew} onError={onError} now={() => NOW}
+    parked={twoParked} current={order(['Espresso'], 300)} />);
+  const scrollTo = spyScrollTo();
+  rowLayout(1280, 1232, { a: 100, b: 100, current: 100 });
+  expect(screen.queryByTestId('open-orders-count')).toBeNull();
+  expect(scrollTo).not.toHaveBeenCalled();
+});

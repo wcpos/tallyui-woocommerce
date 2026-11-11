@@ -346,7 +346,7 @@ test('sends the picked customer with a cash sale, then sends a guest after New s
   expect(first[0].type).toBe('order.create');
   expect(first[0].version).toBe(3);
   expect(first[0].payload.customer).toEqual({ customerId: '7', email: 'gee@example.invalid' });
-  await screen.findByText('Sales are up to date.');
+  await waitFor(() => expect(screen.queryByTestId('sync-status')).toBeNull());
   fireEvent.click(screen.getByRole('button', { name: 'New sale' }));
   expect(screen.getByText('Guest')).not.toBeNull();
   fireEvent.click(screen.getByText('Espresso'));
@@ -359,5 +359,5 @@ test('sends the picked customer with a cash sale, then sends a guest after New s
   expect(envelopes[1].type).toBe('order.create');
   expect(envelopes[1].version).toBe(3);
   expect(envelopes[1].payload.customer).toBeNull();
-  await screen.findByText('Sales are up to date.');
+  await waitFor(() => expect(screen.queryByTestId('sync-status')).toBeNull());
 }, 20_000);
