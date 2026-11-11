@@ -1,18 +1,25 @@
 // v2's Reports menu chip (WCPOS monorepo `packages/core/src/screens/main/reports/menu-chip.tsx`): the chip shows the
 // current choice, pressing it opens a menu of choices, and a chip off its default carries a clear that puts it back.
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ComponentType } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
-import { Text } from '@tallyui/components';
+import { Text, type SvgIconProps } from '@tallyui/components';
 import { Popover } from '@tallyui/primitives';
 
 export type MenuChoice = { value: string; label: string };
 
-export function MenuChip({ name, value, defaultValue, choices, onChange, hint }: {
-  name: string; value: string; defaultValue: string; choices: readonly MenuChoice[];
+/** v2's `Chip` face (packages/components/src/chip/index.tsx): a 44 (`h-ctl`) pill, `px-3`, `gap-1.5`, an 18 icon
+ *  (`size-4.5`) and a regular `text-base` label in one ink; on, this app's tint (`border-primary bg-primary/10`). */
+export function chipFaceClassName(on: boolean): string {
+  return `h-11 flex-row items-center self-start rounded-full border ${on ? 'border-primary bg-primary/10' : 'border-border bg-card'}`;
+}
+
+export function MenuChip({ name, icon: Icon, value, defaultValue, choices, onChange, hint }: {
+  name: string; icon?: ComponentType<SvgIconProps>; value: string; defaultValue: string; choices: readonly MenuChoice[];
   onChange(next: string): void; hint?: string;
 }) {
   const [open, setOpen] = useState(false);
   const on = value !== defaultValue;
+  const ink = on ? 'text-primary' : 'text-foreground';
   const choose = (next: string) => {
     if (next !== value) onChange(next);
     setOpen(false);
@@ -27,10 +34,11 @@ export function MenuChip({ name, value, defaultValue, choices, onChange, hint }:
   // The primitives' Popover, wired as LinePopover is, so a press on the overlay outside the menu closes it.
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <View className={`h-9 flex-row items-center self-start rounded-md border bg-card ${on ? 'border-primary' : 'border-border'}`}>
+      <View testID={`hero-chip-${name}-face`} className={chipFaceClassName(on)}>
         <Popover.Trigger asChild>
           <Pressable testID={`hero-chip-${name}`} accessibilityRole="button" className="h-full flex-row items-center gap-1.5 px-3">
-            <Text className={`text-sm font-medium ${on ? 'text-primary' : 'text-foreground'}`}>
+            {Icon && <Icon testID={`hero-chip-${name}-icon`} size={18} className={ink} />}
+            <Text className={`text-base font-normal ${ink}`}>
               {choices.find(row => row.value === value)?.label ?? value}
             </Text>
             <Text className={`text-xs ${on ? 'text-primary' : 'text-muted-foreground'}`}>▾</Text>

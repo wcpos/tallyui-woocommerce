@@ -3,6 +3,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { PortalHost } from '@tallyui/primitives';
 import { CompareChip, PrintSummaryButton, ReportChips, reportCashiers } from '../components/report-chips';
 import type { Compare } from '../lib/reports/sales-room';
+import { classesOf } from './classes-of';
 
 afterEach(cleanup);
 
@@ -93,4 +94,17 @@ test('reportCashiers lists each cashier once, in order', () => {
   expect(reportCashiers([{ id: 2, displayName: 'Paul' }, { id: 5, displayName: 'Ann' }, { id: 2, displayName: 'Paul again' }]))
     .toEqual([{ id: '2', name: 'Paul' }, { id: '5', name: 'Ann' }]);
   expect(reportCashiers([])).toEqual([]);
+});
+
+test('Everyone carries v2 cashier icon and the comparison its swap icon, the fixed comparison too, on the same pill', () => {
+  show(props());
+  for (const name of ['cashier', 'compare']) {
+    expect(screen.getByTestId(`hero-chip-${name}`).firstElementChild).toBe(screen.getByTestId(`hero-chip-${name}-icon`));
+    expect(classesOf(`hero-chip-${name}-face`)).toEqual(expect.arrayContaining(['h-11', 'rounded-full']));
+  }
+  cleanup();
+  render(<CompareChip {...props()} fixed="vs week before" />);
+  expect(screen.getByTestId('hero-chip-compare').textContent).toBe('vs week before');
+  expect(screen.getByTestId('hero-chip-compare-icon')).not.toBeNull();
+  expect(classesOf('hero-chip-compare')).toEqual(expect.arrayContaining(['h-11', 'rounded-full', 'opacity-45']));
 });

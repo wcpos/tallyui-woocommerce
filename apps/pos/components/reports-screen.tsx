@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { Path } from 'react-native-svg';
-import { Button, createSvgIcon, IconButton, Text } from '@tallyui/components';
+import { createSvgIcon, IconButton, Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
 import {
   clampClosureScope, comparisonRange, formatClosureDate, presetRange, selectClosureRows, type Closure, type DatePreset, type PosOrder,
@@ -17,7 +17,7 @@ import { ordersTable, paymentsTable, taxesTable } from '../lib/reports/sales-tab
 import { useMinuteClock } from '../lib/reports/use-minute-clock';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { ordersDatabaseName } from '../lib/sale/order-store';
-import { ClosureList, type ClosureFilter } from './closure-list';
+import { ClosureList, ClosuresExportButton, type ClosureFilter } from './closure-list';
 import { ClosurePanel } from './closure-panel';
 import { ClosurePrint } from './closure-print';
 import { ClosureStats } from './closure-stats';
@@ -165,10 +165,8 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
               <ReportChips testID="closures-cashier" allLabel="All cashiers" cashiers={reportCashierRows} cashierId={closuresCashier} onCashier={setClosuresCashier} />
             </View>
             {/* v2 `ClosuresExportButton`: the CSV holds closures, so with Open selected there is nothing to export. */}
-            <Button testID="closures-csv" variant="outline" disabled={closureFilter === 'open'}
-              onPress={() => downloadCsv(closuresCsv(closures, currency, session?.tokens.user, storeName), `closures-${closuresRange.from}-${closuresRange.to}.csv`)}>
-              <Text>Export CSV</Text>
-            </Button>
+            <ClosuresExportButton disabled={closureFilter === 'open'}
+              onPress={() => downloadCsv(closuresCsv(closures, currency, session?.tokens.user, storeName), `closures-${closuresRange.from}-${closuresRange.to}.csv`)} />
           </View>
           <View testID="reports-closures" className="gap-2">
             {/* v2 feeds the strip every row and open session, whatever the All / Open / Closed tab shows. */}

@@ -1,11 +1,32 @@
 import { useState, type JSX, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
-import { Button, Text } from '@tallyui/components';
+import { Path } from 'react-native-svg';
+import { Button, createSvgIcon, Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
 import { formatClosureDate, type Closure } from '@tallyui/pos';
 import { drawerResultClass } from './till-strip';
 
 export type ClosureFilter = 'all' | 'open' | 'closed';
+
+// lucide `file-text`, for v2's `leftIcon="document"` on Export CSV.
+const DocumentIcon = createSvgIcon('DocumentIcon', () => <>
+  <Path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+  <Path d="M14 2v4a2 2 0 0 0 2 2h4" />
+  <Path d="M10 9H8" />
+  <Path d="M16 13H8" />
+  <Path d="M16 17H8" />
+</>);
+
+/** v2 `ClosuresExportButton` (reports/closures/index.tsx): an outline button with a leading icon, on v2's outline
+ *  face (`bg-card`, tinted `bg-accent` under the pointer). The CSV holds closures, so Open disables it. */
+export function ClosuresExportButton({ disabled, onPress }: { disabled?: boolean; onPress(): void }): JSX.Element {
+  return (
+    <Button testID="closures-csv" variant="outline" className="bg-card web:hover:bg-accent" disabled={disabled} onPress={onPress}>
+      <DocumentIcon testID="closures-csv-icon" size={18} className="text-foreground" />
+      <Text>Export CSV</Text>
+    </Button>
+  );
+}
 
 /** Short when the drawer was short (negative), Over when over, Exact at zero. */
 export function resultWord(varianceMinor: number): 'Short' | 'Over' | 'Exact' {
@@ -64,8 +85,10 @@ export function ClosureList({ rows, sessionRows, openSessions, blind, today, cur
   const yesterday = formatClosureDate(new Date(year, month - 1, date - 1).toISOString(), { timezone: 'device', locale }).date_ymd;
 
   return (
-    <View testID="closure-list" className="gap-2">
-      <View className="flex-row flex-wrap items-end justify-between gap-2">
+    // v2 `ClosureList`'s `<Card>` (`border-border bg-card rounded-lg border`): the tabs, the heads, the day bands and
+    // the rows all sit on it, the rows ruled above and inset 16 (`ListRow className="border-t border-b-0 px-4"`).
+    <View testID="closure-list" className="overflow-hidden rounded-lg border border-border bg-card">
+      <View className="flex-row flex-wrap items-end justify-between gap-2 px-3 pt-2">
         <View testID="closures-filter" className="flex-row border-b border-border">
           {(['all', 'open', 'closed'] as const).map(value => <Pressable key={value} testID={`closures-filter-${value}`}
             className={`-mb-px border-b-2 px-3 py-2 ${filter === value ? 'border-primary' : 'border-transparent'}`} role="tab" aria-selected={filter === value}
@@ -75,7 +98,7 @@ export function ClosureList({ rows, sessionRows, openSessions, blind, today, cur
         </View>
         <Text testID="closures-count" className="pb-2 text-muted-foreground">{`${n} ${n === 1 ? 'session' : 'sessions'}`}</Text>
       </View>
-      <View testID="closures-head" className="flex-row gap-2 py-1">
+      <View testID="closures-head" className="flex-row gap-2 px-4 py-2">
         {(blind ? ['Closure', 'Counted'] : ['Closure', 'Expected', 'Counted', 'Difference', 'Result']).map(label =>
           <Text key={label} className={`text-xs uppercase tracking-wide text-muted-foreground ${label === 'Closure' ? 'flex-1' : 'w-24 text-right'}`}>{label}</Text>)}
       </View>
@@ -84,8 +107,8 @@ export function ClosureList({ rows, sessionRows, openSessions, blind, today, cur
         const label = day === today ? 'Today' : day === yesterday ? 'Yesterday' : `${f!.weekday_short} ${Number(f!.day)} ${f!.month_short}`;
         const counted = closures.reduce((sum, c) => sum + (c.counted.cash ?? 0), 0);
         const variance = closures.reduce((sum, c) => sum + (c.variance.cash ?? 0), 0);
-        return <View key={day} testID={`closure-day-${day}`} className="gap-1">
-          <View className="flex-row items-baseline justify-between bg-muted/50 px-3 py-2">
+        return <View key={day} testID={`closure-day-${day}`}>
+          <View className="flex-row items-baseline justify-between bg-muted/50 px-4 py-2">
             <Text testID={`closure-day-label-${day}`}>{label}</Text>
             {closures.length > 0 && <Text testID={`closure-day-summary-${day}`} className="text-muted-foreground">
               {`${money(counted)} counted`}{!blind && <> · <Text className={drawerResultClass(variance)}>{resultText(variance, money)}</Text></>}
@@ -93,13 +116,13 @@ export function ClosureList({ rows, sessionRows, openSessions, blind, today, cur
           </View>
           {day === today && showSessions && <>
             {sessionRows}
-            {closures.length === 0 && showRows && <Text testID="closures-none-today" className="text-muted-foreground">No closures yet today</Text>}
+            {closures.length === 0 && showRows && <Text testID="closures-none-today" className="border-t border-border px-4 py-2 text-muted-foreground">No closures yet today</Text>}
           </>}
           {showRows && closures.map(c => {
             const open = formatClosureDate(c.opened_at, { timezone: 'device', locale });
             const closed = formatClosureDate(c.closed_at, { timezone: 'device', locale });
             const v = c.variance.cash ?? 0;
-            return <View key={c.id} testID={`closure-row-${c.id}`} className="flex-row items-center gap-2 border-b border-border py-2">
+            return <View key={c.id} testID={`closure-row-${c.id}`} className="flex-row items-center gap-2 border-t border-border px-4 py-2">
               <Pressable testID={`closure-open-${c.id}`} accessibilityRole="button" accessibilityLabel={`Open closure ${c.number}`} className="flex-1 flex-row items-center gap-2" onPress={() => onOpen?.(c)}>
                 <View className="flex-1 gap-0.5">
                   <View className="flex-row flex-wrap items-center gap-2">
@@ -120,7 +143,7 @@ export function ClosureList({ rows, sessionRows, openSessions, blind, today, cur
           })}
         </View>;
       })}
-      {visible.length === 0 && <Text testID="closures-empty" className="text-muted-foreground">No closures in this period</Text>}
+      {visible.length === 0 && <Text testID="closures-empty" className="p-4 text-muted-foreground">No closures in this period</Text>}
     </View>
   );
 }
