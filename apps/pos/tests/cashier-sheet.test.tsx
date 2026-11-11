@@ -13,6 +13,7 @@ import { noTaxSettings } from './fixtures/store-settings';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { parkedTabs } from './open-orders-helpers';
 
 function SaleScreen(props: SaleScreenProps) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
@@ -187,7 +188,7 @@ test('a held cart comes back when its cashier\'s screen mounts once the catalogu
     });
     localStorage.setItem('held-test', cart.id);
     const view = render(<SaleScreen {...props} parkedCarts={parkedCarts} status="syncing" />);
-    await screen.findByRole('button', { name: 'Parked (1)' });
+    await waitFor(() => expect(parkedTabs()).toHaveLength(1));
     expect(screen.queryByRole('button', { name: 'Remove Espresso' })).toBeNull();
     expect(localStorage.getItem('held-test')).toBe(cart.id);
     expect(await parkedCarts.find().exec()).toHaveLength(1);

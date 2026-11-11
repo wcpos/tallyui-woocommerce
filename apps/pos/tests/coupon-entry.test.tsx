@@ -1,6 +1,6 @@
 import { noTaxSettings } from './fixtures/store-settings';
 import type { ComponentProps } from 'react';
-import { cleanup, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { addRxPlugin, createRxDatabase } from 'rxdb';
@@ -21,6 +21,7 @@ import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { openParkedList, parkedTabs } from './open-orders-helpers';
 // Applying a coupon awaits an RxDB lookup, so the 1 s default async timeout flakes on CI.
 configure({ asyncUtilTimeout: 5_000 });
 
@@ -230,11 +231,11 @@ test('a parked sale keeps its coupon', async () => {
     await addEspresso();
     await applyCoupon('save10');
     await screen.findByTestId('coupon-chip-save10');
-    fireEvent.click(screen.getByRole('button', { name: 'Park cart' }));
-    await screen.findByRole('button', { name: 'Parked (1)' });
+    await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
+    await waitFor(() => expect(parkedTabs()).toHaveLength(1));
     expect((await parkedCarts.find().exec())[0].toJSON().coupons).toEqual(['save10']);
     await waitFor(() => expect(screen.queryByTestId('coupon-chip-save10')).toBeNull());
-    fireEvent.click(screen.getByRole('button', { name: 'Parked (1)' }));
+    openParkedList();
     fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' }));
     const chip = within(await screen.findByTestId('coupon-chip-save10'));
     expect(chip.getByText('-$0.30')).not.toBeNull();
@@ -242,9 +243,9 @@ test('a parked sale keeps its coupon', async () => {
 
     await (await db.coupons.findOne('c-1').exec())!.remove();
     await waitFor(() => expect(screen.queryByTestId('parked-sales')).toBeNull());
-    fireEvent.click(screen.getByRole('button', { name: 'Park cart' }));
-    await screen.findByRole('button', { name: 'Parked (1)' });
-    fireEvent.click(screen.getByRole('button', { name: 'Parked (1)' }));
+    await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
+    await waitFor(() => expect(parkedTabs()).toHaveLength(1));
+    openParkedList();
     fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' }));
     expect(await screen.findByText('Coupon save10 was removed: Coupon save10 does not exist.')).not.toBeNull();
     await screen.findByRole('button', { name: 'Remove Espresso' });
