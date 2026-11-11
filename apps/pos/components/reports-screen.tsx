@@ -19,6 +19,7 @@ import { ClosureList } from './closure-list';
 import { ClosurePanel } from './closure-panel';
 import { ClosurePrint } from './closure-print';
 import { HourlyBars } from './hourly-bars';
+import { ReportCards } from './report-cards';
 import { ReportChips, reportCashiers } from './report-chips';
 import { ReportsHero } from './reports-hero';
 import { SalesTable } from './sales-table';
@@ -61,6 +62,11 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const reprintClosure = (closure: Closure) => { setReprint(closure); setPrintRequest(value => value + 1); };
   const room = salesRoom(shown, { now, currency, compare });
   const money = (amount: number) => formatMoney({ amount, currency }, locale);
+  // The donut centres read whole currency units: the amount rounded to whole units, shown with no decimals.
+  const exponent = new Intl.NumberFormat(locale, { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2;
+  const moneyWhole = (minor: number) => new Intl.NumberFormat(locale, {
+    style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 0,
+  }).format(Math.round(minor / 10 ** exponent));
   const table = openTable === 'payments' ? paymentsTable(room.today, money)
     : openTable === 'taxes' ? taxesTable(room.today, money)
     : openTable === 'orders' ? ordersTable(shown, { now, currency, money }) : null;
@@ -117,13 +123,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
           {room.today.count === 0 && <Text>No sales yet today.</Text>}
         </ReportsHero>
         <HourlyBars hours={room.hours} currency={currency} locale={locale} comparisonName={comparisonName} />
-        {room.today.byMethod.length > 0 && <View testID="sales-room-payments" className="gap-2 rounded-lg border border-border p-4">
-          <Pressable testID="sales-room-payments-open" accessibilityRole="button" accessibilityLabel="Open Payments table" onPress={() => setOpenTable('payments')}>
-            <Text accessibilityRole="header">Payments ›</Text>
-          </Pressable>
-          {room.today.byMethod.map(row => <Text key={row.method}>{`${row.label} · ${row.count} ${row.count === 1 ? 'order' : 'orders'} · ${money(row.totalMinor)}`}</Text>)}
-          {room.today.splitCount > 0 && <Text>{`Split tenders: ${room.today.splitCount}`}</Text>}
-        </View>}
+        <ReportCards period={room.today} money={minor => money(minor) ?? ''} moneyWhole={moneyWhole} onOpenTable={setOpenTable} />
         {room.today.taxMinor !== 0 && <View testID="sales-room-taxes" className="gap-2 rounded-lg border border-border p-4">
           <Pressable testID="sales-room-taxes-open" accessibilityRole="button" accessibilityLabel="Open Taxes table" onPress={() => setOpenTable('taxes')}>
             <Text accessibilityRole="header">Taxes ›</Text>

@@ -182,3 +182,27 @@ test("the comparison's items count only the comparison day's orders before the s
   expect(result.yesterdaySoFar).toEqual({ count: 1, totalMinor: 400, averageMinor: 400, items: 4 });
   expect(result.delta.items).toBe(2);
 }, 20_000);
+
+test('the median takes the middle total of an odd count', () => {
+  const today = salesRoom(orders.filter(order => order.id !== 'T4'), { now, currency: 'USD' }).today;
+  expect(today.count).toBe(3);
+  expect(today.medianMinor).toBe(858);
+}, 20_000);
+
+test('the median of an even count averages the middle two, rounded', () => {
+  expect(salesRoom(orders, { now, currency: 'USD' }).today.medianMinor).toBe(579);
+  const pair = [orders[0], orders[3]].map((order, index) => ({ ...order, totalMinor: [100, 201][index] }));
+  expect(salesRoom(pair, { now, currency: 'USD' }).today.medianMinor).toBe(151);
+}, 20_000);
+
+test('largest is the biggest order total, null with no orders', () => {
+  const result = salesRoom(orders, { now, currency: 'USD' });
+  expect(result.today.largestMinor).toBe(1738);
+  expect(result.yesterday.largestMinor).toBe(600);
+  expect(salesRoom([], { now, currency: 'USD' }).today).toMatchObject({ medianMinor: 0, largestMinor: null, discountMinor: 0 });
+}, 20_000);
+
+test("discountMinor sums the orders' discounts", () => {
+  const discounted = orders.map(order => ({ ...order, discountMinor: order.id === 'T1' ? 50 : order.id === 'T3' ? 125 : 0 }));
+  expect(salesRoom(discounted, { now, currency: 'USD' }).today.discountMinor).toBe(175);
+}, 20_000);

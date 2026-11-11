@@ -1,3 +1,5 @@
+// Uniwind's runtime does not load under Vitest; the report cards' donut reads fixed colours.
+vi.mock('uniwind', () => ({ Uniwind: { setTheme: vi.fn() }, useCSSVariable: (names: string[]) => names.map(() => '#000000') }));
 import { noTaxSettings } from './fixtures/store-settings';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
@@ -203,7 +205,7 @@ test('Today starts empty and observes an Espresso cash sale', async () => {
   expect(screen.queryByTestId('sales-room-hours')).toBeNull();
   const today = within(screen.getByTestId('reports-hero'));
   expect(today.getByText('No sales yet today.')).not.toBeNull();
-  expect(screen.queryByTestId('sales-room-payments')).toBeNull();
+  expect(text('card-payments-empty')).toBe('No payments in this period.');
   expect(within(screen.getByTestId('reports-closures')).getByTestId('closures-empty').textContent).toBe('No closures in this period');
   expect(screen.queryByTestId('x-report-print')).toBeNull();
   expect(screen.queryByTestId('closures-csv')).toBeNull();
@@ -215,7 +217,16 @@ test('Today starts empty and observes an Espresso cash sale', async () => {
   expect(text('hero-average-delta')).toBe('—');
   expect(text('hero-items')).toBe('1');
   expect(text('hero-delta')).toBe('—');
-  expect(within(screen.getByTestId('sales-room-payments')).getByText('Cash · 1 order · $3.00')).not.toBeNull();
+  // The Orders, Payments and Where sold cards sit right after the hourly bars (v2 PeriodSection).
+  expect(screen.getByTestId('sales-room-hours').nextElementSibling).toBe(screen.getByTestId('reports-period-section'));
+  expect(text('card-orders-figure')).toBe('1');
+  expect(text('card-where-sold-donut-row-store-value')).toBe('$3.00');
+  expect(text('card-payments-donut-row-cash-value')).toBe('$3.00');
+  expect(within(screen.getByTestId('card-payments-donut-row-cash')).getByText('1 order')).not.toBeNull();
+  expect(screen.queryByTestId('card-payments-empty')).toBeNull();
+  // The donut centres read the screen's whole-unit money: no decimals.
+  expect(text('card-payments-donut-figure')).toBe('$3');
+  expect(text('card-where-sold-donut-figure')).toBe('$3');
   expect(screen.queryByText(/^Split tenders/)).toBeNull();
   expect(today.queryByText('No sales yet today.')).toBeNull();
   expect(screen.queryByTestId('sales-room-taxes')).toBeNull();
@@ -233,7 +244,7 @@ test('Today removes a sale when its createdAt moves to yesterday', async () => {
   await act(async () => { await order.incrementalPatch({ createdAt }); });
   await waitFor(() => expect(text('hero-total')).toBe('$0.00'));
   expect(today.getByText('No sales yet today.')).not.toBeNull();
-  expect(screen.queryByTestId('sales-room-payments')).toBeNull();
+  expect(text('card-payments-empty')).toBe('No payments in this period.');
 }, 20_000);
 
 test('the hero compares with yesterday up to the same time', async () => {
@@ -292,9 +303,12 @@ test('a split tender counts once per method', async () => {
   await waitFor(() => expect(text('hero-total')).toBe('$6.00'));
   expect(text('hero-orders')).toBe('1');
   expect(text('hero-items')).toBe('2');
-  const payments = within(screen.getByTestId('sales-room-payments'));
-  expect(payments.getByText('Cash · 1 order · $2.00')).not.toBeNull();
-  expect(payments.getByText('Card terminal · 1 order · $4.00')).not.toBeNull();
+  const payments = within(screen.getByTestId('card-payments'));
+  expect(text('card-payments-donut-row-cash-value')).toBe('$2.00');
+  expect(within(screen.getByTestId('card-payments-donut-row-cash')).getByText('1 order')).not.toBeNull();
+  expect(text('card-payments-donut-row-external-value')).toBe('$4.00');
+  expect(within(screen.getByTestId('card-payments-donut-row-external')).getByText('Card terminal')).not.toBeNull();
+  expect(within(screen.getByTestId('card-payments-donut-row-external')).getByText('1 order')).not.toBeNull();
   expect(payments.getByText('Split tenders: 1')).not.toBeNull();
 }, 20_000);
 
@@ -469,7 +483,7 @@ test('the Payments tile opens a table of methods', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'New sale' }));
   await screen.findByText('Scan or tap a product to start a sale.');
   await waitFor(() => expect(text('hero-total')).toBe('$6.00'));
-  fireEvent.click(screen.getByTestId('sales-room-payments-open'));
+  fireEvent.click(screen.getByTestId('card-payments-open'));
   const table = within(await screen.findByTestId('sales-table'));
   expect(table.getAllByTestId(/^sales-table-row-/).map(row => row.getAttribute('data-testid'))).toEqual([
     'sales-table-row-external', 'sales-table-row-cash',
@@ -487,14 +501,14 @@ test('the Payments tile opens a table of methods', async () => {
   expect(table.getByTestId('sales-table-status').textContent).toBe('1 order · $6.00');
   fireEvent.click(table.getByTestId('sales-table-close'));
   await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
-  expect(within(screen.getByTestId('sales-room-payments')).getByText('Cash · 1 order · $2.00')).not.toBeNull();
+  expect(text('card-payments-donut-row-cash-value')).toBe('$2.00');
 }, 20_000);
 
 test('an open table follows live data', async () => {
   const app = await setup();
   await payCash();
   await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
-  fireEvent.click(screen.getByTestId('sales-room-payments-open'));
+  fireEvent.click(screen.getByTestId('card-payments-open'));
   expect(within(await screen.findByTestId('sales-table')).getByTestId('sales-table-row-cash')).not.toBeNull();
   const [order] = await app.orders.find().exec();
   const createdAt = new Date(Date.parse(dayRange(new Date()).startIso) - 60_000).toISOString();
@@ -579,7 +593,7 @@ test('Export CSV downloads the open table', async () => {
   });
   await payCash();
   await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
-  fireEvent.click(screen.getByTestId('sales-room-payments-open'));
+  fireEvent.click(screen.getByTestId('card-payments-open'));
   const table = within(await screen.findByTestId('sales-table'));
   const button = table.getByTestId('sales-table-export');
   expect(button.textContent).toBe('Export CSV');
@@ -669,7 +683,7 @@ test('the cashier chip narrows every period figure to one cashier', async () => 
   fireEvent.click(screen.getByTestId('hero-cashier-2'));
   await waitFor(() => expect(text('hero-total')).toBe('$0.00'));
   expect(today.getByText('No sales yet today.')).not.toBeNull();
-  expect(screen.queryByTestId('sales-room-payments')).toBeNull();
+  expect(text('card-payments-empty')).toBe('No payments in this period.');
   fireEvent.click(screen.getByTestId('sales-room-orders-open'));
   const table = within(await screen.findByTestId('sales-table'));
   expect(table.queryAllByTestId(/^sales-table-row-/)).toHaveLength(0);

@@ -9,6 +9,12 @@ export type Period = {
   count: number; totalMinor: number; taxMinor: number; averageMinor: number;
   /** Units sold: the sum of line quantities. */
   items: number;
+  /** The median order total; an even count averages the middle two (v2 aggregate.ts ordersSummary). 0 with no orders. */
+  medianMinor: number;
+  /** The largest order total; null with no orders. */
+  largestMinor: number | null;
+  /** The sum of the orders' discountMinor. */
+  discountMinor: number;
   pending: number; rejected: number; splitCount: number;
   byMethod: MethodTile[]; taxRates: TaxRateRow[];
 };
@@ -37,13 +43,17 @@ export function salesRoom(orders: readonly PosOrder[], options: { now: Date; cur
   const [today, yesterday] = ranges.map(({ startIso, endIso }, index): Period => {
     const period: Period = {
       count: 0, totalMinor: 0, taxMinor: 0, averageMinor: 0, items: 0,
+      medianMinor: 0, largestMinor: null, discountMinor: 0,
       pending: 0, rejected: 0, splitCount: 0, byMethod: [], taxRates: [],
     };
+    const totals: number[] = [];
     for (const order of orders) {
       if (order.currency !== currency || order.createdAt < startIso || order.createdAt >= endIso) continue;
       const items = order.lines.reduce((sum, line) => sum + line.quantity, 0);
       period.count++;
       period.totalMinor += order.totalMinor;
+      totals.push(order.totalMinor);
+      period.discountMinor += order.discountMinor;
       period.items += items;
       period.taxMinor += order.taxMinor;
       if (order.syncStatus === 'pending') period.pending++;
@@ -89,6 +99,11 @@ export function salesRoom(orders: readonly PosOrder[], options: { now: Date; cur
       hourly.totalMinor += order.totalMinor;
     }
     period.averageMinor = period.count === 0 ? 0 : Math.round(period.totalMinor / period.count);
+    totals.sort((a, b) => a - b);
+    const middle = Math.floor(totals.length / 2);
+    period.medianMinor = totals.length === 0 ? 0
+      : totals.length % 2 ? totals[middle] : Math.round((totals[middle - 1] + totals[middle]) / 2);
+    period.largestMinor = totals.length === 0 ? null : totals[totals.length - 1];
     period.taxRates.sort((a, b) => a.ratePpm - b.ratePpm);
     return period;
   });
