@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { JSX, ReactNode } from 'react';
-import { View, useWindowDimensions } from 'react-native';
+import { ScrollView, View, useWindowDimensions } from 'react-native';
 import { Path } from 'react-native-svg';
 import { ConnectorProvider } from '@tallyui/core';
 import type { TallyConnector } from '@tallyui/core';
@@ -70,6 +70,7 @@ export function CatalogueView({
   const [sortOverride, setSortOverride] = useState<ProductSort | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [filterBarOpen, setFilterBarOpen] = useState(false);
   function scan(code: string) {
     const result = onScan?.(code);
     if (result === 'clear') setTerm('');
@@ -152,11 +153,14 @@ export function CatalogueView({
       <ViewModeToggle view={viewState.view} onChange={view => setViewState({ ...viewState, view })} />
       <CatalogueSettingsButton onPress={() => setSettingsOpen(true)} />
     </View>
-    <View className="flex-row flex-wrap items-center gap-2">
+    {/* v2's ChipRow: one horizontal scroller at every width, chips only; the filter bar opens from Product settings. */}
+    <ScrollView testID="catalogue-chip-row" horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+      contentContainerClassName="items-center gap-2">
       <CatalogueFilterChips products={products} filters={filters} onChange={setFilters} />
       <QuickFilterBar quickFilters={quickFilters} isActive={isActive} onPress={pressQuickFilter} />
-      <FilterBarDialog quickFilters={quickFilters} onChange={changeQuickFilters} products={products} connector={connector} currency={currency} baselineSort={viewState.sort} />
-    </View>
+    </ScrollView>
+    <FilterBarDialog open={filterBarOpen} onOpenChange={setFilterBarOpen} quickFilters={quickFilters} onChange={changeQuickFilters}
+      products={products} connector={connector} currency={currency} baselineSort={viewState.sort} />
   </View>;
   const emptyState = <Text>{searching || products.length > 0 ? 'No products match' : 'No products yet'}</Text>;
   const syncing = status === 'syncing' || status === 'starting';
@@ -191,7 +195,7 @@ export function CatalogueView({
           onOpenHealth={onOpenHealth} onOpenSettings={onOpenSettings} />
         <View className="flex-1 p-4">
         <CatalogueDisplayOptions state={viewState} onChange={changeViewState} products={products} quickFilterCount={quickFilters.length}
-          open={settingsOpen} onOpenChange={setSettingsOpen} />
+          open={settingsOpen} onOpenChange={setSettingsOpen} onCustomiseFilterBar={() => setFilterBarOpen(true)} />
         {message ? <Text>{message}</Text> : null}
         {atRoot ? viewState.view === 'grid'
           ? <BrowseRootGrid terms={terms} numColumns={numColumns} searchSlot={searchSlot} onOpen={setPlace} />
