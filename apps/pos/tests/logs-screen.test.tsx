@@ -18,7 +18,7 @@ addRxPlugin(RxDBMigrationSchemaPlugin);
 const now = () => new Date(2026, 10, 10, 12, 0, 0).getTime();
 const storeName = 'Test store';
 const siteUrl = 'https://shop.example';
-const props = { now, storeName, siteUrl, onBack: () => {} };
+const props = { now, storeName, siteUrl };
 let db: RxDatabase;
 let collection: LogCollection;
 let rows: LogRecord[];

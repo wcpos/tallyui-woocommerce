@@ -1,15 +1,14 @@
 import { View } from 'react-native';
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect } from 'expo-router';
 import { Text } from '@tallyui/components';
-import { HealthScreen } from '../components/health-screen';
-import { SessionHoldBanner } from '../components/session-hold-banner';
-import { useSession } from '../lib/auth/session-context';
-import { useCatalogue } from '../lib/catalogue/catalogue-context';
+import { HealthScreen } from '../../components/health-screen';
+import { SessionHoldBanner } from '../../components/session-hold-banner';
+import { useSession } from '../../lib/auth/session-context';
+import { useCatalogue } from '../../lib/catalogue/catalogue-context';
 
-export default function Health() {
+export default function HealthDatabase() {
   const { session, ready } = useSession();
   const { catalogue, error } = useCatalogue();
-  const router = useRouter();
   if (!ready) return null;
   if (!session) return <Redirect href="/connect" />;
   if (!catalogue) return (
@@ -25,6 +24,5 @@ export default function Health() {
       { key: 'products', label: 'Products', collection: catalogue.db.products, onSyncNow: () => catalogue.replication.resume() },
       { key: 'coupons', label: 'Coupons', collection: catalogue.coupons },
       { key: 'parked', label: 'Parked sales', collection: catalogue.parkedCarts },
-    ]}
-    onBack={() => { router.canGoBack() ? router.back() : router.replace('/catalogue'); }} /></>;
+    ]} /></>;
 }

@@ -71,21 +71,22 @@ test('the menu opens the drawer, and Orders closes it and opens orders', () => {
   expect(screen.queryByTestId('drawer-panel')).toBeNull();
 });
 
-test('Logs and Settings are in the drawer only when their handlers are supplied', () => {
-  const onOpenLogs = vi.fn();
+test('Store health and Settings are in the drawer only when their handlers are supplied, and there is no Logs item', () => {
+  const onOpenHealth = vi.fn();
   const onOpenSettings = vi.fn();
-  const { rerender } = render(<><CatalogueView {...props} onOpenLogs={onOpenLogs} onOpenSettings={onOpenSettings} /><PortalHost /></>);
+  const { rerender } = render(<><CatalogueView {...props} onOpenHealth={onOpenHealth} onOpenSettings={onOpenSettings} /><PortalHost /></>);
   expect(screen.queryByTestId('settings-entry')).toBeNull();
   fireEvent.click(screen.getByTestId('pos-drawer-open-button'));
-  fireEvent.click(screen.getByTestId('drawer-item-logs'));
-  expect(onOpenLogs).toHaveBeenCalledOnce();
+  expect(screen.queryByTestId('drawer-item-logs')).toBeNull();
+  fireEvent.click(screen.getByTestId('drawer-item-health'));
+  expect(onOpenHealth).toHaveBeenCalledOnce();
   fireEvent.click(screen.getByTestId('pos-drawer-open-button'));
   fireEvent.click(screen.getByTestId('drawer-item-settings'));
   expect(onOpenSettings).toHaveBeenCalledOnce();
   rerender(<><CatalogueView {...props} /><PortalHost /></>);
   fireEvent.click(screen.getByTestId('pos-drawer-open-button'));
   expect(screen.getByTestId('drawer-panel')).not.toBeNull();
-  expect(screen.queryByTestId('drawer-item-logs')).toBeNull();
+  expect(screen.queryByTestId('drawer-item-health')).toBeNull();
   expect(screen.queryByTestId('drawer-item-settings')).toBeNull();
 });
 

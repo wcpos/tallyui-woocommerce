@@ -10,6 +10,7 @@ import type { ReceiptEmailCollection } from '../lib/receipts/receipt-emails';
 
 const mocks = vi.hoisted(() => ({ outbox: { enabled: false } as any }));
 vi.mock('../lib/sale/outbox-context', () => ({ useOutbox: () => mocks.outbox }));
+vi.mock('expo-router', () => ({ useRouter: () => ({ push: () => {} }) }));
 vi.mock('../components/queued-emails-panel', async () => {
   const { createElement } = await import('react');
   const actual = await vi.importActual<any>('../components/queued-emails-panel');
@@ -70,9 +71,11 @@ test('shows refused orders, then the counts, then the queued emails', async () =
   mocks.outbox = { enabled: true, orders, state: { pending: 0, sending: false }, requeue: vi.fn(async () => 1) };
   await insertOrder('r1', { syncStatus: 'rejected' });
   await products.insert({ id: 'a' });
-  const onBack = vi.fn();
-  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} onBack={onBack} />);
+  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} />);
   expect(screen.getByTestId('screen-health-database')).not.toBeNull();
+  // The Store health area draws the title and the way back.
+  expect(screen.queryByTestId('health-back')).toBeNull();
+  expect(screen.queryByText('Store health')).toBeNull();
   expect(screen.getByText('Your store, on this device — sales keep working even if your server does not.')).not.toBeNull();
   expect(screen.getByTestId('db-row-products')).not.toBeNull();
   expect(screen.getByTestId('db-row-orders')).not.toBeNull();
@@ -83,21 +86,31 @@ test('shows refused orders, then the counts, then the queued emails', async () =
   expect(emails.getAttribute('data-orders')).toBe('yes');
   expect(rejected.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(table.compareDocumentPosition(emails) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  fireEvent.click(screen.getByTestId('health-back'));
-  expect(onBack).toHaveBeenCalledTimes(1);
 });
 
 test('Send again goes through the outbox', async () => {
   mocks.outbox = { enabled: true, orders, state: { pending: 0, sending: false }, requeue: vi.fn(async () => 1) };
   await insertOrder('r1', { syncStatus: 'rejected' });
   await products.insert({ id: 'a' });
-  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} onBack={vi.fn()} />);
+  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} />);
   fireEvent.click(await screen.findByTestId('db-rejected-requeue-r1'));
   expect(mocks.outbox.requeue).toHaveBeenCalledWith(['r1']);
 });
 
+test('a stuck sale puts the attention banner just after the stat strip, before the refused panel and the counts (v2 order)', async () => {
+  mocks.outbox = { enabled: true, orders, requeue: vi.fn(async () => 0), flush: vi.fn(async () => {}), state: { pending: 1, sending: false,
+    stuck: { commandIds: ['c1'], since: 1000, reason: 'Server error 500', orders: [{ commandId: 'c1', since: 1000, reason: 'Server error 500' }] } } };
+  await insertOrder('r1', { syncStatus: 'rejected' });
+  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} />);
+  const banner = screen.getByTestId('db-attention-panel');
+  const rejected = await screen.findByTestId('db-rejected');
+  expect(screen.getByTestId('db-stats').compareDocumentPosition(banner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(banner.compareDocumentPosition(rejected) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(banner.compareDocumentPosition(screen.getByTestId('db-table')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
 test('without an open outbox there is no Orders row and no refused panel', () => {
-  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} onBack={vi.fn()} />);
+  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} />);
   expect(screen.getByTestId('db-row-products')).not.toBeNull();
   expect(screen.queryByTestId('db-row-orders')).toBeNull();
   expect(screen.queryByTestId('db-rejected')).toBeNull();
@@ -108,7 +121,7 @@ test('the summary strip comes first: ready to sell, and the records sum the row 
   mocks.outbox = { enabled: true, orders, state: { pending: 0, sending: false }, requeue: vi.fn(async () => 0) };
   await products.bulkInsert([{ id: 'a' }, { id: 'b' }]);
   await insertOrder('o1', {});
-  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} onBack={vi.fn()} />);
+  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} />);
   const strip = screen.getByTestId('db-stats');
   expect(strip.compareDocumentPosition(screen.getByTestId('db-table')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   await waitFor(() => expect(textOf('db-row-count-products')).toBe('2'));
@@ -122,7 +135,7 @@ test('the summary strip comes first: ready to sell, and the records sum the row 
 });
 
 test('with no products local it reads Preparing…', async () => {
-  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} onBack={vi.fn()} />);
+  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} />);
   await waitFor(() => expect(textOf('db-row-count-products')).toBe('0'));
   expect(textOf('db-stat-ready-value')).toBe('Preparing…');
   expect(classesOf('db-stat-ready-value')).not.toContain('text-success');
@@ -131,7 +144,7 @@ test('with no products local it reads Preparing…', async () => {
 
 test('the records value follows writes live', async () => {
   await products.insert({ id: 'a' });
-  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} onBack={vi.fn()} />);
+  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} />);
   await waitFor(() => expect(textOf('db-stat-records-value')).toBe('1'));
   await act(async () => { await products.insert({ id: 'b' }); });
   await waitFor(() => expect(textOf('db-stat-records-value')).toBe('2'));
@@ -140,28 +153,28 @@ test('the records value follows writes live', async () => {
 });
 
 test('changes waiting to send: 0 reads good, pending orders read bad', () => {
-  const { unmount } = render(<HealthScreen receiptEmails={receiptEmails} collections={collections} onBack={vi.fn()} />);
+  const { unmount } = render(<HealthScreen receiptEmails={receiptEmails} collections={collections} />);
   expect(textOf('db-stat-waiting-value')).toBe('0');
   expect(classesOf('db-stat-waiting-value')).toContain('text-success');
   expect(classesOf('db-stat-waiting-value')).not.toContain('text-destructive');
   expect(screen.getByText('changes waiting to send')).not.toBeNull();
   unmount();
   mocks.outbox = { enabled: true, orders, state: { pending: 3, sending: false }, requeue: vi.fn(async () => 0) };
-  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} onBack={vi.fn()} />);
+  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} />);
   expect(textOf('db-stat-waiting-value')).toBe('3');
   expect(classesOf('db-stat-waiting-value')).toContain('text-destructive');
 });
 
 test('the storage stat is hidden without navigator.storage', async () => {
   setStorage(undefined);
-  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} onBack={vi.fn()} />);
+  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} />);
   await waitFor(() => expect(textOf('db-row-count-products')).toBe('0'));
   expect(screen.queryByTestId('db-stat-storage')).toBeNull();
 });
 
 test('the storage stat reads the estimate', async () => {
   setStorage({ estimate: () => Promise.resolve({ usage: 2048 }) });
-  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} onBack={vi.fn()} />);
+  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} />);
   await waitFor(() => expect(textOf('db-stat-storage-value')).toBe('2.0 KB'));
   expect(screen.getByText('storage used')).not.toBeNull();
 });
