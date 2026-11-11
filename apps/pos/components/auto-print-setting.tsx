@@ -17,7 +17,8 @@ export function AutoPrintReceiptSetting(): JSX.Element {
       <SwitchRow label="Automatically print receipt after checkout" testID="cart-setting-auto-print-receipt"
         accessibilityLabel="Automatically print receipt after checkout" checked={settings.autoPrint}
         onCheckedChange={autoPrint => update({ ...settings, autoPrint })} />
-      {settings.autoPrint && !settings.autoShow ? <Text testID="cart-setting-auto-print-hint" className="text-sm text-muted-foreground">
+      {/* v2's FormDescription is `variant="help"` (form/common.tsx l.103): `text-muted-foreground text-xs`, 12 px (text/ladder.ts l.15). */}
+      {settings.autoPrint && !settings.autoShow ? <Text testID="cart-setting-auto-print-hint" className="text-xs text-muted-foreground">
         Without a receipt printer, the print dialog opens after each sale.</Text> : null}
     </View>
   </>;

@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, expect, test, vi } from 'vitest';
 import type { StoreOrder } from '@tallyui/core';
 import { OrderDetailView } from '../components/order-detail';
+import { classesOf } from './classes-of';
 
 afterEach(cleanup);
 
@@ -22,6 +23,7 @@ const part = (testID: string) => within(screen.getByTestId(testID));
 test('the header shows v2\'s order title, its status and when it was placed', () => {
   show(make());
   expect(screen.getByTestId('order-modal-title').textContent).toBe('Order #901');
+  expect(classesOf('order-modal-title')).toEqual(expect.arrayContaining(['text-lg', 'leading-none'])); // v2's dialog rank
   expect(screen.getByTestId('order-modal-status').textContent).toBe('Completed');
   expect(screen.getByTestId('order-modal-identity').textContent).toBe(
     new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date('2026-10-15T10:00:00Z')));

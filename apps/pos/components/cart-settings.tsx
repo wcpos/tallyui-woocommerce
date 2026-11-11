@@ -6,11 +6,10 @@ import type { RxCollection } from 'rxdb';
 import { Cart, createSvgIcon, Dialog, DialogOverlay, DialogPortal, DialogTitle, IconButton, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Text, XIcon } from '@tallyui/components';
 import { Dialog as DialogPrimitive } from '@tallyui/primitives';
 import { AppRailArea, AppRailShown, BESIDE_RAIL } from './app-rail';
-import { ChevronDownIcon, FieldLabel, SELECT_FACE } from './select-chevron';
+import { ChevronDownIcon, FieldLabel, SELECT_FACE, SwitchRow } from './select-chevron';
 import { useRegister } from '../lib/register/register-context';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { CartAddMenu } from './cart-add-menu';
-import { RegisterSwitch } from './register-controls';
 import { CATALOGUE_VIEW_DEFAULTS } from '../lib/catalogue/catalogue-view-state';
 import { RestoreDefaultsButton, SHEET_TITLE, SheetCloseButton } from './catalogue-display-options';
 import type { PanelPosition } from '../lib/catalogue/catalogue-view-state';
@@ -119,8 +118,16 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
           <QuickDiscountsSetting key={settings.quickDiscounts.join(',')} keys={settings.quickDiscounts}
             onChange={next => onSettingsChange({ ...settings, quickDiscounts: next })} />
           <AutoPrintReceiptSetting />
-          {/* The register sessions switch, once under the cart; RegisterSwitch renders nothing without a register. */}
-          {register && <View className="gap-1.5"><FieldLabel>Register sessions</FieldLabel><RegisterSwitch inset={false} /></View>}
+          {/* The register sessions switch, once under the cart and only with a register. v2 has no such row; it is
+              drawn as v2's FormSwitch with a description (form/switch.tsx, as ui-settings-form.tsx's autoPrintReceipt):
+              FormItem's gap-1.5, the switch and its muted label, then the help line under the row: FormDescription's
+              `variant="help"` (form/common.tsx l.103), `text-muted-foreground text-xs`, 12 px (text/ladder.ts l.15). */}
+          {register && <View testID="cart-setting-register-sessions-item" className="gap-1.5">
+            <SwitchRow label="Register sessions" testID="cart-setting-register-sessions" accessibilityLabel="Use register sessions"
+              checked={register.setting} onCheckedChange={register.setSetting} />
+            <Text testID="cart-setting-register-sessions-hint" className="text-xs text-muted-foreground">
+              A session starts with a counted float, records cash paid in and out, and closes with a count that shows any difference.</Text>
+          </View>}
         </ScrollView>
         <View className="flex-row justify-between border-t border-border px-4 pt-4">
           <RestoreDefaultsButton testID="ui-settings-restore-defaults" onPress={() => {

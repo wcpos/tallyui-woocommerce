@@ -97,7 +97,8 @@ export function OrderDetailView({ order, onReceipt, onClose }: {
   return (
     <View className="min-h-0 flex-1 gap-4">
       <View className="flex-row items-center justify-between gap-2 pl-4 pr-1">
-        <Text testID="order-modal-title" accessibilityRole="header" className="flex-1 text-base font-semibold leading-none text-foreground">
+        {/* v2's dialog rank (text/ladder.ts l.10 `dialog: 'text-lg font-strong'`), 16 px, with the title's leading-none. */}
+        <Text testID="order-modal-title" accessibilityRole="header" className="flex-1 text-lg font-semibold leading-none text-foreground">
           {`Order #${order.reference}`}
         </Text>
         <IconButton testID="order-modal-close" accessibilityLabel="Close" variant="ghost" size="md" onPress={onClose}><XIcon size={18} /></IconButton>

@@ -268,13 +268,13 @@ test('the header holds only the title; the close sits over it, as v2\'s DialogCo
   expect(screen.getByTestId('catalogue-settings-x').parentElement!.parentElement).toBe(screen.getByTestId('catalogue-settings'));
 });
 
-// v2's DialogTitle is 16 px leading-none, so the header row is 16 px tall and the first label sits at about 62 px.
-test('the title keeps leading-none beside text-base, so the header row is v2\'s 16 px, not text-base\'s 24 px line', () => {
+// v2's DialogTitle is its dialog rank, text-lg (16 px on the 14 px ramp) leading-none, so the header row is 16 px tall.
+test('the title keeps leading-none beside text-lg, so the header row is v2\'s 16 px, not text-lg\'s 1.35 line', () => {
   openSheet();
   expect(screen.getByTestId('catalogue-settings-title').textContent).toBe('Product settings');
   const classes = classesOf('catalogue-settings-title');
-  expect(classes).toEqual(expect.arrayContaining(['text-base', 'leading-none']));
-  expect(classes).not.toContain('text-lg');
+  expect(classes).toEqual(expect.arrayContaining(['text-lg', 'leading-none']));
+  expect(classes).not.toContain('text-base');
   expect(screen.getByTestId('catalogue-settings-header').contains(screen.getByTestId('catalogue-settings-title'))).toBe(true);
 });
 
@@ -354,4 +354,12 @@ test("Restore Default Settings is v2's outline-destructive: a red border on the 
   expect(classesOf('catalogue-settings-restore')).toEqual(expect.arrayContaining(['border-destructive', 'bg-card']));
   expect(classesOf('catalogue-settings-restore-label')).toContain('text-foreground');
   expect(classesOf('catalogue-settings-restore-label')).not.toContain('text-destructive');
+});
+
+test('Restore and Close are v2\'s h-ctl footer buttons, 44 px: h-11 over TallyUI\'s h-10', () => {
+  openSheet();
+  for (const testID of ['catalogue-settings-restore', 'catalogue-settings-close']) {
+    expect(classesOf(testID), testID).toContain('h-11');
+    expect(classesOf(testID), testID).not.toContain('h-10');
+  }
 });
