@@ -51,7 +51,8 @@ export function RegisterProvider({ children }: { children: ReactNode }) {
     registerId: boundRegisterId, enabled,
     actor: { id: user ? String(user.id) : '', name: user?.displayName ?? '' },
     labels: {
-      registerName: 'This till',
+      // The closure's `register_name`: v2 stamps the bound register's name.
+      registerName: registerName ?? 'This till',
       resolveCashierName: id => user && id === String(user.id) ? user.displayName : id,
     },
     timezone: 'device', softwareVersion: SOFTWARE_VERSION, tenderInProgress,

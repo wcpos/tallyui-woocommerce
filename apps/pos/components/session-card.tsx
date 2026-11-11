@@ -26,7 +26,7 @@ export function SessionCard({ currency, locale, resolveCashierName, onPrintXRepo
   return (
     <View testID="reports-session-card" className="flex-row items-center gap-3 border-b border-border py-3">
       <View className="min-w-0 flex-1 gap-1">
-        <Text><Text className="text-success">●</Text>{' Open · This till'}</Text>
+        <Text><Text className="text-success">●</Text>{` Open · ${register.registerName ?? 'This till'}`}</Text>
         <Text className="text-muted-foreground">
           {`since ${openedAtLabel(session.opened_at_gmt, locale)} · ${name} · ${salesCount === 1 ? '1 sale' : `${salesCount} sales`}`}
         </Text>

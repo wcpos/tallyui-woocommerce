@@ -48,14 +48,16 @@ export function RegisterControls({ currency, storeName, locale, cartEmpty, child
   if (!register?.enabled) return <>{children}</>;
   return (
     <View className="flex-1" dataSet={showClosure ? { print: 'hide' } : undefined}>
-      <RegisterBar register={register} registerId={register.boundRegisterId} registerName="This till"
+      {/* No registerName: a Tally till has one register, so RegisterPanel titles itself "Register", as v2 register-panel.tsx
+          does for a single register, and RegisterBar names a register only with multiRegister. */}
+      <RegisterBar register={register} registerId={register.boundRegisterId}
         online={online} multiRegister={false}
         onOpenPanel={() => setPanelOpen(true)} onPressPill={() => setPanelOpen(true)} />
       <RegisterColumn register={register} registerId={register.boundRegisterId} registers={[]} onPick={() => {}}
         currency={currency} cartEmpty={cartEmpty} countSlot={<RegisterCount register={register} currency={currency} />}>
         {children}
       </RegisterColumn>
-      <RegisterPanel register={register} currency={currency} registerName="This till" open={panelOpen} onOpenChange={setPanelOpen} />
+      <RegisterPanel register={register} currency={currency} open={panelOpen} onOpenChange={setPanelOpen} />
       {showClosure && register.lastClosure && <>
         <ClosureSheet register={register} currency={currency} onDone={() => setShowClosure(false)} onPrint={() => {
           if (typeof window !== 'undefined' && typeof window.print === 'function') window.print();

@@ -109,9 +109,11 @@ export function TillStrip({ orders, currency, locale, resolveCashierName, onPrin
 
   // v2 till-strip.tsx: the equation leaves the title row on a window under 1024 or past four terms.
   const stacked = (!phone && !roomy) || rows.length > 4;
+  // v2 till-strip.tsx `registerName`: the bound register's name, else the last closure's; v2 then has an empty title, Tally "This till".
+  const registerName = register.registerName || String(closure?.breakdowns.register_name ?? '') || 'This till';
   const title = <View testID="till-title" className="min-w-0 flex-1 gap-1">
     <View className="flex-row flex-wrap items-center gap-2">
-      <Text className="font-semibold">{bound ? 'This till' : 'No register on this device'}</Text>
+      <Text testID="till-name" className="font-semibold">{bound ? registerName : 'No register on this device'}</Text>
       {bound && <Text testID="till-status" className={active ? 'text-success' : 'text-muted-foreground'}>{active ? '● Open' : '● Closed'}</Text>}
       {bound && since && <Text testID="till-since" className="text-muted-foreground">{since}</Text>}
     </View>
