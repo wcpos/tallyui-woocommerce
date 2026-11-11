@@ -16,7 +16,7 @@ import { OnlineStatusContext, type OnlineStatus } from '../lib/online/online-sta
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
-import { toggleRegisterSessions } from './cart-head-helpers';
+import { sessionsOff, toggleRegisterSessions } from './cart-head-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import { cartPane, openCartTab, openProductsTab, productsPane } from './phone-tabs-helpers';
 
@@ -27,6 +27,7 @@ beforeEach(() => {
     getItem: (key: string) => data.get(key) ?? null,
     setItem: (key: string, value: string) => { data.set(key, value); },
   });
+  sessionsOff();
   const home = `https://shop.example/${crypto.randomUUID()}`;
   saveSession({
     site: { name: stores[0].name, home, wpApiUrl: `${home}/wp-json`, wcposApiUrl: `${home}/wp-json/wcpos/v2`, authUrl: `${home}/wcpos-auth/` },
@@ -92,7 +93,7 @@ test.each([900, 390])('Offline shows once: in the POS bar pill, then in the regi
   }
 });
 
-test('sessions default off: no register UI and the cart completes a cash sale', async () => {
+test('sessions saved off: no register UI and the cart completes a cash sale', async () => {
   const app = await setup();
   // The switch sits in Cart Settings, not under the cart.
   expect(screen.queryByRole('switch', { name: 'Use register sessions' })).toBeNull();

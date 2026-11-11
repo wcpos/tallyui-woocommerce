@@ -16,7 +16,7 @@ import { RegisterProvider, useRegister } from '../lib/register/register-context'
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
-import { toggleRegisterSessions } from './cart-head-helpers';
+import { sessionsOff, toggleRegisterSessions } from './cart-head-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 
 beforeEach(() => {
@@ -26,6 +26,7 @@ beforeEach(() => {
     getItem: (key: string) => data.get(key) ?? null,
     setItem: (key: string, value: string) => { data.set(key, value); },
   });
+  sessionsOff();
   const home = `https://shop.example/${crypto.randomUUID()}`;
   saveSession({
     site: { name: stores[0].name, home, wpApiUrl: `${home}/wp-json`, wcposApiUrl: `${home}/wp-json/wcpos/v2`, authUrl: `${home}/wcpos-auth/` },
