@@ -7,11 +7,22 @@ import { PortalHost } from '@tallyui/primitives';
 import { CartSettingsDialog, CartWithSettings } from '../components/cart-settings';
 import { CART_SETTINGS_KEY, loadCartSettings, normalizeQuickDiscounts, saveCartSettings, sortCartLines } from '../lib/sale/cart-settings';
 import type { PanelPosition } from '../lib/catalogue/catalogue-view-state';
+import { AppFrame, BESIDE_RAIL } from '../components/app-rail';
+import { isWideWindow } from '../lib/layout/wide';
+import { classesOf } from './classes-of';
 import products from './fixtures/products.json';
+
+// No RegisterProvider here, so useRegister is null (no register switch) unless a test hands the sheet a register.
+const held = vi.hoisted(() => ({ register: null as null | { setting: boolean; setSetting(on: boolean): void } }));
+vi.mock('../lib/register/register-context', async importOriginal => ({
+  ...await importOriginal<typeof import('../lib/register/register-context')>(),
+  useRegister: () => held.register,
+}));
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 
 afterEach(() => {
+  held.register = null;
   cleanup();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -379,4 +390,98 @@ test('a quick discount slot reads as its key at rest and as the plain number whi
   fireEvent.blur(slot(2));
   expect(slots()).toEqual(['−20%', '−10%', '−15%']);
   expect(storedKeys()).toEqual([20, 10, 15]);
+});
+
+function Framed({ wide, position, pathname = '/catalogue' }: { wide: boolean; position: PanelPosition; pathname?: string }) {
+  return <><AppFrame wide={wide} pathname={pathname} onNavigate={() => {}}>
+    <TaxProvider ratesPpm={{}} pricesIncludeTax={false}><Harness position={position} /></TaxProvider>
+  </AppFrame><PortalHost /></>;
+}
+
+function renderInFrame(wide: boolean, position: PanelPosition) {
+  render(<Framed wide={wide} position={position} />);
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  return classesOf('cart-settings');
+}
+
+test('at 1280px a left sheet\'s backdrop starts beside the rail, which stays undimmed; on a phone it fills the window', () => {
+  renderInFrame(isWideWindow({ width: 1280, height: 800 }), 'left');
+  expect(classesOf('cart-settings-overlay')).toContain(BESIDE_RAIL);
+  cleanup();
+  renderInFrame(false, 'left');
+  expect(classesOf('cart-settings-overlay')).toContain('inset-0');
+  expect(classesOf('cart-settings-overlay')).not.toContain(BESIDE_RAIL);
+});
+
+test('a tap on the backdrop closes the sheet', () => {
+  renderInFrame(true, 'left');
+  fireEvent.click(screen.getByTestId('cart-settings-overlay'));
+  expect(screen.queryByTestId('cart-settings')).toBeNull();
+});
+
+test('leaving the sale screen from the rail closes the sheet, so it never floats over the next area', () => {
+  const { rerender } = render(<Framed wide position="left" />);
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  expect(screen.getByTestId('cart-settings')).not.toBeNull();
+  rerender(<Framed wide position="left" pathname="/orders" />);
+  expect(screen.queryByTestId('cart-settings')).toBeNull();
+});
+
+test('the receipt switches are two plain rows, switch then label, with no group round them', () => {
+  renderCart();
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  const list = screen.getByTestId('cart-sort-items-row').parentElement;
+  const show = screen.getByTestId('cart-setting-auto-show-receipt-row');
+  const print = screen.getByTestId('cart-setting-auto-print-receipt-row');
+  expect(show.parentElement).toBe(list);
+  expect(print.parentElement!.parentElement).toBe(list);
+  for (const id of ['cart-setting-auto-show-receipt-row', 'cart-setting-auto-print-receipt-row']) {
+    expect(classesOf(id)).toEqual(['w-full', 'flex-row', 'items-center', 'gap-3']);
+  }
+  expect(show.firstElementChild!.contains(screen.getByTestId('cart-setting-auto-show-receipt'))).toBe(true);
+  expect(within(screen.getByTestId('cart-settings')).queryByText('Receipt')).toBeNull();
+});
+
+test('at 1280px a left sheet starts at the rail\'s right edge, as v2\'s sits beside its rail', () => {
+  const sheet = renderInFrame(isWideWindow({ width: 1280, height: 800 }), 'left');
+  expect(screen.getByTestId('drawer-panel-permanent')).not.toBeNull();
+  expect(sheet).toContain(BESIDE_RAIL);
+  expect(sheet).not.toContain('left-0');
+});
+
+test.each([
+  ['a phone (no rail), left', false, 'left', ['left-0']],
+  ['1280px, right', true, 'right', ['left-auto', 'right-0']],
+] as const)('on %s the sheet keeps its edge', (_where, wide, position, edge) => {
+  const sheet = renderInFrame(wide, position);
+  expect(sheet).toEqual(expect.arrayContaining([...edge]));
+  expect(sheet).not.toContain(BESIDE_RAIL);
+});
+
+test('Sort items is a plain labelled row, as v2 draws it, and its trigger ends in a chevron', () => {
+  renderCart();
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  const row = screen.getByTestId('cart-sort-items-row');
+  expect(within(row).getByText('Sort items')).not.toBeNull();
+  expect(classesOf('cart-sort-items-row')).toEqual(['gap-1']);
+  // Nothing wraps the row: it sits in the sheet's list beside Panel position's row.
+  expect(row.parentElement).toBe(screen.getByTestId('cart-setting-panel-position').parentElement!.parentElement);
+  expect(screen.getByTestId('cart-sort-items').contains(screen.getByTestId('cart-sort-items-chevron'))).toBe(true);
+});
+
+test('pressing a receipt row\'s label toggles its switch, as v2\'s FormSwitch label does', () => {
+  renderCart();
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  const toggle = screen.getByTestId('cart-setting-auto-show-receipt');
+  const before = toggle.getAttribute('aria-checked');
+  fireEvent.click(screen.getByTestId('cart-setting-auto-show-receipt-label'));
+  expect(screen.getByTestId('cart-setting-auto-show-receipt').getAttribute('aria-checked')).toBe(before === 'true' ? 'false' : 'true');
+});
+
+test('in the cart sheet the register switch is a plain row, without the p-4 a settings group gives it', () => {
+  held.register = { setting: false, setSetting: () => {} };
+  renderCart();
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  expect(within(screen.getByTestId('cart-settings')).getByText('Register sessions')).not.toBeNull();
+  expect(classesOf('register-switch-row')).toEqual(['flex-row', 'items-center', 'gap-3']);
 });

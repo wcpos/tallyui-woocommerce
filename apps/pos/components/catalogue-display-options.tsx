@@ -2,20 +2,16 @@
 import type { JSX } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Path } from 'react-native-svg';
-import { Button, createSvgIcon, Dialog, DialogContent, DialogTitle, IconButton, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Slider, Switch, Text, Tooltip, TooltipContent, TooltipTrigger, XIcon } from '@tallyui/components';
+import { Button, createSvgIcon, Dialog, DialogContent, DialogTitle, IconButton, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Slider, Text, Tooltip, TooltipContent, TooltipTrigger, XIcon } from '@tallyui/components';
 import type { ProductSort } from '@tallyui/pos';
 import { BROWSE_BY, CATALOGUE_COLUMNS, CATALOGUE_TILE_FIELDS, CATALOGUE_VIEW_DEFAULTS } from '../lib/catalogue/catalogue-view-state';
 import type { AppCatalogueViewState, PanelPosition } from '../lib/catalogue/catalogue-view-state';
 import { QUICK_FILTER_SORT_FIELDS } from '../lib/catalogue/quick-filters';
 import { termOptions } from './catalogue-filter-chips';
 import { Segmented } from './segmented';
+import { ChevronDownIcon, FieldLabel, SELECT_FACE, SwitchRow } from './select-chevron';
 
 const CheckIcon = createSvgIcon('CheckIcon', () => <Path d="M20 6 9 17l-5-5" />);
-// lucide `chevron-down`: the end of v2's select face (components select/index.tsx, SelectTrigger).
-const ChevronDownIcon = createSvgIcon('ChevronDownIcon', () => <Path d="m6 9 6 6 6-6" />);
-// v2's field box, default theme (components field-box/index.tsx; apps/main/global.css): h-ctl 44 px,
-// rounded-field 1 x --radius 8 px, bg-chip = card, chip-border = border (Tally's input token is the same colour).
-const SELECT_FACE = 'h-11 gap-2 rounded-lg bg-card';
 // lucide `sliders-horizontal`, v2's Product settings trigger.
 const SlidersIcon = createSvgIcon('SlidersIcon', () => <>
   <Path d="M21 4h-7" /><Path d="M10 4H3" /><Path d="M21 12h-9" /><Path d="M8 12H3" /><Path d="M21 20h-5" /><Path d="M12 20H3" />
@@ -33,21 +29,6 @@ export function settingsSheetClassName(position: PanelPosition): string {
 const SORT_LABELS: Record<(typeof QUICK_FILTER_SORT_FIELDS)[number], string> = { name: 'Name', sku: 'SKU', barcode: 'Barcode', price: 'Price', stock: 'Stock Quantity' };
 
 function countLabel(count: number, one: string, many: string): string { return `${count} ${count === 1 ? one : many}`; }
-
-// v2's FormLabel (components form/common.tsx: py-1) over its Label text (label/index.web.tsx).
-function FieldLabel({ children }: { children: string }): JSX.Element { return <Text className="py-1 text-sm font-medium leading-none text-muted-foreground">{children}</Text>; }
-
-/** v2's FormSwitch: the switch first, then a label that fills the row and toggles the switch when pressed. */
-function SwitchRow({ label, testID, accessibilityLabel, checked, disabled, onCheckedChange }: {
-  label: string; testID: string; accessibilityLabel: string; checked: boolean; disabled?: boolean; onCheckedChange(next: boolean): void;
-}): JSX.Element {
-  return <View testID={`${testID}-row`} className="w-full flex-row items-center gap-3">
-    <Switch testID={testID} accessibilityLabel={accessibilityLabel} checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
-    <Pressable testID={`${testID}-label`} className="grow" disabled={disabled} onPress={() => onCheckedChange(!checked)}>
-      <Text className="grow text-sm text-foreground">{label}</Text>
-    </Pressable>
-  </View>;
-}
 
 /** v2's Product settings trigger in the search row: a sliders icon with the tooltip "Product settings". */
 export function CatalogueSettingsButton({ onPress }: { onPress(): void }): JSX.Element {

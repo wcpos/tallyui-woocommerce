@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import type { ComponentProps, JSX, ReactNode } from 'react';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { Path } from 'react-native-svg';
 import type { RxCollection } from 'rxdb';
-import { Button, Cart, createSvgIcon, Dialog, DialogContent, DialogTitle, IconButton, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SettingsGroup, Text, XIcon } from '@tallyui/components';
+import { Button, Cart, createSvgIcon, Dialog, DialogOverlay, DialogPortal, DialogTitle, IconButton, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Text, XIcon } from '@tallyui/components';
+import { Dialog as DialogPrimitive } from '@tallyui/primitives';
+import { AppRailArea, AppRailShown, BESIDE_RAIL } from './app-rail';
+import { ChevronDownIcon, FieldLabel, SELECT_FACE } from './select-chevron';
 import { useRegister } from '../lib/register/register-context';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { CartAddMenu } from './cart-add-menu';
@@ -22,16 +25,22 @@ const FiltersIcon = createSvgIcon('FiltersIcon', () => <>
   <Path d="M15 18a2 2 0 1 0 4 0a2 2 0 1 0-4 0M4 18h11m4 0h1" />
 </>);
 
-// v2's UISettingsDialog is a full-height `lg` (512px) side panel; DrawerSheet's FRONT_DRAWER is the same trick.
-const SHEET = 'top-0 h-full w-[512px] max-w-full translate-x-0 translate-y-0 gap-4 rounded-none border-0 border-border bg-card p-0 py-4';
-const CART_SHEET: Record<PanelPosition, string> = { left: `left-0 right-auto border-r ${SHEET}`, right: `left-auto right-0 border-l ${SHEET}` };
+// v2's UISettingsDialog is a full-height `lg` (512px) side panel (dialog side="left": h-full rounded-none border-r).
+const SHEET = 'fixed top-0 z-50 h-full w-[512px] max-w-full gap-4 border-border bg-card py-4 shadow-lg';
+// v2 opens the panel in its screen's own overlay host, beside the rail (apps/main/app/(app)/(drawer)/_layout.tsx
+// `Scene`), so the rail stays undimmed and usable and a left panel starts at its right edge; with no rail (a phone)
+// the overlay and panel start at the window's.
+const CART_SHEET: Record<PanelPosition, (railShown: boolean) => string> = {
+  left: railShown => `${railShown ? BESIDE_RAIL : 'left-0'} right-auto border-r ${SHEET}`,
+  right: () => `left-auto right-0 border-l ${SHEET}`,
+};
 
 /** A full-width two-cell segmented control, as v2's FormSegmentedControl draws it; the chosen cell is tinted. */
 function SegmentedRow({ title, testID, cells }: {
   title: string; testID?: string; cells: { testID: string; label: string; selected: boolean; onPress(): void }[];
 }): JSX.Element {
-  return <View className="gap-1">
-    <View className="px-4 py-2"><Text className="text-sm font-semibold text-foreground">{title}</Text></View>
+  return <View className="gap-1.5">
+    <FieldLabel>{title}</FieldLabel>
     <View testID={testID} role="tablist" aria-label={title} className="min-h-11 flex-row overflow-hidden rounded-lg border border-border bg-card">
       {cells.map((cell, i) => <Pressable key={cell.testID} testID={cell.testID} role="tab" aria-selected={cell.selected} onPress={cell.onPress}
         className={'flex-1 items-center justify-center px-3 py-1.5 web:hover:bg-accent active:opacity-70'
@@ -50,17 +59,28 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
 }): JSX.Element {
   const [open, setOpen] = useState(false);
   const register = useRegister();
+  // Read here, not inside the portal: it renders at the root PortalHost, outside AppFrame's providers.
+  const railShown = useContext(AppRailShown);
+  const area = useContext(AppRailArea);
+  // v2's sheet lives in its screen's overlay host and hides with the screen; this one portals to the root and the
+  // sale screen stays mounted under a pushed area, so a rail tap that leaves the area closes it.
+  useEffect(() => { setOpen(false); }, [area]);
   // v2's usePanelSide('cart') docks the cart's panels opposite the cart, so on the products side: `position`.
   const side = position;
   return <>
     <IconButton testID="cart-settings-button" accessibilityLabel="Cart settings" onPress={() => setOpen(true)}><FiltersIcon size={20} /></IconButton>
-    {open && <Dialog open onOpenChange={next => { if (!next) setOpen(false); }}>
-      <DialogContent testID="cart-settings" dataSet={{ side }} className={CART_SHEET[side]}>
+    {/* DialogContent's overlay is a fixed inset-0 with no class option, which would dim the rail. Back to
+        DialogContent if TallyUI adds an overlay className. */}
+    {open && <Dialog open onOpenChange={next => { if (!next) setOpen(false); }}><DialogPortal>
+      <DialogOverlay testID="cart-settings-overlay" className={railShown && side === 'left' ? BESIDE_RAIL : undefined} />
+      <DialogPrimitive.Content testID="cart-settings" dataSet={{ side }} className={CART_SHEET[side](railShown)}>
         <View className="flex-row items-center justify-between px-4">
           <DialogTitle>Cart Settings</DialogTitle>
           <IconButton variant="ghost" size="sm" testID="cart-settings-x" accessibilityLabel="Close" onPress={() => setOpen(false)}><XIcon size={16} /></IconButton>
         </View>
-        <ScrollView className="flex-1" contentContainerClassName="gap-4 px-4 py-1">
+        {/* v2's plain rows: VStack's gap-2 between fields (components vstack/index.tsx), FormItem's gap-1.5 inside one
+            (form/common.tsx), no box around a field. */}
+        <ScrollView className="flex-1" contentContainerClassName="gap-2 px-4 py-1">
           {/* Cart left puts the products on the right (v2 pos-columns: productsOnRight = cart position left). */}
           <SegmentedRow title="Panel position" testID="cart-setting-panel-position" cells={[
             { testID: 'cart-setting-panel-position-left', label: 'Cart left', selected: position === 'right', onPress: () => onPositionChange('right') },
@@ -72,23 +92,30 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
             { testID: 'cart-setting-open-orders-bottom', label: 'Bottom', selected: settings.openOrdersPosition === 'bottom',
               onPress: () => onSettingsChange({ ...settings, openOrdersPosition: 'bottom' }) },
           ]} />
-          <SettingsGroup title="Sort items">
-            <Select value={{ value: settings.sortLines, label: LINE_SORTS.find(sort => sort.id === settings.sortLines)!.label }}
-              onValueChange={option => { if (option) onSettingsChange({ ...settings, sortLines: normalizeLineSort(option.value) }); }}>
-              <SelectTrigger testID="cart-sort-items"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectGroup>
-                {LINE_SORTS.map(({ id, label }) => <SelectItem key={id} value={id} label={label}
-                  testID={`cart-sort-items-option-${id}`}><Text>{label}</Text></SelectItem>)}
-              </SelectGroup></SelectContent>
-            </Select>
+          {/* v2: a `gap-1` View round the FormSelect (label, then the select) and its `key` hint. */}
+          <View testID="cart-sort-items-row" className="gap-1">
+            <View className="gap-1.5">
+              <FieldLabel>Sort items</FieldLabel>
+              <Select value={{ value: settings.sortLines, label: LINE_SORTS.find(sort => sort.id === settings.sortLines)!.label }}
+                onValueChange={option => { if (option) onSettingsChange({ ...settings, sortLines: normalizeLineSort(option.value) }); }}>
+                <SelectTrigger testID="cart-sort-items" className={SELECT_FACE}>
+                  <SelectValue />
+                  <ChevronDownIcon testID="cart-sort-items-chevron" size={16} className="text-muted-foreground" />
+                </SelectTrigger>
+                <SelectContent><SelectGroup>
+                  {LINE_SORTS.map(({ id, label }) => <SelectItem key={id} value={id} label={label}
+                    testID={`cart-sort-items-option-${id}`}><Text>{label}</Text></SelectItem>)}
+                </SelectGroup></SelectContent>
+              </Select>
+            </View>
             <Text testID="cart-sort-items-hint" className="text-sm text-muted-foreground">Fees and shipping always stay last</Text>
-          </SettingsGroup>
+          </View>
           {/* Remount on any key change, so the slots re-read the stored keys and a refusal clears. */}
           <QuickDiscountsSetting key={settings.quickDiscounts.join(',')} keys={settings.quickDiscounts}
             onChange={next => onSettingsChange({ ...settings, quickDiscounts: next })} />
           <AutoPrintReceiptSetting />
           {/* The register sessions switch, once under the cart; RegisterSwitch renders nothing without a register. */}
-          {register && <SettingsGroup title="Register sessions"><RegisterSwitch /></SettingsGroup>}
+          {register && <View className="gap-1.5"><FieldLabel>Register sessions</FieldLabel><RegisterSwitch inset={false} /></View>}
         </ScrollView>
         <View className="flex-row justify-between border-t border-border px-4 pt-4">
           <Button testID="ui-settings-restore-defaults" variant="outline" className="border-destructive" onPress={() => {
@@ -98,8 +125,8 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
           }}><Text className="text-destructive">Restore Default Settings</Text></Button>
           <Button testID="ui-settings-close" variant="outline" onPress={() => setOpen(false)}><Text>Close</Text></Button>
         </View>
-      </DialogContent>
-    </Dialog>}
+      </DialogPrimitive.Content>
+    </DialogPortal></Dialog>}
   </>;
 }
 
@@ -135,8 +162,9 @@ function QuickDiscountsSetting({ keys, onChange }: { keys: readonly number[]; on
   const description = refused !== null ? 'Enter a percentage above 0 and up to 100'
     : keys.length ? 'As the cashier sees them on the price keypad. Tap a key to change it.'
       : 'No quick keys. The price keypad shows the digits only.';
-  return <SettingsGroup title="Quick Discounts">
-    <View testID="cart-setting-quick-discounts" className="m-2 h-12 flex-row overflow-hidden rounded-md border border-border bg-card">
+  return <View className="gap-1.5">
+    <FieldLabel>Quick Discounts</FieldLabel>
+    <View testID="cart-setting-quick-discounts" className="h-12 flex-row overflow-hidden rounded-md border border-border bg-card">
       {drafts.map((draft, i) => {
         const typing = editing === i || refused === i;
         return <View key={i} className={i > 0 ? 'flex-1 border-l border-border' : 'flex-1'}>
@@ -151,8 +179,8 @@ function QuickDiscountsSetting({ keys, onChange }: { keys: readonly number[]; on
       })}
     </View>
     <Text testID="cart-setting-quick-discounts-hint" role={refused !== null ? 'alert' : undefined}
-      className={`px-3 pb-2 text-sm ${refused !== null ? 'text-destructive' : 'text-muted-foreground'}`}>{description}</Text>
-  </SettingsGroup>;
+      className={`text-sm ${refused !== null ? 'text-destructive' : 'text-muted-foreground'}`}>{description}</Text>
+  </View>;
 }
 
 export type CartWithSettingsProps = ComponentProps<typeof Cart> & {

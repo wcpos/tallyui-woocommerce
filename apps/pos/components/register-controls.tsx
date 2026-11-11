@@ -6,11 +6,12 @@ import { useRegister } from '../lib/register/register-context';
 import { useIsOnline } from '../lib/online/online-status';
 import { ClosurePrint } from './closure-print';
 
-export function RegisterSwitch() {
+/** `inset` false drops the p-4 a settings group wants (the cart settings sheet's plain rows have none). */
+export function RegisterSwitch({ inset = true }: { inset?: boolean }) {
   const register = useRegister();
   if (!register) return null;
   return (
-    <View className="flex-row items-center gap-3 p-4">
+    <View testID="register-switch-row" className={inset ? 'flex-row items-center gap-3 p-4' : 'flex-row items-center gap-3'}>
       <Switch checked={register.setting} onCheckedChange={register.setSetting} accessibilityLabel="Use register sessions" />
       <View className="flex-1 gap-1">
         <Text>Use register sessions</Text>
