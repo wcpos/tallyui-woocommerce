@@ -1,11 +1,14 @@
 # Demo parity: Tally Woo against demo.wcpos.com/pos
 
 - Date: 2026-11-11
-- Tally Woo: `main` at `ce5a542503b8ba245fc9cfcb66e2d377e401fc16` (after #233, `@tallyui/*` 3.18.0), served as a production bundle
+- Tally Woo: `main` at `a182d10bfeb5d71d48367df085470072b3b87b08` (after #235, `@tallyui/*` 3.18.0), served as a production bundle
 - Demo: WCPOS `v 2.0.0` (the version shown under the demo's rail), US Store · Front Counter
 - Viewport: 1280x800; the two phone rows are 390x844
-- Round: 8
+- Round: 9 (narrow: settings sheets). Only the rows whose pair shows a
+  settings sheet were recaptured and re-scored: A10, B9 and C1 (its
+  Order Settings image). Every other row keeps round 8's text and status
 - Score: `PARITY tally-woo 10/45 (match 10, close 28, differs 0, missing 7)`
+- Round 8: 10/45 (match 10, close 28, differs 0, missing 7)
 - Round 7: 10/45 (match 10, close 28, differs 0, missing 7)
 - Round 6: 7/45 (match 7, close 31, differs 0, missing 7)
 - Round 5: 7/45 (match 7, close 30, differs 1, missing 7)
@@ -31,7 +34,7 @@ data, and a bar that reads the store alone is v2's single-register look.
 Since #219 the till strip, the session card, the closures header and the
 prints name the register ("Register 3E32" in this round's fresh profile).
 
-Production bundle: round 8, like rounds 6 and 7, served Tally Woo from `pnpm
+Production bundle: round 9, like rounds 6 to 8, served Tally Woo from `pnpm
 build` (`expo export --platform web` into `apps/pos/dist`) behind a static
 server that applies `vercel.json`'s rewrite to `index.html`. `expo start
 --web --no-dev --minify` served a production script but linked no
@@ -63,12 +66,31 @@ repository:
 A blank cell means the gap can be built here. Where a row has parts of
 both kinds, "What differs" says which part waits.
 
-Two TallyUI gaps are not filed yet:
+These TallyUI gaps are not filed yet:
 
 - `CartTotal` always draws a bold Total row (B3, B12).
 - `TooltipTrigger` opens on press and has no hover-open option. Since #233
   the app works round it on the settings icons only (A10, C1, C5, D12,
   D13), so their tooltips open on hover and are gone once the sheet opens.
+- `Switch` has no `size="sm"`: it is 44x24 px against v2's 36x20. Since
+  #235 the settings sheets give it v2's 20 px of layout (`-my-0.5`), but
+  it still draws larger (A10, B9, C1).
+- `DialogTitle` drops `leading-none` when a size is passed. #235 sets
+  `text-base leading-none` on the sheets' titles, which measure 16 px
+  tall as v2's do, so nothing shows this round.
+- The light theme's `--color-input` is a dark grey (#848a94). #235 names
+  `border-border` on the sheets' selects; any other `border-input`
+  control still draws the dark border.
+- `text-sm` is 14 px against v2's 13 px. In the sheets this makes each
+  field label 1 px taller and its text about 7 % wider, and with the
+  larger Switch it adds up to the 7–8 px by which A10's Tile Fields sit
+  lower than the demo's (A10, B9).
+
+Round 9 measured the sheets on both images with the same ink scan
+(the demo JPEG and the Tally capture, top of each glyph run from the
+sheet's top). The demo side is round 1's Product settings and Cart
+Settings images; the areas' sheets were not opened on the demo, so the
+Order Settings sheet is held to the same chrome.
 
 Both sides are captured as they first appear.
 
@@ -85,6 +107,11 @@ Both sides are captured as they first appear.
   in a fresh browser profile after the first sync ("3 categories · 12
   products" in 17 s). The areas' settings panels were not opened on the
   demo, so the panels themselves are described, not compared.
+- Round 9 recaptured three Tally images (A10, B9, C1's Order Settings)
+  the same way, in a fresh profile after a 17 s first sync, with a
+  register session opened on a $100.00 float so the cart's settings icon
+  shows. No sale was made, so the B9 cart is empty where the demo's has
+  a line; that difference is data.
 
 ## First screen
 
@@ -99,7 +126,7 @@ Both sides are captured as they first appear.
 | A7 | Filter chips | Rounded chips always shown: In Stock (on by default, with ×), Featured, On Sale, Category, Tag, Brand; drilled into a category or a product, the Category chip leaves the row | Rounded chips in one row: In Stock (on by default, with ×), On Sale, Category, Tag; the chips are chosen in Product settings. Drilled into All products, a category or a product inside a level, the Category chip leaves the row (In Stock, On Sale, Tag stay); a product drilled from search results keeps a dimmed Category chip, as v2's `place.field` does | close | No Featured or Brand chip: the connector syncs neither ("Catalogue") | connector | [demo](demo/filter-bar-demo.jpg) · [tally](demo/filter-bar-tally.jpg) |
 | A8 | Out-of-stock products | Hidden by the default In Stock chip | Hidden by the default In Stock chip ("Showing 12 of 13") | match | | | [demo](demo/first-load-demo.jpg) · [tally](demo/first-load-tally.jpg) |
 | A9 | Table view | List rows at the category level: coloured folder icon, name, product count, chevron | List rows at the category level: coloured folder icon, name, product count, chevron; drilling in gives a product table | match | | | [demo](demo/table-view-demo.jpg) · [tally](demo/table-view-tally.jpg) |
-| A10 | Product settings | Right sheet: View Mode, Tile Size, Browse by (All products, Categories, Tags, Brands, Shortcuts), Show out-of-stock products, Sort By and Direction, Variations (Open in place / Popover), Tile Fields (Product Name, Price), Restore Default Settings with dark text in a red border, Close | The settings icon shows a "Product settings" tooltip on hover, gone once the sheet opens. Right sheet under a v2 header (title and ×): View Mode, Tile Size, Browse by (All products, Categories, Tags, Brands, Shortcuts), Show out-of-stock products, Sort By (a select with a chevron) and Direction, Variations, Tile Fields ("Product Name", Price), Restore Default Settings with dark text in a red border, Close | close | Tile Fields' second switch (Price) is cut at the fold where the demo shows both. The sheet's rows start lower (title at 28 px against 24, View Mode at 71 against 62, Tile Fields at 651 against 634; buildable here), and TallyUI's Switch is larger than v2's. The Sort By select has a dark border where the demo's is light grey, and Close is grey-filled with a dark border where the demo's is white (buildable here). The Variations Popover option is greyed out: Tally has no variations popover | shared:@tallyui/components (Switch `size="sm"`; TallyUI #719 popover) | [demo](demo/product-settings-demo.jpg) · [tally](demo/product-settings-tally.jpg) |
+| A10 | Product settings | Right sheet: View Mode, Tile Size, Browse by (All products, Categories, Tags, Brands, Shortcuts), Show out-of-stock products, Sort By and Direction, Variations (Open in place / Popover), Tile Fields (Product Name, Price), Restore Default Settings with dark text in a red border, Close | The settings icon shows a "Product settings" tooltip on hover, gone once the sheet opens. Right sheet under v2's header (a 16 px title and ×): View Mode, Tile Size, Browse by (All products, Categories, Tags, Brands, Shortcuts), Show out-of-stock products, Sort By (a select with a chevron and a light grey border) and Direction, Variations, Tile Fields ("Product Name", Price), Restore Default Settings with dark text in a red border, Close as a white outline button with a light grey border | close | The Price switch is still cut by 2 px at the list's bottom edge, where the demo shows it whole with 22 px to the footer line. The title and View Mode now sit where the demo's do (ink tops at 18 and 57 px on both), but the rows below drift lower: Tile Fields at 636 against 629, the Price switch's track at 689–710 against 682–701 (its 24 px box runs to 713, past the list's edge at 711), with the footer line at 727 against 723. The drift comes from text-sm's 14 px and the larger Switch (TallyUI). The switches are 44x24 px against the demo's 36x20 (TallyUI). The segmented labels (Grid / Table, Ascending / Descending, Open in place / Popover) and the Browse by rows are 16 px against the demo's 14 (buildable here). Restore's border is a bright red (#dc2626) where the demo's is a dark wine red, and the footer buttons are 40 px tall against 44 (buildable here). The Variations Popover option is greyed out: Tally has no variations popover. The Sort By select's light grey border and the white Close now match | shared:@tallyui/components (Switch `size="sm"`, `text-sm` 13 px; TallyUI #719 popover) | [demo](demo/product-settings-demo.jpg) · [tally](demo/product-settings-tally.jpg) |
 | A11 | Tax location and catalogue count | Foot of the catalogue: "Shop base" tax location menu at left; "6 categories · 100 products" with a sync icon at right | Foot of the catalogue: "3 categories · 12 products" with a sync icon at right; nothing at left | missing | No way to switch the tax location from the POS screen. The count and sync icon match ("Tax") | connector (TallyUI #722) | [demo](demo/first-load-demo.jpg) · [tally](demo/first-load-tally.jpg) |
 | A12 | Phone catalogue (390x844) | Top bar (menu, "US Store · Front Counter", bell, avatar), one scrolling chip row, Compact category tiles four to a row, "Shop base" and the count at the foot, bottom tab bar Products / Cart with a badge | Top bar (menu, store name, bell, avatar), one scrolling chip row, Compact category tiles four to a row with "All products" on two lines, the count with a sync icon at the foot, bottom tab bar Products / Cart with a "New" badge | close | No scan button (A6) and no "Shop base" at the foot (A11); the rest of the phone catalogue matches | shared:@tallyui/pos (TallyUI #720), connector (TallyUI #722) | [demo](demo/phone-catalogue-demo.jpg) · [tally](demo/phone-catalogue-tally.jpg) |
 
@@ -115,7 +142,7 @@ Both sides are captured as they first appear.
 | B6 | Add to the order | + icon menu: Add new customer, Add Miscellaneous Product, Add Fee, Add Discount, Add Shipping | + icon menu: Add new customer, Add charge, Add discount. Add charge opens a dialog with Fee / Shipping / Custom item and a tax class | close | Fee, shipping and the miscellaneous product are one "Add charge" entry with a kind switch, not three menu entries | shared:@tallyui/components (TallyUI #678), shared:@tallyui/pos (TallyUI #679) | [demo](demo/add-item-demo.jpg) · [tally](demo/add-item-tally.jpg) |
 | B7 | Line price and discount | Popover on the line: regular price struck through, price keypad, quick discount keys −5%, −10%, −15%, check button | Popover on the line ("Price for Cold Brew"): amount, quick discount keys −5%, −10%, −15%, keypad, Apply, Cancel | close | No struck regular price in the popover. A separate inline "Discount on …" form with Percent / Amount is still on the line ("Cart": line edit) | shared:@tallyui/components (TallyUI #677) | [demo](demo/line-edit-demo.jpg) · [tally](demo/line-edit-tally.jpg) |
 | B8 | Coupons | No coupon field in the cart; Add Discount sits in the + menu; Coupons is its own area in the rail | No coupon field in the cart. + › Add discount has Quick discount / Coupon sides, and the Coupon side lists codes with descriptions and amounts. Coupons is also its own area in the rail | close | Coupons are picked from a centred Add discount dialog with two sides. The demo's Add Discount form was not opened, so the forms themselves are not compared | shared:@tallyui/components (TallyUI #678), shared:@tallyui/pos (TallyUI #679) | [demo](demo/add-item-demo.jpg) · [tally](demo/coupon-tally.jpg) |
-| B9 | Cart settings | Left side sheet beside the rail: Panel position, Open orders position, Sort items (select), Quick Discounts (−5% / −10% / −15%), auto show and auto print receipt toggles, Columns with drag handles, Restore Default Settings, Close | Left side sheet beside the rail under a v2 header (title and ×), in plain labelled rows: Panel position, Open orders position, Sort items (a select with a chevron), Quick Discounts (−5% / −10% / −15%), auto show and auto print receipt toggles, Register sessions, Restore Default Settings, Close | close | No Columns section. The switches are larger than the demo's. An extra Register sessions row sits where the demo's Columns start ("Cart"). As in A10, the rows start lower (Panel position at 71 px against 62), the Sort items select has a dark border and Close is grey-filled (buildable here) | shared:@tallyui/components (TallyUI #695, Switch `size="sm"`) | [demo](demo/cart-settings-demo.jpg) · [tally](demo/cart-settings-tally.jpg) |
+| B9 | Cart settings | Left side sheet beside the rail: Panel position, Open orders position, Sort items (select), Quick Discounts (−5% / −10% / −15%), auto show and auto print receipt toggles, Columns with drag handles, Restore Default Settings, Close | Left side sheet beside the rail under v2's header (a 16 px title and ×), in plain labelled rows: Panel position, Open orders position, Sort items (a select with a chevron and a light grey border), Quick Discounts (−5% / −10% / −15%), auto show and auto print receipt toggles, Register sessions, Restore Default Settings, Close as a white outline button with a light grey border | close | No Columns section. An extra Register sessions row sits where the demo's Columns start ("Cart"), drawn in its own style (a 16 px "Use register sessions" in the foreground colour over a two-line help text) rather than as the sheet's other switch rows (buildable here). The switches are 44x24 px against the demo's 36x20 (TallyUI). The segmented labels (Cart left / Cart right, Top / Bottom) and the quick discount keys are 16 px against the demo's 14 (buildable here). The title and Panel position now sit where the demo's do (ink tops at 18 and 57 px on both), but the rows below drift lower, to 11 px by the receipt switches, from text-sm's 14 px (TallyUI). Restore's border is a bright red where the demo's is a dark wine red, and the footer buttons are 40 px tall against 44 (buildable here). The Sort items select's light grey border and the white Close now match | shared:@tallyui/components (TallyUI #695, Switch `size="sm"`, `text-sm` 13 px) | [demo](demo/cart-settings-demo.jpg) · [tally](demo/cart-settings-tally.jpg) |
 | B10 | Order details (⋮) | Left sheet with Form / JSON tabs: Customer Note, Hand over (Status, Cashier, Store, Register, Send), Tax exempt, Hidden fields, + Currency, + Custom field; Void, Close, Print, Sync order | The ⋮ opens a one-item menu: Void | missing | No customer note, tax exempt or hand over ("Order note and meta") | connector (TallyUI #689, awaiting release) | [demo](demo/order-details-demo.jpg) · [tally](demo/order-details-tally.jpg) |
 | B11 | Variations | "Aether Gym Pant" drills in place: the parent tile (photo, name, price, "12 options", back chevron), then one tile per variation with its name, attribute chips ("32", "Blue") and price; the filter chips grey out; "12 options" at the foot | "T-Shirt" (6 options) drills in place: "Categories › All products › T-Shirt", the parent tile (image, name, price, "6 options", back chevron), then one tile per variation with its name, attribute chips ("S", "Black") and price; the Category chip leaves the row and On Sale and Tag dim, as in the demo, and hovering a dimmed one shows v2's tooltip ("A product filter; not used inside a product's variations."); "6 options" with a sync icon at the foot | match | A dev build still rejects the variable products when they sync (TallyUI #713, merged as #724, awaiting release) | | [demo](demo/variations-demo.jpg) · [tally](demo/variations-tally.jpg) |
 | B12 | Phone cart (390x844) | Top bar; full-screen cart table, "Checkout $16.83"; one-line open-order tabs ("Guest $16.83") with a "3 ^" count, the open tab in view at the right; bottom tab bar | Top bar (menu, store, bell, avatar); full-screen cart table, Subtotal and a bold Total, ⋮ and "Checkout $4.00"; with three open orders, one-line tabs ("…50", "Guest $3.00", "Guest $4.00") behind a "3 ^" count cell, the strip scrolled so the open tab sits whole at the right with + after it, as in the demo; a blank cart scrolls the strip to its end; nothing under the tabs; bottom tab bar Products / Cart with a badge | close | Each line carries a row of −, +, Remove, Discount and Price controls, which take most of the height. The bold Total row (B3). Choosing another tab moves it to the end of the strip; the demo's tabs were not switched, so this is not compared | shared:@tallyui/components (TallyUI #677; `CartTotal`, not filed) | [demo](demo/phone-cart-demo.jpg) · [tally](demo/phone-cart-tally.jpg) |
@@ -124,7 +151,7 @@ Both sides are captured as they first appear.
 
 | # | Screen or flow step | Demo | Tally Woo | Status | What differs | Waits on | Pair |
 |---|---|---|---|---|---|---|---|
-| C1 | Orders list | Table: Status dot, Order number, Customer, Billing address, Date created, POS icon, Cashier, Payment method, Total; "TODAY" group heading; narrow search with a settings, bell and avatar cluster; "Showing 20 of 29,754" with a sync icon | Table on a bordered card: Status dot, Order number, Customer chip, Date created, Payment method, Total, chevron; TODAY / YESTERDAY / dated group headings; narrow search with a sliders icon, bell and avatar at right; the sliders show an "Order Settings" tooltip on hover and open "Order Settings", a right sheet of column switches with Restore Default Settings (dark text, red border) and Close; "Showing 25" with a sync icon under the card | close | No Billing address, POS icon or Cashier column, and no "of N" total ("Order history") | connector (columns; X-WP-Total, TallyUI #680) | [demo](demo/orders-demo.jpg) · [tally](demo/orders-tally.jpg) · [tally settings](demo/orders-settings-tally.jpg) |
+| C1 | Orders list | Table: Status dot, Order number, Customer, Billing address, Date created, POS icon, Cashier, Payment method, Total; "TODAY" group heading; narrow search with a settings, bell and avatar cluster; "Showing 20 of 29,754" with a sync icon | Table on a bordered card: Status dot, Order number, Customer chip, Date created, Payment method, Total, chevron; TODAY / YESTERDAY / dated group headings; narrow search with a sliders icon, bell and avatar at right; the sliders show an "Order Settings" tooltip on hover and open "Order Settings", a right sheet under v2's header (a 16 px title and ×) with a Columns heading, six column switches, Restore Default Settings (dark text, red border) and Close as a white outline button; "Showing 25" with a sync icon under the card | close | No Billing address, POS icon or Cashier column, and no "of N" total ("Order history"). The demo's Order Settings sheet was not opened; held to the demo's Product settings, the sheet's title row and Close match, its switches are larger (TallyUI), and Restore's border is a bright red and the footer buttons 40 px tall, as in A10 (buildable here) | connector (columns; X-WP-Total, TallyUI #680), shared:@tallyui/components (Switch `size="sm"`) | [demo](demo/orders-demo.jpg) · [tally](demo/orders-tally.jpg) · [tally settings](demo/orders-settings-tally.jpg) |
 | C2 | Order filters | Rounded chips: Status, Payment Method, Select Customer, cashier, store, Select register, Date range | None | missing | The list can be narrowed only by search ("Order history": filters) | connector (TallyUI #721) | [demo](demo/orders-demo.jpg) · [tally](demo/orders-tally.jpg) |
 | C3 | Order search | "Search Orders" box over the table | "Search Orders" box over the table; "372" leaves one row, "Showing 1" | match | | | [demo](demo/orders-search-demo.jpg) · [tally](demo/orders-search-tally.jpg) |
 | C4 | Order detail | Right sheet with View / Edit / JSON tabs: items with a barcode chip, tax breakdown, Payment section; Delete, Close, Re-open | Right sheet "Order #372": status, date, items with a SKU chip, Totals, Payment, Customer; Close, Receipt | close | No View / Edit / JSON tabs, and no Re-open or Delete ("Order history": detail, reopen, edit, delete). The tax breakdown was not seen (no tax) | connector | [demo](demo/order-detail-demo.jpg) · [tally](demo/order-detail-tally.jpg) |
@@ -144,7 +171,7 @@ Both sides are captured as they first appear.
 | D5 | Settings: Theme | Ten themes: System, Light, Dark, Ocean, Sunset, Monochrome, Paper till, Warm shop, Bold money, Market stall | The same ten themes | match | | | [demo](demo/settings-theme-demo.jpg) · [tally](demo/settings-theme-tally.jpg) |
 | D6 | Settings: Printing | Printers (empty, Add printer); Receipt templates (Standard, Detailed Thermal 80mm, Detailed, Gift, Packing Slip, Kitchen Ticket), each with "Auto — Print Dialog" | Not present | missing | ("Printing") | connector (TallyUI #681) | [demo](demo/settings-printing-demo.jpg) |
 | D7 | Settings: Card readers | Reader list with "Use this reader" | Not present | missing | ("Card readers and terminals") | shared:@tallyui/pos (TallyUI #679) | [demo](demo/settings-card-readers-demo.jpg) |
-| D8 | Settings: Customer Display | Generate pairing code, Copy URL, Open in browser | Not present | missing | ("Customer display") | connector, pro (TallyUI #684) | [demo](demo/settings-customer-display-demo.jpg) |
+| D8 | Settings: Customer Display | Generate pairing code, Copy URL, Open in browser | Not present | missing | ("Customer display") | connector, pro (TallyUI #684). ADR-085: U7, the fork routes, is TallyUI/woocommerce-pos#1, waiting for the desk; U8, the app wiring, comes after the TallyUI batch release; the Woo connector's `displaySignalling` belongs to the tallyui worker | [demo](demo/settings-customer-display-demo.jpg) |
 | D9 | Store health: Database | Sub-nav Database / Performance / Logs; "Ready to sell", records on this device, storage used, changes waiting to send; "8 records need attention" banner with Fix record, Retry, View log; table Collection / On device / On server / Coverage bar / Size with ⋮ per row | Sub-nav Database / Logs; "✓ Ready to sell", records on this device, storage used, changes waiting to send; table Collection / On device; "Check for changes now" | close | No Performance entry in the sub-nav (D10). No On server, Coverage or Size columns. The dev store had no stuck records, so the attention banner was not seen ("Store health") | connector | [demo](demo/health-database-demo.jpg) · [tally](demo/health-database-tally.jpg) |
 | D10 | Store health: Performance | Hourly request strip with "Reset to Balanced" | Not present | missing | ("Store health": Performance) | shared:@tallyui/database (TallyUI #683) | [demo](demo/health-performance-demo.jpg) |
 | D11 | Logs | Under Store health: events today, errors today, stuck records, changes waiting to send; Copy debug info; Search Logs; rounded All / Actions / Errors / Sync chips; verbose diagnostics toggle; Time / Level / Event / Duration / Status rows with a chevron; "Showing 46 of 46" and a "next check" line at the foot | Under Store health: events today, errors today, stuck records, changes waiting to send; Copy debug info; Search Logs; rounded All / Actions / Errors / Sync chips; "Verbose diagnostics: off"; Time / Level / Event / Duration / Status rows with a chevron ("Order accepted by the store", "Register session opened"); "Showing 2 of 2" | close | No "next check" line at the foot. Sync runs write no row; the demo logs them ("Loaded the records this screen needs") | shared:@tallyui/database (TallyUI #683) | [demo](demo/logs-demo.jpg) · [tally](demo/logs-tally.jpg) |
@@ -190,12 +217,17 @@ moves to the end of the strip.
 
 The gaps that can be built here, in the order a cashier would notice them.
 
-1. **Settings sheet spacing** (A10, B9). Set the side sheets' header and
-   row spacing to v2's (title at 24 px, first label at 62 px), so Product
-   settings shows both Tile Fields switches above the fold as the demo
-   does.
-2. **Select border in the settings sheets** (A10, B9). Give the Sort By
-   and Sort items selects v2's light grey border (`SELECT_FACE` takes the
-   border tone) instead of the dark one.
-3. **Close in the settings sheets** (A10, B9). Draw Close as v2's white
-   outline button with a light border instead of the grey-filled face.
+1. **Price switch cut at the fold** (A10). Give the sheets' `FieldLabel`
+   v2's 13 px (`text-[13px]`, until TallyUI's `text-sm` moves) so the
+   five labels above Tile Fields stop adding a pixel each and the Price
+   switch shows whole. Do it before item 4, whose 44 px footer takes
+   4 px back off the list.
+2. **16 px text in the sheets' controls** (A10, B9). Set the `Segmented`
+   and `SegmentedRow` labels, the Browse by rows and the quick discount
+   keys to `text-sm` instead of `text-base`, as v2's are.
+3. **Register sessions row in Cart Settings** (B9). Draw it as the
+   sheet's other rows (a `SwitchRow` with the muted label, its help as
+   one `text-sm` muted line) instead of `RegisterSwitch`'s 16 px label.
+4. **Restore's red and the footer height** (A10, B9, the areas' sheets).
+   Give `RestoreDefaultsButton` v2's dark wine destructive border instead
+   of `#dc2626`, and both footer buttons v2's 44 px (`h-11`).
