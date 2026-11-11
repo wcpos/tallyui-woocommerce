@@ -103,6 +103,8 @@ beforeEach(() => {
   const data = new Map([[CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all' })]]);
   vi.stubGlobal('localStorage', { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => { data.set(key, value); }, removeItem: (key: string) => { data.delete(key); } });
 });
+// A grid tap on a product with several variants drills in (catalogue-drill-in.test); the table keeps the chooser.
+const tableView = () => localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all', view: 'table' }));
 
 afterEach(() => {
   cleanup();
@@ -274,6 +276,7 @@ test('variable products without options add nothing; adding a simple product cle
 
 test.each([600, 900])('variants at %spx: lists synced titles, prices and stock, then adds the selected variant', width => {
   vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width, height: 800, scale: 1, fontScale: 1 });
+  tableView();
   render(<SaleScreen {...props} products={[shirt]} />);
   fireEvent.click(screen.getByText('T-Shirt'));
   for (const title of ['S / Black', 'S / White', 'M / Black']) {
@@ -300,6 +303,7 @@ test('one purchasable variant adds immediately', () => {
 });
 
 test('cancelling the variant chooser adds nothing', () => {
+  tableView();
   render(<SaleScreen {...props} products={[shirt]} />);
   fireEvent.click(screen.getByText('T-Shirt'));
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));

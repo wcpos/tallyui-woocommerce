@@ -1,8 +1,8 @@
 import type { JSX, ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import type { ViewStyle } from 'react-native';
-import { resolvePrice, useProductStock, useProductTraits, useTraitContext } from '@tallyui/core';
-import { ProductImage, ProductPrice, ProductTitle, Text } from '@tallyui/components';
+import { resolvePrice, resolvePriceRange, useProductStock, useProductTraits, useTraitContext } from '@tallyui/core';
+import { ProductImage, ProductTitle, Text } from '@tallyui/components';
 import type { CatalogueTileFields } from '../lib/catalogue/catalogue-view-state';
 import { formatTileMoney, isSoldOut, optionsLabel, tileStockMark, tileTaxLine, tileTint } from '../lib/catalogue/tile-words';
 import type { TileTax } from '../lib/catalogue/tile-words';
@@ -56,14 +56,11 @@ export function ProductTile({ doc, fields, onPress, tax, inCart = 0 }: ProductTi
   const category = traits.getCategoryNames(doc).join(', ');
   const sku = traits.getSku(doc);
   const barcode = traits.getBarcode(doc);
-  const imageUrl = traits.getImageUrl(doc);
-  const tint = imageUrl ? null : tileTint(traits.getCategories?.(doc) ?? [], traits.getName(doc));
-  const initial = traits.getName(doc).trim().charAt(0).toUpperCase();
   const options = variable ? optionsLabel(traits.getVariantCount(doc)) : null;
   const lines: ReactNode[] = [
     fields.name && <ProductTitle key="name" doc={doc} className="text-base font-bold leading-tight" numberOfLines={2} />,
     soldOut ? (fields.price || fields.stock) && <Text key="money" testID={`tile-sold-out-${id}`} className="text-base font-bold">Sold out</Text>
-      : fields.price && (variable ? <ProductPrice key="money" doc={doc} /> : <TileMoney key="money" doc={doc} id={id} fields={fields} tax={tax} />),
+      : fields.price && <TileMoney key="money" doc={doc} id={id} fields={fields} tax={tax} variable={variable} />,
     options && <Text key="options" testID={`tile-options-${id}`} className="text-xs text-foreground/70">{options}</Text>,
     fields.category && category && <Text key="category" className="text-xs text-muted-foreground" numberOfLines={1}>{category}</Text>,
     fields.sku && sku && <Text key="sku" className="text-xs text-muted-foreground" numberOfLines={1}>{sku}</Text>,
@@ -74,39 +71,66 @@ export function ProductTile({ doc, fields, onPress, tax, inCart = 0 }: ProductTi
       <View className={STACK_CARD} style={FAR} />
       <View className={STACK_CARD} style={NEAR} />
     </View>}
-    <View className={`overflow-hidden rounded-lg border ${tint === null ? 'border-border bg-card' : `${TILE_TINTS[tint]} border-transparent`}`}>
-      <View className="aspect-square w-full overflow-hidden">
-        <View testID={`tile-picture-${id}`} className="h-full w-full" style={soldOut ? SOLD_OUT : undefined}>
-          {imageUrl
-            ? <ProductImage testID={`tile-image-${id}`} doc={doc} style={FILL} className="rounded-none border-0" />
-            : initial !== '' && <View testID={`tile-initial-${id}`} pointerEvents="none" className="absolute inset-0 items-center justify-center">
-              <Text className="text-3xl font-bold text-foreground">{initial}</Text>
-            </View>}
-        </View>
-      </View>
-      <View style={BAND} />
-      {lines.length > 0 && (tint === null
-        ? <View testID={`tile-scrim-${id}`} className={Platform.OS === 'web' ? WORDS : `${WORDS} bg-card/90`} style={SCRIM_STYLE}>
-          {/* First in the tree, as v2's, so the words paint above it. */}
-          {Platform.OS === 'web' && <View testID={`tile-scrim-blur-${id}`} pointerEvents="none" style={SCRIM_BLUR_STYLE} />}
-          {lines}
-        </View>
-        : <View className={`${WORDS} pt-2`}>{lines}</View>)}
+    <TilePoster doc={doc} testKey={id} soldOut={soldOut} lines={lines}>
       {mark && <Text testID={`tile-stock-${id}`} className="absolute left-2 top-2 rounded-md bg-card/90 px-1.5 py-0.5 text-xs font-semibold">{mark.label}</Text>}
       <InCartBadge count={inCart} testID={`in-cart-tile-${id}`} className="absolute right-2 top-2 z-10" />
-    </View>
+    </TilePoster>
   </View>;
   return onPress ? <Pressable accessibilityRole="button" onPress={onPress}>{content}</Pressable> : content;
 }
 
-function TileMoney({ doc, id, fields, tax }: { doc: any; id: string; fields: CatalogueTileFields; tax?: TileTax }): JSX.Element {
+/**
+ * v2's PosterTile card, shared by the product and the variation tiles: `doc`'s picture (or its tint and initial),
+ * the band, the words on the scrim, then `children` (the corner marks) painted last.
+ */
+export function TilePoster({ doc, testKey, soldOut, lines, children }: {
+  doc: any; testKey: string; soldOut: boolean; lines: ReactNode[]; children?: ReactNode;
+}): JSX.Element {
+  const traits = useProductTraits();
+  const imageUrl = traits.getImageUrl(doc);
+  const tint = imageUrl ? null : tileTint(traits.getCategories?.(doc) ?? [], traits.getName(doc));
+  const initial = traits.getName(doc).trim().charAt(0).toUpperCase();
+  return <View className={`overflow-hidden rounded-lg border ${tint === null ? 'border-border bg-card' : `${TILE_TINTS[tint]} border-transparent`}`}>
+    <View className="aspect-square w-full overflow-hidden">
+      <View testID={`tile-picture-${testKey}`} className="h-full w-full" style={soldOut ? SOLD_OUT : undefined}>
+        {imageUrl
+          ? <ProductImage testID={`tile-image-${testKey}`} doc={doc} style={FILL} className="rounded-none border-0" />
+          : initial !== '' && <View testID={`tile-initial-${testKey}`} pointerEvents="none" className="absolute inset-0 items-center justify-center">
+            <Text className="text-3xl font-bold text-foreground">{initial}</Text>
+          </View>}
+      </View>
+    </View>
+    <View style={BAND} />
+    {lines.length > 0 && (tint === null
+      ? <View testID={`tile-scrim-${testKey}`} className={Platform.OS === 'web' ? WORDS : `${WORDS} bg-card/90`} style={SCRIM_STYLE}>
+        {/* First in the tree, as v2's, so the words paint above it. */}
+        {Platform.OS === 'web' && <View testID={`tile-scrim-blur-${testKey}`} pointerEvents="none" style={SCRIM_BLUR_STYLE} />}
+        {lines}
+      </View>
+      : <View className={`${WORDS} pt-2`}>{lines}</View>)}
+    {children}
+  </View>;
+}
+
+/**
+ * v2's moneyRow (tiles/tile-words.tsx): the price in bold, the struck regular price with On Sale, the tax line.
+ * A variable product reads its variants' range (v2's useProductWords with `drill`): a muted "from" before the
+ * lowest price when the prices differ, and the cheapest variant's regular price struck when it is on sale.
+ */
+function TileMoney({ doc, id, fields, tax, variable }: { doc: any; id: string; fields: CatalogueTileFields; tax?: TileTax; variable: boolean }): JSX.Element {
   const traits = useProductTraits();
   const context = useTraitContext();
-  const resolved = resolvePrice(traits.getPrices(doc, context), context.currency);
+  const variants = variable ? traits.getVariants?.(doc, context) ?? [] : [];
+  const range = variable ? resolvePriceRange(variants, context.currency) : undefined;
+  const resolved = !variable ? resolvePrice(traits.getPrices(doc, context), context.currency)
+    : range && variants.map(variant => resolvePrice(variant.prices, context.currency))
+      .find(price => price?.current.amount === range.min.amount && price.current.currency === range.min.currency);
   if (!resolved) return <Text className="text-base text-muted-foreground">-</Text>;
+  const from = range !== undefined && range.min.amount !== range.max.amount;
   const line = fields.tax && tax ? tileTaxLine(resolved.current, traits.getTaxStatus?.(doc), traits.getTaxClass?.(doc), tax) : null;
   return <View className="flex-row flex-wrap items-baseline gap-x-1.5">
-    <Text className="text-base font-bold">{formatTileMoney(resolved.current)}</Text>
+    {from && <Text testID={`tile-from-${id}`} className="text-xs text-muted-foreground">from</Text>}
+    <Text testID={`tile-price-${id}`} className="text-base font-bold">{formatTileMoney(resolved.current)}</Text>
     {fields.on_sale && resolved.was && <Text testID={`tile-was-${id}`} className="text-xs text-muted-foreground line-through">{formatTileMoney(resolved.was)}</Text>}
     {line !== null && <Text testID={`tile-tax-${id}`} className="text-xs text-muted-foreground">{line}</Text>}
   </View>;

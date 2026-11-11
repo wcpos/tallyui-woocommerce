@@ -35,9 +35,10 @@ beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 600, height: 800, scale: 1, fontScale: 1 });
 });
 
-// Browse by now opens on category tiles; these tests drive the flat product grid, so they browse All products.
+// Browse by now opens on category tiles, so these tests browse All products; and a grid tap on a product with
+// full variants drills in (catalogue-drill-in.test), so they open the picker from the table.
 beforeEach(() => {
-  const data = new Map([[CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all' })]]);
+  const data = new Map([[CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all', view: 'table' })]]);
   vi.stubGlobal('localStorage', { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => { data.set(key, value); }, removeItem: (key: string) => { data.delete(key); } });
 });
 

@@ -6,13 +6,15 @@ import { ConnectorProvider } from '@tallyui/core';
 import type { TallyConnector } from '@tallyui/core';
 import { Button, createSvgIcon, defaultProductColumns, IconButton, ProductGrid, ProductTable, SearchInput, Text } from '@tallyui/components';
 import type { ProductTableColumn } from '@tallyui/components';
-import { productSortValue, resolveGridColumns, searchProducts, sortProducts } from '@tallyui/pos';
-import type { ProductSort } from '@tallyui/pos';
+import { catalogueEntries, productSortValue, resolveGridColumns, searchProducts, sortProducts } from '@tallyui/pos';
+import type { CatalogueEntry, ProductSort } from '@tallyui/pos';
 import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
 import type { AppCatalogueViewState } from '../lib/catalogue/catalogue-view-state';
 import { catalogueFilterBaseline, isQuickFilterActive, matchesCatalogueFilters, quickFilterToQueryPatch, rebaseStockStatus, useQuickFilters } from '../lib/catalogue/quick-filters';
 import type { CatalogueFilters, QuickFilter } from '../lib/catalogue/quick-filters';
+import { optionsLabel } from '../lib/catalogue/tile-words';
 import type { TileTax } from '../lib/catalogue/tile-words';
+import { needsAnyPick, variantMatchesStock } from '../lib/catalogue/variation-match';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { categoriesLabel, categoryTerms, filtersAtBaseline, productsInCategory, productsLabel } from '../lib/catalogue/browse-terms';
 import { BrowseCrumb, BrowseRootGrid, BrowseRootTable } from './browse-terms-view';
@@ -25,6 +27,7 @@ import { InCartBadge } from './in-cart-badge';
 import { ProductTile } from './product-tile';
 import { QuickFilterBar } from './quick-filter-bar';
 import { RegisterBarShell } from './register-bar-shell';
+import { ParentTile, VariationTile } from './variation-tile';
 import { ViewModeToggle } from './view-mode-toggle';
 
 const SyncIcon = createSvgIcon('SyncIcon', () => <><Path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><Path d="M21 3v5h-5" />
@@ -42,6 +45,8 @@ export interface CatalogueViewProps {
   status: 'idle' | 'starting' | 'syncing' | 'ready' | 'error';
   notice?: { code: string; message?: string };
   onSelect?(doc: any): void;
+  /** Adds one variation from the grid's drill-in (v2's useAddVariation); without it a variable tile calls onSelect. */
+  onAddEntry?(entry: CatalogueEntry<any>): void;
   onScan?(code: string): 'clear' | 'search' | 'keep';
   message?: string;
   onSignOut(): void;
@@ -81,7 +86,7 @@ export function PosBar({ storeName, cashierName, cashierControl, hideOfflineBadg
 }
 
 export function CatalogueView({
-  connector, currency, products, storeName, cashierName, cashierControl, hideOfflineBadge, status, notice, onSignOut, onOpenOrders, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings, onSelect, onScan, message,
+  connector, currency, products, storeName, cashierName, cashierControl, hideOfflineBadge, status, notice, onSignOut, onOpenOrders, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings, onSelect, onAddEntry, onScan, message,
   viewState: controlledViewState, onViewStateChange,
   tax, inCartCounts, onSync, hideBar,
 }: CatalogueViewProps): JSX.Element {
@@ -131,6 +136,31 @@ export function CatalogueView({
     const searched = searching ? searchProducts(matching, term, connector.traits.product) : matching;
     return sortProducts([...searched], sort, (doc, field) => productSortValue(doc, field, connector.traits.product, { currency }));
   }, [levelProducts, filters, term, searching, connector.traits.product, currency, sort]);
+  // v2's DrillIn in the dealt grid (drill-in.tsx, variations-grid.tsx): a tapped variable product opens its
+  // variations in place of the products, under a crumb that ends in its name. It holds only while the search,
+  // the filters, the place and the view stay as they were when it opened (React's "previous render" pattern).
+  const traits = connector.traits.product;
+  const [drill, setDrill] = useState<{ id: string; from: readonly unknown[] } | null>(null);
+  const drillFrom = [term, filters, place, viewState.browseBy, viewState.view];
+  const drillHolds = drill !== null && drill.from.every((value, index) => value === drillFrom[index]);
+  if (drill !== null && !drillHolds) setDrill(null);
+  const drilled = drillHolds ? products.find(doc => traits.getId(doc) === drill.id) : undefined;
+  // v2 hands the pane the stock filter: with In Stock on, an out-of-stock variation is left out.
+  const drillEntries = useMemo(() => drilled
+    ? catalogueEntries([drilled], traits, { currency }).filter(entry => variantMatchesStock(entry.variant, filters.stock_status))
+    : [], [drilled, traits, currency, filters.stock_status]);
+  // A grid tap drills in when there are variations to choose between and none of them waits on an "Any" pick;
+  // anything else, and every table row, keeps onSelect's path (VariantChooser).
+  function tap(doc: any) {
+    try {
+      const entries = onAddEntry && viewState.view === 'grid' && traits.hasVariants(doc) ? catalogueEntries([doc], traits, { currency }) : [];
+      if (entries.length > 1 && !needsAnyPick(traits.getVariantOptions?.(doc) ?? [], entries.map(entry => entry.variant))) {
+        setDrill({ id: traits.getId(doc), from: drillFrom });
+        return;
+      }
+    } catch { /* onSelect reports what it cannot sell */ }
+    onSelect?.(doc);
+  }
   const columns = useMemo(() => {
     const byId = new Map(defaultProductColumns(connector.traits.product, { currency }).map(column => [column.id, column]));
     const visible: ProductTableColumn[] = viewState.columns.filter(c => c.visible).flatMap(c => {
@@ -190,10 +220,12 @@ export function CatalogueView({
   // root it is v2's root tally (browse-root-footer.tsx); in a level, the level's products are the total.
   const shown = items.length, total = levelProducts.length;
   const countLabel = status === 'error' ? 'Sync failed' : notice ? notice.message ?? notice.code
-    : syncing ? 'Syncing products…' : atRoot ? `${categoriesLabel(terms.length)} · ${productsLabel(baselineProducts.length)}`
+    : syncing ? 'Syncing products…' : drilled ? optionsLabel(drillEntries.length) ?? '0 options' : atRoot ? `${categoriesLabel(terms.length)} · ${productsLabel(baselineProducts.length)}`
     : shown < total ? `Showing ${shown.toLocaleString()} of ${total.toLocaleString()}`
     : total === 1 ? '1 product' : `${total.toLocaleString()} products`;
-  const crumb = level === null ? undefined : <BrowseCrumb place={level} onRoot={() => setPlace(null)} />;
+  const crumb = drilled ? <BrowseCrumb place={level} onRoot={() => { setDrill(null); setPlace(null); }}
+      product={{ name: traits.getName(drilled), onBack: () => setDrill(null) }} />
+    : level === null ? undefined : <BrowseCrumb place={level} onRoot={() => setPlace(null)} />;
   const [syncPending, setSyncPending] = useState(false);
   function sync() {
     if (!onSync || syncing || syncPending) return;
@@ -212,13 +244,22 @@ export function CatalogueView({
         <CatalogueDisplayOptions state={viewState} onChange={changeViewState} products={products} quickFilterCount={quickFilters.length}
           open={settingsOpen} onOpenChange={setSettingsOpen} onCustomiseFilterBar={() => setFilterBarOpen(true)} />
         {message ? <Text>{message}</Text> : null}
-        {atRoot ? viewState.view === 'grid'
+        {drilled ? <ProductGrid
+          items={[drilled, ...drillEntries.map(entry => ({ id: `variation-${entry.variant.id}`, entry }))]}
+          numColumns={numColumns}
+          renderItem={(item, index) => index === 0
+            ? <ParentTile doc={drilled} fields={viewState.tileFields} tax={tax} onBack={() => setDrill(null)} />
+            : <VariationTile entry={item.entry} onPress={() => onAddEntry?.(item.entry)} />}
+          searchSlot={searchSlot}
+          filterSlot={crumb}
+        />
+        : atRoot ? viewState.view === 'grid'
           ? <BrowseRootGrid terms={terms} numColumns={numColumns} searchSlot={searchSlot} onOpen={setPlace} />
           : <BrowseRootTable terms={terms} searchSlot={searchSlot} onOpen={setPlace} />
         : viewState.view === 'grid' ? <ProductGrid
           items={items}
           numColumns={numColumns}
-          renderItem={doc => <ProductTile doc={doc} fields={viewState.tileFields} tax={tax} inCart={inCartCounts?.get(connector.traits.product.getId(doc)) ?? 0} onPress={onSelect ? () => onSelect(doc) : undefined} />}
+          renderItem={doc => <ProductTile doc={doc} fields={viewState.tileFields} tax={tax} inCart={inCartCounts?.get(connector.traits.product.getId(doc)) ?? 0} onPress={onSelect || onAddEntry ? () => tap(doc) : undefined} />}
           searchSlot={searchSlot}
           filterSlot={crumb}
           emptyState={emptyState}
