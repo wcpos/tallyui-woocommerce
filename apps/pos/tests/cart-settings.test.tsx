@@ -359,6 +359,25 @@ test('the Cart Settings title takes v2\'s dialog title rank, text-base', () => {
   fireEvent.click(screen.getByTestId('cart-settings-button'));
   expect(screen.getByTestId('cart-settings-title').textContent).toBe('Cart Settings');
   expect(classesOf('cart-settings-title')).toContain('text-base');
+  // v2's 16 px leading-none: without it TallyUI's merge leaves text-base's 24 px line and the rows start 8 px low.
+  expect(classesOf('cart-settings-title')).toContain('leading-none');
+  expect(classesOf('cart-settings-title')).not.toContain('text-lg');
+});
+
+test('the Sort items select takes v2\'s field box border, the light grey border token, not TallyUI\'s dark input border', () => {
+  renderCart();
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  expect(classesOf('cart-sort-items')).toEqual(expect.arrayContaining(['border-border', 'bg-card']));
+  expect(classesOf('cart-sort-items')).not.toContain('border-input');
+});
+
+test('Close is v2\'s footer outline: a 1 px light border on the card, not the grey page fill', () => {
+  renderCart();
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  const classes = classesOf('ui-settings-close');
+  expect(classes).toEqual(expect.arrayContaining(['border', 'border-border', 'bg-card']));
+  expect(classes).not.toContain('border-input');
+  expect(classes).not.toContain('bg-background');
 });
 
 test.each(['left', 'right'] as const)('with the products on the %s, the sheet docks over them as v2 docks it', position => {
