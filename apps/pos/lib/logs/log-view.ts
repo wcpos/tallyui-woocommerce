@@ -8,8 +8,9 @@ export const SYNC_SCOPES = ['outbox', 'register-commands'];
 // v2 readRecentErrorLogs keeps 10.
 export const RECENT_ERRORS_LIMIT = 10;
 
-export function matchesLogFilter(row: LogRecord, preset: LogPreset, level?: LogLevel): boolean {
-  return (level === undefined || row.level === level)
+// v2 presetFilters: debug rows show under All and Sync only while verbose diagnostics is on; Errors stays error-only.
+export function matchesLogFilter(row: LogRecord, preset: LogPreset, level?: LogLevel, verbose = false): boolean {
+  return (level === undefined || row.level === level) && (verbose || row.level !== 'debug')
     && (preset === 'all' || (preset === 'errors' ? row.level === 'error' : SYNC_SCOPES.includes(row.scope)));
 }
 
@@ -33,15 +34,22 @@ export function formatLogTime(timestamp: number, now: number): string {
     : `${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${time}`;
 }
 
-export function buildDebugInfo({ now, storeName, siteUrl, rows }: {
-  now: number; storeName: string; siteUrl: string; rows: LogRecord[];
-}): string {
+/** v2's events today and errors today: rows since the start of the local day. */
+export function logStats(rows: LogRecord[], now: number): { eventsToday: number; errorsToday: number } {
   const today = rows.filter(row => row.timestamp >= startOfLocalDay(now));
+  return { eventsToday: today.length, errorsToday: today.filter(row => row.level === 'error').length };
+}
+
+export function buildDebugInfo({ now, storeName, siteUrl, rows, verbose }: {
+  now: number; storeName: string; siteUrl: string; rows: LogRecord[]; verbose: boolean;
+}): string {
+  const { eventsToday, errorsToday } = logStats(rows, now);
   const errors = rows.filter(row => row.level === 'error').slice(0, RECENT_ERRORS_LIMIT);
   return [
     `${SOFTWARE_NAME} debug info — ${new Date(now).toISOString()}`,
     `App version: ${SOFTWARE_VERSION}`, `Store: ${storeName}`, `Site: ${siteUrl}`,
-    `Events today: ${today.length}`, `Errors today: ${today.filter(row => row.level === 'error').length}`,
+    `Events today: ${eventsToday}`, `Errors today: ${errorsToday}`,
+    `Verbose diagnostics: ${verbose ? 'on' : 'off'}`,
     '', `Recent errors (${errors.length}):`,
     ...(errors.length ? errors.map(row => `  - ${new Date(row.timestamp).toISOString()} | ${row.code ?? '-'} | ${row.scope} | ${row.message}`) : ['  none']),
   ].join('\n');

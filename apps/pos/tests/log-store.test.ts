@@ -1,15 +1,18 @@
-import { afterEach, beforeEach, expect, test } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { createRxDatabase, type RxDatabase } from 'rxdb';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { outboxLogger, taxLogger } from '@tallyui/pos';
 import { attachLogStore, logRecordSchema, toLogRecord, withoutWriteParameters, type LogCollection } from '../lib/logs/log-store';
+import { setVerboseDiagnostics } from '../lib/logs/verbose';
+import { memoryStorage } from './memory-storage';
 
 let db: RxDatabase;
 let collection: LogCollection;
 let store: ReturnType<typeof attachLogStore>;
 
 beforeEach(async () => {
+  vi.stubGlobal('localStorage', memoryStorage());
   db = await createRxDatabase({ name: `logs_${crypto.randomUUID()}`, multiInstance: false,
     storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }) });
   ({ logs: collection } = await db.addCollections<{ logs: LogCollection }>({ logs: { schema: logRecordSchema } }));
@@ -19,6 +22,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await store.detach();
   await db.close();
+  vi.unstubAllGlobals();
 });
 
 test('writes warn and error entries from the TallyUI loggers with code, duration and the error message', async () => {
@@ -35,11 +39,23 @@ test('writes warn and error entries from the TallyUI loggers with code, duration
   expect(rows[1].detail).toContain('"message":"boom"');
 });
 
-test('ignores debug entries', async () => {
+test('stores debug entries only while verbose diagnostics is on; info, warn and error always', async () => {
   taxLogger.debug('noise');
-  taxLogger.warn('kept');
+  taxLogger.info('i1');
+  taxLogger.warn('w1');
+  outboxLogger.error('e1');
   await store.flush();
-  expect((await collection.find().exec()).map(row => row.message)).toEqual(['kept']);
+  expect((await collection.find({ sort: [{ id: 'asc' }] }).exec()).map(row => row.message)).toEqual(['i1', 'w1', 'e1']);
+  setVerboseDiagnostics(true);
+  taxLogger.debug('verbose');
+  taxLogger.info('i2');
+  await store.flush();
+  setVerboseDiagnostics(false);
+  taxLogger.debug('noise again');
+  await store.flush();
+  const rows = (await collection.find({ sort: [{ id: 'asc' }] }).exec()).map(row => row.toJSON());
+  expect(rows.map(row => row.message)).toEqual(['i1', 'w1', 'e1', 'verbose', 'i2']);
+  expect(rows[3].level).toBe('debug');
 });
 
 test('keeps only the newest cap rows', async () => {
