@@ -8,6 +8,7 @@ import { useTillStoreSettings } from '../lib/sale/use-till-store-settings';
 import { useSession } from '../lib/auth/session-context';
 import { useCatalogue } from '../lib/catalogue/catalogue-context';
 import { customerSource } from '../lib/customers/customer-source';
+import { useDefaultCustomer, useDefaultCustomerSetting } from '../lib/customers/default-customer';
 import { receiptMailer } from '../lib/receipts/receipt-mailer';
 import { SessionExpiredError } from '../lib/auth/session';
 import { databaseName } from '../lib/catalogue/start-catalogue';
@@ -33,6 +34,8 @@ export default function Catalogue() {
     baseUrl: latest.current!.site.wcposApiUrl,
     headers: connector.auth.getHeaders({ token: latest.current!.tokens.accessToken }),
   })) : null, [connector]);
+  const [defaultSetting] = useDefaultCustomerSetting(session?.site.home, catalogue?.store);
+  const defaultCustomer = useDefaultCustomer(defaultSetting, session?.tokens.user, customers?.get);
   const couponCollections = useMemo(() => catalogue ? { coupons: catalogue.coupons, products: catalogue.db.products } : undefined, [catalogue]);
   if (!ready) return null;
   if (!session) return <Redirect href="/connect" />;
@@ -51,6 +54,7 @@ export default function Catalogue() {
       storeSettings={settings}
       connector={catalogue.connector}
       customers={customers}
+      defaultCustomer={defaultCustomer}
       mailer={mailer}
       receiptEmails={catalogue.receiptEmails}
       parkedCarts={catalogue.parkedCarts}

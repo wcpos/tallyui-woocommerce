@@ -369,6 +369,62 @@ test('parks through the sheet, shows the parked customer and restores them to th
   expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
 }, 20_000);
 
+// D2: v2's default customer (use-default-customer-id.ts) is on every new cart, never on a resumed one.
+test('a new sale starts with the default customer; a resumed one keeps its own, Guest included', async () => {
+  vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
+  const gee = { id: '7', name: 'Gee Four', email: 'gee@example.invalid' };
+  const anna = { id: '3', name: 'Anna Bell', email: 'anna@example.invalid' };
+  const customers = { search: vi.fn().mockResolvedValue([anna]), create: vi.fn().mockResolvedValue(anna) };
+  const chip = () => screen.getByTestId('cart-customer-name').getAttribute('aria-label');
+  const view = render(<SaleScreen {...props} customers={customers} />);
+  expect(chip()).toBe('Customer: Guest');
+  // Resolved after mount: the idle first sale takes it.
+  view.rerender(<SaleScreen {...props} customers={customers} defaultCustomer={gee} />);
+  expect(chip()).toBe('Customer: Gee Four');
+  // The cashier puts Guest on this sale, and parks it.
+  fireEvent.click(screen.getByTestId('cart-customer-name'));
+  await act(async () => { fireEvent.click(screen.getByTestId('customer-option-guest')); });
+  fireEvent.click(screen.getByText('Espresso'));
+  expect(chip()).toBe('Customer: Guest');
+  await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
+  // The next new sale has the default again; the cashier changes it to Anna.
+  expect(chip()).toBe('Customer: Gee Four');
+  fireEvent.click(screen.getByTestId('cart-customer-name'));
+  fireEvent.change(screen.getByPlaceholderText('Search Customers'), { target: { value: 'anna' } });
+  fireEvent.click(await screen.findByLabelText('Anna Bell, anna@example.invalid'));
+  fireEvent.click(screen.getByText('Cold Brew'));
+  expect(chip()).toBe('Customer: Anna Bell');
+  const resumeOnly = async (line: string) => {
+    openParkedList();
+    await act(async () => { fireEvent.click(within(screen.getByTestId('parked-sales')).getByRole('button', { name: 'Resume parked sale' })); });
+    await waitFor(() => expect(screen.queryByRole('button', { name: `Remove ${line}` })).not.toBeNull());
+  };
+  // Resuming the Guest sale parks Anna's and restores Guest, not the default; resuming Anna's restores Anna.
+  await resumeOnly('Espresso');
+  expect(chip()).toBe('Customer: Guest');
+  await resumeOnly('Cold Brew');
+  expect(chip()).toBe('Customer: Anna Bell');
+  expect(screen.queryByRole('button', { name: 'Remove Espresso' })).toBeNull();
+}, 20_000);
+
+test('with a Guest default every new sale is Guest, and a default resolved later reaches only an idle cart', async () => {
+  vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
+  const gee = { id: '7', name: 'Gee Four' };
+  const customers = { search: vi.fn().mockResolvedValue([]), create: vi.fn() };
+  const chip = () => screen.getByTestId('cart-customer-name').getAttribute('aria-label');
+  const view = render(<SaleScreen {...props} customers={customers} defaultCustomer={null} />);
+  expect(chip()).toBe('Customer: Guest');
+  fireEvent.click(screen.getByText('Espresso'));
+  await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
+  expect(chip()).toBe('Customer: Guest');
+  fireEvent.click(screen.getByText('Cold Brew'));
+  // A cart with a line keeps its customer when the default changes; the next new sale takes it.
+  view.rerender(<SaleScreen {...props} customers={customers} defaultCustomer={gee} />);
+  expect(chip()).toBe('Customer: Guest');
+  await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
+  expect(chip()).toBe('Customer: Gee Four');
+}, 20_000);
+
 // B7: v2's cells/price.tsx and cells/quantity-keypad.tsx. The popovers' keypad keys are `<kind>-popover-keypad-key-<name>`.
 function typeOnKeypad(kind: 'price' | 'quantity', digits: string) {
   for (const key of digits) fireEvent.click(screen.getByTestId(`${kind}-popover-keypad-key-${key === '.' ? 'decimal' : key}`));
