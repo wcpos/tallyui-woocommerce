@@ -4,11 +4,12 @@ import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import { HourlyBars } from '../components/hourly-bars';
 import type { HourBucket } from '../lib/reports/sales-room';
+import { classesOf } from './classes-of';
 
 afterEach(cleanup);
 
 const money = (minor: number) => `$${(minor / 100).toFixed(2)}`;
-const hours: HourBucket[] = [
+const hours: HourBucket[] = ([
   { hour: 9, today: { count: 2, totalMinor: 1158 }, yesterday: { count: 0, totalMinor: 0 } },
   { hour: 10, today: { count: 0, totalMinor: 0 }, yesterday: { count: 0, totalMinor: 0 } },
   { hour: 11, today: { count: 0, totalMinor: 0 }, yesterday: { count: 1, totalMinor: 400 } },
@@ -17,12 +18,12 @@ const hours: HourBucket[] = [
   { hour: 14, today: { count: 0, totalMinor: 0 }, yesterday: { count: 0, totalMinor: 0 } },
   { hour: 15, today: { count: 0, totalMinor: 0 }, yesterday: { count: 0, totalMinor: 0 } },
   { hour: 16, today: { count: 0, totalMinor: 0 }, yesterday: { count: 1, totalMinor: 600 } },
-];
-const bucket = (hour: number, today: number, yesterday: number): HourBucket => ({
-  hour, today: { count: today ? 1 : 0, totalMinor: today }, yesterday: { count: yesterday ? 1 : 0, totalMinor: yesterday },
+] satisfies Omit<HourBucket, 'minute'>[]).map(b => ({ ...b, minute: b.hour * 60 }));
+const bucket = (hour: number, today: number, yesterday: number, minute = hour * 60): HourBucket => ({
+  hour, minute, today: { count: today ? 1 : 0, totalMinor: today }, yesterday: { count: yesterday ? 1 : 0, totalMinor: yesterday },
 });
 const chart = (props: Partial<Parameters<typeof HourlyBars>[0]> = {}) =>
-  render(<HourlyBars hours={hours} money={money} nowHour={23} view="hour" {...props} />);
+  render(<HourlyBars hours={hours} money={money} nowKey={23 * 60} view="hour" {...props} />);
 const style = (testID: string) => getComputedStyle(screen.getByTestId(testID));
 const points = (testID: string) => screen.getByTestId(testID).getAttribute('points');
 const axis = () => screen.getAllByTestId(/^sales-hour-\d\d$/).map(column => column.lastElementChild?.textContent);
@@ -122,21 +123,21 @@ test('renders nothing without sales', () => {
 const running = [bucket(9, 10, 5), bucket(10, 0, 10), bucket(11, 20, 25)];
 
 test('Running total plots today up to the current hour only', () => {
-  chart({ hours: running, view: 'run', nowHour: 10 });
+  chart({ hours: running, view: 'run', nowKey: 600 });
   // Cumulative 10, 10 against the larger end, the comparison's 40.
   expect(points('hero-chart-run')).toBe('0.5,75 1.5,75');
   expect(screen.getByTestId('hero-chart-total').textContent).toBe(`${money(10)} now`);
 });
 
 test('the comparison running line is cumulative over every hour', () => {
-  chart({ hours: running, view: 'run', nowHour: 10 });
+  chart({ hours: running, view: 'run', nowKey: 600 });
   expect(points('hero-chart-comparison')).toBe('0.5,87.5 1.5,62.5 2.5,0');
   expect(screen.getByTestId('hero-chart-comparison').getAttribute('stroke-dasharray')).toBe('4 4');
   expect(screen.getByTestId('hero-chart-comparison-total').textContent).toBe(money(40));
 });
 
 test('Running total draws a faint area and no bars', () => {
-  chart({ hours: running, view: 'run', nowHour: 23 });
+  chart({ hours: running, view: 'run', nowKey: 23 * 60 });
   expect(screen.getByTestId('hero-chart-area').getAttribute('fill-opacity')).toBe('0.1');
   expect(screen.queryAllByTestId(/^sales-hour-\d\d-today$/)).toHaveLength(0);
   expect(screen.getAllByTestId(/^sales-hour-\d\d$/)).toHaveLength(3);
@@ -145,7 +146,43 @@ test('Running total draws a faint area and no bars', () => {
 });
 
 test('Running total has no comparison figure without a comparison sale', () => {
-  chart({ hours: [bucket(9, 10, 0)], view: 'run', nowHour: 9 });
+  chart({ hours: [bucket(9, 10, 0)], view: 'run', nowKey: 540 });
   expect(screen.queryByTestId('hero-chart-comparison-total')).toBeNull();
   expect(screen.queryByTestId('hero-chart-comparison')).toBeNull();
+});
+
+test("a live day's future buckets draw the comparison's value, muted at full opacity", () => {
+  chart({ hours: [bucket(9, 1000, 400), bucket(10, 0, 800), bucket(11, 0, 200)], nowKey: 9 * 60 + 30 });
+  expect(style('sales-hour-10-future').height).toBe('80%');
+  expect(style('sales-hour-10-future').opacity).toBe('1');
+  expect(classesOf('sales-hour-10-future')).toContain('bg-muted');
+  expect(classesOf('sales-hour-10-future')).not.toContain('bg-primary');
+  expect(style('sales-hour-11-future').height).toBe('20%');
+  expect(screen.queryByTestId('sales-hour-10-today')).toBeNull();
+  expect(screen.queryByTestId('sales-hour-09-future')).toBeNull();
+  cleanup();
+  chart({ hours: [bucket(9, 1000, 400), bucket(10, 0, 800)], nowKey: 9 * 60 + 30, live: false });
+  expect(screen.queryByTestId('sales-hour-10-future')).toBeNull();
+});
+
+test('no future bar without a comparison', () => {
+  chart({ hours: [bucket(9, 1000, 0), bucket(10, 0, 0)], nowKey: 9 * 60 + 30 });
+  expect(screen.queryByTestId('sales-hour-10-future')).toBeNull();
+  expect(screen.queryByTestId('sales-hour-10-today')).toBeNull();
+});
+
+test('the peak is chosen among the buckets up to now', () => {
+  chart({ hours: [bucket(9, 500, 0), bucket(10, 900, 300)], nowKey: 9 * 60 + 30 });
+  expect(screen.getByTestId('hero-chart-peak').textContent).toBe('$5.00 · 1 order');
+  expect(style('sales-hour-09-today').opacity).toBe('1');
+});
+
+test("the empty day draws 12 labelled columns; a half-hour step names each column's minute", () => {
+  chart({ hours: Array.from({ length: 12 }, (_, i) => bucket(i * 2, 0, 0, i * 120)) });
+  expect(screen.getByTestId('sales-room-hours')).not.toBeNull();
+  expect(axis()).toEqual(Array.from({ length: 12 }, (_, i) => `${String(i * 2).padStart(2, '0')}:00`));
+  cleanup();
+  chart({ hours: [bucket(10, 100, 0, 600), bucket(10, 0, 0, 630)] });
+  expect(screen.getAllByTestId(/^sales-hour-\d{4}$/).map(column => [column.getAttribute('data-testid'), column.lastElementChild?.textContent]))
+    .toEqual([['sales-hour-1000', '10:00'], ['sales-hour-1030', '10:30']]);
 });

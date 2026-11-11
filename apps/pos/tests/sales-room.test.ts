@@ -136,7 +136,6 @@ test('hours span both days\' sales', () => {
     expect(bucket.yesterday).toEqual(bucket.hour === 11 ? { count: 1, totalMinor: 400 }
       : bucket.hour === 16 ? { count: 1, totalMinor: 600 } : { count: 0, totalMinor: 0 });
   }
-  expect(salesRoom([], { now, currency: 'USD', ...day }).hours).toEqual([]);
 }, 20_000);
 
 test('runs in a non-UTC zone', () => {
@@ -222,7 +221,8 @@ test('Yesterday counts only its own day, by hour, and compares the whole day bef
   expect(result.today).toMatchObject({ count: 2, totalMinor: 1000 });
   // X2 at 23:59 is after now's time of day, yet a closed day is compared whole.
   expect(result.yesterdaySoFar).toMatchObject({ count: 1, totalMinor: 5000 });
-  expect(result.hours.map(bucket => bucket.hour)).toEqual([11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]);
+  // 11:00 to 24:00 is 780 minutes: 90-minute steps from 10:30.
+  expect(result.hours.map(bucket => bucket.minute)).toEqual([630, 720, 810, 900, 990, 1080, 1170, 1260, 1350]);
   expect(result.hours.some(bucket => bucket.day)).toBe(false);
 }, 20_000);
 
@@ -234,9 +234,11 @@ test("This week buckets by day and cuts the comparison's last day at now's time 
   // Monday's 18:00 counts whole; Tuesday's 16:45 is after 14:30 and is left out.
   expect(result.yesterdaySoFar).toMatchObject({ count: 2, totalMinor: 550 });
   expect(result.hours).toEqual([
-    { hour: 0, day: '2026-10-05', today: { count: 2, totalMinor: 1000 }, yesterday: { count: 1, totalMinor: 300 } },
-    { hour: 1, day: '2026-10-06', today: { count: 4, totalMinor: 2996 }, yesterday: { count: 2, totalMinor: 1200 } },
+    { hour: 0, minute: 0, day: '2026-10-05', today: { count: 2, totalMinor: 1000 }, yesterday: { count: 1, totalMinor: 300 } },
+    { hour: 1, minute: 0, day: '2026-10-06', today: { count: 4, totalMinor: 2996 }, yesterday: { count: 2, totalMinor: 1200 } },
   ]);
+  // v2 aggregateData draws every day of a multi-day period, sales or none.
+  expect(salesRoom([], { now, currency: 'USD', ...period('thisWeek') }).hours.map(bucket => bucket.day)).toEqual(['2026-10-05', '2026-10-06']);
 }, 20_000);
 
 test('Last month compares the whole month before', () => {
@@ -247,4 +249,38 @@ test('Last month compares the whole month before', () => {
   expect(result.yesterdaySoFar).toMatchObject({ count: 2, totalMinor: 500 });
   expect(result.hours).toHaveLength(30);
   expect(result.hours[29]).toMatchObject({ day: '2026-09-30', today: { totalMinor: 700 }, yesterday: { totalMinor: 0 } });
+}, 20_000);
+
+/** A single day's buckets for sales at these times today (6 Oct) and on the comparison day (5 Oct). */
+const steps = (todayAt: [number, number][], comparisonAt: [number, number][] = []) => salesRoom([
+  ...todayAt.map(([h, m], i) => sale(`T${i}`, new Date(2026, 9, 6, h, m), 100)),
+  ...comparisonAt.map(([h, m], i) => sale(`C${i}`, new Date(2026, 9, 5, h, m), 100)),
+], { now, currency: 'USD', ...day }).hours;
+
+test('By hour picks the smallest nice step that keeps the span to 12 bars (v2 getNiceMinuteInterval)', () => {
+  // 09:00 to 21:00 is 720 minutes: 60-minute steps.
+  expect(steps([[9, 10], [20, 50]]).map(bucket => bucket.minute)).toEqual(Array.from({ length: 12 }, (_, i) => 540 + i * 60));
+  // 08:00 to 24:00 is 960 minutes, 80 a bar: 90-minute steps from midnight, the first at 07:30.
+  const ninety = steps([[8, 5], [23, 40]]);
+  expect(ninety.map(bucket => bucket.minute)).toEqual([450, 540, 630, 720, 810, 900, 990, 1080, 1170, 1260, 1350]);
+  expect(ninety.map(bucket => bucket.hour)).toEqual([7, 9, 10, 12, 13, 15, 16, 18, 19, 21, 22]);
+  expect(ninety[0].today).toEqual({ count: 1, totalMinor: 100 });
+  expect(ninety[10].today).toEqual({ count: 1, totalMinor: 100 });
+  // 10:00 to 12:00 is 120 minutes: 30-minute steps.
+  const thirty = steps([[10, 5], [11, 20]]);
+  expect(thirty.map(bucket => bucket.minute)).toEqual([600, 630, 660, 690]);
+  expect(thirty.map(bucket => bucket.today.count)).toEqual([1, 0, 1, 0]);
+}, 20_000);
+
+test("the comparison's sales widen a single day's span", () => {
+  const hours = steps([[10, 5], [11, 20]], [[15, 10]]);
+  // 10:00 to 16:00 is 360 minutes: twelve 30-minute steps.
+  expect(hours.map(bucket => bucket.minute)).toEqual(Array.from({ length: 12 }, (_, i) => 600 + i * 30));
+  expect(hours.find(bucket => bucket.minute === 900)!.yesterday).toEqual({ count: 1, totalMinor: 100 });
+}, 20_000);
+
+test('a day with no sales is the whole day in twelve 120-minute buckets', () => {
+  const hours = steps([]);
+  expect(hours.map(bucket => bucket.minute)).toEqual(Array.from({ length: 12 }, (_, i) => i * 120));
+  expect(hours.every(bucket => bucket.today.totalMinor === 0 && bucket.yesterday.totalMinor === 0)).toBe(true);
 }, 20_000);
