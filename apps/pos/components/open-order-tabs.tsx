@@ -17,6 +17,8 @@ export const STALE_AFTER_MS = 60 * 60_000;
 const HOUR_MS = 3_600_000;
 // The widest + cell, reserved so the blank cart's wider + cannot toggle the count cell (v2 cart/tab-window.ts NEW_TAB_WIDTH).
 const NEW_TAB_WIDTH = 112;
+// Every tab stays a touch target however short its label (v2 cart/tab-window.ts TAB_MIN, set on each tab in cart/tabs.tsx).
+export const TAB_MIN = 96;
 
 export interface OpenOrderTabsParked {
   id: string; parkedAt: string; totalMinor: number;
@@ -67,10 +69,12 @@ export function OpenOrderTabs({ parked, current, currency, locale, onSelect, onN
     const timer = setInterval(() => setNowMs(clock.current()), AGE_TICK_MS);
     return () => clearInterval(timer);
   }, []);
-  // v2's rowOverflows: the tabs overflow once they need more than the strip less the widest + cell.
-  const overflow = stripWidth > 0 && contentWidth > stripWidth - NEW_TAB_WIDTH;
   // The blank cart has no tab of its own: + is its tab, and pressing + there is a place, not an action (v2).
   const fresh = current.lineItems.length === 0;
+  // v2's rowOverflows: the tabs overflow once they need more than the strip less the widest + cell.
+  // The row is never narrower than its tabs at TAB_MIN, so the count cell shows exactly when v2's does.
+  const rowWidth = Math.max(contentWidth, (parked.length + (fresh ? 0 : 1)) * TAB_MIN);
+  const overflow = stripWidth > 0 && rowWidth > stripWidth - NEW_TAB_WIDTH;
   // v2 seeds every walk-in cart with the guest's own name, "Guest" (hooks/use-guest-customer.ts, read by
   // contexts/current-order/use-new-order.ts), so its tabWho returns that name and every tab, phone or wide,
   // reads "Guest $16.83", never the contents. Tally's walk-in cart has no customer, so the tab reads no contents.
@@ -98,7 +102,8 @@ export function OpenOrderTabs({ parked, current, currency, locale, onSelect, onN
     const stale = delta >= STALE_AFTER_MS;
     return (
       <Pressable key={id} testID={`open-order-tab-${id}`} role="tab" aria-selected={selected} disabled={busy} onPress={onPress}
-        className={`h-full min-w-0 justify-center border-b-2 px-3 web:hover:bg-accent active:bg-accent ${selected ? 'border-primary' : 'border-transparent'}`}>
+        style={{ minWidth: TAB_MIN }}
+        className={`h-full justify-center border-b-2 px-3 web:hover:bg-accent active:bg-accent ${selected ? 'border-primary' : 'border-transparent'}`}>
         <View testID={`open-order-tab-${id}-content`} className={compact ? 'items-center gap-1' : undefined}
           style={{ flexDirection: compact ? 'row' : 'column' }}>
           <Text testID={`open-order-tab-${id}-who`} numberOfLines={1}

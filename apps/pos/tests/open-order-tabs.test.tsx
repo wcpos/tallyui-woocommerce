@@ -308,6 +308,18 @@ test('compact: the count cell shows on overflow, as v2\'s does on a phone, and o
   expect(onOpenList).toHaveBeenCalledTimes(1);
 });
 
+// v2 cart/tabs.tsx gives every tab minWidth TAB_MIN (96, cart/tab-window.ts), so short labels still overflow.
+test('every tab is at least 96 wide, and three short tabs overflow a 390 strip as v2\'s do', () => {
+  const { onSelect, onNew, onError } = handlers();
+  render(<OpenOrderTabs compact currency={currency} onSelect={onSelect} onNew={onNew} onError={onError} now={() => NOW}
+    parked={[cart('a', '2026-11-10T10:00:00.000Z', ['Espresso'], 300), cart('b', '2026-11-10T10:05:00.000Z', ['Cold Brew'], 400)]}
+    current={order(['Espresso'], 300)} />);
+  expect(screen.getByTestId('open-order-tab-a').style.minWidth).toBe('96px');
+  // Three 80 labels (240) fit 390 less the 112 for +; three 96 tabs (288) do not.
+  stripLayout(390, 240);
+  expect(screen.getByRole('button', { name: '3 open' }).textContent).toContain('3');
+});
+
 test('the count cell\'s chevron points up while the list is closed and down while it is open; the label stays', () => {
   const { onSelect, onNew, onError } = handlers();
   const parked = [cart('a', '2026-11-10T10:00:00.000Z', ['Espresso'], 300), cart('b', '2026-11-10T10:05:00.000Z', ['Cold Brew'], 400)];
