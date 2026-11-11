@@ -21,6 +21,8 @@ const GridIcon = createSvgIcon('GridIcon', () => <>
   <Rect x={14} y={14} width={7} height={7} rx={1} /><Rect x={3} y={14} width={7} height={7} rx={1} />
 </>);
 const ChevronRightIcon = createSvgIcon('ChevronRightIcon', () => <Path d="m9 18 6-6-6-6" />);
+// v2's chevronLeft, for the parent tile's back badge.
+const ChevronLeftIcon = createSvgIcon('ChevronLeftIcon', () => <Path d="m15 18-6-6 6-6" />);
 
 /** What a cashier can open from the term set: All products, or one category. */
 export type BrowsePlace = { kind: 'all' } | { kind: 'term'; id: number; name: string };
@@ -36,35 +38,58 @@ const entriesOf = (terms: readonly BrowseTerm[]): Entry[] => [{ kind: 'all' }, .
 const keyOf = (entry: Entry) => entry.kind === 'all' ? 'all' : `term-${entry.id}`;
 
 /**
- * v2's TermTile on ProductTile's shape: the square, the band under it and the words at the foot.
+ * v2's TermTile face on ProductTile's shape: the square, the band under it and the words at the foot.
  * All products takes the accent fill and a grid glyph; a category its tint (`tintOf(id)`), a folder
- * mark, a bold name of two lines at most and its count under it. A tile that opens onto more is a
- * stack, as v2 draws it. On a compact window the name and its inset take v2's Compact step.
+ * mark, a bold name of two lines at most and its count under it (none for a count of 0, as v2's
+ * `term.count > 0`). A tile that opens onto more is a stack, as v2 draws it. On a compact window the
+ * name and its inset take v2's Compact step. `badge` sits at the top right, as v2's poster-tile `back`.
  */
-function TermTile({ entry, compact, onPress }: { entry: Entry; compact: boolean; onPress(): void }): JSX.Element {
+function TermFace({ entry, compact, testID, badge }: { entry: Entry; compact: boolean; testID: string; badge?: ReactNode }): JSX.Element {
   const filled = entry.kind === 'all';
   const surface = filled ? 'bg-primary' : TILE_TINTS[tintOf(entry.id)];
   const ink = filled ? 'text-primary-foreground' : 'text-foreground';
-  const label = labelOf(entry);
-  const testID = testIdOf(entry);
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} testID={testID} onPress={onPress}>
-    <View className="relative">
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <View className={STACK_CARD} style={FAR} />
-        <View className={STACK_CARD} style={NEAR} />
-      </View>
-      <View className={`overflow-hidden rounded-lg border border-transparent ${surface}`}>
-        <View className="aspect-square w-full" />
-        <View style={BAND} />
-        <View testID={`${testID}-words`} className={`${tileWords(compact)} pt-2`}>
-          <Text testID={`${testID}-name`} className={`${tileNameSize(compact)} font-bold leading-tight ${ink}`} numberOfLines={2}>{label}</Text>
-          {entry.kind === 'term' && <Text className="text-xs text-foreground/70">{productsLabel(entry.count)}</Text>}
-        </View>
-        <View pointerEvents="none" className="absolute left-2 top-2">
-          {filled ? <GridIcon size={24} className={ink} /> : <FolderIcon size={24} className="text-foreground/70" />}
-        </View>
-      </View>
+  return <View className="relative">
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <View className={STACK_CARD} style={FAR} />
+      <View className={STACK_CARD} style={NEAR} />
     </View>
+    <View className={`overflow-hidden rounded-lg border border-transparent ${surface}`}>
+      <View className="aspect-square w-full" />
+      <View style={BAND} />
+      <View testID={`${testID}-words`} className={`${tileWords(compact)} pt-2`}>
+        <Text testID={`${testID}-name`} className={`${tileNameSize(compact)} font-bold leading-tight ${ink}`} numberOfLines={2}>{labelOf(entry)}</Text>
+        {entry.kind === 'term' && entry.count > 0 && <Text className="text-xs text-foreground/70">{productsLabel(entry.count)}</Text>}
+      </View>
+      <View pointerEvents="none" className="absolute left-2 top-2">
+        {filled ? <GridIcon size={24} className={ink} /> : <FolderIcon size={24} className="text-foreground/70" />}
+      </View>
+      {badge}
+    </View>
+  </View>;
+}
+
+/** v2's TermTile: the face, and tapping it opens the term. */
+function TermTile({ entry, compact, onPress }: { entry: Entry; compact: boolean; onPress(): void }): JSX.Element {
+  const testID = testIdOf(entry);
+  return <Pressable accessibilityRole="button" accessibilityLabel={labelOf(entry)} testID={testID} onPress={onPress}>
+    <TermFace entry={entry} compact={compact} testID={testID} />
+  </Pressable>;
+}
+
+/**
+ * v2's ParentTermTile (term-tile.tsx, term-grid.tsx `renderSlot` index 0): the opened place's own tile in
+ * slot 0 of its level, the face the root drew for it plus v2's back badge, a round chevron at the top right
+ * (poster-tile `back`, a mark inside the tile, not a control of its own). The whole tile is the way back,
+ * labelled v2's `common.back`. `count` is the term's count at the root; without it the face shows none.
+ */
+export function ParentTermTile({ place, count, onBack }: { place: BrowsePlace; count?: number; onBack(): void }): JSX.Element {
+  const compact = useCompactTiles();
+  const entry: Entry = place.kind === 'all' ? place : { kind: 'term', id: place.id, name: place.name, count: count ?? 0 };
+  return <Pressable accessibilityRole="button" accessibilityLabel="Back" testID="browse-parent-tile" onPress={onBack}>
+    <TermFace entry={entry} compact={compact} testID="browse-parent-tile" badge={
+      <View testID="browse-parent-back" className="absolute right-2 top-2 h-7 w-7 items-center justify-center rounded-full border border-border bg-card">
+        <ChevronLeftIcon size={16} className="text-muted-foreground" />
+      </View>} />
   </Pressable>;
 }
 
