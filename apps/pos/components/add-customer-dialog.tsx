@@ -1,11 +1,17 @@
 import { useState } from 'react';
 import type { JSX } from 'react';
+import type { CustomerSummary } from '@tallyui/pos';
 import { ConnectorUnauthorizedError, CustomerServiceError } from '@tallyui/core';
 import { Button, CustomerForm, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Text } from '@tallyui/components';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { toast } from '../lib/toast/toast';
 
-export interface AddCustomerDialogProps { source: CustomerSource; onClose(): void }
+export interface AddCustomerDialogProps {
+  source: CustomerSource;
+  onClose(): void;
+  /** v2 pos/cart/add-customer.tsx: the cart's Add new customer attaches the saved customer to the order. */
+  onCreated?(customer: CustomerSummary): void;
+}
 
 function saveErrorMessage(cause: unknown): string {
   return cause instanceof ConnectorUnauthorizedError ? 'Sign in again to save customers'
@@ -13,8 +19,8 @@ function saveErrorMessage(cause: unknown): string {
     : `Could not reach the store's customers: ${(cause as Error).message}`;
 }
 
-// v2 packages/core/src/screens/main/customers/add.tsx, through the picker's create path (components/customer-picker.tsx).
-export function AddCustomerDialog({ source, onClose }: AddCustomerDialogProps): JSX.Element {
+// v2 packages/core/src/screens/main/customers/add.tsx, and the cart + menu's add-customer.tsx (with onCreated).
+export function AddCustomerDialog({ source, onClose, onCreated }: AddCustomerDialogProps): JSX.Element {
   const [values, setValues] = useState({ firstName: '', lastName: '', email: '', phone: '', address: '' });
   const [error, setError] = useState<string>();
 
@@ -27,6 +33,7 @@ export function AddCustomerDialog({ source, onClose }: AddCustomerDialogProps): 
       const created = await source.create({ email, ...(firstName ? { firstName } : {}),
         ...(lastName ? { lastName } : {}), ...(phone ? { phone } : {}) });
       toast({ type: 'success', title: `${created.name || email} saved` });
+      onCreated?.({ id: created.id, name: created.name, ...(created.email ? { email: created.email } : {}) });
       onClose();
     } catch (cause) {
       toast({ type: 'error', title: 'Failed to save customer', description: saveErrorMessage(cause) });

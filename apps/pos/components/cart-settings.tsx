@@ -5,6 +5,7 @@ import { Path } from 'react-native-svg';
 import type { RxCollection } from 'rxdb';
 import { Button, Cart, createSvgIcon, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, IconButton, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SettingsGroup, Text } from '@tallyui/components';
 import { useRegister } from '../lib/register/register-context';
+import type { CustomerSource } from '../lib/customers/customer-source';
 import { CartAddMenu } from './cart-add-menu';
 import { RegisterSwitch } from './register-controls';
 import { CATALOGUE_VIEW_DEFAULTS } from '../lib/catalogue/catalogue-view-state';
@@ -132,16 +133,23 @@ export type CartWithSettingsProps = ComponentProps<typeof Cart> & {
   openOrders?: ReactNode; // the open-order tab strip, placed by settings.openOrdersPosition
   coupons?: RxCollection | null; // the synced coupons for the + menu's Coupon side
   couponsOffered?: boolean;      // the sale screen's coupon gate
+  customer?: ReactNode;          // the customer label and chip, at the head row's start
+  customers?: CustomerSource | null;     // for the + menu's Add new customer
+  createCustomersBlockedReason?: string; // why Add new customer is disabled
 };
 
-export function CartWithSettings({ position, onPositionChange, openOrders, coupons = null, couponsOffered = false, sale, ...cartProps }: CartWithSettingsProps): JSX.Element {
+export function CartWithSettings({ position, onPositionChange, openOrders, coupons = null, couponsOffered = false, customer, customers = null,
+  createCustomersBlockedReason, sale, ...cartProps }: CartWithSettingsProps): JSX.Element {
   const [settings, setSettings] = useCartSettings();
   const openOrdersStrip = <View testID="cart-open-orders">{openOrders}</View>;
   return <>
     {settings.openOrdersPosition === 'top' && openOrdersStrip}
-    {/* The cart's head row: v2's cart header (pos/cart/cart-header.tsx) ends with the + menu and the Cart Settings icon. */}
-    <View testID="cart-head" className="flex-row items-center justify-end gap-1">
-      <CartAddMenu sale={sale} taxClasses={cartProps.taxClasses} coupons={coupons} couponsOffered={couponsOffered} />
+    {/* The cart's head row: v2's cart header (pos/cart/cart-header.tsx), the customer first (it shrinks, so a long
+        name never pushes the icons off the row), then the + menu and the Cart Settings icon. */}
+    <View testID="cart-head" className="flex-row items-center gap-1">
+      <View className="min-w-0 flex-1">{customer}</View>
+      <CartAddMenu sale={sale} taxClasses={cartProps.taxClasses} coupons={coupons} couponsOffered={couponsOffered}
+        customers={customers} createCustomersBlockedReason={createCustomersBlockedReason} />
       <CartSettingsDialog position={position} onPositionChange={onPositionChange} settings={settings} onSettingsChange={setSettings} />
     </View>
     {/* Sort a copy for display only: the order builder's lineItems keep the add order (receipts, parking, the order). */}

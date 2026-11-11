@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
+import { PortalHost } from '@tallyui/primitives';
 import { GeneralSettings, countryLabel, type DefaultCustomerControl } from '../components/settings/general-settings';
 import type { DefaultCustomerSetting } from '../lib/customers/default-customer';
 
@@ -49,7 +50,8 @@ const gee = { id: '7', name: 'Gee Four', email: 'gee@example.invalid' };
 function renderDefaultCustomer(setting: DefaultCustomerSetting, customer: DefaultCustomerControl['customer'] = null) {
   const onChange = vi.fn<DefaultCustomerControl['onChange']>();
   const source = { search: vi.fn().mockResolvedValue([gee]), create: vi.fn().mockResolvedValue(gee) };
-  render(<GeneralSettings store={store} siteHome={siteHome} defaultCustomer={{ setting, customer, source, onChange }} />);
+  // The customer dropdown is a popover, drawn in the portal host.
+  render(<><GeneralSettings store={store} siteHome={siteHome} defaultCustomer={{ setting, customer, source, onChange }} /><PortalHost /></>);
   return { onChange, source };
 }
 const defaultRow = () => within(screen.getByTestId('settings-general-default_customer'));

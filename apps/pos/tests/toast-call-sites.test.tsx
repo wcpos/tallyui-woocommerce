@@ -4,7 +4,8 @@ import { CustomerServiceError } from '@tallyui/core';
 import type { Customer } from '@tallyui/core';
 import type { useSale } from '@tallyui/pos';
 import { CouponRows } from '../components/coupon-entry';
-import { CustomerPicker } from '../components/customer-picker';
+import { PortalHost } from '@tallyui/primitives';
+import { AddCustomerDialog } from '../components/add-customer-dialog';
 import { Toaster } from '../components/toaster';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { dismissToast } from '../lib/toast/toast';
@@ -47,23 +48,23 @@ test('a refused coupon removal toasts the refusal as a warning, not an inline al
   expect(screen.queryByRole('alert')).toBeNull();
 });
 
-test('creating a customer toasts the saved name', async () => {
-  render(<><CustomerPicker source={source} customer={null} onChange={onChange} /><Toaster /></>);
-  fireEvent.click(screen.getByTestId('cart-customer-name'));
-  fireEvent.click(screen.getByRole('button', { name: 'New customer' }));
+// The cart's Add new customer (cart-add-menu.tsx) is AddCustomerDialog with onCreated.
+function createCustomer() {
+  render(<><AddCustomerDialog source={source} onClose={() => {}} onCreated={onChange} /><PortalHost /><Toaster /></>);
   fireEvent.change(screen.getByPlaceholderText('email@example.com'), { target: { value: 'gee@example.invalid' } });
-  fireEvent.click(screen.getByText('Create customer'));
+  fireEvent.click(within(screen.getByTestId('customer-form')).getByText('Add Customer'));
+}
+
+test('creating a customer toasts the saved name', async () => {
+  createCustomer();
   expect(within(await screen.findByTestId('success-toast')).getByText('Gee Four saved')).not.toBeNull();
-  expect(onChange).toHaveBeenCalledTimes(1);
+  expect(onChange).toHaveBeenCalledExactlyOnceWith({ id: '7', name: 'Gee Four', email: 'gee@example.invalid' });
 });
 
-test('a failed create shows no toast', async () => {
+test('a failed create shows no success toast', async () => {
   create.mockRejectedValue(new CustomerServiceError('network', 'Offline'));
-  render(<><CustomerPicker source={source} customer={null} onChange={onChange} /><Toaster /></>);
-  fireEvent.click(screen.getByTestId('cart-customer-name'));
-  fireEvent.click(screen.getByRole('button', { name: 'New customer' }));
-  fireEvent.change(screen.getByPlaceholderText('email@example.com'), { target: { value: 'gee@example.invalid' } });
-  fireEvent.click(screen.getByText('Create customer'));
-  expect(await screen.findByText("Could not reach the store's customers: Offline")).not.toBeNull();
+  createCustomer();
+  expect(within(await screen.findByTestId('error-toast')).getByText("Could not reach the store's customers: Offline")).not.toBeNull();
   expect(screen.queryByTestId('success-toast')).toBeNull();
+  expect(onChange).not.toHaveBeenCalled();
 });
