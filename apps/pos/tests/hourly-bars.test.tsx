@@ -1,10 +1,13 @@
-import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, expect, test } from 'vitest';
+// Uniwind's runtime does not load under Vitest; the chart reads fixed colours.
+vi.mock('uniwind', () => ({ useCSSVariable: (names: string[]) => names.map(() => '#000000') }));
+import { act, cleanup, render, screen } from '@testing-library/react';
+import { afterEach, expect, test, vi } from 'vitest';
 import { HourlyBars } from '../components/hourly-bars';
 import type { HourBucket } from '../lib/reports/sales-room';
 
 afterEach(cleanup);
 
+const money = (minor: number) => `$${(minor / 100).toFixed(2)}`;
 const hours: HourBucket[] = [
   { hour: 9, today: { count: 2, totalMinor: 1158 }, yesterday: { count: 0, totalMinor: 0 } },
   { hour: 10, today: { count: 0, totalMinor: 0 }, yesterday: { count: 0, totalMinor: 0 } },
@@ -15,72 +18,134 @@ const hours: HourBucket[] = [
   { hour: 15, today: { count: 0, totalMinor: 0 }, yesterday: { count: 0, totalMinor: 0 } },
   { hour: 16, today: { count: 0, totalMinor: 0 }, yesterday: { count: 1, totalMinor: 600 } },
 ];
+const bucket = (hour: number, today: number, yesterday: number): HourBucket => ({
+  hour, today: { count: today ? 1 : 0, totalMinor: today }, yesterday: { count: yesterday ? 1 : 0, totalMinor: yesterday },
+});
+const chart = (props: Partial<Parameters<typeof HourlyBars>[0]> = {}) =>
+  render(<HourlyBars hours={hours} money={money} nowHour={23} view="hour" {...props} />);
+const style = (testID: string) => getComputedStyle(screen.getByTestId(testID));
+const points = (testID: string) => screen.getByTestId(testID).getAttribute('points');
+const axis = () => screen.getAllByTestId(/^sales-hour-\d\d$/).map(column => column.lastElementChild?.textContent);
+type LayoutNode = HTMLElement & { __reactLayoutHandler(event: { nativeEvent: { layout: { width: number } } }): void };
+// RNW attaches onLayout to the node; jsdom has no ResizeObserver, so the test reports the size.
+const layout = (width: number) =>
+  act(() => (screen.getByTestId('sales-room-hours') as LayoutNode).__reactLayoutHandler({ nativeEvent: { layout: { width } } }));
 
 test('one column per hour, in order', () => {
-  render(<HourlyBars hours={hours} currency="USD" locale="en-US" />);
-  expect(screen.getByText('Filled: today · Dashed: yesterday')).not.toBeNull();
+  chart();
   expect(screen.getAllByTestId(/^sales-hour-\d\d$/).map(column => column.getAttribute('data-testid'))).toEqual([
     'sales-hour-09', 'sales-hour-10', 'sales-hour-11', 'sales-hour-12',
     'sales-hour-13', 'sales-hour-14', 'sales-hour-15', 'sales-hour-16',
   ]);
-  for (const hour of ['09', '10', '11', '12', '13', '14', '15', '16']) {
-    expect(screen.getByText(hour)).not.toBeNull();
-  }
 });
 
 test('both days share one scale', () => {
-  render(<HourlyBars hours={hours} currency="USD" locale="en-US" />);
-  expect(getComputedStyle(screen.getByTestId('sales-hour-13-today')).height).toBe('100%');
-  expect(getComputedStyle(screen.getByTestId('sales-hour-09-today')).height).toBe('63%');
-  expect(getComputedStyle(screen.getByTestId('sales-hour-10-today')).height).toBe('0%');
-  expect(getComputedStyle(screen.getByTestId('sales-hour-16-yesterday')).height).toBe('33%');
-  expect(getComputedStyle(screen.getByTestId('sales-hour-11-yesterday')).height).toBe('22%');
-  expect(screen.queryByTestId('sales-hour-10-yesterday')).toBeNull();
-  expect(screen.getByTestId('sales-hour-16-today').compareDocumentPosition(
-    screen.getByTestId('sales-hour-16-yesterday'),
-  ) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  chart();
+  expect(style('sales-hour-13-today').height).toBe('100%');
+  expect(style('sales-hour-09-today').height).toBe('63%');
+  expect(style('sales-hour-10-today').height).toBe('0%');
+  expect(screen.queryByTestId('sales-hour-16-yesterday')).toBeNull();
 });
 
 test("yesterday's peak sets the scale when it is higher", () => {
-  const higherYesterday = hours.map(bucket => bucket.hour === 16
-    ? { ...bucket, yesterday: { count: 1, totalMinor: 2400 } } : bucket);
-  render(<HourlyBars hours={higherYesterday} currency="USD" locale="en-US" />);
-  expect(getComputedStyle(screen.getByTestId('sales-hour-13-today')).height).toBe('77%');
-  expect(getComputedStyle(screen.getByTestId('sales-hour-09-today')).height).toBe('48%');
-  expect(getComputedStyle(screen.getByTestId('sales-hour-16-yesterday')).height).toBe('100%');
+  chart({ hours: hours.map(b => b.hour === 16 ? { ...b, yesterday: { count: 1, totalMinor: 2400 } } : b) });
+  expect(style('sales-hour-13-today').height).toBe('77%');
+  expect(style('sales-hour-09-today').height).toBe('48%');
 });
 
-test('the busiest hour is named', () => {
-  const { rerender } = render(<HourlyBars hours={hours} currency="USD" locale="en-US" />);
-  expect(screen.getByText('Busiest hour: 13:00 · $18.38 · 2 orders')).not.toBeNull();
-  const tiedHours = hours.map(bucket => bucket.hour === 9
-    ? { ...bucket, today: { count: 1, totalMinor: 1838 } } : bucket);
-  rerender(<HourlyBars hours={tiedHours} currency="USD" locale="en-US" />);
-  expect(screen.getByText('Busiest hour: 09:00 · $18.38 · 1 order')).not.toBeNull();
+test('the peak label reads the busiest hour over its column', () => {
+  chart();
+  layout(800);
+  const peak = screen.getByTestId('hero-chart-peak');
+  expect(peak.textContent).toBe('$18.38 · 2 orders');
+  // Hour 13 is the fifth of eight columns: its centre is 4.5 / 8 of 800.
+  expect(parseFloat(style('hero-chart-peak').left) + parseFloat(style('hero-chart-peak').width) / 2).toBe(450);
+  cleanup();
+  chart({ hours: hours.map(b => b.hour === 9 ? { ...b, today: { count: 1, totalMinor: 1838 } } : b) });
+  expect(screen.getByTestId('hero-chart-peak').textContent).toBe('$18.38 · 1 order');
+});
+
+test('the busiest bar is full and the others are faint', () => {
+  chart();
+  expect(style('sales-hour-13-today').opacity).toBe('1');
+  expect(style('sales-hour-09-today').opacity).toBe('0.55');
+  expect(style('sales-hour-10-today').opacity).toBe('0.55');
+});
+
+test('no peak label without a sale today', () => {
+  chart({ hours: [bucket(11, 0, 400)] });
+  expect(screen.queryByTestId('hero-chart-peak')).toBeNull();
+});
+
+test('the comparison is one dashed line through the column centres', () => {
+  chart({ hours: [bucket(9, 1000, 400), bucket(10, 500, 0), bucket(11, 0, 600)] });
+  const line = screen.getByTestId('hero-chart-comparison');
+  expect(points('hero-chart-comparison')).toBe('0.5,60 1.5,100 2.5,40');
+  expect(line.getAttribute('stroke-dasharray')).toBe('4 4');
+  expect(line.getAttribute('stroke-width')).toBe('1.5');
+  expect(line.closest('svg')?.getAttribute('viewBox')).toBe('0 0 3 100');
+  expect(line.closest('svg')?.getAttribute('preserveAspectRatio')).toBe('none');
+});
+
+test('no comparison line when the comparison day is empty', () => {
+  chart({ hours: [bucket(9, 1000, 0), bucket(10, 500, 0)] });
+  expect(screen.queryByTestId('hero-chart-comparison')).toBeNull();
+});
+
+test('the axis labels every column up to 12 hours and every second one beyond', () => {
+  chart();
+  expect(axis()).toEqual(['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00']);
+  cleanup();
+  chart({ hours: Array.from({ length: 24 }, (_, hour) => bucket(hour, 0, 0)) });
+  expect(axis()).toEqual(Array.from({ length: 24 }, (_, hour) => hour % 2 ? '' : `${String(hour).padStart(2, '0')}:00`));
+  cleanup();
+  chart({ hours: Array.from({ length: 13 }, (_, i) => bucket(i + 6, 0, 0)) });
+  expect(axis().filter(Boolean)).toEqual(['06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00']);
 });
 
 test('each column describes itself', () => {
-  render(<HourlyBars hours={hours} currency="USD" locale="en-US" />);
+  chart();
   expect(screen.getByTestId('sales-hour-13').getAttribute('aria-label')).toBe('13:00 — today $18.38, 2 orders; yesterday $0.00');
   expect(screen.getByTestId('sales-hour-11').getAttribute('aria-label')).toBe('11:00 — today $0.00, 0 orders; yesterday $4.00');
 });
 
-test('no busiest line when today has no sales', () => {
-  const yesterdayOnly: HourBucket[] = [
-    { hour: 11, today: { count: 0, totalMinor: 0 }, yesterday: { count: 1, totalMinor: 400 } },
-  ];
-  render(<HourlyBars hours={yesterdayOnly} currency="USD" locale="en-US" />);
-  expect(screen.queryByText(/^Busiest hour/)).toBeNull();
-  expect(getComputedStyle(screen.getByTestId('sales-hour-11-yesterday')).height).toBe('100%');
+test('the column labels name the comparison day', () => {
+  chart({ comparisonName: 'last Tuesday' });
+  expect(screen.getByTestId('sales-hour-11').getAttribute('aria-label')).toBe('11:00 — today $0.00, 0 orders; last Tuesday $4.00');
 });
 
 test('renders nothing without sales', () => {
-  render(<HourlyBars hours={[]} currency="USD" locale="en-US" />);
+  chart({ hours: [] });
   expect(screen.queryByTestId('sales-room-hours')).toBeNull();
 });
 
-test('the legend and labels name the comparison day', () => {
-  render(<HourlyBars hours={hours} currency="USD" locale="en-US" comparisonName="last Tuesday" />);
-  expect(screen.getByText('Filled: today · Dashed: last Tuesday')).not.toBeNull();
-  expect(screen.getByTestId('sales-hour-11').getAttribute('aria-label')).toBe('11:00 — today $0.00, 0 orders; last Tuesday $4.00');
+const running = [bucket(9, 10, 5), bucket(10, 0, 10), bucket(11, 20, 25)];
+
+test('Running total plots today up to the current hour only', () => {
+  chart({ hours: running, view: 'run', nowHour: 10 });
+  // Cumulative 10, 10 against the larger end, the comparison's 40.
+  expect(points('hero-chart-run')).toBe('0.5,75 1.5,75');
+  expect(screen.getByTestId('hero-chart-total').textContent).toBe(`${money(10)} now`);
+});
+
+test('the comparison running line is cumulative over every hour', () => {
+  chart({ hours: running, view: 'run', nowHour: 10 });
+  expect(points('hero-chart-comparison')).toBe('0.5,87.5 1.5,62.5 2.5,0');
+  expect(screen.getByTestId('hero-chart-comparison').getAttribute('stroke-dasharray')).toBe('4 4');
+  expect(screen.getByTestId('hero-chart-comparison-total').textContent).toBe(money(40));
+});
+
+test('Running total draws a faint area and no bars', () => {
+  chart({ hours: running, view: 'run', nowHour: 23 });
+  expect(screen.getByTestId('hero-chart-area').getAttribute('fill-opacity')).toBe('0.1');
+  expect(screen.queryAllByTestId(/^sales-hour-\d\d-today$/)).toHaveLength(0);
+  expect(screen.getAllByTestId(/^sales-hour-\d\d$/)).toHaveLength(3);
+  expect(screen.queryByTestId('hero-chart-peak')).toBeNull();
+  expect(screen.getByTestId('hero-chart-total').textContent).toBe(`${money(30)} now`);
+});
+
+test('Running total has no comparison figure without a comparison sale', () => {
+  chart({ hours: [bucket(9, 10, 0)], view: 'run', nowHour: 9 });
+  expect(screen.queryByTestId('hero-chart-comparison-total')).toBeNull();
+  expect(screen.queryByTestId('hero-chart-comparison')).toBeNull();
 });
