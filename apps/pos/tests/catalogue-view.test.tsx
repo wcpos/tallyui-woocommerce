@@ -314,11 +314,35 @@ test('the tile size slider changes the wide grid immediately and saves the selec
   expect(gridCellWidth()).toBeCloseTo(50);
 });
 
-test('phones keep two tiles per row with a stored size of six', () => {
-  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 800, scale: 1, fontScale: 1 });
-  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"gridColumns":6,"browseBy":"all"}');
+function browseCellWidth(): number {
+  let cell = screen.getByTestId('browse-all-products').parentElement;
+  while (cell && !cell.style.width.endsWith('%')) cell = cell.parentElement;
+  expect(cell, document.body.innerHTML).not.toBeNull();
+  return parseFloat(cell!.style.width);
+}
+
+// v2 takes the Tile Size setting as the column count at every width (tiles/tile-grid.tsx useGridColumns).
+test.each([390, 1280])('at %ipx the default view lays the category and product tiles four to a row', width => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width, height: 844, scale: 1, fontScale: 1 });
+  localStorage.removeItem(CATALOGUE_VIEW_KEY);
   render(<CatalogueView {...props} />);
-  expect(gridCellWidth()).toBeCloseTo(50);
+  expect(browseCellWidth()).toBeCloseTo(25);
+  fireEvent.click(screen.getByTestId('browse-all-products'));
+  expect(gridCellWidth()).toBeCloseTo(25);
+});
+
+test('on a phone the stored tile size holds for both grids, and the slider changes it', () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  localStorage.setItem(CATALOGUE_VIEW_KEY, '{"gridColumns":6}');
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  expect(browseCellWidth()).toBeCloseTo(100 / 6);
+  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
+  fireEvent.keyDown(screen.getByRole('slider'), { key: 'Home' });
+  expect(browseCellWidth()).toBeCloseTo(50);
+  fireEvent.keyDown(screen.getByRole('slider'), { key: 'ArrowRight' });
+  fireEvent.keyDown(screen.getByTestId('catalogue-settings'), { key: 'Escape' });
+  fireEvent.click(screen.getByTestId('browse-all-products'));
+  expect(gridCellWidth()).toBeCloseTo(100 / 3);
 });
 
 test('column switches update the table immediately and survive a remount', () => {

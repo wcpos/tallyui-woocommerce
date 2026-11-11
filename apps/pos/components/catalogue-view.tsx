@@ -109,8 +109,9 @@ export function CatalogueView({
   }
   const sort = sortOverride ?? viewState.sort;
   const { width } = useWindowDimensions();
-  // Phones keep 2 tiles a row whatever the setting.
-  const numColumns = width < 600 ? 2 : resolveGridColumns(viewState.gridColumns, width);
+  // As v2 at every width: the Tile Size setting is the column count, for category and product tiles alike
+  // (v2 tiles/tile-grid.tsx `useGridColumns` reads `gridColumns` with no width rule; default 4, initial-settings.json).
+  const numColumns = resolveGridColumns(viewState.gridColumns, width);
   const searching = Boolean(term.trim());
   // Browse by Categories, flat. v2 keeps a path of levels projected into the query (use-browse-path.ts,
   // browse-stage.tsx); with no hierarchy here one open place is enough: null is the root. The place
