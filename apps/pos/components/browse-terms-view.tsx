@@ -8,8 +8,9 @@ import { Path, Rect } from 'react-native-svg';
 import { createSvgIcon, Text, VStack } from '@tallyui/components';
 import { productsLabel } from '../lib/catalogue/browse-terms';
 import type { BrowseTerm } from '../lib/catalogue/browse-terms';
+import { tileNameSize, tileWords, useCompactTiles } from '../lib/catalogue/tile-scale';
 import { tintOf } from '../lib/catalogue/tile-words';
-import { BAND, FAR, NEAR, STACK_CARD, TILE_TINTS, WORDS } from './product-tile';
+import { BAND, FAR, NEAR, STACK_CARD, TILE_TINTS } from './product-tile';
 
 const FolderIcon = createSvgIcon('FolderIcon', () => <>
   <Path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
@@ -38,14 +39,15 @@ const keyOf = (entry: Entry) => entry.kind === 'all' ? 'all' : `term-${entry.id}
  * v2's TermTile on ProductTile's shape: the square, the band under it and the words at the foot.
  * All products takes the accent fill and a grid glyph; a category its tint (`tintOf(id)`), a folder
  * mark, a bold name of two lines at most and its count under it. A tile that opens onto more is a
- * stack, as v2 draws it.
+ * stack, as v2 draws it. On a compact window the name and its inset take v2's Compact step.
  */
-function TermTile({ entry, onPress }: { entry: Entry; onPress(): void }): JSX.Element {
+function TermTile({ entry, compact, onPress }: { entry: Entry; compact: boolean; onPress(): void }): JSX.Element {
   const filled = entry.kind === 'all';
   const surface = filled ? 'bg-primary' : TILE_TINTS[tintOf(entry.id)];
   const ink = filled ? 'text-primary-foreground' : 'text-foreground';
   const label = labelOf(entry);
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} testID={testIdOf(entry)} onPress={onPress}>
+  const testID = testIdOf(entry);
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} testID={testID} onPress={onPress}>
     <View className="relative">
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         <View className={STACK_CARD} style={FAR} />
@@ -54,8 +56,8 @@ function TermTile({ entry, onPress }: { entry: Entry; onPress(): void }): JSX.El
       <View className={`overflow-hidden rounded-lg border border-transparent ${surface}`}>
         <View className="aspect-square w-full" />
         <View style={BAND} />
-        <View className={`${WORDS} pt-2`}>
-          <Text className={`text-base font-bold leading-tight ${ink}`} numberOfLines={2}>{label}</Text>
+        <View testID={`${testID}-words`} className={`${tileWords(compact)} pt-2`}>
+          <Text testID={`${testID}-name`} className={`${tileNameSize(compact)} font-bold leading-tight ${ink}`} numberOfLines={2}>{label}</Text>
           {entry.kind === 'term' && <Text className="text-xs text-foreground/70">{productsLabel(entry.count)}</Text>}
         </View>
         <View pointerEvents="none" className="absolute left-2 top-2">
@@ -87,11 +89,12 @@ function TermRow({ entry, onPress }: { entry: Entry; onPress(): void }): JSX.Ele
 export function BrowseRootGrid({ terms, numColumns, searchSlot, onOpen }: {
   terms: readonly BrowseTerm[]; numColumns: number; searchSlot?: ReactNode; onOpen(place: BrowsePlace): void;
 }): JSX.Element {
+  const compact = useCompactTiles();
   return <VStack space="none" className="flex-1" testID="browse-root">
     {searchSlot && <View className="px-3 py-2">{searchSlot}</View>}
     <FlatList key={numColumns} data={entriesOf(terms)} numColumns={numColumns} keyExtractor={keyOf} contentContainerClassName="p-1"
       renderItem={({ item }) => <View style={{ width: `${100 / numColumns}%` }} className="p-1">
-        <TermTile entry={item} onPress={() => onOpen(placeOf(item))} />
+        <TermTile entry={item} compact={compact} onPress={() => onOpen(placeOf(item))} />
       </View>} />
   </VStack>;
 }

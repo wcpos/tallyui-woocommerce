@@ -4,6 +4,7 @@ import type { ViewStyle } from 'react-native';
 import { resolvePrice, resolvePriceRange, useProductStock, useProductTraits, useTraitContext } from '@tallyui/core';
 import { ProductImage, ProductTitle, Text } from '@tallyui/components';
 import type { CatalogueTileFields } from '../lib/catalogue/catalogue-view-state';
+import { tileNameSize, tileWords, useCompactTiles } from '../lib/catalogue/tile-scale';
 import { formatTileMoney, isSoldOut, optionsLabel, tileStockMark, tileTaxLine, tileTint } from '../lib/catalogue/tile-words';
 import type { TileTax } from '../lib/catalogue/tile-words';
 import { InCartBadge } from './in-cart-badge';
@@ -44,7 +45,6 @@ const SCRIM_BLUR_STYLE = {
   position: 'absolute', top: 0, right: 0, bottom: 0, left: 0,
   backdropFilter: SCRIM_BLUR, WebkitBackdropFilter: SCRIM_BLUR, maskImage: SCRIM_MASK, WebkitMaskImage: SCRIM_MASK,
 } as ViewStyle;
-export const WORDS = 'absolute bottom-0 left-0 right-0 max-h-full gap-0.5 overflow-hidden px-2.5 pb-2.5';
 
 export function ProductTile({ doc, fields, onPress, tax, inCart = 0 }: ProductTileProps): JSX.Element {
   const traits = useProductTraits();
@@ -57,8 +57,9 @@ export function ProductTile({ doc, fields, onPress, tax, inCart = 0 }: ProductTi
   const sku = traits.getSku(doc);
   const barcode = traits.getBarcode(doc);
   const options = variable ? optionsLabel(traits.getVariantCount(doc)) : null;
+  const compact = useCompactTiles();
   const lines: ReactNode[] = [
-    fields.name && <ProductTitle key="name" doc={doc} className="text-base font-bold leading-tight" numberOfLines={2} />,
+    fields.name && <ProductTitle key="name" testID={`tile-name-${id}`} doc={doc} className={`${tileNameSize(compact)} font-bold leading-tight`} numberOfLines={2} />,
     soldOut ? (fields.price || fields.stock) && <Text key="money" testID={`tile-sold-out-${id}`} className="text-base font-bold">Sold out</Text>
       : fields.price && <TileMoney key="money" doc={doc} id={id} fields={fields} tax={tax} variable={variable} />,
     options && <Text key="options" testID={`tile-options-${id}`} className="text-xs text-foreground/70">{options}</Text>,
@@ -90,6 +91,7 @@ export function TilePoster({ doc, testKey, soldOut, lines, children }: {
   const imageUrl = traits.getImageUrl(doc);
   const tint = imageUrl ? null : tileTint(traits.getCategories?.(doc) ?? [], traits.getName(doc));
   const initial = traits.getName(doc).trim().charAt(0).toUpperCase();
+  const words = tileWords(useCompactTiles());
   return <View className={`overflow-hidden rounded-lg border ${tint === null ? 'border-border bg-card' : `${TILE_TINTS[tint]} border-transparent`}`}>
     <View className="aspect-square w-full overflow-hidden">
       <View testID={`tile-picture-${testKey}`} className="h-full w-full" style={soldOut ? SOLD_OUT : undefined}>
@@ -102,12 +104,12 @@ export function TilePoster({ doc, testKey, soldOut, lines, children }: {
     </View>
     <View style={BAND} />
     {lines.length > 0 && (tint === null
-      ? <View testID={`tile-scrim-${testKey}`} className={Platform.OS === 'web' ? WORDS : `${WORDS} bg-card/90`} style={SCRIM_STYLE}>
+      ? <View testID={`tile-scrim-${testKey}`} className={Platform.OS === 'web' ? words : `${words} bg-card/90`} style={SCRIM_STYLE}>
         {/* First in the tree, as v2's, so the words paint above it. */}
         {Platform.OS === 'web' && <View testID={`tile-scrim-blur-${testKey}`} pointerEvents="none" style={SCRIM_BLUR_STYLE} />}
         {lines}
       </View>
-      : <View className={`${WORDS} pt-2`}>{lines}</View>)}
+      : <View className={`${words} pt-2`}>{lines}</View>)}
     {children}
   </View>;
 }
