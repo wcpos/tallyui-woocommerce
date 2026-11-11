@@ -121,13 +121,17 @@ export interface CatalogueFilterChipsProps {
   /** v2's `level === 'variations'` (filter-bar.tsx): while a product is drilled into, every chip but Stock status is
    * dimmed and opens nothing, since a product filter does not apply to its variations. */
   dimmed?: boolean;
+  /** v2's `place.field` (filter-bar.tsx:505, `item.id === place?.field` draws nothing): the field an open browse
+   * level's crumb owns. The crumb is the place, so that field's own chip folds away; the other chips stay. */
+  placeField?: 'categories' | 'tags';
 }
 
-export function CatalogueFilterChips({ products, filters, onChange, dimmed = false }: CatalogueFilterChipsProps): JSX.Element {
+export function CatalogueFilterChips({ products, filters, onChange, dimmed = false, placeField }: CatalogueFilterChipsProps): JSX.Element {
   const stock = filters.stock_status;
   const stockLabel = stock !== undefined && stock in STOCK_LABELS ? STOCK_LABELS[stock] : undefined;
   const onSale = filters.on_sale === true;
-  function termChip(field: 'categories' | 'tags', prefix: string, baseLabel: string, emptyText: string): JSX.Element {
+  function termChip(field: 'categories' | 'tags', prefix: string, baseLabel: string, emptyText: string): JSX.Element | null {
+    if (field === placeField) return null;
     const options = termOptions(products, field, prefix);
     const ids = filters[field] ?? [];
     const firstId = ids[0];
