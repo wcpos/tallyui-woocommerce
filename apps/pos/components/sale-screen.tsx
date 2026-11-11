@@ -433,7 +433,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             checkout={checkout}
             position={viewState.position} onPositionChange={position => setViewState({ ...viewState, position })}
             openOrders={<OpenOrderTabs parked={parked} current={sale.order} currency={currency} locale={props.locale} onSelect={onResume} onNew={onPark} onError={setMessage}
-              onOpenList={() => setParkedOpen(true)} compact={phoneLayout} />} />
+              onOpenList={() => setParkedOpen(true)} listOpen={parkedOpen} compact={phoneLayout} />} />
           {voidOpen && <AlertDialog open onOpenChange={next => { if (!next) setVoidOpen(false); }}>
             <AlertDialogContent testID="cart-void-dialog">
               <AlertDialogHeader>
