@@ -1,17 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { Button, Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
-import { clampClosureScope, formatClosureDate, selectClosureRows, type Closure, type PosOrder } from '@tallyui/pos';
+import {
+  clampClosureScope, comparisonRange, formatClosureDate, presetRange, selectClosureRows, type Closure, type DatePreset, type PosOrder,
+} from '@tallyui/pos';
 import { Portal } from '@tallyui/primitives';
 import { useSession } from '../lib/auth/session-context';
 import { useRegister } from '../lib/register/register-context';
 import { closuresCsv } from '../lib/reports/closures-csv';
-import { salesRoom, type Compare } from '../lib/reports/sales-room';
+import { isMultiDay, rangeBounds, salesRoom, storeDay, type Compare } from '../lib/reports/sales-room';
 import { salesTableCsv } from '../lib/reports/sales-table-csv';
 import { ordersTable, paymentsTable, taxesTable } from '../lib/reports/sales-tables';
-import { dayRange } from '../lib/reports/today-sales';
 import { useMinuteClock } from '../lib/reports/use-minute-clock';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { ordersDatabaseName } from '../lib/sale/order-store';
@@ -23,6 +24,7 @@ import { HourlyBars } from './hourly-bars';
 import { ReportCards } from './report-cards';
 import { CompareChip, PrintSummaryButton, ReportChips, reportCashiers } from './report-chips';
 import { ReportsHero } from './reports-hero';
+import { periodLabel, ReportsPeriod } from './reports-period';
 import { SalesSummaryPrint } from './sales-summary-print';
 import { SalesTable } from './sales-table';
 import { Segmented } from './segmented';
@@ -39,12 +41,16 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const user = session?.tokens.user;
   const resolveCashierName = (id: string) => user && id === String(user.id) ? user.displayName : id;
   const register = useRegister();
-  const [range] = useState(() => dayRange(new Date()));
-  const [weekBefore] = useState(() => {
-    const start = new Date(range.startIso);
-    return dayRange(new Date(start.getFullYear(), start.getMonth(), start.getDate() - 7));
-  });
+  // The presets are read from the day the screen opened, as today's range was.
+  const [opened] = useState(() => new Date());
+  const [preset, setPreset] = useState<DatePreset>('today');
   const [compare, setCompare] = useState<Compare>('yesterday');
+  const range = useMemo(() => presetRange(preset, opened, 'device'), [preset, opened]);
+  const multiDay = isMultiDay(range, preset);
+  const comparison = useMemo(() => comparisonRange(range, !multiDay && compare === 'lastweek' ? 'week' : 'previous', preset),
+    [range, multiDay, compare, preset]);
+  const bounds = rangeBounds(range);
+  const since = rangeBounds(comparison).startIso;
   const [cashierId, setCashierId] = useState<string | null>(null);
   const now = useMinuteClock();
   const [sales, setSales] = useState<PosOrder[]>([]);
@@ -58,8 +64,12 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const wide = useWindowDimensions().width >= 600;
   locale = locale.replaceAll('_', '-');
   const shown = cashierId === null ? sales : sales.filter(order => order.cashierRef === cashierId);
-  const weekday = new Date(range.startIso).toLocaleDateString(locale, { weekday: 'long' });
-  const comparisonName = compare === 'yesterday' ? 'yesterday' : `last ${weekday}`;
+  const weekday = new Date(bounds.startIso).toLocaleDateString(locale, { weekday: 'long' });
+  const comparisonName = multiDay ? (preset.endsWith('Month') ? 'month before' : 'week before')
+    : compare === 'yesterday' ? 'yesterday' : `last ${weekday}`;
+  const { label: periodName } = periodLabel(range, preset, locale);
+  // A period's ranges end today at the latest, so only Today's hours run into the future.
+  const nowBucket = preset === 'today' ? now.getHours() : 24;
   const today = formatClosureDate(new Date().toISOString(), { timezone: 'device', locale }).date_ymd;
   const storeKey = session ? ordersDatabaseName(session) : '';
   const closures = selectClosureRows(rows, clampClosureScope({
@@ -72,7 +82,11 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const printSummary = () => { setReprint('summary'); setPrintRequest(value => value + 1); };
   const reportCashierRows = reportCashiers([...(user ? [user] : []), ...cashiers.map(entry => entry.tokens.user)]);
   const cashierName = cashierId === null ? 'Everyone' : reportCashierRows.find(row => row.id === cashierId)?.name ?? cashierId;
-  const room = salesRoom(shown, { now, currency, compare });
+  const room = salesRoom(shown, { now, currency, range, preset, comparison });
+  const periodButton = <ReportsPeriod preset={preset} range={range} locale={locale} onPreset={setPreset} />;
+  const chips = <ReportChips cashiers={reportCashierRows} cashierId={cashierId} onCashier={setCashierId} />;
+  const printButton = <PrintSummaryButton wide={wide} onPress={printSummary} />;
+  const printDate = (day: string) => formatClosureDate(rangeBounds({ from: day, to: day }).startIso, { timezone: 'device', locale }).date;
   const money = (amount: number) => formatMoney({ amount, currency }, locale);
   // The donut centres read whole currency units: the amount rounded to whole units, shown with no decimals.
   const exponent = new Intl.NumberFormat(locale, { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2;
@@ -81,7 +95,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   }).format(Math.round(minor / 10 ** exponent));
   const table = openTable === 'payments' ? paymentsTable(room.today, money)
     : openTable === 'taxes' ? taxesTable(room.today, money)
-    : openTable === 'orders' ? ordersTable(shown, { now, currency, money }) : null;
+    : openTable === 'orders' ? ordersTable(shown, { range, currency, money }) : null;
   const downloadCsv = (csv: string, filename: string) => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -96,12 +110,13 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
 
   useEffect(() => {
     if (!orders) return;
-    const salesSubscription = orders.find({ selector: { createdAt: { $gte: weekBefore.startIso, $lt: range.endIso } } }).$
+    // From the comparison's first day through the period's last.
+    const salesSubscription = orders.find({ selector: { createdAt: { $gte: since, $lt: bounds.endIso } } }).$
       .subscribe(docs => setSales(docs.map(doc => doc.toMutableJSON())));
     const collection: RxCollection<Closure> = orders.database.collections.closures;
     const closuresSubscription = collection.find().$.subscribe(docs => setRows(docs.map(doc => doc.toMutableJSON())));
     return () => { salesSubscription.unsubscribe(); closuresSubscription.unsubscribe(); };
-  }, [orders, range, weekBefore]);
+  }, [orders, since, bounds.endIso]);
 
   useEffect(() => {
     if (!reprint) return;
@@ -118,26 +133,32 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
       <ScrollView contentContainerClassName="gap-4 p-4">
         <TillStrip orders={orders} currency={currency} locale={locale} resolveCashierName={resolveCashierName}
           onPrintXReport={printXReport} onReprint={reprintClosure} onOpenClosure={closure => setOpenClosureId(closure.id)} />
-        {/* v2 `SalesScope`: the chips left, Print summary right. The date menu comes in slice 2. */}
-        <View testID="reports-scope-strip" className="flex-row items-center gap-2">
-          <View className="min-w-0 flex-1">
-            <ReportChips cashiers={reportCashierRows} cashierId={cashierId} onCashier={setCashierId} />
-          </View>
-          <View className="shrink-0 items-end"><PrintSummaryButton wide={wide} onPress={printSummary} /></View>
-        </View>
+        {/* v2 `SalesScope` in its `ScopeRow`: wide, the date, the chips, then Print summary; a phone puts the date and
+            Print summary on one row above the chips. */}
+        {wide
+          ? <View testID="reports-scope-strip" className="flex-row items-center gap-2">
+              <View className="shrink-0">{periodButton}</View>
+              <View className="min-w-0 flex-1">{chips}</View>
+              <View className="shrink-0 items-end">{printButton}</View>
+            </View>
+          : <View testID="reports-scope-strip" className="gap-2">
+              <View className="flex-row items-center justify-between gap-2">{periodButton}{printButton}</View>
+              {chips}
+            </View>}
         <ReportsHero today={room.today} previous={room.yesterdaySoFar} comparisonLabel={`vs ${comparisonName}`}
           money={minor => money(minor) ?? ''} onOpenOrders={() => setOpenTable('orders')}
-          compareChip={<CompareChip compare={compare} onCompare={setCompare} weekday={weekday} />}
+          compareChip={<CompareChip compare={compare} onCompare={setCompare} weekday={weekday}
+            fixed={multiDay ? `vs ${comparisonName}` : undefined} />}
           toggle={room.hours.length > 0 && <View className={wide ? 'w-72' : 'w-full'}>
             <Segmented testID="hero-chart-toggle" label="Chart view" value={chartView}
-              segments={[{ value: 'hour', label: 'By hour' }, { value: 'run', label: 'Running total' }]}
+              segments={[{ value: 'hour', label: multiDay ? 'By day' : 'By hour' }, { value: 'run', label: 'Running total' }]}
               onChange={value => setChartView(value as typeof chartView)} />
           </View>}
           chart={<HourlyBars hours={room.hours} money={minor => money(minor) ?? ''} comparisonName={comparisonName}
-            nowHour={now.getHours()} view={chartView} />}>
+            nowHour={nowBucket} live={range.to === storeDay(now)} view={chartView} />}>
           {room.today.pending > 0 && <Text>{`Waiting to sync: ${room.today.pending}`}</Text>}
           {room.today.rejected > 0 && <Text>{`Not accepted by the store: ${room.today.rejected}`}</Text>}
-          {room.today.count === 0 && <Text>No sales yet today.</Text>}
+          {room.today.count === 0 && <Text>{preset === 'today' ? 'No sales yet today.' : 'No sales in this period.'}</Text>}
         </ReportsHero>
         <ReportCards period={room.today} money={minor => money(minor) ?? ''} moneyWhole={moneyWhole} onOpenTable={setOpenTable} />
         {room.today.taxMinor !== 0 && <View testID="sales-room-taxes" className="gap-2 rounded-lg border border-border p-4">
@@ -146,8 +167,8 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
           </Pressable>
           {room.today.taxRates.map(row => <Text key={row.ratePpm}>{`${row.label} — Net ${money(row.netMinor)} — Tax ${money(row.taxMinor)} — Gross ${money(row.grossMinor)}`}</Text>)}
         </View>}
-        {openTable && table && <SalesTable table={table} scope="Today · This till" onClose={() => setOpenTable(null)}
-          onExport={() => downloadCsv(salesTableCsv(table), `sales-${openTable}-${today}-${today}.csv`)} />}
+        {openTable && table && <SalesTable table={table} scope={`${periodName} · This till`} onClose={() => setOpenTable(null)}
+          onExport={() => downloadCsv(salesTableCsv(table), `sales-${openTable}-${range.from}-${range.to}.csv`)} />}
         <View testID="reports-closures" className="gap-2 rounded-lg border border-border p-4">
           <View className="flex-row items-center justify-between">
             <Text accessibilityRole="header">Closures</Text>
@@ -172,8 +193,8 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
       </ScrollView>
       {reprint && <Portal name="closure-reprint">
         {reprint === 'summary'
-          ? <SalesSummaryPrint storeName={storeName} scope={`Today · This till · ${cashierName}`} period={room.today}
-              date={formatClosureDate(range.startIso, { timezone: 'device', locale }).date} money={minor => money(minor) ?? ''} locale={locale} />
+          ? <SalesSummaryPrint storeName={storeName} scope={`${periodName} · This till · ${cashierName}`} period={room.today}
+              date={range.from === range.to ? printDate(range.from) : `${printDate(range.from)} – ${printDate(range.to)}`} money={minor => money(minor) ?? ''} locale={locale} />
           : reprint === 'x'
           ? register.session && <ClosurePrint kind="x" closure={register.session} expected={register.expected} storeName={storeName} currency={currency} locale={locale} registerName="This till" resolveCashierName={resolveCashierName} />
           : <ClosurePrint closure={reprint} storeName={storeName} currency={currency} locale={locale} registerName="This till" resolveCashierName={resolveCashierName} copy />}

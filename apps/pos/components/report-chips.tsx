@@ -1,4 +1,4 @@
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Path, Rect } from 'react-native-svg';
 import { Button, createSvgIcon, IconButton, Text } from '@tallyui/components';
 import type { Compare } from '../lib/reports/sales-room';
@@ -43,8 +43,16 @@ export function ReportChips({ cashiers, cashierId, onCashier }: {
   );
 }
 
-/** The hero's comparison chip (v2 `Hero` `compareChip`). */
-export function CompareChip({ compare, onCompare, weekday }: { compare: Compare; onCompare(next: Compare): void; weekday: string }) {
+/** The hero's comparison chip (v2 `Hero` `compareChip`); a multi-day period's `fixed` comparison is a dimmed, disabled chip. */
+export function CompareChip({ compare, onCompare, weekday, fixed }: {
+  compare: Compare; onCompare(next: Compare): void; weekday: string; fixed?: string;
+}) {
+  if (fixed) return (
+    <Pressable testID="hero-chip-compare" disabled accessibilityRole="button" accessibilityState={{ disabled: true }}
+      className="h-9 flex-row items-center self-start rounded-md border border-border bg-card px-3 opacity-50">
+      <Text className="text-sm font-medium text-muted-foreground">{fixed}</Text>
+    </Pressable>
+  );
   return (
     <MenuChip
       name="compare"

@@ -1,7 +1,6 @@
 import { orderReference } from '@tallyui/components';
-import type { PosOrder } from '@tallyui/pos';
-import type { Period } from './sales-room';
-import { dayRange } from './today-sales';
+import type { DayRange, PosOrder } from '@tallyui/pos';
+import { rangeBounds, type Period } from './sales-room';
 
 export type SalesTable = {
   title: string;
@@ -45,11 +44,11 @@ export function taxesTable(period: Period, money: (minor: number) => string | un
 
 export function ordersTable(
   orders: readonly PosOrder[],
-  options: { now: Date; currency: string; money: (minor: number) => string | undefined },
+  options: { range: DayRange; currency: string; money: (minor: number) => string | undefined },
 ): SalesTable {
-  const { now, currency, money } = options;
+  const { range, currency, money } = options;
   const format = (minor: number) => money(minor) ?? '';
-  const { startIso, endIso } = dayRange(now);
+  const { startIso, endIso } = rangeBounds(range);
   const today = orders.filter(order => order.currency === currency && order.createdAt >= startIso && order.createdAt < endIso)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
   const sum = today.reduce((total, order) => total + order.totalMinor, 0);
