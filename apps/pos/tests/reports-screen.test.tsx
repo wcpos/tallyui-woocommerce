@@ -508,7 +508,7 @@ test("the till strip's last closure opens its panel, and its Print closure print
   await waitFor(() => expect(screen.queryByTestId('closure-panel')).toBeNull());
 }, 20_000);
 
-test('Download CSV downloads the listed closures and revokes its object URL', async () => {
+test('Export CSV downloads the listed closures and revokes its object URL', async () => {
   await setup();
   await openRegister();
   await closeRegister('100.00');
@@ -522,7 +522,7 @@ test('Download CSV downloads the listed closures and revokes its object URL', as
     expect(this.isConnected).toBe(true);
   });
   const button = await screen.findByTestId('closures-csv');
-  expect(button.textContent).toBe('Download CSV');
+  expect(button.textContent).toBe('Export CSV');
   fireEvent.click(button);
   expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
   const blob = vi.mocked(URL.createObjectURL).mock.calls[0][0] as Blob;

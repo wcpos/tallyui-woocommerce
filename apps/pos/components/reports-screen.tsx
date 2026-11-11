@@ -18,6 +18,7 @@ import { ordersDatabaseName } from '../lib/sale/order-store';
 import { ClosureList } from './closure-list';
 import { ClosurePanel } from './closure-panel';
 import { ClosurePrint } from './closure-print';
+import { ClosureStats } from './closure-stats';
 import { HourlyBars } from './hourly-bars';
 import { ReportCards } from './report-cards';
 import { ReportChips, reportCashiers } from './report-chips';
@@ -63,6 +64,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const closures = selectClosureRows(rows, clampClosureScope({
     from: '0000-01-01', to: today, registerId: register.boundRegisterId ?? '', storeKey,
   }, today), 'device');
+  const openSession = register.enabled && (register.session?.status === 'open' || register.session?.status === 'counting') ? register.session : null;
   const openClosure = openClosureId ? closures.find(c => c.id === openClosureId) ?? null : null;
   const reprintClosure = (closure: Closure) => { setReprint(closure); setPrintRequest(value => value + 1); };
   const printXReport = () => { setReprint('x'); setPrintRequest(value => value + 1); };
@@ -147,12 +149,14 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
         <View testID="reports-closures" className="gap-2 rounded-lg border border-border p-4">
           <View className="flex-row items-center justify-between">
             <Text accessibilityRole="header">Closures</Text>
-            {closures.length > 0 && <Button testID="closures-csv" onPress={() => downloadCsv(closuresCsv(closures, currency, session?.tokens.user, storeName), `closures-${today}.csv`)}><Text>Download CSV</Text></Button>}
+            {closures.length > 0 && <Button testID="closures-csv" variant="outline" onPress={() => downloadCsv(closuresCsv(closures, currency, session?.tokens.user, storeName), `closures-${today}.csv`)}><Text>Export CSV</Text></Button>}
           </View>
+          {/* v2 feeds the strip every row and open session, whatever the All / Open / Closed tab shows. */}
+          <ClosureStats rows={closures} openSession={openSession} blind={register.blind} currency={currency} locale={locale} />
           <ClosureList
             rows={closures}
             sessionRows={<SessionCard currency={currency} locale={locale} resolveCashierName={resolveCashierName} onPrintXReport={printXReport} />}
-            openSessions={register.enabled && (register.session?.status === 'open' || register.session?.status === 'counting') ? 1 : 0}
+            openSessions={openSession ? 1 : 0}
             blind={register.blind}
             today={today}
             currency={currency}
