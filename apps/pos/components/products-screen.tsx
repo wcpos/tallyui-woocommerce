@@ -1,9 +1,11 @@
 // v2's Products area (WCPOS monorepo `packages/core/src/screens/main/products/products.tsx`), read-only: the default
 // shown columns of ui-settings `initial-settings.json` "products" without Actions, name asc, and the cell rules of
 // cells/name.tsx, stock-quantity.tsx, stock-status.tsx and price.tsx, with v2's English strings from core.json.
-// Deviations: no inline editing, Manage toggle, variations drill-down, filter chips, Actions column or column
-// settings, since edits must go through the store's REST API; the products collection is replicated from the
-// server, so this screen takes plain docs and never touches it.
+// Its filter chips are the catalogue's (v2 passes `chips={<FilterBar />}`), starting with none on, as v2 does.
+// Deviations: no inline editing, Manage toggle, variations drill-down, Actions column or column settings, since
+// edits must go through the store's REST API; the products collection is replicated from the server, so this
+// screen takes plain docs and never touches it. The Featured and Brands chips are still missing: they need
+// connector data the app does not sync.
 import { useEffect, useMemo, useState } from 'react';
 import type { JSX } from 'react';
 import { ScrollView, View, useWindowDimensions } from 'react-native';
@@ -15,7 +17,10 @@ import { searchProducts, sortProducts } from '@tallyui/pos';
 import type { ProductSort } from '@tallyui/pos';
 import { resolveStock, STOCK_LABEL } from '../lib/products/resolve-stock';
 import type { StockState } from '../lib/products/resolve-stock';
+import { matchesCatalogueFilters } from '../lib/catalogue/quick-filters';
+import type { CatalogueFilters } from '../lib/catalogue/quick-filters';
 import { AreaHeader } from './area-header';
+import { CatalogueFilterChips } from './catalogue-filter-chips';
 
 // v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
 const SEARCH_DEBOUNCE_MS = 250;
@@ -122,6 +127,8 @@ function productColumns(currency: string, locale: string | undefined): ProductTa
 export function ProductsScreen({ products, connector, currency, locale: storeLocale, onBack }: ProductsScreenProps): JSX.Element {
   const [term, setTerm] = useState('');
   const [query, setQuery] = useState('');
+  // v2's Products area lists every product, in stock or not: no chip is on at the start.
+  const [filters, setFilters] = useState<CatalogueFilters>({});
   const { width } = useWindowDimensions();
   const locale = storeLocale?.replaceAll('_', '-');
 
@@ -130,11 +137,12 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
     return () => clearTimeout(timer);
   }, [term]);
 
-  function clear() { setTerm(''); setQuery(''); }
+  function clear() { setTerm(''); setQuery(''); setFilters({}); }
 
   const columns = useMemo(() => productColumns(currency, locale), [currency, locale]);
-  const shown = useMemo(() => query ? searchProducts(products, query, connector.traits.product) : products,
+  const searched = useMemo(() => query ? searchProducts(products, query, connector.traits.product) : products,
     [products, query, connector.traits.product]);
+  const shown = useMemo(() => searched.filter(doc => matchesCatalogueFilters(doc, filters)), [searched, filters]);
   const total = products.length;
   const narrow = width < NARROW_WIDTH;
   const listed = useMemo(() => narrow ? sortProducts([...shown], NAME_ASC,
@@ -180,6 +188,9 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
         <AreaHeader title="Products" backTestID="products-back" onBack={onBack} />
         <View className="px-4 pb-2">
           <SearchInput testID="search-products" value={term} onChangeText={setTerm} placeholder="Search products" />
+        </View>
+        <View className="px-4 pb-2">
+          <CatalogueFilterChips products={products} filters={filters} onChange={setFilters} />
         </View>
         {body}
       </View>
