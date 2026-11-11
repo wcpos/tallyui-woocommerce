@@ -9,6 +9,7 @@ import type { CustomerSource } from '../lib/customers/customer-source';
 import { DEFAULT_CUSTOMER_SORT, billingLines, customerInitials, nextSort, sortCustomers } from '../lib/customers/customer-table';
 import type { CustomerSort, CustomerSortField } from '../lib/customers/customer-table';
 import { AddCustomerDialog } from './add-customer-dialog';
+import { AreaHeader } from './area-header';
 
 // v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
 const SEARCH_DEBOUNCE_MS = 250;
@@ -142,10 +143,7 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
 
   return (
     <View testID="screen-customers" className="flex-1 bg-background">
-      <View className="flex-row items-center justify-between p-4">
-        <Text accessibilityRole="header">Customers</Text>
-        <Button testID="customers-back" onPress={onBack}><Text>Back</Text></Button>
-      </View>
+      <AreaHeader title="Customers" backTestID="customers-back" onBack={onBack} />
       {source ? <>
         <View className="flex-row items-center gap-2 px-4 pb-2">
           <View className="flex-1"><SearchInput testID="search-customers" value={term} onChangeText={setTerm} placeholder="Search Customers" /></View>

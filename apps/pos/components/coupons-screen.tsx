@@ -10,6 +10,7 @@ import { ScrollView, View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { formatMoney, moneyFromDecimalString } from '@tallyui/core';
 import { Badge, Button, SearchInput, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Text } from '@tallyui/components';
+import { AreaHeader } from './area-header';
 
 // v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
 const SEARCH_DEBOUNCE_MS = 250;
@@ -196,10 +197,7 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
 
   return (
     <View testID="screen-coupons" className="flex-1 bg-background">
-      <View className="flex-row items-center justify-between p-4">
-        <Text accessibilityRole="header">Coupons</Text>
-        <Button testID="coupons-back" onPress={onBack}><Text>Back</Text></Button>
-      </View>
+      <AreaHeader title="Coupons" backTestID="coupons-back" onBack={onBack} />
       <View className="px-4 pb-2">
         <SearchInput testID="search-coupons" value={term} onChangeText={setTerm} placeholder="Search Coupons" />
       </View>
