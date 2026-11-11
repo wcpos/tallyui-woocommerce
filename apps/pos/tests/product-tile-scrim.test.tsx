@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { CatalogueView } from '../components/catalogue-view';
+import { BAND } from '../components/product-tile';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
@@ -42,4 +43,9 @@ test.each([
   expect(classesOf('tile-scrim-80')).toEqual(expect.arrayContaining(inset));
   expect(classesOf('tile-name-80')).not.toContain(absent[0]);
   expect(classesOf('tile-scrim-80')).not.toContain(absent[1]);
+});
+
+// v2's POSTER_BAND at the 14 px base: 14 x 1.25 + 14 x 1.35 + --spacing x 3 (12) = 48.4 px.
+test('the band under each tile is v2\'s 48.4 px POSTER_BAND', () => {
+  expect(BAND.height).toBe(48.4);
 });

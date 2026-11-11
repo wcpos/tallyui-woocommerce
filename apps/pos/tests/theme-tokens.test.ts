@@ -146,3 +146,24 @@ test('light, dark and the seven extra themes all define the destructive pair', (
     expect(declared['--color-destructive-foreground'], theme).toMatch(/^oklch\(/);
   }
 });
+
+// v2 apps/main/global.css: `@variant light` l.345-396, `@variant dark` l.498-539; sale is v2's destructive.
+const V2_PALETTE: Record<'light' | 'dark', Record<string, string>> = {
+  light: {
+    '--color-primary': 'oklch(0.42 0.24 262)', '--color-background': 'oklch(0.97 0.005 262)', '--color-card': 'oklch(1 0 0)',
+    '--color-muted-foreground': 'oklch(0.45 0.01 262)', '--color-border': 'oklch(0.885 0.01 262)', '--color-sale': LIGHT_DESTRUCTIVE,
+  },
+  dark: {
+    '--color-primary': 'oklch(0.70 0.17 240)', '--color-background': 'oklch(0.19 0.018 250)', '--color-card': 'oklch(0.23 0.018 250)',
+    '--color-muted-foreground': 'oklch(0.70 0.015 250)', '--color-border': 'oklch(0.33 0.02 250)', '--color-sale': DARK_DESTRUCTIVE,
+  },
+};
+
+test("the light and dark themes take v2's palette, with sale as v2's destructive, and the default is light", () => {
+  for (const theme of ['light', 'dark'] as const) {
+    const declared = Object.fromEntries(declarations(variantBlock(globalCss, theme)));
+    for (const [name, expected] of Object.entries(V2_PALETTE[theme])) expect(declared[name], `${theme} ${name}`).toBe(expected);
+  }
+  const tokens = themeTokens(globalCss);
+  for (const [name, expected] of Object.entries(V2_PALETTE.light)) expect(tokens.get(name), `default ${name}`).toBe(expected);
+});

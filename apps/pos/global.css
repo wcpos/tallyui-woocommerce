@@ -31,6 +31,38 @@
   --text-3xl--line-height: calc(var(--text-base) * 1.857 * 1.35);
 }
 
+/* v2's Light and Dark palette (monorepo apps/main/global.css `@variant light` l.341-486, `@variant dark` l.494),
+   mapped to TallyUI's token names as themes.css maps the seven extra themes: popover takes v2's card, secondary
+   v2's muted-foreground on card, success and price v2's --ok (l.436 light, l.576 dark), warning v2's --warning
+   (l.438, l.578) and sale v2's destructive (l.381, l.526). --color-input is left to @tallyui/theme (TallyUI #760).
+   TallyUI has no rail token: the rail draws bg-muted, so it takes v2's muted, not v2's --rail (l.427, l.570). */
+@theme {
+  --color-background: oklch(0.97 0.005 262);
+  --color-foreground: oklch(0.16 0.005 262);
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.16 0.005 262);
+  --color-popover: oklch(1 0 0);
+  --color-popover-foreground: oklch(0.16 0.005 262);
+  --color-primary: oklch(0.42 0.24 262);
+  --color-primary-foreground: oklch(0.99 0.01 262);
+  --color-secondary: oklch(0.45 0.01 262);
+  --color-secondary-foreground: oklch(1 0 0);
+  --color-muted: oklch(0.95 0.007 262);
+  --color-muted-foreground: oklch(0.45 0.01 262);
+  --color-accent: oklch(0.965 0.025 262);
+  --color-accent-foreground: oklch(0.16 0.005 262);
+  --color-success: oklch(0.52 0.16 155);
+  --color-success-foreground: oklch(0.98 0.01 160);
+  --color-warning: oklch(0.68 0.16 70);
+  --color-warning-foreground: oklch(0.25 0.03 90);
+  --color-info: oklch(0.48 0.12 262);
+  --color-info-foreground: oklch(0.98 0.01 240);
+  --color-border: oklch(0.885 0.01 262);
+  --color-ring: oklch(0.42 0.24 262);
+  --color-price: oklch(0.52 0.16 155);
+  --color-sale: oklch(0.52 0.22 25);
+}
+
 /* v2's destructive (apps/main/global.css l.381-382 light, l.526-527 dark), over @tallyui/theme's #dc2626 and
    #f85149. The seven extra themes in themes.css already carry v2's own. */
 @theme {
@@ -59,6 +91,30 @@
       --color-tile-tint-5: oklch(0.88 0.09 200);
       --color-destructive: oklch(0.52 0.22 25);
       --color-destructive-foreground: oklch(0.99 0.01 25);
+      --color-background: oklch(0.97 0.005 262);
+      --color-foreground: oklch(0.16 0.005 262);
+      --color-card: oklch(1 0 0);
+      --color-card-foreground: oklch(0.16 0.005 262);
+      --color-popover: oklch(1 0 0);
+      --color-popover-foreground: oklch(0.16 0.005 262);
+      --color-primary: oklch(0.42 0.24 262);
+      --color-primary-foreground: oklch(0.99 0.01 262);
+      --color-secondary: oklch(0.45 0.01 262);
+      --color-secondary-foreground: oklch(1 0 0);
+      --color-muted: oklch(0.95 0.007 262);
+      --color-muted-foreground: oklch(0.45 0.01 262);
+      --color-accent: oklch(0.965 0.025 262);
+      --color-accent-foreground: oklch(0.16 0.005 262);
+      --color-success: oklch(0.52 0.16 155);
+      --color-success-foreground: oklch(0.98 0.01 160);
+      --color-warning: oklch(0.68 0.16 70);
+      --color-warning-foreground: oklch(0.25 0.03 90);
+      --color-info: oklch(0.48 0.12 262);
+      --color-info-foreground: oklch(0.98 0.01 240);
+      --color-border: oklch(0.885 0.01 262);
+      --color-ring: oklch(0.42 0.24 262);
+      --color-price: oklch(0.52 0.16 155);
+      --color-sale: oklch(0.52 0.22 25);
     }
 
     @variant dark {
@@ -70,6 +126,30 @@
       --color-tile-tint-5: oklch(0.31 0.03 200);
       --color-destructive: oklch(0.67 0.2 25);
       --color-destructive-foreground: oklch(0.15 0.02 25);
+      --color-background: oklch(0.19 0.018 250);
+      --color-foreground: oklch(0.93 0.01 250);
+      --color-card: oklch(0.23 0.018 250);
+      --color-card-foreground: oklch(0.93 0.01 250);
+      --color-popover: oklch(0.23 0.018 250);
+      --color-popover-foreground: oklch(0.93 0.01 250);
+      --color-primary: oklch(0.70 0.17 240);
+      --color-primary-foreground: oklch(0.16 0.02 250);
+      --color-secondary: oklch(0.70 0.015 250);
+      --color-secondary-foreground: oklch(0.23 0.018 250);
+      --color-muted: oklch(0.28 0.018 250);
+      --color-muted-foreground: oklch(0.70 0.015 250);
+      --color-accent: oklch(0.28 0.018 250);
+      --color-accent-foreground: oklch(0.93 0.01 250);
+      --color-success: oklch(0.72 0.15 155);
+      --color-success-foreground: oklch(0.15 0.02 160);
+      --color-warning: oklch(0.78 0.15 75);
+      --color-warning-foreground: oklch(0.15 0.02 45);
+      --color-info: oklch(0.70 0.13 240);
+      --color-info-foreground: oklch(0.15 0.02 240);
+      --color-border: oklch(0.33 0.02 250);
+      --color-ring: oklch(0.70 0.17 240);
+      --color-price: oklch(0.72 0.15 155);
+      --color-sale: oklch(0.67 0.2 25);
     }
   }
 }
