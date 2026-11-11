@@ -1,11 +1,14 @@
 import { callbackSink, outboxLogger, saleLogger, taxLogger, posOrdersLogger, registerSessionsLogger,
   registerFactsLogger, registerCommandsLogger, type LogEntry, type LogLevel, type Logger } from '@tallyui/pos';
 import type { RxCollection, RxJsonSchema } from 'rxdb';
+import { isVerboseDiagnostics } from './verbose';
 
 // v2 caps its log store at 25 MB; we cap rows because the Logs page loads them all.
 export const LOG_STORE_CAP = 500;
-// Debug stays out: v2 persists debug only with verbose diagnostics, which this app does not have yet.
+// The levels always stored. v2 persists debug only while verbose diagnostics is on (see ./verbose).
 export const LOG_STORE_LEVELS: LogLevel[] = ['info', 'warn', 'error'];
+// What the sink listens to: debug as well, kept only when isVerboseDiagnostics() holds at write time.
+export const LOG_SINK_LEVELS: LogLevel[] = ['debug', ...LOG_STORE_LEVELS];
 // Keeps one row's data small enough to read and to copy.
 export const LOG_DETAIL_MAX_CHARS = 4_000;
 export const TALLYUI_LOGGERS: Logger[] = [outboxLogger, saleLogger, taxLogger, posOrdersLogger,
@@ -71,7 +74,8 @@ export function attachLogStore(
   const { cap = LOG_STORE_CAP, loggers = TALLYUI_LOGGERS } = options;
   const id = `tallywoo-log-store-${++attachments}`;
   let chain = Promise.resolve();
-  const sink = callbackSink({ id, levels: LOG_STORE_LEVELS, callback: entry => {
+  const sink = callbackSink({ id, levels: LOG_SINK_LEVELS, callback: entry => {
+    if (!LOG_STORE_LEVELS.includes(entry.level) && !isVerboseDiagnostics()) return;
     chain = chain.then(async () => {
       await collection.insert(toLogRecord(entry, logRecordId(entry.timestamp, ++sequence)));
       const extra = await collection.find({ sort: [{ id: 'desc' }], skip: cap }).exec();
