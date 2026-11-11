@@ -82,6 +82,9 @@ test('cash tender records and sends one sale, prints a final receipt, and starts
   expect(identity.getByText('Register: This till')).not.toBeNull();
   expect(identity.getByText('TallyUI WooCommerce POS 0.1.0')).not.toBeNull();
   expect(screen.queryByTestId('receipt-copy')).toBeNull();
+  // The print counter listens for afterprint from a passive effect, which can run after the receipt is visible; the
+  // print sheet's style is installed in the same commit's effects, so once it is in the head the counter listens.
+  await waitFor(() => expect(document.head.querySelector('style[data-receipt-print]')).not.toBeNull());
   act(() => { window.dispatchEvent(new Event('afterprint')); });
   expect(screen.getByTestId('receipt-copy').textContent).toBe('COPY 1');
   act(() => { window.dispatchEvent(new Event('afterprint')); });

@@ -51,10 +51,13 @@ function renderTill(capabilities?: ServerCapabilities) {
 }
 
 // The sale screen mounts outside act() once taxes resolve, so useSale may subscribe to the order after a tile
-// click; wait for the product's cart line before the next step depends on it (issue #81).
+// click; wait for the product's cart line before the next step depends on it (issue #81). One role query on the
+// till takes 250-650 ms here and longer on CI, so findByRole's 1 s default can expire after a single miss: wait on
+// the cheaper label query, then check the line's control is a button.
 async function addToCart(name: string) {
   fireEvent.click(await screen.findByText(name));
-  await screen.findByRole('button', { name: `Increase ${name}` });
+  await screen.findByLabelText(`Increase ${name}`);
+  screen.getByRole('button', { name: `Increase ${name}` });
 }
 
 beforeEach(() => {
