@@ -22,6 +22,7 @@ import stores from './fixtures/stores.json';
 import variations from './fixtures/variations.json';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import { openParkedList, parkedTabs } from './open-orders-helpers';
+import { cartPane, cartTabCount, openCartTab, openProductsTab, paneShown, productsPane } from './phone-tabs-helpers';
 import { SCAN_SOUND_KEY } from '../lib/scan/scan-sound';
 import { installFakeAudio, tones } from './fake-audio-context';
 
@@ -114,8 +115,8 @@ test('barcode Enter adds Espresso, shows feedback and clears search', () => {
   const input = screen.getByPlaceholderText('Search name, SKU or barcode') as HTMLInputElement;
   fireEvent.change(input, { target: { value: '2000000000015' } });
   fireEvent.keyDown(input, { key: 'Enter' });
-  expect(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' })).not.toBeNull();
-  expect(screen.getByText('Espresso added to cart')).not.toBeNull();
+  expect(cartTabCount()).toBe('1');
+  expect(productsPane().getByText('Espresso added to cart')).not.toBeNull();
   expect(input.value).toBe('');
 });
 
@@ -126,7 +127,7 @@ test('submitting the same barcode twice adds two items', () => {
     fireEvent.change(input, { target: { value: '2000000000015' } });
     fireEvent.keyDown(input, { key: 'Enter' });
   }
-  expect(screen.getByRole('button', { name: 'Open cart, 2 items, $6.00' })).not.toBeNull();
+  expect(cartTabCount()).toBe('2');
 });
 
 test('a variation barcode adds the exact option without opening the chooser', () => {
@@ -135,8 +136,8 @@ test('a variation barcode adds the exact option without opening the chooser', ()
   fireEvent.change(input, { target: { value: '2000000000138' } });
   fireEvent.keyDown(input, { key: 'Enter' });
   expect(screen.queryByText('Choose an option')).toBeNull();
-  expect(screen.getByText('T-Shirt · S / Black added to cart')).not.toBeNull();
-  expect(screen.getByRole('button', { name: 'Open cart, 1 item, $25.00' })).not.toBeNull();
+  expect(productsPane().getByText('T-Shirt · S / Black added to cart')).not.toBeNull();
+  expect(cartTabCount()).toBe('1');
 });
 
 test('a variable parent barcode opens the chooser without adding', () => {
@@ -145,7 +146,7 @@ test('a variable parent barcode opens the chooser without adding', () => {
   fireEvent.change(input, { target: { value: '2000000000121' } });
   fireEvent.keyDown(input, { key: 'Enter' });
   expect(screen.getByText('Choose an option')).not.toBeNull();
-  expect(screen.getByRole('button', { name: 'Cart is empty' })).not.toBeNull();
+  expect(cartTabCount()).toBe('New');
 });
 
 test('an unknown barcode stays in search and reports no match', () => {
@@ -153,9 +154,9 @@ test('an unknown barcode stays in search and reports no match', () => {
   const input = screen.getByPlaceholderText('Search name, SKU or barcode') as HTMLInputElement;
   fireEvent.change(input, { target: { value: '999999999' } });
   fireEvent.keyDown(input, { key: 'Enter' });
-  expect(screen.getByText('Barcode not found — 999999999')).not.toBeNull();
+  expect(productsPane().getByText('Barcode not found — 999999999')).not.toBeNull();
   expect(input.value).toBe('999999999');
-  expect(screen.getByRole('button', { name: 'Cart is empty' })).not.toBeNull();
+  expect(cartTabCount()).toBe('New');
 });
 
 test('an out-of-stock barcode reports stock and adds nothing', () => {
@@ -163,9 +164,9 @@ test('an out-of-stock barcode reports stock and adds nothing', () => {
   const input = screen.getByPlaceholderText('Search name, SKU or barcode') as HTMLInputElement;
   fireEvent.change(input, { target: { value: '2000000000015' } });
   fireEvent.keyDown(input, { key: 'Enter' });
-  expect(screen.getByText('Espresso out of stock')).not.toBeNull();
+  expect(productsPane().getByText('Espresso out of stock')).not.toBeNull();
   expect(input.value).toBe('2000000000015');
-  expect(screen.getByRole('button', { name: 'Cart is empty' })).not.toBeNull();
+  expect(cartTabCount()).toBe('New');
 });
 
 test('several barcode matches report the count and keep the code in search', () => {
@@ -173,9 +174,9 @@ test('several barcode matches report the count and keep the code in search', () 
   const input = screen.getByPlaceholderText('Search name, SKU or barcode') as HTMLInputElement;
   fireEvent.change(input, { target: { value: '2000000000015' } });
   fireEvent.keyDown(input, { key: 'Enter' });
-  expect(screen.getByText('Several matches: 2 products found — 2000000000015')).not.toBeNull();
+  expect(productsPane().getByText('Several matches: 2 products found — 2000000000015')).not.toBeNull();
   expect(input.value).toBe('2000000000015');
-  expect(screen.getByRole('button', { name: 'Cart is empty' })).not.toBeNull();
+  expect(cartTabCount()).toBe('New');
 });
 
 function scanInto(input: HTMLElement, code: string) {
@@ -189,11 +190,11 @@ test('with scan sound on, an added product plays success and a parent or unknown
   render(<SaleScreen {...props} products={[products[0], products[1], shirt]} />);
   const input = screen.getByPlaceholderText('Search name, SKU or barcode');
   scanInto(input, '2000000000015');
-  expect(screen.getByText('Espresso added to cart')).not.toBeNull();
+  expect(productsPane().getByText('Espresso added to cart')).not.toBeNull();
   expect(tones()).toEqual(['sine 880', 'sine 1320']);
   installFakeAudio();
   scanInto(input, '999999999');
-  expect(screen.getByText('Barcode not found — 999999999')).not.toBeNull();
+  expect(productsPane().getByText('Barcode not found — 999999999')).not.toBeNull();
   expect(tones()).toEqual(['square 330', 'square 220']);
   installFakeAudio();
   scanInto(input, '2000000000121');
@@ -208,7 +209,7 @@ test('with scan sound on, a scanned product the cart refuses plays failure, not 
   localStorage.setItem(SCAN_SOUND_KEY, JSON.stringify({ enabled: true, theme: 'classic' }));
   render(<SaleScreen {...props} products={[{ ...products[0], price: '1e307', regular_price: '1e307', on_sale: false }]} />);
   scanInto(screen.getByPlaceholderText('Search name, SKU or barcode'), '2000000000015');
-  expect(screen.getByText('Price must be integer minor units')).not.toBeNull();
+  expect(productsPane().getByText('Price must be integer minor units')).not.toBeNull();
   expect(screen.queryByText('Espresso added to cart')).toBeNull();
   expect(tones()).toEqual(['square 330', 'square 220']);
 });
@@ -219,7 +220,7 @@ test('with scan sound off, a scan plays nothing', () => {
   const input = screen.getByPlaceholderText('Search name, SKU or barcode');
   scanInto(input, '2000000000015');
   scanInto(input, '999999999');
-  expect(screen.getByText('Barcode not found — 999999999')).not.toBeNull();
+  expect(productsPane().getByText('Barcode not found — 999999999')).not.toBeNull();
   expect(tones()).toEqual([]);
 });
 
@@ -233,8 +234,8 @@ test('a document wedge burst adds Espresso and shows feedback', () => {
         vi.advanceTimersByTime(5);
       }
     });
-    expect(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' })).not.toBeNull();
-    expect(screen.getByText('Espresso added to cart')).not.toBeNull();
+    expect(cartTabCount()).toBe('1');
+    expect(productsPane().getByText('Espresso added to cart')).not.toBeNull();
   } finally {
     cleanup();
     vi.useRealTimers();
@@ -244,32 +245,31 @@ test('a document wedge burst adds Espresso and shows feedback', () => {
 test('narrow: adds, opens, changes quantity, removes and returns to products', () => {
   render(<SaleScreen {...props} />);
   fireEvent.click(screen.getByText('Espresso'));
-  const bar = screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' });
-  expect(within(bar).getByText('Cart · 1 item')).not.toBeNull();
-  fireEvent.click(bar);
-  expect(screen.getByText('Espresso')).not.toBeNull();
-  expect(screen.queryByPlaceholderText('Search name, SKU or barcode')).toBeNull();
+  expect(cartTabCount()).toBe('1');
+  openCartTab();
+  expect(cartPane().getByText('Espresso')).not.toBeNull();
+  expect(paneShown('products')).toBe(false);
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
   expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: undefined, total: '$6.00' });
   expect(within(screen.getByText('Subtotal').parentElement!).getByText('$6.00')).not.toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Remove Espresso' }));
-  expect(screen.queryByText('Espresso')).toBeNull();
+  expect(cartPane().queryByText('Espresso')).toBeNull();
   expect(screen.getByText('Scan or tap a product to start a sale.')).not.toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Back to products' }));
+  openProductsTab();
+  expect(paneShown('products')).toBe(true);
   expect(screen.getByPlaceholderText('Search name, SKU or barcode')).not.toBeNull();
-  expect(screen.getByText('Espresso')).not.toBeNull();
-  expect(screen.getByRole('button', { name: 'Cart is empty' })).not.toBeNull();
+  expect(productsPane().getByText('Espresso')).not.toBeNull();
+  expect(cartTabCount()).toBe('New');
 });
 
 test('variable products without options add nothing; adding a simple product clears the message', () => {
   render(<SaleScreen {...props} products={[products[0], { ...shirt, variation_docs: [] }]} />);
   fireEvent.click(screen.getByText('T-Shirt'));
-  expect(screen.getByText('T-Shirt has no options to sell')).not.toBeNull();
-  expect(screen.getByRole('button', { name: 'Cart is empty' })).not.toBeNull();
-  expect(screen.queryByRole('button', { name: /Open cart/ })).toBeNull();
+  expect(productsPane().getByText('T-Shirt has no options to sell')).not.toBeNull();
+  expect(cartTabCount()).toBe('New');
   fireEvent.click(screen.getByText('Espresso'));
   expect(screen.queryByText('T-Shirt has no options to sell')).toBeNull();
-  expect(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' })).not.toBeNull();
+  expect(cartTabCount()).toBe('1');
 });
 
 test.each([600, 900])('variants at %spx: lists synced titles, prices and stock, then adds the selected variant', width => {
@@ -284,7 +284,7 @@ test.each([600, 900])('variants at %spx: lists synced titles, prices and stock, 
   }
   fireEvent.click(screen.getByRole('button', { name: /M \/ Black/ }));
   expect(screen.queryByText('Choose an option')).toBeNull();
-  if (width < 900) fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $25.00' }));
+  if (width < 900) openCartTab();
   expect(screen.getByText('T-Shirt · M / Black')).not.toBeNull();
   expect(cartLine('T-Shirt · M / Black')).toEqual({ quantity: '1', unitPrice: width < 900 ? undefined : '$25.00', total: '$25.00' });
   expect(within(screen.getByText('Subtotal').parentElement!).getByText('$25.00')).not.toBeNull();
@@ -294,7 +294,8 @@ test('one purchasable variant adds immediately', () => {
   render(<SaleScreen {...props} products={[{ ...shirt, variation_docs: shirt.variation_docs.slice(2) }]} />);
   fireEvent.click(screen.getByText('T-Shirt'));
   expect(screen.queryByText('Choose an option')).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $25.00' }));
+  expect(cartTabCount()).toBe('1');
+  openCartTab();
   expect(screen.getByText('T-Shirt · M / Black')).not.toBeNull();
 });
 
@@ -303,13 +304,13 @@ test('cancelling the variant chooser adds nothing', () => {
   fireEvent.click(screen.getByText('T-Shirt'));
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(screen.getByText('T-Shirt')).not.toBeNull();
-  expect(screen.getByRole('button', { name: 'Cart is empty' })).not.toBeNull();
+  expect(cartTabCount()).toBe('New');
 });
 
 test('editing Espresso ×2 changes the unit price and subtotal exactly', () => {
   render(<SaleScreen {...props} />);
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' }));
+  openCartTab();
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
   // Narrow: no Price column, so no price popover; the line's Price action opens the inline form.
   expect(screen.queryByLabelText('Edit price of Espresso')).toBeNull();
@@ -325,7 +326,7 @@ test('editing Espresso ×2 changes the unit price and subtotal exactly', () => {
 test('invalid prices leave the form open and Cancel preserves the original price and total', () => {
   render(<SaleScreen {...props} />);
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' }));
+  openCartTab();
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
   fireEvent.click(priceAction('Espresso'));
   for (const [value, message] of [
@@ -459,7 +460,7 @@ test('narrow: Price actions appear once per line and none appear with an empty c
   expect(priceActions()).toEqual([]);
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByText('Cold Brew'));
-  fireEvent.click(screen.getByRole('button', { name: 'Open cart, 2 items, $7.00' }));
+  openCartTab();
   expect(screen.queryAllByTestId('price-popover-trigger')).toEqual([]);
   expect(priceActions()).toHaveLength(2);
   expect(within(cartItem('Espresso')).getAllByText('Price', { exact: true })).toHaveLength(1);
@@ -491,7 +492,7 @@ test('the cart shows the Qty, Item, Price and Total column heads wide, and a pho
   vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
   render(<SaleScreen {...props} />);
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' }));
+  openCartTab();
   expect(cartColumnHeads()).toEqual(['Qty', 'Item', 'Total']);
   expect(screen.queryByRole('columnheader', { name: 'Price' })).toBeNull();
   expect(cartLine('Espresso')).toEqual({ quantity: '1', unitPrice: undefined, total: '$3.00' });
@@ -548,7 +549,8 @@ test('wide: the grid and cart render together at 900px and Cold Brew costs $4.00
   render(<SaleScreen {...props} />);
   expect(screen.getByPlaceholderText('Search name, SKU or barcode')).not.toBeNull();
   expect(screen.getByText('Scan or tap a product to start a sale.')).not.toBeNull();
-  expect(screen.queryByRole('button', { name: 'Cart is empty' })).toBeNull();
+  // The phone tab bar is the narrow layout's alone.
+  expect(screen.queryByTestId('pos-tab-bar')).toBeNull();
   fireEvent.click(screen.getByText('Cold Brew'));
   expect(screen.getAllByText('Cold Brew')).toHaveLength(2);
   expect(screen.getByRole('button', { name: 'Remove Cold Brew' })).not.toBeNull();
@@ -579,13 +581,13 @@ test('with no order transport, Cash shows the payment placeholder and Back to ca
   });
   render(<SessionProvider><OutboxProvider transportFor={() => null}><SaleScreen {...props} /></OutboxProvider></SessionProvider>);
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' }));
+  openCartTab();
   fireEvent.click(screen.getByTestId('cart-checkout'));
   expect(screen.getByText('Taking payment arrives in the next update')).not.toBeNull();
   expect(screen.queryByTestId('cart-checkout')).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Back to cart' }));
   expect(screen.queryByText('Taking payment arrives in the next update')).toBeNull();
-  expect(screen.getByText('Espresso')).not.toBeNull();
+  expect(cartPane().getByText('Espresso')).not.toBeNull();
   expect(screen.getByTestId('cart-checkout')).not.toBeNull();
   expect(within(screen.getByText('Subtotal').parentElement!).getByText('$3.00')).not.toBeNull();
 }, 20_000);
@@ -627,23 +629,25 @@ test('wide: parks, resumes while parking the current cart, and discards with con
   expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: '$3.00', total: '$6.00' });
 }, 20_000);
 
-test('narrow: the parked sheet opens and restores within the full-screen cart', async () => {
+// B12: no Parked (n) button on the products side; on the Cart tab the open-order strip reaches the parked list.
+test('narrow: on the Cart tab the open-order strip opens the parked sheet and restores the cart', async () => {
   render(<SaleScreen {...props} />);
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' }));
+  openCartTab();
   await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
-  fireEvent.click(screen.getByRole('button', { name: 'Back to products' }));
-  expect(screen.getByRole('button', { name: 'Cart is empty' })).not.toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Parked (1)' }));
+  expect(cartTabCount()).toBe('New');
+  expect(parkedTabs()).toHaveLength(1);
+  openParkedList();
   expect(within(screen.getByTestId('parked-sales')).getByText('1 item')).not.toBeNull();
   expect(within(screen.getByTestId('parked-sales')).getByText('$3.00')).not.toBeNull();
-  expect(screen.queryByPlaceholderText('Search name, SKU or barcode')).toBeNull();
+  expect(paneShown('products')).toBe(false);
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' })); });
   expect(screen.queryByTestId('parked-sales')).toBeNull();
-  expect(screen.getByText('Espresso')).not.toBeNull();
+  expect(cartPane().getByText('Espresso')).not.toBeNull();
   expect(parkedTabs()).toHaveLength(0);
-  fireEvent.click(screen.getByRole('button', { name: 'Back to products' }));
-  expect(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' })).not.toBeNull();
+  expect(cartTabCount()).toBe('1');
+  openProductsTab();
+  expect(paneShown('cart')).toBe(false);
 }, 20_000);
 
 test('onResume resolves after restoration, and the sheet closes with the restored lines present', async () => {
@@ -693,13 +697,13 @@ test('onResume resolves after restoration, and the sheet closes with the restore
 test('resuming reports a missing product in the phone cart message line', async () => {
   const view = render(<SaleScreen {...props} />);
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' }));
+  openCartTab();
   await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
   view.rerender(<SaleScreen {...props} products={products.slice(1)} />);
   openParkedList();
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' })); });
   expect(screen.queryByTestId('parked-sales')).toBeNull();
-  expect(screen.getByText('Espresso is no longer in the catalogue.')).not.toBeNull();
+  expect(cartPane().getByText('Espresso is no longer in the catalogue.')).not.toBeNull();
   expect(screen.getByText('Scan or tap a product to start a sale.')).not.toBeNull();
 }, 20_000);
 
@@ -715,9 +719,9 @@ test('a failed park from + shows the error and keeps the cart line', async () =>
     vi.spyOn(parkedCarts, 'insert').mockRejectedValue(new Error('disk full'));
     render(<SaleScreen {...props} parkedCarts={parkedCarts} />);
     fireEvent.click(screen.getByText('Espresso'));
-    fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $3.00' }));
+    openCartTab();
     await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
-    expect(await screen.findByText('disk full')).not.toBeNull();
+    expect(await cartPane().findByText('disk full')).not.toBeNull();
     expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
     expect(cartLine('Espresso')).toEqual({ quantity: '1', unitPrice: undefined, total: '$3.00' });
   } finally {
@@ -740,7 +744,9 @@ test('a parked cart stays parked while syncing and resumes once the catalogue is
       lines: [{ productId: '80', variantId: '80', name: 'Espresso', quantity: 2, discounts: [] }], orderDiscounts: [],
     });
     const view = render(<SaleScreen {...props} parkedCarts={parkedCarts} products={[]} status="syncing" />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Parked (1)' }));
+    openCartTab();
+    await waitFor(() => expect(parkedTabs()).toHaveLength(1));
+    openParkedList();
     fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' }));
     expect(await within(screen.getByTestId('parked-sales')).findByText(
       'The catalogue is still syncing. Try again in a moment.',
@@ -817,4 +823,77 @@ test('persisted carts survive a new screen, restore, swap and discard', async ()
     cleanup();
     await db.remove();
   }
+}, 20_000);
+
+// A12/B12: the phone till's Products / Cart tab bar (v2 pos-phone-tab-bar.tsx), both panes mounted.
+const phone = () => vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+
+test('phone: the tab bar replaces Back to products, Parked (n) and the cart bar', () => {
+  phone();
+  render(<SaleScreen {...props} />);
+  expect(screen.getByTestId('pos-tab-bar')).not.toBeNull();
+  expect(screen.getByTestId('pos-tab-products').getAttribute('aria-selected')).toBe('true');
+  expect(screen.queryByRole('button', { name: 'Back to products' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /^Parked \(/ })).toBeNull();
+  expect(screen.queryByRole('button', { name: /^(Cart is empty|Open cart)/ })).toBeNull();
+  openCartTab();
+  expect(screen.queryByRole('button', { name: 'Back to products' })).toBeNull();
+});
+
+test('phone: adding two of a product makes the Cart badge 2', () => {
+  phone();
+  render(<SaleScreen {...props} />);
+  expect(cartTabCount()).toBe('New');
+  fireEvent.click(screen.getByTestId('product-tile-80'));
+  fireEvent.click(screen.getByTestId('product-tile-80'));
+  expect(cartTabCount()).toBe('2');
+  expect(screen.getByRole('tab', { name: 'Cart, 2' })).not.toBeNull();
+});
+
+test('phone: the tabs swap the panes, hiding the other with display none', () => {
+  phone();
+  render(<SaleScreen {...props} />);
+  expect([paneShown('products'), paneShown('cart')]).toEqual([true, false]);
+  openCartTab();
+  expect([paneShown('products'), paneShown('cart')]).toEqual([false, true]);
+  expect(screen.getByTestId('pos-tab-cart').getAttribute('aria-selected')).toBe('true');
+  expect(screen.getByTestId('pos-tab-products').getAttribute('aria-selected')).toBe('false');
+  openProductsTab();
+  expect([paneShown('products'), paneShown('cart')]).toEqual([true, false]);
+  expect(screen.getByTestId('pos-tab-products').getAttribute('aria-selected')).toBe('true');
+});
+
+test('phone: a wedge scan on the Cart tab still adds, since the products pane stays mounted (v2 #1438)', () => {
+  phone();
+  vi.useFakeTimers();
+  try {
+    render(<SaleScreen {...props} products={[products[0], products[1], shirt]} />);
+    openCartTab();
+    act(() => {
+      for (const key of [...'2000000000015', 'Enter']) {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+        vi.advanceTimersByTime(5);
+      }
+    });
+    expect(paneShown('cart')).toBe(true);
+    expect(cartTabCount()).toBe('1');
+    expect(cartLine('Espresso')).toEqual({ quantity: '1', unitPrice: undefined, total: '$3.00' });
+  } finally {
+    cleanup();
+    vi.useRealTimers();
+  }
+});
+
+test('phone: on the Cart tab the open-order strip resumes a parked cart', async () => {
+  phone();
+  render(<SaleScreen {...props} />);
+  fireEvent.click(screen.getByText('Espresso'));
+  openCartTab();
+  await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
+  expect(cartTabCount()).toBe('New');
+  expect(parkedTabs()).toHaveLength(1);
+  await act(async () => { fireEvent.click(parkedTabs()[0]); });
+  expect(parkedTabs()).toHaveLength(0);
+  expect(cartTabCount()).toBe('1');
+  expect(cartLine('Espresso')).toEqual({ quantity: '1', unitPrice: undefined, total: '$3.00' });
 }, 20_000);

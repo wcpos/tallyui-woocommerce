@@ -15,6 +15,7 @@ import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeLeg } from './tender-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { openCartTab } from './phone-tabs-helpers';
 
 let orders: (ReturnType<typeof useOutbox> & { enabled: true })['orders'];
 
@@ -102,7 +103,7 @@ async function renderSale(button: 'Cash' | 'Card terminal' = 'Cash', width = 900
   );
   await screen.findByText('Order store ready');
   fireEvent.click(screen.getByText('Espresso'));
-  if (width < 900) fireEvent.click(screen.getByRole('button', { name: /Open cart/ }));
+  if (width < 900) openCartTab();
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
   // v2's foot: Checkout opens the tender on Cash; Card is picked on the tender pane's tiles.
   fireEvent.click(screen.getByTestId('cart-checkout'));

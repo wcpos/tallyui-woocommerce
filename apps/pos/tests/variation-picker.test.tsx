@@ -10,6 +10,7 @@ import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import variations from './fixtures/variations.json';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { cartTabCount, openCartTab } from './phone-tabs-helpers';
 
 function SaleScreen(props: SaleScreenProps) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
@@ -56,7 +57,7 @@ function pick(value: string) {
 
 function addAndOpenCart() {
   fireEvent.click(screen.getByTestId('variation-popover-add-to-cart'));
-  fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $25.00' }));
+  openCartTab();
 }
 
 test('a variable product opens the picker with its groups and no Add before one variation matches', () => {
@@ -66,7 +67,7 @@ test('a variable product opens the picker with its groups and no Add before one 
   expect(screen.queryByText('Choose an option')).toBeNull();
   expect(screen.queryByTestId('variation-popover-add-to-cart')).toBeNull();
   expect(screen.queryByTestId('variation-popover-unavailable')).toBeNull();
-  expect(screen.getByRole('button', { name: 'Cart is empty' })).not.toBeNull();
+  expect(cartTabCount()).toBe('New');
 });
 
 test('picking M finds the one match and adds it with its price', () => {
@@ -76,7 +77,7 @@ test('picking M finds the one match and adds it with its price', () => {
   expect(screen.getByTestId('variation-popover-add-to-cart').textContent).toBe('Add to Cart: $25.00');
   fireEvent.click(screen.getByTestId('variation-popover-add-to-cart'));
   expect(screen.queryByTestId('variation-picker')).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Open cart, 1 item, $25.00' }));
+  openCartTab();
   expect(screen.getByText('T-Shirt · M / Black')).not.toBeNull();
 });
 
@@ -110,7 +111,7 @@ test('an out-of-stock match says Out of Stock and still adds', () => {
   pick('M');
   expect(screen.getByTestId('variation-popover-stock-badge').textContent).toBe('Out of Stock');
   fireEvent.click(screen.getByTestId('variation-popover-add-to-cart'));
-  expect(screen.getByRole('button', { name: 'Open cart, 1 item, $25.00' })).not.toBeNull();
+  expect(cartTabCount()).toBe('1');
 });
 
 test('an Any colour variation carries the picked colour on the cart line', () => {
@@ -130,5 +131,5 @@ test('Cancel closes the picker and adds nothing', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(screen.queryByTestId('variation-picker')).toBeNull();
   expect(screen.getByText('T-Shirt')).not.toBeNull();
-  expect(screen.getByRole('button', { name: 'Cart is empty' })).not.toBeNull();
+  expect(cartTabCount()).toBe('New');
 });
