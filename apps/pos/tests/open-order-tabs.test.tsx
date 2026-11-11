@@ -80,8 +80,8 @@ test('lists parked carts oldest first, then the current sale, then the + cell', 
   expect(screen.getByTestId('open-order-tab-current').getAttribute('aria-selected')).toBe('true');
   expect(screen.getByTestId('new-order-tab').getAttribute('aria-selected')).toBe('false');
   expect(screen.getByTestId('open-order-tab-a-who').textContent).toBe('Gee Four');
-  expect(screen.getByTestId('open-order-tab-b-who').textContent).toBe('Guest · 2 items');
-  expect(screen.getByTestId('open-order-tab-current-who').textContent).toBe('Guest · Espresso');
+  expect(screen.getByTestId('open-order-tab-b-who').textContent).toBe('Guest');
+  expect(screen.getByTestId('open-order-tab-current-who').textContent).toBe('Guest');
   expect(screen.getByTestId('open-order-tab-a-amount').textContent).toBe('$3.00');
   expect(screen.getByTestId('open-order-tab-b-amount').textContent).toBe('$7.00');
   expect(screen.queryByTestId('new-order-tab-label')).toBeNull();
@@ -158,7 +158,7 @@ test('sale screen: + parks the sale into a tab and the tab brings it back', asyn
   fireEvent.click(screen.getByText('Espresso'));
   expect(tabIds()).toHaveLength(2);
   const strip = () => within(screen.getByTestId('open-order-strip')).getAllByRole('tab');
-  expect(strip()[0].textContent).toContain('Guest · Espresso');
+  expect(strip()[0].textContent).toBe('Guest$3.00');
   expect(screen.getByTestId('new-order-tab').getAttribute('aria-selected')).toBe('false');
 
   await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
@@ -173,7 +173,7 @@ test('sale screen: + parks the sale into a tab and the tab brings it back', asyn
   await screen.findByRole('button', { name: 'Remove Espresso' });
   expect(screen.queryByRole('button', { name: 'Remove Cold Brew' })).toBeNull();
   expect(tabIds()).toHaveLength(3);
-  expect(strip()[0].textContent).toContain('Guest · Cold Brew');
+  expect(strip()[0].textContent).toBe('Guest$4.00');
   expect(parkedTabs()).toHaveLength(1);
 }, 20_000);
 
@@ -280,4 +280,47 @@ test.each([[390, 'row'], [1280, 'column']])('sale screen at %spx: the current sa
   render(<SaleScreen {...props} />);
   fireEvent.click(screen.getByTestId('product-tile-80'));
   expect(direction(screen.getByTestId(/^open-order-tab-.+-content$/))).toBe(expected);
+});
+
+// B12: v2 seeds a walk-in cart with the guest's name (use-guest-customer.ts), so every tab reads "Guest $16.83", phone or wide.
+test.each([true, false])('compact %s: a guest cart of three lines reads Guest and the amount, never its items; a customer keeps the name', compact => {
+  const { onSelect, onNew, onError } = handlers();
+  render(<OpenOrderTabs compact={compact} currency={currency} onSelect={onSelect} onNew={onNew} onError={onError} now={() => NOW}
+    parked={[cart('a', '2026-11-10T10:00:00.000Z', ['Espresso'], 300, { name: 'Gee Four' })]}
+    current={order(['Cold Brew', 'Espresso', 'Croissant'], 1050)} />);
+  expect(screen.getByTestId('open-order-tab-current-who').textContent).toBe('Guest');
+  expect(screen.getByTestId('open-order-tab-current-amount').textContent).toBe('$10.50');
+  expect(screen.getByTestId('open-order-tab-current').textContent).not.toContain('items');
+  expect(screen.getByTestId('open-order-tab-a-who').textContent).toBe('Gee Four');
+});
+
+test('compact: the count cell shows on overflow, as v2\'s does on a phone, and opens the list', () => {
+  const { onSelect, onNew, onError } = handlers();
+  const onOpenList = vi.fn();
+  render(<OpenOrderTabs compact currency={currency} onSelect={onSelect} onNew={onNew} onError={onError} onOpenList={onOpenList} now={() => NOW}
+    parked={[cart('a', '2026-11-10T10:00:00.000Z', ['Espresso'], 300), cart('b', '2026-11-10T10:05:00.000Z', ['Cold Brew'], 400)]}
+    current={order(['Espresso'], 300)} />);
+  // A 390 phone: three tabs of ~105 overflow 390 less the 112 reserved for +.
+  stripLayout(390, 315);
+  const count = screen.getByRole('button', { name: '3 open' });
+  expect(count.textContent).toContain('3');
+  fireEvent.click(count);
+  expect(onOpenList).toHaveBeenCalledTimes(1);
+});
+
+test('the count cell\'s chevron points up while the list is closed and down while it is open; the label stays', () => {
+  const { onSelect, onNew, onError } = handlers();
+  const parked = [cart('a', '2026-11-10T10:00:00.000Z', ['Espresso'], 300), cart('b', '2026-11-10T10:05:00.000Z', ['Cold Brew'], 400)];
+  const strip = (listOpen: boolean) => <OpenOrderTabs currency={currency} onSelect={onSelect} onNew={onNew} onError={onError} now={() => NOW}
+    listOpen={listOpen} parked={parked} current={order(['Espresso'], 300)} />;
+  const { rerender } = render(strip(false));
+  stripLayout(640, 600);
+  const count = screen.getByRole('button', { name: '3 open' });
+  expect(within(count).queryByTestId('open-orders-chevron-up')).not.toBeNull();
+  expect(within(count).queryByTestId('open-orders-chevron-down')).toBeNull();
+  expect(count.textContent).not.toContain('▴');
+  rerender(strip(true));
+  expect(within(count).queryByTestId('open-orders-chevron-down')).not.toBeNull();
+  expect(within(count).queryByTestId('open-orders-chevron-up')).toBeNull();
+  expect(screen.getByRole('button', { name: '3 open' })).toBe(count);
 });

@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import { Text } from '@tallyui/components';
+import { Path } from 'react-native-svg';
+import { createSvgIcon, Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
 import { tabWho } from '../lib/sale/tab-who';
+
+// lucide `chevron-up` / `chevron-down`: v2's count cell points the way the list will travel (cart/tabs.tsx).
+const ChevronUpIcon = createSvgIcon('ChevronUpIcon', () => <Path d="m18 15-6-6-6 6" />);
+const ChevronDownIcon = createSvgIcon('ChevronDownIcon', () => <Path d="m6 9 6 6 6-6" />);
 
 // The ages tick once a minute (v2 cart/open-orders-list.tsx AGE_TICK_MS).
 export const AGE_TICK_MS = 60_000;
@@ -41,6 +46,8 @@ export interface OpenOrderTabsProps {
   onError: (message: string) => void;
   /** Open the full list of open orders; the count cell that calls it shows only when the tabs overflow. */
   onOpenList?: () => void;
+  /** The list is open: the count cell's chevron points down, back the way it closes. */
+  listOpen?: boolean;
   /** The clock the tab ages read; tests pass their own. */
   now?: () => number;
   /** A phone: each tab is one line, the name then the amount (v2 TabContent's `phone`); otherwise the amount sits under the name. */
@@ -48,7 +55,7 @@ export interface OpenOrderTabsProps {
 }
 
 /** The open-order strip under the cart: parked carts, the current sale, then + (WCPOS v2 cart/tabs.tsx). */
-export function OpenOrderTabs({ parked, current, currency, locale, onSelect, onNew, onError, onOpenList, now = Date.now, compact = false }: OpenOrderTabsProps): JSX.Element {
+export function OpenOrderTabs({ parked, current, currency, locale, onSelect, onNew, onError, onOpenList, listOpen = false, now = Date.now, compact = false }: OpenOrderTabsProps): JSX.Element {
   const pending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [nowMs, setNowMs] = useState(now);
@@ -64,6 +71,10 @@ export function OpenOrderTabs({ parked, current, currency, locale, onSelect, onN
   const overflow = stripWidth > 0 && contentWidth > stripWidth - NEW_TAB_WIDTH;
   // The blank cart has no tab of its own: + is its tab, and pressing + there is a place, not an action (v2).
   const fresh = current.lineItems.length === 0;
+  // v2 seeds every walk-in cart with the guest's own name, "Guest" (hooks/use-guest-customer.ts, read by
+  // contexts/current-order/use-new-order.ts), so its tabWho returns that name and every tab, phone or wide,
+  // reads "Guest $16.83", never the contents. Tally's walk-in cart has no customer, so the tab reads no contents.
+  const who = (customerName: string | undefined) => tabWho({ customerName, lines: [] });
 
   async function run(action: () => Promise<string | null>) {
     // The ref stops a second tap in the same frame; busy disables the cells until the action settles.
@@ -112,20 +123,22 @@ export function OpenOrderTabs({ parked, current, currency, locale, onSelect, onN
     <View testID="open-order-strip" role="tablist" className="h-13 flex-row items-stretch border-t border-border bg-card"
       onLayout={({ nativeEvent: { layout } }) => setStripWidth(layout.width)}>
       {overflow ? (
-        <Pressable testID="open-orders-count" role="button" accessibilityLabel={`${openCount} open`} onPress={() => onOpenList?.()}
+        <Pressable testID="open-orders-count" role="button" accessibilityLabel={`${openCount} open`} aria-expanded={listOpen} onPress={() => onOpenList?.()}
           className="h-full min-w-14 flex-row items-center justify-center gap-1 border-r border-border px-2.5 web:hover:bg-accent active:bg-accent">
           <Text className="rounded-full bg-muted px-2 text-sm font-medium text-muted-foreground tabular-nums">{String(openCount)}</Text>
-          {/* The list rises over the cart from the strip at its foot. */}
-          <Text aria-hidden className="text-muted-foreground">▴</Text>
+          {/* The list rises over the cart from the strip at its foot, and falls back to it. */}
+          {listOpen
+            ? <ChevronDownIcon testID="open-orders-chevron-down" size={16} className="text-muted-foreground" />
+            : <ChevronUpIcon testID="open-orders-chevron-up" size={16} className="text-muted-foreground" />}
         </Pressable>
       ) : null}
       <ScrollView testID="open-order-scroll" horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" className="min-w-0 flex-1"
         onContentSizeChange={width => setContentWidth(width)}>
         {sorted.map(cart => tab(cart.id, false,
-          tabWho({ customerName: cart.customer?.name, lines: cart.lines, fees: cart.fees, shipping: cart.shipping }),
+          who(cart.customer?.name),
           cart.totalMinor, () => void run(() => onSelect(cart.id)), cart.parkedAt))}
         {fresh ? null : tab(current.id, true,
-          tabWho({ customerName: current.customer?.name, lines: current.lineItems, fees: current.fees, shipping: current.shipping }),
+          who(current.customer?.name),
           current.totalMinor)}
       </ScrollView>
       <Pressable testID="new-order-tab" role="tab" aria-selected={fresh} accessibilityLabel="New order" disabled={busy}
