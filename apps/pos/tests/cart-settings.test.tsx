@@ -182,6 +182,14 @@ test('Restore Default Settings puts the cart right and newest at top and keeps t
   expect(screen.queryByTestId('cart-settings')).toBeNull();
 });
 
+test("Restore Default Settings is v2's outline-destructive: a red border on the card, the label in the foreground", () => {
+  renderCart();
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  expect(classesOf('ui-settings-restore-defaults')).toEqual(expect.arrayContaining(['border-destructive', 'bg-card']));
+  expect(classesOf('ui-settings-restore-defaults-label')).toContain('text-foreground');
+  expect(classesOf('ui-settings-restore-defaults-label')).not.toContain('text-destructive');
+});
+
 test('open orders position loads as bottom unless top was saved, keeping an older sort', () => {
   const storage = memoryStorage();
   expect(loadCartSettings(storage).openOrdersPosition).toBe('bottom');

@@ -4,9 +4,9 @@
 import { useState } from 'react';
 import type { JSX } from 'react';
 import { ScrollView, View } from 'react-native';
-import { Button, Dialog, DialogContent, DialogTitle, IconButton, Text, Tooltip, TooltipContent, TooltipTrigger, XIcon } from '@tallyui/components';
+import { Button, Dialog, DialogContent, DialogTitle, IconButton, Text, XIcon } from '@tallyui/components';
 import { areaColumnRows, type AreaColumn, type AreaColumnSetting, type AreaId } from '../lib/area-columns';
-import { RIGHT_SHEET, SlidersIcon } from './catalogue-display-options';
+import { RestoreDefaultsButton, RIGHT_SHEET, SettingsTrigger } from './catalogue-display-options';
 import { SwitchRow } from './select-chevron';
 
 // v2's strings (core en.json): the trigger's label (`<area>.display_options`) and the panel's title.
@@ -29,14 +29,7 @@ export function AreaDisplayOptions<Id extends string>({ area, columns, settings,
   const { trigger, title } = TITLES[area];
   const shown = (id: Id) => settings.find(setting => setting.id === id)?.visible ?? false;
   return <>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <IconButton testID={`${area}-bar-display`} variant="ghost" accessibilityLabel={trigger} onPress={() => setOpen(true)}>
-          <SlidersIcon size={20} className="text-foreground" />
-        </IconButton>
-      </TooltipTrigger>
-      <TooltipContent><Text>{title}</Text></TooltipContent>
-    </Tooltip>
+    <SettingsTrigger testID={`${area}-bar-display`} label={trigger} tooltip={title} onPress={() => setOpen(true)} />
     {open && <Dialog open onOpenChange={next => { if (!next) setOpen(false); }}>
       {/* v2's `side="right" size="lg"`; the title row and the X are the catalogue sheet's, which follows v2's dialog. */}
       <DialogContent testID={`${area}-display-options`} className={RIGHT_SHEET}>
@@ -57,9 +50,7 @@ export function AreaDisplayOptions<Id extends string>({ area, columns, settings,
           </View>
         </ScrollView>
         <View className="flex-row justify-between border-t border-border px-4 pt-4">
-          <Button testID={`${area}-display-restore`} variant="outline" className="border-destructive" onPress={() => onChange(areaColumnRows(columns))}>
-            <Text className="text-destructive">Restore Default Settings</Text>
-          </Button>
+          <RestoreDefaultsButton testID={`${area}-display-restore`} onPress={() => onChange(areaColumnRows(columns))} />
           <Button testID={`${area}-display-close`} variant="outline" onPress={() => setOpen(false)}><Text>Close</Text></Button>
         </View>
       </DialogContent>

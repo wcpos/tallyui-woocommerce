@@ -40,6 +40,18 @@ test('an open session offers Print X-report, which asks for the X print', () => 
   expect(handlers.onReprint).not.toHaveBeenCalled();
 });
 
+test("Print X-report and Print closure lead with v2's printer icon (till-strip.tsx `<Icon name=\"print\" />`)", () => {
+  register({ status: 'open', lastClosure: closure });
+  strip();
+  const xreport = screen.getByTestId('till-xreport');
+  expect(xreport.firstElementChild).toBe(screen.getByTestId('till-xreport-icon'));
+  expect(screen.getByTestId('till-xreport-icon').compareDocumentPosition(within(xreport).getByText('Print X-report')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  cleanup();
+  register({ status: 'closed', lastClosure: closure });
+  strip();
+  expect(screen.getByTestId('till-reprint').firstElementChild).toBe(screen.getByTestId('till-reprint-icon'));
+});
+
 test('a closed till with a last closure offers Print closure for that closure', () => {
   register({ status: 'closed', lastClosure: closure });
   const handlers = strip();

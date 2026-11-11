@@ -4,6 +4,7 @@ import { Button, Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
 import { formatClosureDate } from '@tallyui/pos';
 import { useRegister } from '../lib/register/register-context';
+import { PrintIcon } from './report-chips';
 
 /** `HH:mm` on today's device date, otherwise `{weekday_short} HH:mm`. */
 export function openedAtLabel(iso: string, locale: string): string {
@@ -35,7 +36,8 @@ export function SessionCard({ currency, locale, resolveCashierName, onPrintXRepo
         <Text testID="session-expected" className="tabular-nums">{money(register.expected.cash ?? 0)}</Text>
         <Text className="text-muted-foreground text-sm">Expected</Text>
       </View>}
-      {!register.blind && <Button testID="x-report-print" variant="outline" onPress={onPrintXReport}><Text>Print X-report</Text></Button>}
+      {/* v2 closures/session-card.tsx: `leftIcon="print"` before Print X-report. */}
+      {!register.blind && <Button testID="x-report-print" variant="outline" onPress={onPrintXReport}><PrintIcon testID="x-report-print-icon" size={16} /><Text>Print X-report</Text></Button>}
     </View>
   );
 }

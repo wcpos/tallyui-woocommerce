@@ -12,6 +12,7 @@ import type { CustomerSource } from '../lib/customers/customer-source';
 import { CartAddMenu } from './cart-add-menu';
 import { RegisterSwitch } from './register-controls';
 import { CATALOGUE_VIEW_DEFAULTS } from '../lib/catalogue/catalogue-view-state';
+import { RestoreDefaultsButton } from './catalogue-display-options';
 import type { PanelPosition } from '../lib/catalogue/catalogue-view-state';
 import { CART_SETTINGS_DEFAULTS, isQuickDiscount, LINE_SORTS, normalizeLineSort, QUICK_DISCOUNT_SLOTS, sortCartLines, useCartSettings } from '../lib/sale/cart-settings';
 import type { CartSettings } from '../lib/sale/cart-settings';
@@ -122,11 +123,11 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
           {register && <View className="gap-1.5"><FieldLabel>Register sessions</FieldLabel><RegisterSwitch inset={false} /></View>}
         </ScrollView>
         <View className="flex-row justify-between border-t border-border px-4 pt-4">
-          <Button testID="ui-settings-restore-defaults" variant="outline" className="border-destructive" onPress={() => {
+          <RestoreDefaultsButton testID="ui-settings-restore-defaults" onPress={() => {
             onPositionChange(CATALOGUE_VIEW_DEFAULTS.position);
             onSettingsChange(CART_SETTINGS_DEFAULTS);
             saveReceiptSettings(RECEIPT_SETTINGS_DEFAULTS);
-          }}><Text className="text-destructive">Restore Default Settings</Text></Button>
+          }} />
           <Button testID="ui-settings-close" variant="outline" onPress={() => setOpen(false)}><Text>Close</Text></Button>
         </View>
       </DialogPrimitive.Content>

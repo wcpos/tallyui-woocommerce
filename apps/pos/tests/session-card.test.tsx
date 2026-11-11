@@ -23,3 +23,10 @@ test('the open session names its register, as v2 session-card.tsx does', () => {
 test('with no register name the open session reads This till', () => {
   expect(card(null)).toContain('● Open · This till');
 });
+
+test("Print X-report leads with v2's printer icon (session-card.tsx `leftIcon=\"print\"`)", () => {
+  card('Front Counter');
+  const button = screen.getByTestId('x-report-print');
+  expect(button.textContent).toBe('Print X-report');
+  expect(button.firstElementChild).toBe(screen.getByTestId('x-report-print-icon'));
+});
