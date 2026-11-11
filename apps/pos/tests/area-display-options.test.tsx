@@ -155,8 +155,9 @@ test("Order Settings keeps v2's 16 px leading-none title, its 20 px switch layou
   await renderOrders();
   fireEvent.click(screen.getByTestId('orders-bar-display'));
   expect(screen.getByTestId('orders-display-title').textContent).toBe('Order Settings');
-  expect(classesOf('orders-display-title')).toEqual(expect.arrayContaining(['text-base', 'leading-none']));
-  expect(classesOf('orders-display-title')).not.toContain('text-lg');
+  // v2's dialog rank is text-lg, 16 px on the 14 px ramp global.css takes from v2.
+  expect(classesOf('orders-display-title')).toEqual(expect.arrayContaining(['text-lg', 'leading-none']));
+  expect(classesOf('orders-display-title')).not.toContain('text-base');
   expect(classesOf('orders-display-column-status')).toContain('-my-0.5');
   const close = classesOf('orders-display-close');
   expect(close).toEqual(expect.arrayContaining(['border', 'border-border', 'bg-card']));
@@ -170,4 +171,13 @@ test("Restore Default Settings is v2's outline-destructive: a red border on the 
   expect(classesOf('orders-display-restore')).toEqual(expect.arrayContaining(['border-destructive', 'bg-card']));
   expect(classesOf('orders-display-restore-label')).toContain('text-foreground');
   expect(classesOf('orders-display-restore-label')).not.toContain('text-destructive');
+});
+
+test("Order Settings' Restore and Close are v2's h-ctl footer buttons, 44 px: h-11 over TallyUI's h-10", async () => {
+  await renderOrders();
+  fireEvent.click(screen.getByTestId('orders-bar-display'));
+  for (const testID of ['orders-display-restore', 'orders-display-close']) {
+    expect(classesOf(testID), testID).toContain('h-11');
+    expect(classesOf(testID), testID).not.toContain('h-10');
+  }
 });

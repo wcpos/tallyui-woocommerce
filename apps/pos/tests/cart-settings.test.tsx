@@ -354,14 +354,14 @@ test('the header holds only the title; the close is an h-ctl square over it at t
   expect(classesOf('cart-settings-x')).toEqual(expect.arrayContaining(['h-11', 'w-11']));
 });
 
-test('the Cart Settings title takes v2\'s dialog title rank, text-base', () => {
+test('the Cart Settings title takes v2\'s dialog title rank, text-lg', () => {
   renderCart();
   fireEvent.click(screen.getByTestId('cart-settings-button'));
   expect(screen.getByTestId('cart-settings-title').textContent).toBe('Cart Settings');
-  expect(classesOf('cart-settings-title')).toContain('text-base');
-  // v2's 16 px leading-none: without it TallyUI's merge leaves text-base's 24 px line and the rows start 8 px low.
+  expect(classesOf('cart-settings-title')).toContain('text-lg');
+  // v2's 16 px leading-none: without it TallyUI's merge leaves text-lg's 1.35 line and the rows start low.
   expect(classesOf('cart-settings-title')).toContain('leading-none');
-  expect(classesOf('cart-settings-title')).not.toContain('text-lg');
+  expect(classesOf('cart-settings-title')).not.toContain('text-base');
 });
 
 test('the Sort items select takes v2\'s field box border, the light grey border token, not TallyUI\'s dark input border', () => {
@@ -524,10 +524,43 @@ test('pressing a receipt row\'s label toggles its switch, as v2\'s FormSwitch la
   expect(screen.getByTestId('cart-setting-auto-show-receipt').getAttribute('aria-checked')).toBe(before === 'true' ? 'false' : 'true');
 });
 
-test('in the cart sheet the register switch is a plain row, without the p-4 a settings group gives it', () => {
-  held.register = { setting: false, setSetting: () => {} };
+/** The classes of the label Text inside a SwitchRow's label Pressable (react-native-web keeps className off the DOM). */
+function labelTextClassesOf(pressableTestID: string): string[] {
+  const text = screen.getByTestId(pressableTestID).firstElementChild as unknown as Record<string, unknown>;
+  type Fiber = { memoizedProps?: { testID?: string; className?: unknown }; return?: Fiber };
+  const found: string[] = [];
+  for (let fiber = text[Object.keys(text).find(name => name.startsWith('__reactFiber$'))!] as Fiber | undefined; fiber; fiber = fiber.return) {
+    const { className, testID } = fiber.memoizedProps ?? {};
+    if (testID === pressableTestID) break;
+    if (typeof className === 'string') found.push(...className.split(/\s+/));
+  }
+  return found;
+}
+
+test('in the cart sheet the register sessions row is drawn as its other switch rows: SwitchRow, then one muted help line', () => {
+  const setSetting = vi.fn();
+  held.register = { setting: false, setSetting };
   renderCart();
   fireEvent.click(screen.getByTestId('cart-settings-button'));
-  expect(within(screen.getByTestId('cart-settings')).getByText('Register sessions')).not.toBeNull();
-  expect(classesOf('register-switch-row')).toEqual(['flex-row', 'items-center', 'gap-3']);
+  const item = screen.getByTestId('cart-setting-register-sessions-item');
+  expect(classesOf('cart-setting-register-sessions-item')).toEqual(['gap-1.5']);
+  // SwitchRow's structure: the row, the switch then its muted FieldLabel, as on the receipt rows.
+  expect(item.contains(screen.getByTestId('cart-setting-register-sessions-row'))).toBe(true);
+  expect(classesOf('cart-setting-register-sessions-row')).toEqual(['w-full', 'flex-row', 'items-center', 'gap-3']);
+  expect(classesOf('cart-setting-register-sessions')).toContain('-my-0.5');
+  expect(screen.getByTestId('cart-setting-register-sessions-label').textContent).toBe('Register sessions');
+  expect(labelTextClassesOf('cart-setting-register-sessions-label'))
+    .toEqual(expect.arrayContaining(['text-sm', 'font-medium', 'leading-none', 'text-muted-foreground']));
+  expect(screen.getByRole('switch', { name: 'Use register sessions' })).toBe(screen.getByTestId('cart-setting-register-sessions'));
+  // The help line: one muted Text at v2's help rank (text-xs) under the row, the row's only other child.
+  const hint = screen.getByTestId('cart-setting-register-sessions-hint');
+  expect(item.children).toHaveLength(2);
+  expect(item.lastElementChild).toBe(hint);
+  expect(classesOf('cart-setting-register-sessions-hint')).toEqual(expect.arrayContaining(['text-xs', 'text-muted-foreground']));
+  expect(classesOf('cart-setting-register-sessions-hint')).not.toContain('text-sm');
+  expect(hint.textContent).toMatch(/^A session starts with a counted float/);
+  // The old two-line group (a label over RegisterSwitch's own row) is gone.
+  expect(screen.queryByTestId('register-switch-row')).toBeNull();
+  fireEvent.click(screen.getByTestId('cart-setting-register-sessions-label'));
+  expect(setSetting).toHaveBeenCalledWith(true);
 });

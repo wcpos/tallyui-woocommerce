@@ -81,3 +81,68 @@ test('Metro registers each extra theme and the Uniwind types list them', () => {
   expect(quoted(/themes: readonly \[([^\]]*)\]/.exec(types)?.[1])).toEqual(['light', 'dark', ...EXTRA_THEMES]);
   expect(THEME_CHOICES.filter(choice => !['system', 'light', 'dark'].includes(choice))).toEqual(EXTRA_THEMES);
 });
+
+/** The `--name: value;` declarations of every `@theme …` block in global.css, in order (later wins, as in Tailwind). */
+function themeTokens(css: string): Map<string, string> {
+  const tokens = new Map<string, string>();
+  const body = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  for (const block of body.matchAll(/@theme(?:\s+inline)?\s*\{([^}]*)\}/g)) {
+    for (const [, name, raw] of block[1].matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)) tokens.set(name, raw.trim());
+  }
+  return tokens;
+}
+
+/** A ramp value in px: a px literal, or v2's `calc(var(--text-base) * k …)` worked out against the tokens. */
+function px(tokens: Map<string, string>, name: string): number | undefined {
+  const raw = tokens.get(name);
+  if (raw === undefined) return undefined;
+  const literal = /^([\d.]+)px$/.exec(raw);
+  if (literal) return Number(literal[1]);
+  const calc = /^calc\(var\((--[a-z0-9-]+)\)((?:\s*\*\s*[\d.]+)+)\)$/.exec(raw);
+  if (!calc) return undefined;
+  const base = px(tokens, calc[1]);
+  if (base === undefined) return undefined;
+  return [...calc[2].matchAll(/[\d.]+/g)].reduce((product, factor) => product * Number(factor[0]), base);
+}
+
+const LIGHT_DESTRUCTIVE = 'oklch(0.52 0.22 25)';    // v2 apps/main/global.css l.381
+const LIGHT_DESTRUCTIVE_FG = 'oklch(0.99 0.01 25)'; // l.382
+const DARK_DESTRUCTIVE = 'oklch(0.67 0.2 25)';      // l.526
+const DARK_DESTRUCTIVE_FG = 'oklch(0.15 0.02 25)';  // l.527
+
+test("global.css takes v2's type ramp: a 14 px base, sm 13 px, xs 12 px, each with a 1.35 line", () => {
+  const tokens = themeTokens(globalCss);
+  expect(tokens.get('--text-base')).toBe('14px');
+  expect(tokens.get('--text-xs')).toBe('12px');
+  expect(tokens.get('--text-2xs')).toBe('11px');
+  expect(Math.round(px(tokens, '--text-sm')!)).toBe(13);
+  expect(Math.round(px(tokens, '--text-lg')!)).toBe(16);
+  expect(Math.round(px(tokens, '--text-xl')!)).toBe(18);
+  expect(Math.round(px(tokens, '--text-2xl')!)).toBe(21);
+  expect(Math.round(px(tokens, '--text-3xl')!)).toBe(26);
+  for (const size of ['2xs', 'xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl']) {
+    const ratio = px(tokens, `--text-${size}--line-height`)! / px(tokens, `--text-${size}`)!;
+    expect(ratio, size).toBeCloseTo(1.35, 5);
+  }
+});
+
+test("the light and dark themes take v2's destructive, over @tallyui/theme's #dc2626", () => {
+  const light = Object.fromEntries(declarations(variantBlock(globalCss, 'light')));
+  const dark = Object.fromEntries(declarations(variantBlock(globalCss, 'dark')));
+  expect(light['--color-destructive']).toBe(LIGHT_DESTRUCTIVE);
+  expect(light['--color-destructive-foreground']).toBe(LIGHT_DESTRUCTIVE_FG);
+  expect(dark['--color-destructive']).toBe(DARK_DESTRUCTIVE);
+  expect(dark['--color-destructive-foreground']).toBe(DARK_DESTRUCTIVE_FG);
+  // The theme default (no variant) is the light one, so a utility outside a theme scope gets it too.
+  expect(themeTokens(globalCss).get('--color-destructive')).toBe(LIGHT_DESTRUCTIVE);
+  expect(themeTokens(globalCss).get('--color-destructive-foreground')).toBe(LIGHT_DESTRUCTIVE_FG);
+});
+
+test('light, dark and the seven extra themes all define the destructive pair', () => {
+  const sources: [string, string][] = [['light', globalCss], ['dark', globalCss], ...EXTRA_THEMES.map(theme => [theme, themesCss] as [string, string])];
+  for (const [theme, css] of sources) {
+    const declared = Object.fromEntries(declarations(variantBlock(css, theme)));
+    expect(declared['--color-destructive'], theme).toMatch(/^oklch\(/);
+    expect(declared['--color-destructive-foreground'], theme).toMatch(/^oklch\(/);
+  }
+});
