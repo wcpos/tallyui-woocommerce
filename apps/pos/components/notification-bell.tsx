@@ -13,10 +13,11 @@ const BellIcon = createSvgIcon('BellIcon', () => <><Path d="M6 8a6 6 0 0 1 12 0c
 // v2's right side sheet, as the cashier sheet.
 const SIDE_SHEET = 'left-auto right-0 top-0 h-full max-w-lg translate-x-0 translate-y-0 rounded-none border-0 border-l';
 
-export function NotificationBell(): JSX.Element {
+/** `testID` is the bar's own, as v2's `<bar>-bell` (bar-controls/index.tsx); the register bar keeps `register-bar-bell`. */
+export function NotificationBell({ testID = 'register-bar-bell' }: { testID?: string }): JSX.Element {
   const [open, setOpen] = useState(false);
   return <>
-    <IconButton testID="register-bar-bell" accessibilityLabel="Notifications" onPress={() => setOpen(true)}><BellIcon size={20} /></IconButton>
+    <IconButton testID={testID} accessibilityLabel="Notifications" onPress={() => setOpen(true)}><BellIcon size={20} /></IconButton>
     {open && <Dialog open onOpenChange={setOpen}>
       <DialogContent testID="notifications-sheet" className={SIDE_SHEET}>
         <DialogHeader><DialogTitle>Notifications</DialogTitle></DialogHeader>

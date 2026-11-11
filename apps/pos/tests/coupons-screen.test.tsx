@@ -120,7 +120,7 @@ test('the status is v2\'s dot and word, no badge: a green dot for Active, a grey
 
 test('search matches the description as well as the code, and the footer counts what it shows', async () => {
   await withCoupons();
-  expect(screen.getByTestId('data-table-count').textContent).toBe('3 coupons');
+  expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 3 of 3');
   typeSearch('five');
   await waitFor(() => expect(rowCodes()).toEqual(['coupons-row-5dollars']));
   expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 1 of 3');
@@ -128,11 +128,11 @@ test('search matches the description as well as the code, and the footer counts 
   await waitFor(() => expect(rowCodes()).toEqual(['coupons-row-10off']));
 });
 
-test('one coupon reads 1 coupon in the footer', async () => {
+test('one coupon reads Showing 1 of 1 in the footer, as v2 reads it', async () => {
   await db.coupons.insert(couponDocs[0]);
   renderScreen();
   await screen.findByTestId('coupons-row-10off');
-  expect(screen.getByTestId('data-table-count').textContent).toBe('1 coupon');
+  expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 1 of 1');
 });
 
 test('a search that matches nothing says so, and Clear filters brings the rows back', async () => {
@@ -157,7 +157,7 @@ test('a coupon replicated in after the first render gets its row', async () => {
   await db.coupons.insert({ uuid: 'c-7', id: 7, code: 'fresh', discount_type: 'percent', amount: '15',
     date_created_gmt: '2026-04-01T10:00:00', ...base });
   await waitFor(() => expect(rowCodes()[0]).toBe('coupons-row-fresh'));
-  expect(screen.getByTestId('data-table-count').textContent).toBe('4 coupons');
+  expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 4 of 4');
 });
 
 test('the screen never writes to the replicated coupons collection', async () => {

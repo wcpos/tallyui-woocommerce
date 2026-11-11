@@ -5,7 +5,7 @@ import { createSvgIcon, Table, TableBody, TableCell, TableHead, TableHeader, Tab
 import type { StoreOrder } from '@tallyui/core';
 import type { PosOrder } from '@tallyui/pos';
 import { orderRowCells, orderTableItems, type OrderTableRow, type OrderTone } from '../lib/orders/order-days';
-import { CaptionRowInset, TableSurface } from './table-surface';
+import { CaptionRowInset, TableCount, TableSurface } from './table-surface';
 
 const ChevronRightIcon = createSvgIcon('ChevronRightIcon', () => <Polyline points="9 18 15 12 9 6" />);
 // v2's status dots (packages/components/src/lib/tone.ts) in this theme's tokens.
@@ -16,7 +16,11 @@ const TONE_DOT: Record<OrderTone, string> = {
 const COLUMNS = ['Status', 'Order Number', 'Customer', 'Date Created', 'Payment Method', 'Total'];
 
 /** v2's orders table (screens/main/orders/index.tsx): grouped by day, newest first; the chevron opens the order. */
-export function OrdersTable({ local, store, onOpen, footer, now = () => new Date() }: {
+export function OrdersTable({ local, store, onOpen, footer, active = false, onSync, now = () => new Date() }: {
+  /** The store's list is loading: the sync button turns. */
+  active?: boolean;
+  /** Reloads the store's first page (the footer's sync button). */
+  onSync?(): void;
   local: readonly PosOrder[];
   store: readonly StoreOrder[];
   onOpen(row: OrderTableRow): void;
@@ -79,9 +83,8 @@ export function OrdersTable({ local, store, onOpen, footer, now = () => new Date
         </ScrollView>
       </TableSurface>
       <CaptionRowInset>
-        <View testID="data-table-caption-row" className="flex-row justify-end">
-          <Text testID="data-table-count" className="text-xs text-muted-foreground">{`Showing ${items.filter(item => item.type === 'order').length}`}</Text>
-        </View>
+        {/* The store's order list is paged and the connector reports no total, so the count is "Showing N". */}
+        <TableCount shown={items.filter(item => item.type === 'order').length} total={null} active={active} onSync={onSync} />
       </CaptionRowInset>
     </>
   );

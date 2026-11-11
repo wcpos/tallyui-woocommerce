@@ -124,14 +124,14 @@ test('out-of-stock, unpurchasable and unpublished products still list', () => {
     product(4, 'Kettle', { status: 'draft' }),
   ]);
   expect(rowIds()).toEqual(['product-row-1', 'product-row-2', 'product-row-3', 'product-row-4']);
-  expect(text('data-table-count')).toBe('4 products');
+  expect(text('data-table-count')).toBe('Showing 4 of 4');
 });
 
 test('search: a SKU match narrows the list and the footer counts shown against total', async () => {
   renderScreen(fixtureProducts);
   expect(screen.getByTestId('search-products').getAttribute('placeholder')).toBe('Search products');
   expect(rowIds()).toHaveLength(3);
-  expect(text('data-table-count')).toBe('3 products');
+  expect(text('data-table-count')).toBe('Showing 3 of 3');
   typeSearch(fixtureProducts[0].sku);
   await waitFor(() => expect(rowIds()).toEqual([`product-row-${fixtureProducts[0].id}`]));
   expect(text('data-table-count')).toBe('Showing 1 of 3');
@@ -158,10 +158,10 @@ test('live: rerendering with a new products array adds the new row', () => {
   const first = [product(1, 'Beans')];
   const { rerender } = renderScreen(first);
   expect(rowIds()).toEqual(['product-row-1']);
-  expect(text('data-table-count')).toBe('1 product');
+  expect(text('data-table-count')).toBe('Showing 1 of 1');
   rerender(<ProductsScreen products={[...first, product(2, 'Aeropress')]} connector={connector} currency="USD" locale="en_US" onBack={() => {}} />);
   expect(rowIds()).toEqual(['product-row-2', 'product-row-1']);
-  expect(text('data-table-count')).toBe('2 products');
+  expect(text('data-table-count')).toBe('Showing 2 of 2');
 });
 
 test('narrow window: a list row per product with name, price and stock badge; Back calls onBack', () => {
@@ -190,7 +190,7 @@ const onSalePill = () => screen.getByTestId('filter-pill-on_sale');
 test('the chips start off: every product lists, out of stock too, and the stock chip reads Stock Status', () => {
   renderScreen([product(1, 'Beans'), product(2, 'Filters', { stock_status: 'outofstock' }), product(3, 'Grinder', { stock_status: 'onbackorder' })]);
   expect(rowIds()).toEqual(['product-row-1', 'product-row-2', 'product-row-3']);
-  expect(text('data-table-count')).toBe('3 products');
+  expect(text('data-table-count')).toBe('Showing 3 of 3');
   expect(text('filter-pill-stock_status')).toBe('Stock Status');
   expect(screen.queryByTestId('filter-pill-remove-stock_status')).toBeNull();
   expect(onSalePill().getAttribute('aria-pressed')).toBe('false');
@@ -205,7 +205,7 @@ test('On Sale leaves the on-sale products and the footer follows; pressing it ag
   fireEvent.click(onSalePill());
   expect(onSalePill().getAttribute('aria-pressed')).toBe('false');
   expect(rowIds()).toHaveLength(3);
-  expect(text('data-table-count')).toBe('3 products');
+  expect(text('data-table-count')).toBe('Showing 3 of 3');
 });
 
 test('Category leaves that category, and with a search only products that match both', async () => {
@@ -227,7 +227,7 @@ test('a chip and a search that leave nothing: "No products found", and Clear fil
   await waitFor(() => expect(text('no-data-message-title')).toBe('No products found'));
   fireEvent.click(within(screen.getByTestId('no-data-message')).getByRole('button', { name: 'Clear filters' }));
   expect(rowIds()).toHaveLength(3);
-  expect(text('data-table-count')).toBe('3 products');
+  expect(text('data-table-count')).toBe('Showing 3 of 3');
   expect((screen.getByTestId('search-products') as HTMLInputElement).value).toBe('');
   expect(onSalePill().getAttribute('aria-pressed')).toBe('false');
 });
