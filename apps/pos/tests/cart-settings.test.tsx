@@ -334,6 +334,25 @@ test.each([
   expect(screen.queryByTestId('cart-settings')).toBeNull();
 });
 
+test('the header holds only the title; the close is an h-ctl square over it at top-1 right-1, as v2\'s DialogContent places it', () => {
+  renderCart();
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  expect(classesOf('cart-settings-header')).toEqual(['pl-4', 'pr-11']);
+  expect(screen.getByTestId('cart-settings-header').textContent).toBe('Cart Settings');
+  expect(screen.getByTestId('cart-settings-header').contains(screen.getByTestId('cart-settings-x'))).toBe(false);
+  expect(classesOf('cart-settings-close-slot')).toEqual(['absolute', 'right-1', 'top-1']);
+  expect(screen.getByTestId('cart-settings-close-slot').parentElement).toBe(screen.getByTestId('cart-settings'));
+  expect(screen.getByTestId('cart-settings-close-slot').contains(screen.getByTestId('cart-settings-x'))).toBe(true);
+  expect(classesOf('cart-settings-x')).toEqual(expect.arrayContaining(['h-11', 'w-11']));
+});
+
+test('the Cart Settings title takes v2\'s dialog title rank, text-base', () => {
+  renderCart();
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  expect(screen.getByTestId('cart-settings-title').textContent).toBe('Cart Settings');
+  expect(classesOf('cart-settings-title')).toContain('text-base');
+});
+
 test.each(['left', 'right'] as const)('with the products on the %s, the sheet docks over them as v2 docks it', position => {
   renderCart({ position });
   fireEvent.click(screen.getByTestId('cart-settings-button'));

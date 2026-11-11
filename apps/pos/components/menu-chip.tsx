@@ -8,7 +8,7 @@ import { Popover } from '@tallyui/primitives';
 export type MenuChoice = { value: string; label: string };
 
 /** v2's `Chip` face (packages/components/src/chip/index.tsx): a 44 (`h-ctl`) pill, `px-3`, `gap-1.5`, an 18 icon
- *  (`size-4.5`) and a regular `text-base` label in one ink; on, this app's tint (`border-primary bg-primary/10`). */
+ *  (`size-4.5`) and a regular `text-base` label in one ink, and no caret; on, this app's tint (`border-primary bg-primary/10`). */
 export function chipFaceClassName(on: boolean): string {
   return `h-11 flex-row items-center self-start rounded-full border ${on ? 'border-primary bg-primary/10' : 'border-border bg-card'}`;
 }
@@ -41,7 +41,6 @@ export function MenuChip({ name, icon: Icon, value, defaultValue, choices, onCha
             <Text className={`text-base font-normal ${ink}`}>
               {choices.find(row => row.value === value)?.label ?? value}
             </Text>
-            <Text className={`text-xs ${on ? 'text-primary' : 'text-muted-foreground'}`}>▾</Text>
           </Pressable>
         </Popover.Trigger>
         {on && <Pressable testID={`hero-chip-${name}-clear`} accessibilityRole="button" accessibilityLabel="Clear"
