@@ -71,6 +71,24 @@ test('keeps only the newest cap rows', async () => {
   expect((await collection.find({ sort: [{ id: 'asc' }] }).exec()).map(row => row.message)).toEqual(['w3', 'w4', 'w5']);
 });
 
+test('a failed write warns on the console and the next entry is still stored', async () => {
+  const failure = new Error('disk full');
+  const insert = vi.spyOn(collection, 'insert').mockRejectedValueOnce(failure);
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  try {
+    taxLogger.warn('lost');
+    taxLogger.warn('kept');
+    await store.flush();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith('[tallywoo] could not store a log entry', failure);
+    expect(insert).toHaveBeenCalledTimes(2);
+    expect((await collection.find().exec()).map(row => row.message)).toEqual(['kept']);
+  } finally {
+    insert.mockRestore();
+    warn.mockRestore();
+  }
+});
+
 test('stops writing after detach', async () => {
   taxLogger.warn('before');
   await store.flush();

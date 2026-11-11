@@ -100,11 +100,13 @@ export function attachLogStore(
   let chain = Promise.resolve();
   const sink = callbackSink({ id, levels: LOG_SINK_LEVELS, callback: entry => {
     if (!LOG_STORE_LEVELS.includes(entry.level) && !isVerboseDiagnostics()) return;
+    // A failed write warns on the console, never through a TallyUI logger (that would loop back into this sink),
+    // and the chain carries on to the next entry.
     chain = chain.then(async () => {
       await collection.insert(toLogRecord(entry, logRecordId(entry.timestamp, ++sequence)));
       const extra = await collection.find({ sort: [{ id: 'desc' }], skip: cap }).exec();
       if (extra.length) await collection.bulkRemove(extra.map(doc => doc.primary));
-    }).catch(() => {});
+    }).catch(error => { console.warn('[tallywoo] could not store a log entry', error); });
   } });
   for (const logger of loggers) logger.addSink(sink);
   const flush = () => chain;
