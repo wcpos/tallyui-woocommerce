@@ -5,6 +5,7 @@ import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { PortalHost } from '@tallyui/primitives';
 import { ProductsScreen } from '../components/products-screen';
 import fixtureProducts from './fixtures/products.json';
+import { CARD_CLASSES } from './classes-of';
 
 const connector = createWooCommerceConnector();
 
@@ -239,4 +240,15 @@ test('the Category chip offers every product\'s categories, not only the shown o
   // Merch (27) is carried only by the T-Shirt, which On Sale hides.
   expect(screen.getAllByTestId(/^category-option-/).map(el => el.getAttribute('data-testid')))
     .toEqual(['category-option-25', 'category-option-27']);
+});
+
+test("at 1280 the table sits on v2's card, and the count row sits under it, outside it", () => {
+  setWidth(1280);
+  renderScreen([product(1, 'Tea'), product(2, 'Americano')]);
+  const surface = screen.getByTestId('products-table-surface');
+  expect(classesOf('products-table-surface')).toEqual(expect.arrayContaining(CARD_CLASSES));
+  expect(surface.contains(screen.getByTestId('products-body'))).toBe(true);
+  const count = screen.getByTestId('data-table-count');
+  expect(screen.getByTestId('data-table-caption-inset').contains(count)).toBe(true);
+  expect(surface.contains(count)).toBe(false);
 });

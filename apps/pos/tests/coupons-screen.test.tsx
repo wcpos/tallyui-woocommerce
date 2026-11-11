@@ -7,6 +7,7 @@ import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { createTallyDatabase } from '@tallyui/database';
 import { PortalHost } from '@tallyui/primitives';
 import { CouponsScreen } from '../components/coupons-screen';
+import { CARD_CLASSES } from './classes-of';
 
 const connector = createWooCommerceConnector();
 const base = { used_by: [], status: 'publish' };
@@ -262,4 +263,13 @@ test('a chip with a search that matches nothing shows the empty state, and Clear
   expect((screen.getByTestId('search-coupons') as HTMLInputElement).value).toBe('');
   expect(pill('status')).toBe('Status');
   expect(screen.queryByTestId('filter-pill-remove-status')).toBeNull();
+});
+
+test("at 1280 the table sits on v2's card, with the count under it", async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1280, height: 800, scale: 1, fontScale: 1 });
+  await withCoupons();
+  const surface = screen.getByTestId('coupons-table-surface');
+  expect(classesOf('coupons-table-surface')).toEqual(expect.arrayContaining(CARD_CLASSES));
+  expect(surface.contains(screen.getByTestId('coupons-body'))).toBe(true);
+  expect(surface.contains(screen.getByTestId('data-table-count'))).toBe(false);
 });

@@ -5,6 +5,7 @@ import { createSvgIcon, Table, TableBody, TableCell, TableHead, TableHeader, Tab
 import type { StoreOrder } from '@tallyui/core';
 import type { PosOrder } from '@tallyui/pos';
 import { orderRowCells, orderTableItems, type OrderTableRow, type OrderTone } from '../lib/orders/order-days';
+import { CaptionRowInset, TableSurface } from './table-surface';
 
 const ChevronRightIcon = createSvgIcon('ChevronRightIcon', () => <Polyline points="9 18 15 12 9 6" />);
 // v2's status dots (packages/components/src/lib/tone.ts) in this theme's tokens.
@@ -25,9 +26,9 @@ export function OrdersTable({ local, store, onOpen, footer, now = () => new Date
   const today = now();
   const items = orderTableItems(local, store, today);
   return (
-    <ScrollView className="flex-1">
-      <View className="gap-3 px-4 pb-4">
-        <View className="overflow-hidden rounded-md border border-border bg-card">
+    <>
+      <TableSurface testID="orders-table-surface">
+        <ScrollView className="flex-1">
           <Table testID="orders-table">
             <TableHeader>
               <TableRow>
@@ -74,12 +75,14 @@ export function OrdersTable({ local, store, onOpen, footer, now = () => new Date
               })}
             </TableBody>
           </Table>
-        </View>
-        {footer}
+          {footer ? <View className="gap-3 p-3">{footer}</View> : null}
+        </ScrollView>
+      </TableSurface>
+      <CaptionRowInset>
         <View testID="data-table-caption-row" className="flex-row justify-end">
           <Text testID="data-table-count" className="text-xs text-muted-foreground">{`Showing ${items.filter(item => item.type === 'order').length}`}</Text>
         </View>
-      </View>
-    </ScrollView>
+      </CaptionRowInset>
+    </>
   );
 }
