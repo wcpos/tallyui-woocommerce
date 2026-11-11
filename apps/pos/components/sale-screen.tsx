@@ -3,7 +3,7 @@ import type { JSX } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
-  AlertDialogTitle, Button, CartBar, ParkedSales, Receipt, SyncStatus, Text } from '@tallyui/components';
+  AlertDialogTitle, Button, ParkedSales, Receipt, SyncStatus, Text } from '@tallyui/components';
 import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
 import { formatMoney } from '@tallyui/core';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
@@ -46,6 +46,7 @@ import { PanelResizeHandle } from './panel-resize-handle';
 import { CartWithSettings } from './cart-settings';
 import { TenderPane } from './tender-pane';
 import { LedgerPane } from './ledger-pane';
+import { PosPhoneTabBar } from './pos-phone-tab-bar';
 
 // The till id; the bound register is the drawer.
 const REGISTER_ID = 'web';
@@ -404,8 +405,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       sales={outboxOrders ? { orders: outboxOrders, cashierRef: props.cashierRef, currency, locale: props.locale } : null}
       drawer={drawerFigure ? { figure: drawerFigure,
         ...drawerVerbs(register, id => id === props.cashierRef ? props.cashierName : undefined) } : undefined}
-      // On a narrow screen the products and the cart are never mounted together, so opening the cart is what mounts
-      // RegisterPanel; on a wide screen both panes are up and setCartOpen changes nothing.
+      // On a narrow screen the register panel lives in the cart pane, so the door selects the Cart tab first
+      // (setCartOpen(true)); on a wide screen both panes are up and setCartOpen changes nothing.
       onOpenDrawer={register?.enabled ? () => { setCartOpen(true); setRegisterPanelOpen(true); } : undefined}
       adminUrl={props.adminUrl}
     /> : props.cashierControl} />;
@@ -541,26 +542,16 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       </View>
     );
   }
+  // v2's phone till (apps/main/app/(app)/(drawer)/(pos)/(columns)/index.tsx): both panes stay mounted and the hidden
+  // one is display none, so the products pane's barcode scanning keeps working on the Cart tab (v2 #1438). Parked
+  // carts are reached through the cart's open-order strip.
+  const active = cartOpen ? 'cart' : 'products';
   return (
     <View className="flex-1 bg-background">
-      {cartOpen ? (
-        <>
-          <View className="p-4">
-            <Button onPress={() => setCartOpen(false)}><Text>Back to products</Text></Button>
-          </View>
-          {cart}
-        </>
-      ) : (
-        <>
-          {browse}
-          {sale.idle && parked.length > 0 ? (
-            <Button onPress={() => { setCartOpen(true); setParkedOpen(true); }}>
-              <Text>{`Parked (${parked.length})`}</Text>
-            </Button>
-          ) : null}
-          <CartBar sale={sale} onOpen={() => setCartOpen(true)} />
-        </>
-      )}
+      <View testID="pos-pane-products" className="flex-1" style={active === 'products' ? undefined : { display: 'none' }}>{browse}</View>
+      <View testID="pos-pane-cart" className="flex-1" style={active === 'cart' ? undefined : { display: 'none' }}>{cart}</View>
+      <PosPhoneTabBar active={active} onSelect={tab => setCartOpen(tab === 'cart')}
+        cartCount={sale.order.lineItems.reduce((sum, line) => sum + line.quantity, 0)} />
     </View>
   );
 }

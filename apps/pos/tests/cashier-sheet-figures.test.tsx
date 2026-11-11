@@ -143,10 +143,12 @@ test('the drawer door names its verbs and opener, and opens the register panel (
 test('on a narrow screen the drawer door opens the cart so the register panel shows', async () => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 600, height: 800, scale: 1, fontScale: 1 });
   await openSessionAndSheet();
-  expect(screen.queryByText('Back to products')).toBeNull();
+  expect(screen.getByTestId('pos-tab-cart').getAttribute('aria-selected')).toBe('false');
   fireEvent.click(await screen.findByTestId('user-sheet-drawer'));
   expect(await screen.findByTestId('register-panel')).not.toBeNull();
-  expect(screen.getByText('Back to products')).not.toBeNull();
+  // Both phone panes stay mounted, so the panel only shows because the door switched to the Cart tab.
+  expect(screen.getByTestId('pos-tab-cart').getAttribute('aria-selected')).toBe('true');
+  expect(screen.getByTestId('pos-pane-cart').style.display).not.toBe('none');
 }, 20_000);
 
 test('while a payment blocks the sheet the drawer door is disabled and pressing it does nothing', () => {

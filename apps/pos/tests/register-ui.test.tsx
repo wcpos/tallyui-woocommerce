@@ -17,6 +17,7 @@ import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { cartPane, openCartTab, openProductsTab, productsPane } from './phone-tabs-helpers';
 
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
@@ -76,15 +77,17 @@ test.each([900, 390])('Offline shows once: in the POS bar pill, then in the regi
   expect(screen.getByTestId('register-bar-pill').textContent).toBe('Offline');
   if (width < 900) {
     fireEvent.click(screen.getByText('Espresso'));
-    fireEvent.click(screen.getByRole('button', { name: /Open cart/ }));
+    openCartTab();
   }
   fireEvent.click(screen.getByRole('switch', { name: 'Use register sessions' }));
-  expect((await screen.findByTestId('register-bar-pill')).textContent).toBe('Offline');
   if (width >= 900) {
+    expect((await screen.findByTestId('register-bar-pill')).textContent).toBe('Offline');
     expect(screen.getAllByTestId('register-bar-pill')).toHaveLength(1);
   } else {
-    fireEvent.click(screen.getByText('Back to products'));
-    expect(screen.getByTestId('register-bar-pill').textContent).toBe('Offline');
+    // Both phone panes stay mounted, so "once" is per pane: the one on screen.
+    expect((await cartPane().findAllByTestId('register-bar-pill')).map(pill => pill.textContent)).toEqual(['Offline']);
+    openProductsTab();
+    expect(productsPane().getAllByTestId('register-bar-pill').map(pill => pill.textContent)).toEqual(['Offline']);
   }
 });
 
@@ -103,7 +106,7 @@ test.each([900, 390])('the switch enables the register and replaces the cart at 
   const app = await setup();
   if (width < 900) {
     fireEvent.click(screen.getByText('Espresso'));
-    fireEvent.click(screen.getByRole('button', { name: /Open cart/ }));
+    openCartTab();
   }
   const toggle = screen.getByRole('switch', { name: 'Use register sessions' });
   fireEvent.click(toggle);
