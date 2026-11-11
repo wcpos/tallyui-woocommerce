@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, expect, test, vi } from 'vitest';
 import { PortalHost } from '@tallyui/primitives';
 import { MenuChip } from '../components/menu-chip';
+import { classesOf } from './classes-of';
 
 afterEach(cleanup);
 
@@ -88,4 +89,20 @@ test('a chip without a hint shows no hint', async () => {
   fireEvent.click(screen.getByTestId('hero-chip-cashier'));
   await screen.findByTestId('hero-cashier-menu');
   expect(screen.queryByTestId('hero-cashier-menu-hint')).toBeNull();
+});
+
+test('the chip is v2 Chip: a 44 rounded pill with a leading icon, tinted when off its default', () => {
+  const Glyph = (props: { testID?: string; className?: string }) => <span data-testid={props.testID} className={props.className} />;
+  render(<MenuChip name="cashier" icon={Glyph} value="all" defaultValue="all" choices={choices} onChange={vi.fn()} />);
+  expect(classesOf('hero-chip-cashier-face')).toEqual(expect.arrayContaining(['h-11', 'rounded-full', 'border-border', 'bg-card']));
+  expect(classesOf('hero-chip-cashier-face')).not.toContain('rounded-md');
+  expect(screen.getByTestId('hero-chip-cashier').firstElementChild).toBe(screen.getByTestId('hero-chip-cashier-icon'));
+  expect(screen.getByTestId('hero-chip-cashier-icon').getAttribute('class')).toBe('text-foreground');
+  cleanup();
+  render(<MenuChip name="cashier" icon={Glyph} value="5" defaultValue="all" choices={choices} onChange={vi.fn()} />);
+  expect(classesOf('hero-chip-cashier-face')).toEqual(expect.arrayContaining(['rounded-full', 'border-primary', 'bg-primary/10']));
+  expect(screen.getByTestId('hero-chip-cashier-icon').getAttribute('class')).toBe('text-primary');
+  cleanup();
+  setup();
+  expect(screen.queryByTestId('hero-chip-cashier-icon')).toBeNull();
 });

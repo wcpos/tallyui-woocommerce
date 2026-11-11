@@ -3,7 +3,8 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
 import type { Closure } from '@tallyui/pos';
-import { ClosureList, resultText, resultWord, signedMoney } from '../components/closure-list';
+import { ClosureList, ClosuresExportButton, resultText, resultWord, signedMoney } from '../components/closure-list';
+import { CARD_CLASSES } from './classes-of';
 
 afterEach(cleanup);
 
@@ -172,8 +173,32 @@ test('each day label sits on a tinted band', () => {
   render(<ClosureList {...props} rows={rows} />);
   for (const day of ['2026-11-10', '2026-11-09', '2026-11-08']) {
     const band = screen.getByTestId(`closure-day-label-${day}`).parentElement!;
-    expect(classesOf(band)).toEqual(expect.arrayContaining(['bg-muted/50', 'px-3', 'py-2']));
+    expect(classesOf(band)).toEqual(expect.arrayContaining(['bg-muted/50', 'px-4', 'py-2']));
   }
+});
+
+test('the tabs, heads, day bands and rows sit on v2 bordered card, each row ruled above and inset', () => {
+  render(<ClosureList {...props} rows={rows} openSessions={1} sessionRows={<Text testID="fake-session">Open session</Text>} />);
+  const card = screen.getByTestId('closure-list');
+  expect(classesOf(card)).toEqual(expect.arrayContaining([...CARD_CLASSES, 'border-border', 'overflow-hidden']));
+  for (const id of ['closures-filter', 'closures-count', 'closures-head', 'closure-day-2026-11-10', 'fake-session', 'closure-row-c4', 'closure-row-c1']) {
+    expect(card.contains(screen.getByTestId(id))).toBe(true);
+  }
+  expect(classesOf(screen.getByTestId('closure-open-c4').parentElement!)).toEqual(expect.arrayContaining(['border-t', 'px-4']));
+});
+
+test('Export CSV is v2 outline button with its document icon, tinted under the pointer, and disabled on Open', () => {
+  const onPress = vi.fn();
+  const { rerender } = render(<ClosuresExportButton onPress={onPress} />);
+  const button = screen.getByTestId('closures-csv');
+  expect(button.textContent).toBe('Export CSV');
+  expect(button.firstElementChild).toBe(screen.getByTestId('closures-csv-icon'));
+  expect(classesOf(button)).toEqual(expect.arrayContaining(['bg-card', 'web:hover:bg-accent']));
+  fireEvent.click(button);
+  expect(onPress).toHaveBeenCalledOnce();
+  rerender(<ClosuresExportButton disabled onPress={onPress} />);
+  fireEvent.click(screen.getByTestId('closures-csv'));
+  expect(onPress).toHaveBeenCalledOnce();
 });
 
 test('an open session with no closure today says so', () => {
