@@ -637,6 +637,33 @@ test('beside the rail Closures carries the arrow back, its title, the bell and t
   expect(await screen.findByTestId('reports-title')).not.toBeNull();
 }, 20_000);
 
+// react-native-web drops a ScrollView's contentContainerClassName from the DOM, so read it off the component that took the testID.
+function contentClassesOf(testID: string): string[] {
+  type Fiber = { memoizedProps?: { testID?: string; contentContainerClassName?: unknown }; return?: Fiber };
+  const node = screen.getByTestId(testID) as unknown as Record<string, unknown>;
+  let fiber = node[Object.keys(node).find(name => name.startsWith('__reactFiber$'))!] as Fiber | undefined;
+  for (; fiber; fiber = fiber.return) {
+    const { contentContainerClassName: classes, testID: id } = fiber.memoizedProps ?? {};
+    if (id === testID && typeof classes === 'string') return classes.split(/\s+/);
+  }
+  return [];
+}
+
+// v2 leaves one page gutter between the bar and the first card (page-bar `ground.pt`, no bottom padding; the room's
+// `ground.p`; the demo's 12 px in a window). Tally's gutter is 16: the bar's row ends in pb-2 in both layouts, so each
+// room starts at pt-2, never the p-4 that made 24.
+test.each([true, false])('under the bar each room starts one gutter down, rail %s', async rail => {
+  await setup({ rail });
+  const room = (testID: string) => {
+    const classes = contentClassesOf(testID);
+    expect(classes).toEqual(expect.arrayContaining(['pt-2', 'px-4', 'pb-4', 'gap-4']));
+    expect(classes).not.toContain('p-4');
+  };
+  room('reports-sales-room');
+  await enterClosures();
+  room('reports-closures-room');
+}, 20_000);
+
 test('with no rail the bar keeps the Reports title and Back, with the scope title on a row of its own', async () => {
   const app = await setup();
   const bar = await screen.findByTestId('reports-bar');

@@ -179,6 +179,29 @@ test('while drilled in, an active Category chip loses its ×, and In Stock keeps
   expect(screen.getByTestId('filter-pill-remove-stock_status')).not.toBeNull();
 });
 
+// v2's filter-bar.tsx:182-191: each dimmed chip is the trigger of a tooltip with `pos_products.product_filter_not_in_variations`
+// (core en.json), which v2's web tooltip opens on hover. Stock status is never dimmed and has none, nor has a chip after Back.
+test('while drilled in, a dimmed chip shows v2\'s tooltip on hover; an undimmed chip has none', () => {
+  data.set(QUICK_FILTERS_KEY, JSON.stringify([{ id: 'sale', type: 'quick', label: 'Sale', conditions: [{ field: 'on_sale', value: true }] }]));
+  render(<><CatalogueView connector={createWooCommerceConnector()} currency={stores[0].currency} products={[products[0], shirt]}
+    storeName={stores[0].name} cashierName="Paul" status="ready" onSignOut={() => {}} onAddEntry={vi.fn()} /><PortalHost /></>);
+  const tooltip = () => screen.queryByRole('tooltip')?.textContent ?? null;
+  const hovered = (testID: string) => {
+    fireEvent.pointerEnter(screen.getByTestId(testID));
+    const shown = tooltip();
+    fireEvent.pointerLeave(screen.getByTestId(testID));
+    expect(tooltip()).toBeNull();
+    return shown;
+  };
+  const chips = ['filter-pill-on_sale', 'filter-pill-categories', 'filter-pill-tags', 'quick-filter-sale'];
+  for (const chip of chips) expect(hovered(chip)).toBeNull();
+  drillIn();
+  for (const chip of chips) expect(hovered(chip)).toBe('A product filter; not used inside a product’s variations.');
+  expect(hovered('filter-pill-stock_status')).toBeNull();
+  fireEvent.click(screen.getByTestId('drill-back'));
+  for (const chip of chips) expect(hovered(chip)).toBeNull();
+});
+
 test('after the back chevron the chips work again', () => {
   renderView();
   drillIn();
