@@ -25,18 +25,19 @@ export function reportCashiers(users: readonly { id: number | string; displayNam
   return rows;
 }
 
-/** The scope chips (v2 `SalesScopeChips`). */
-export function ReportChips({ cashiers, cashierId, onCashier }: {
+/** The scope chips (v2 `SalesScopeChips`); Closures' cashier chip (v2 `ClosuresCashierChip`) reads "All cashiers". */
+export function ReportChips({ cashiers, cashierId, onCashier, allLabel = 'Everyone', testID = 'hero-chips' }: {
   cashiers: readonly ReportCashier[]; cashierId: string | null; onCashier(next: string | null): void;
+  allLabel?: string; testID?: string;
 }) {
   // No status chip (v2 "Completed & processing"): a local sale has no Woo order status and is always completed.
   return (
-    <View testID="hero-chips" className="flex-row flex-wrap gap-2">
+    <View testID={testID} className="flex-row flex-wrap gap-2">
       <MenuChip
         name="cashier"
         value={cashierId ?? 'all'}
         defaultValue="all"
-        choices={[{ value: 'all', label: 'Everyone' }, ...cashiers.map(row => ({ value: row.id, label: row.name }))]}
+        choices={[{ value: 'all', label: allLabel }, ...cashiers.map(row => ({ value: row.id, label: row.name }))]}
         onChange={next => onCashier(next === 'all' ? null : next)}
       />
     </View>

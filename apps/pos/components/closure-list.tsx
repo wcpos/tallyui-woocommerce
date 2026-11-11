@@ -22,7 +22,7 @@ export function resultText(varianceMinor: number, money: (amount: number) => str
   return varianceMinor === 0 ? 'Exact' : `${money(Math.abs(varianceMinor))} ${varianceMinor < 0 ? 'short' : 'over'}`;
 }
 
-export function ClosureList({ rows, sessionRows, openSessions, blind, today, currency, locale, resolveCashierName, onReprint, onOpen }: {
+export function ClosureList({ rows, sessionRows, openSessions, blind, today, currency, locale, resolveCashierName, onReprint, onOpen, filter: held, onFilterChange }: {
   rows: readonly Closure[];
   /** Rendered under the Today heading, at the head of the list (the open-session card). */
   sessionRows?: ReactNode;
@@ -37,8 +37,16 @@ export function ClosureList({ rows, sessionRows, openSessions, blind, today, cur
   onReprint(closure: Closure): void;
   /** A tap on a closure row's figures opens its detail panel. */
   onOpen?(closure: Closure): void;
+  /** The All / Open / Closed tab when the screen holds it (v2 lifts it to disable Export CSV on Open); else the list keeps its own. */
+  filter?: ClosureFilter;
+  onFilterChange?(next: ClosureFilter): void;
 }): JSX.Element {
-  const [filter, setFilter] = useState<ClosureFilter>('all');
+  const [own, setOwn] = useState<ClosureFilter>('all');
+  const filter = held ?? own;
+  const setFilter = (next: ClosureFilter) => {
+    if (held === undefined) setOwn(next);
+    onFilterChange?.(next);
+  };
   const money = (amount: number) => formatMoney({ amount, currency }, locale) ?? '';
   const n = rows.length + openSessions;
   const showSessions = openSessions > 0 && filter !== 'closed';

@@ -1,18 +1,22 @@
 import { useEffect, useState, type JSX } from 'react';
 import { Pressable, View } from 'react-native';
 import type { RxCollection } from 'rxdb';
-import { Button, Text } from '@tallyui/components';
+import { Path } from 'react-native-svg';
+import { Button, createSvgIcon, IconButton, Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
 import { formatClosureDate, replacedOrderIds, type Closure, type PosOrder } from '@tallyui/pos';
 import { useRegister } from '../lib/register/register-context';
 import { openedAtLabel } from './session-card';
+
+// lucide `chevron-right`, v2's `chevronRight` on `till-closures`.
+const ChevronRightIcon = createSvgIcon('ChevronRightIcon', () => <Path d="m9 18 6-6-6-6" />);
 
 /** Tone of a closure's drawer result: short is destructive, over is success, exact is muted. */
 export function drawerResultClass(varianceMinor: number): string {
   return varianceMinor < 0 ? 'text-destructive' : varianceMinor > 0 ? 'text-success' : 'text-muted-foreground';
 }
 
-export function TillStrip({ orders, currency, locale, resolveCashierName, onPrintXReport, onReprint, onOpenClosure }: {
+export function TillStrip({ orders, currency, locale, resolveCashierName, onPrintXReport, onReprint, onOpenClosure, onOpenClosures }: {
   orders: RxCollection<PosOrder> | null;
   currency: string; locale: string;
   resolveCashierName(id: string): string;
@@ -21,6 +25,8 @@ export function TillStrip({ orders, currency, locale, resolveCashierName, onPrin
   onReprint?(closure: Closure): void;
   /** v2's `till-last-closure` press opens that closure. */
   onOpenClosure?(closure: Closure): void;
+  /** v2's `till-closures` chevron: opens the Closures room. */
+  onOpenClosures?(): void;
 }): JSX.Element {
   const register = useRegister();
   const bound = register.enabled;
@@ -90,6 +96,7 @@ export function TillStrip({ orders, currency, locale, resolveCashierName, onPrin
   const since = active
     ? `since ${openedAtLabel(session.opened_at_gmt, locale)} · ${session.opened_by ? resolveCashierName(session.opened_by) : 'Cashier'}`
     : closure && f ? `Closed ${f.time} · ${closure.closed_by ? resolveCashierName(closure.closed_by) : 'Cashier'}` : '';
+  const printable = bound && (active ? !register.blind : !!closure);
   const lastLine = closure && f && <Text testID={onOpenClosure ? undefined : 'till-last-closure'} className="text-muted-foreground">
     {`Last closure #${closure.number} · ${heading} ${f.time}`}
     {!register.blind && <>{' · '}<Text testID="till-last-result" className={resultColor}>{resultText}</Text></>}
@@ -120,11 +127,15 @@ export function TillStrip({ orders, currency, locale, resolveCashierName, onPrin
         })}
         {!!note && <Text testID="till-note" className="text-muted-foreground">{note}</Text>}
       </View>}
-      {bound && (active ? !register.blind : closure) && <View testID="till-actions" className="flex-row flex-wrap items-center gap-2">
+      {(printable || onOpenClosures) && <View testID="till-actions" className="flex-row flex-wrap items-center gap-2">
         {/* A blind cashier gets no X-report, as on the session card: the X print carries the expected cash. */}
-        {active
+        {printable && (active
           ? <Button testID="till-xreport" variant="outline" onPress={onPrintXReport}><Text>Print X-report</Text></Button>
-          : closure && <Button testID="till-reprint" variant="outline" onPress={() => onReprint?.(closure)}><Text>Print closure</Text></Button>}
+          : closure && <Button testID="till-reprint" variant="outline" onPress={() => onReprint?.(closure)}><Text>Print closure</Text></Button>)}
+        {/* v2 till-strip.tsx `till-closures`: the chevron at the end of the actions is the way into Closures. */}
+        {onOpenClosures && <IconButton testID="till-closures" variant="ghost" accessibilityLabel="Closures" onPress={onOpenClosures}>
+          <ChevronRightIcon size={20} />
+        </IconButton>}
       </View>}
     </View>
   );

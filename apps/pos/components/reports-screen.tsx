@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
-import { Button, Text } from '@tallyui/components';
+import { Path } from 'react-native-svg';
+import { Button, createSvgIcon, IconButton, Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
 import {
   clampClosureScope, comparisonRange, formatClosureDate, presetRange, selectClosureRows, type Closure, type DatePreset, type PosOrder,
@@ -16,7 +17,7 @@ import { ordersTable, paymentsTable, taxesTable } from '../lib/reports/sales-tab
 import { useMinuteClock } from '../lib/reports/use-minute-clock';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { ordersDatabaseName } from '../lib/sale/order-store';
-import { ClosureList } from './closure-list';
+import { ClosureList, type ClosureFilter } from './closure-list';
 import { ClosurePanel } from './closure-panel';
 import { ClosurePrint } from './closure-print';
 import { ClosureStats } from './closure-stats';
@@ -31,6 +32,9 @@ import { Segmented } from './segmented';
 import { SessionCard } from './session-card';
 import { TillStrip } from './till-strip';
 import { AreaHeader } from './area-header';
+
+// lucide `arrow-left`, v2's `arrowLeft` on `reports-back-sales`.
+const ArrowLeftIcon = createSvgIcon('ArrowLeftIcon', () => <><Path d="m12 19-7-7 7-7" /><Path d="M19 12H5" /></>);
 
 export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }: {
   storeName: string; currency: string; locale?: string; onBack(): void;
@@ -61,6 +65,12 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const [printRequest, setPrintRequest] = useState(0);
   // The chart view is device state for the visit (v2 reports LEDGER 23): not persisted, in no query.
   const [chartView, setChartView] = useState<'hour' | 'run'>('hour');
+  // v2 reports/index.tsx `room`: Closures replaces Sales in the same screen; device state for the visit, not persisted.
+  const [reportsRoom, setReportsRoom] = useState<'sales' | 'closures'>('sales');
+  const [closuresPreset, setClosuresPreset] = useState<DatePreset>('today');
+  const closuresRange = useMemo(() => presetRange(closuresPreset, opened, 'device'), [closuresPreset, opened]);
+  const [closuresCashier, setClosuresCashier] = useState<string | null>(null);
+  const [closureFilter, setClosureFilter] = useState<ClosureFilter>('all');
   const wide = useWindowDimensions().width >= 600;
   locale = locale.replaceAll('_', '-');
   const shown = cashierId === null ? sales : sales.filter(order => order.cashierRef === cashierId);
@@ -72,11 +82,17 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const nowBucket = preset === 'today' ? now.getHours() : 24;
   const today = formatClosureDate(new Date().toISOString(), { timezone: 'device', locale }).date_ymd;
   const storeKey = session ? ordersDatabaseName(session) : '';
+  // `selectClosureRows` matches `cashier` against a closure's `closed_by`, the user id as a string; All passes none.
   const closures = selectClosureRows(rows, clampClosureScope({
-    from: '0000-01-01', to: today, registerId: register.boundRegisterId ?? '', storeKey,
+    from: closuresRange.from, to: closuresRange.to, registerId: register.boundRegisterId ?? '', storeKey,
+    cashier: closuresCashier ?? undefined,
   }, today), 'device');
-  const openSession = register.enabled && (register.session?.status === 'open' || register.session?.status === 'counting') ? register.session : null;
-  const openClosure = openClosureId ? closures.find(c => c.id === openClosureId) ?? null : null;
+  const active = register.enabled && (register.session?.status === 'open' || register.session?.status === 'counting') ? register.session : null;
+  // v2 closures/index.tsx: an open session has no closer yet, so its opener stands in for the cashier;
+  // v2 closure-list.tsx `inPeriod`: it counts only when the period spans today.
+  const openSession = active && (closuresCashier === null || active.opened_by === closuresCashier)
+    && closuresRange.from <= today && today <= closuresRange.to ? active : null;
+  const openClosure = openClosureId ? rows.find(c => c.id === openClosureId) ?? null : null;
   const reprintClosure = (closure: Closure) => { setReprint(closure); setPrintRequest(value => value + 1); };
   const printXReport = () => { setReprint('x'); setPrintRequest(value => value + 1); };
   const printSummary = () => { setReprint('summary'); setPrintRequest(value => value + 1); };
@@ -130,9 +146,53 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   return (
     <View className="flex-1 bg-background" dataSet={reprint ? { print: 'hide' } : undefined}>
       <AreaHeader title="Reports" backTestID="reports-back" onBack={onBack} gap={false} />
-      <ScrollView contentContainerClassName="gap-4 p-4">
+      {reportsRoom === 'closures' ? <>
+        {/* v2 bar.tsx `Bar room="closures"`: an arrow back to Sales before the title. Tally has no store or register
+            directory, so the title is plain text with no menu. */}
+        <View testID="closures-bar" className="flex-row items-center gap-2 px-4 pt-4">
+          <IconButton testID="reports-back-sales" variant="ghost" accessibilityLabel="Sales" onPress={() => setReportsRoom('sales')}>
+            <ArrowLeftIcon size={20} />
+          </IconButton>
+          <Text testID="closures-title" numberOfLines={1} className="min-w-0 shrink font-semibold text-foreground">
+            {`${storeName} · ${register.registerName ?? 'This till'}`}
+          </Text>
+        </View>
+        <ScrollView contentContainerClassName="gap-4 p-4">
+          {/* v2 reports/index.tsx `renderScopeRow`: the date and the cashier chip, then Export CSV at the right. */}
+          <View testID="closures-scope-row" className="flex-row flex-wrap items-center gap-2">
+            <View className="shrink-0"><ReportsPeriod preset={closuresPreset} range={closuresRange} locale={locale} onPreset={setClosuresPreset} /></View>
+            <View className="min-w-0 flex-1">
+              <ReportChips testID="closures-cashier" allLabel="All cashiers" cashiers={reportCashierRows} cashierId={closuresCashier} onCashier={setClosuresCashier} />
+            </View>
+            {/* v2 `ClosuresExportButton`: the CSV holds closures, so with Open selected there is nothing to export. */}
+            <Button testID="closures-csv" variant="outline" disabled={closureFilter === 'open'}
+              onPress={() => downloadCsv(closuresCsv(closures, currency, session?.tokens.user, storeName), `closures-${closuresRange.from}-${closuresRange.to}.csv`)}>
+              <Text>Export CSV</Text>
+            </Button>
+          </View>
+          <View testID="reports-closures" className="gap-2">
+            {/* v2 feeds the strip every row and open session, whatever the All / Open / Closed tab shows. */}
+            <ClosureStats rows={closures} openSession={openSession} blind={register.blind} currency={currency} locale={locale} />
+            <ClosureList
+              rows={closures}
+              sessionRows={<SessionCard currency={currency} locale={locale} resolveCashierName={resolveCashierName} onPrintXReport={printXReport} />}
+              openSessions={openSession ? 1 : 0}
+              blind={register.blind}
+              today={today}
+              currency={currency}
+              locale={locale}
+              resolveCashierName={resolveCashierName}
+              onReprint={reprintClosure}
+              onOpen={closure => setOpenClosureId(closure.id)}
+              filter={closureFilter}
+              onFilterChange={setClosureFilter}
+            />
+          </View>
+        </ScrollView>
+      </> : <ScrollView contentContainerClassName="gap-4 p-4">
         <TillStrip orders={orders} currency={currency} locale={locale} resolveCashierName={resolveCashierName}
-          onPrintXReport={printXReport} onReprint={reprintClosure} onOpenClosure={closure => setOpenClosureId(closure.id)} />
+          onPrintXReport={printXReport} onReprint={reprintClosure} onOpenClosure={closure => setOpenClosureId(closure.id)}
+          onOpenClosures={() => setReportsRoom('closures')} />
         {/* v2 `SalesScope` in its `ScopeRow`: wide, the date, the chips, then Print summary; a phone puts the date and
             Print summary on one row above the chips. */}
         {wide
@@ -169,28 +229,8 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
         </View>}
         {openTable && table && <SalesTable table={table} scope={`${periodName} · This till`} onClose={() => setOpenTable(null)}
           onExport={() => downloadCsv(salesTableCsv(table), `sales-${openTable}-${range.from}-${range.to}.csv`)} />}
-        <View testID="reports-closures" className="gap-2 rounded-lg border border-border p-4">
-          <View className="flex-row items-center justify-between">
-            <Text accessibilityRole="header">Closures</Text>
-            {closures.length > 0 && <Button testID="closures-csv" variant="outline" onPress={() => downloadCsv(closuresCsv(closures, currency, session?.tokens.user, storeName), `closures-${today}.csv`)}><Text>Export CSV</Text></Button>}
-          </View>
-          {/* v2 feeds the strip every row and open session, whatever the All / Open / Closed tab shows. */}
-          <ClosureStats rows={closures} openSession={openSession} blind={register.blind} currency={currency} locale={locale} />
-          <ClosureList
-            rows={closures}
-            sessionRows={<SessionCard currency={currency} locale={locale} resolveCashierName={resolveCashierName} onPrintXReport={printXReport} />}
-            openSessions={openSession ? 1 : 0}
-            blind={register.blind}
-            today={today}
-            currency={currency}
-            locale={locale}
-            resolveCashierName={resolveCashierName}
-            onReprint={reprintClosure}
-            onOpen={closure => setOpenClosureId(closure.id)}
-          />
-        </View>
-        {openClosure && <ClosurePanel closure={openClosure} storeName={storeName} currency={currency} locale={locale} blind={register.blind} resolveCashierName={resolveCashierName} onReprint={reprintClosure} onClose={() => setOpenClosureId(null)} />}
-      </ScrollView>
+      </ScrollView>}
+      {openClosure && <ClosurePanel closure={openClosure} storeName={storeName} currency={currency} locale={locale} blind={register.blind} resolveCashierName={resolveCashierName} onReprint={reprintClosure} onClose={() => setOpenClosureId(null)} />}
       {reprint && <Portal name="closure-reprint">
         {reprint === 'summary'
           ? <SalesSummaryPrint storeName={storeName} scope={`${periodName} · This till · ${cashierName}`} period={room.today}
