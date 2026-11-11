@@ -13,8 +13,8 @@ vi.mock('../lib/register/register-context', () => ({ useRegister: vi.fn(() => nu
 
 afterEach(() => { cleanup(); vi.mocked(useRegister).mockReturnValue(null as unknown as ReturnType<typeof useRegister>); });
 
-const shell = (props: { hidePill?: boolean; onOpenMenu?: () => void } = {}) =>
-  <RegisterBarShell storeName="Corner Café" avatar={<Text>Cashier: Paul</Text>} onOpenMenu={props.onOpenMenu ?? (() => {})} hidePill={props.hidePill} />;
+const shell = (props: { onOpenMenu?: () => void } = {}) =>
+  <RegisterBarShell storeName="Corner Café" avatar={<Text>Cashier: Paul</Text>} onOpenMenu={props.onOpenMenu ?? (() => {})} />;
 
 test('shows the menu, the store as the place and the cashier entry, with no pill while the store answers', () => {
   render(shell());
@@ -35,9 +35,10 @@ test.each(['offline', 'online-website-unavailable'] as const)('reads Offline in 
   expect(screen.getByTestId('register-bar-pill').textContent).toBe('Offline');
 });
 
-test('hidePill leaves the pill to the register bar beside it', () => {
-  render(<OnlineStatusContext.Provider value={{ status: 'offline' }}>{shell({ hidePill: true })}</OnlineStatusContext.Provider>);
-  expect(screen.queryByTestId('register-bar-pill')).toBeNull();
+test('with sessions on the pill is the register\'s own state: the bar carries the window\'s one pill', () => {
+  vi.mocked(useRegister).mockReturnValue({ enabled: true, boundRegisterId: 'web', session: null, overdue: false, closing: false } as unknown as ReturnType<typeof useRegister>);
+  render(shell());
+  expect(screen.getByTestId('register-bar-pill').textContent).toBe('Register closed');
 });
 
 test('the menu button opens the drawer', () => {

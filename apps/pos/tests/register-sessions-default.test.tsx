@@ -69,7 +69,7 @@ test('a fresh install opens on the open-register card with a float to count, not
   expect(app.register.setting).toBe(true);
   expect(await screen.findByTestId('open-register-card')).not.toBeNull();
   expect(screen.getByTestId('open-register-amount')).not.toBeNull();
-  expect(screen.getByTestId('register-bar')).not.toBeNull();
+  expect(screen.getByTestId('register-bar-pill').textContent).toBe('Register closed');
   expect(screen.queryByTestId('cart-checkout')).toBeNull();
   expect(app.register.session).toBeNull();
 });
@@ -91,7 +91,7 @@ test('turning sessions off in Settings › General returns the sale screen to th
   expect(localStorage.getItem(REGISTER_SESSIONS_KEY)).toBe('false');
   await waitFor(() => expect(screen.queryByTestId('open-register-card')).toBeNull());
   expect(screen.getByTestId('cart-checkout')).not.toBeNull();
-  expect(screen.queryByTestId('register-bar')).toBeNull();
+  expect(screen.queryByTestId('register-bar-pill')).toBeNull();
   expect(settingsSwitch().getAttribute('aria-checked')).toBe('false');
 });
 

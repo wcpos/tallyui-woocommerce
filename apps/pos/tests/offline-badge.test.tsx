@@ -43,13 +43,14 @@ test.each(['offline', 'online-website-unavailable'] as const)('reads Offline for
   expect(screen.getByTestId('badge').textContent).toBe('Offline');
 });
 
-test('the POS bar\'s pill reads Offline unless the register bar beside it carries the pill', () => {
+test('the POS bar\'s pill reads Offline; with hideBar the catalogue draws no bar and no pill', () => {
   const { rerender } = render(
     <OnlineStatusContext.Provider value={{ status: 'offline' }}><CatalogueView {...props} /></OnlineStatusContext.Provider>,
   );
   expect(screen.getByTestId('register-bar-pill').textContent).toBe('Offline');
   rerender(
-    <OnlineStatusContext.Provider value={{ status: 'offline' }}><CatalogueView {...props} hideOfflineBadge /></OnlineStatusContext.Provider>,
+    <OnlineStatusContext.Provider value={{ status: 'offline' }}><CatalogueView {...props} hideBar /></OnlineStatusContext.Provider>,
   );
+  expect(screen.queryByTestId('register-bar-shell')).toBeNull();
   expect(screen.queryByTestId('register-bar-pill')).toBeNull();
 });

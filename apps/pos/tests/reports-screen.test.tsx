@@ -70,7 +70,8 @@ async function setup({ multiplePayments, storeSettings = noTaxSettings, rail = f
         <RegisterProvider>
           <Probe />
           <SaleScreen multiplePayments={multiplePayments} storeSettings={storeSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
-            storeName={stores[0].name} locale={stores[0].locale} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}} />
+            storeName={stores[0].name} locale={stores[0].locale} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}}
+            onSwitchCashier={async () => null} cashiers={[]} />
           <AppRailShown.Provider value={rail}>
             <ReportsScreen storeName={stores[0].name} currency={stores[0].currency} locale={stores[0].locale} onBack={onBack} />
           </AppRailShown.Provider>
@@ -100,8 +101,15 @@ async function openRegister(enable = true) {
   await screen.findByTestId('cart-checkout');
 }
 
+/** v2's one door to the register panel: the bar's avatar opens the cashier sheet, whose drawer figure opens the panel.
+ *  Scoped to the till's bar: the reports header draws its own avatar. */
+async function openRegisterPanel() {
+  fireEvent.click(within(screen.getByTestId('register-bar-shell')).getByTestId('register-bar-avatar'));
+  fireEvent.click(await screen.findByTestId('user-sheet-drawer'));
+}
+
 async function closeRegister(counted: string) {
-  fireEvent.click(screen.getByTestId('register-bar-open-panel'));
+  await openRegisterPanel();
   fireEvent.click(await screen.findByTestId('register-panel-close'));
   fireEvent.change(await screen.findByTestId('count-amount'), { target: { value: counted } });
   fireEvent.click(screen.getByTestId('count-close'));
@@ -142,7 +150,7 @@ async function exportClosures() {
 }
 
 async function movement(type: 'paid-in' | 'paid-out' | 'no-sale', amount: string | null, reason: string) {
-  fireEvent.click(screen.getByTestId('register-bar-open-panel'));
+  await openRegisterPanel();
   fireEvent.click(await screen.findByTestId(`register-panel-${type}`));
   if (amount !== null) fireEvent.change(await screen.findByTestId('movement-amount'), { target: { value: amount } });
   fireEvent.change(await screen.findByTestId('movement-reason'), { target: { value: reason } });
@@ -191,7 +199,7 @@ test('the till strip folds three paid-ins and counts no-sales and voids', async 
   expect(screen.queryByTestId('till-term-paid-in-0')).toBeNull();
   expect(screen.getByTestId('till-expected-amount').textContent).toBe('$106.00');
   await movement('no-sale', null, 'Drawer check');
-  fireEvent.click(screen.getByTestId('register-bar-open-panel'));
+  await openRegisterPanel();
   fireEvent.click(await screen.findByTestId('register-panel-movements'));
   fireEvent.click(await screen.findByTestId(`movement-void-${app.register.movements.find(row => row.reason === 'A')!.id}`));
   fireEvent.click(screen.getByTestId('register-panel-dismiss'));
@@ -471,7 +479,7 @@ test('tapping a closure opens its panel, Print closure prints the Copy and Close
 test('Print X report prints the mounted open session with its expected cash', async () => {
   const app = await setup();
   await openRegister();
-  fireEvent.click(screen.getByTestId('register-bar-open-panel'));
+  await openRegisterPanel();
   fireEvent.click(await screen.findByTestId('register-panel-paid-out'));
   fireEvent.change(await screen.findByTestId('movement-amount'), { target: { value: '20.00' } });
   fireEvent.change(screen.getByTestId('movement-reason'), { target: { value: 'Milk' } });

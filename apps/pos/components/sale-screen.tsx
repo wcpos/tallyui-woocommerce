@@ -110,7 +110,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const [receiptSettings] = useReceiptSettings();
   const { width } = useWindowDimensions();
   const [cartOpen, setCartOpen] = useState(false);
-  // The register panel lives in RegisterControls (the cart side); the cashier sheet's drawer door opens it from the products side.
+  // The register panel lives in RegisterControls (the cart side); the cashier sheet's drawer door, on the bar over the
+  // cart, is the one way into it (v2 register-bar.tsx: "the avatar's sheet is the one door to the panel").
   const [registerPanelOpen, setRegisterPanelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [voidError, setVoidError] = useState<string>();
@@ -409,10 +410,12 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       adminUrl={props.adminUrl}
     /> : props.cashierControl;
   const phoneLayout = width < 900;
+  // v2 draws its RegisterBar as the cart column's first row (cart/index.tsx), so the catalogue starts with its search row.
+  const bar = <PosBar {...props} cashierControl={cashierControl} />;
   const browse = variants ? (
     <VariantChooser entries={variants} currency={currency} traits={connector.traits.product} onSelect={onAdd} onClose={() => setVariants(undefined)} />
-  ) : <CatalogueView {...props} hideOfflineBadge={!phoneLayout && register?.enabled === true} onSelect={onSelect} onAddEntry={onAdd} onScan={onScan} message={message}
-    tax={tax} inCartCounts={inCart} hideBar={phoneLayout}
+  ) : <CatalogueView {...props} onSelect={onSelect} onAddEntry={onAdd} onScan={onScan} message={message}
+    tax={tax} inCartCounts={inCart} hideBar
     viewState={viewState} onViewStateChange={setViewState} cashierControl={cashierControl} />;
   const cartPane = (
     <View className="flex-1 bg-background p-4">
@@ -532,9 +535,10 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       style={{ flexGrow: shown, flexShrink: 1, flexBasis: 0 }}>{multiTender ? <View testID="checkout-ledger-column" className="flex-1 bg-muted p-4">
         <LedgerPane closing order={sale.order} onRemove={cancelling || sale.saving ? undefined : id => { void removeLeg(id); }} />
       </View> : browse}</View>;
+    // The bar heads the cart column on whichever side the cart sits, as v2's goes with its cart.
     const cartPanel = <View key="cart" testID="pos-cart-panel"
       style={{ flexGrow: 100 - shown, flexShrink: 1, flexBasis: 0 }}
-      className={`${viewState.position === 'right' ? 'border-r' : 'border-l'} border-border`}>{cart}</View>;
+      className={`${viewState.position === 'right' ? 'border-r' : 'border-l'} border-border`}>{bar}{cart}</View>;
     const handle = <PanelResizeHandle key="handle" width={shown} position={viewState.position}
       groupWidth={groupWidth} onResize={setLiveWidth}
       onCommit={w => { setViewState({ ...viewState, width: w }); setLiveWidth(null); }} />;
@@ -552,8 +556,9 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const active = cartOpen ? 'cart' : 'products';
   return (
     <View className="flex-1 bg-background">
-      {/* One bar over both tabs, as v2's phone till. With sessions on, the Cart tab's register bar carries the pill (one pill per screen). */}
-      <PosBar {...props} cashierControl={cashierControl} hideOfflineBadge={active === 'cart' && register?.enabled === true} />
+      {/* One bar over both tabs, as v2's phone till draws RegisterBar on the Products tab (apps/main/components/
+          pos-products-pane.tsx) and as the Cart tab's first row (cart/index.tsx). */}
+      {bar}
       <View testID="pos-pane-products" className="flex-1" style={active === 'products' ? undefined : { display: 'none' }}>{browse}</View>
       <View testID="pos-pane-cart" className="flex-1" style={active === 'cart' ? undefined : { display: 'none' }}>{cart}</View>
       <PosPhoneTabBar active={active} onSelect={tab => setCartOpen(tab === 'cart')}

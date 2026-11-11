@@ -43,8 +43,6 @@ export interface CatalogueViewProps {
   storeName: string;
   cashierName: string;
   cashierControl?: ReactNode;
-  /** Sessions on at the wide split: the register bar beside the catalogue carries the pill, so this bar draws none (v2: one pill per window). */
-  hideOfflineBadge?: boolean;
   status: 'idle' | 'starting' | 'syncing' | 'ready' | 'error';
   notice?: { code: string; message?: string };
   onSelect?(doc: any): void;
@@ -66,20 +64,21 @@ export interface CatalogueViewProps {
   inCartCounts?: ReadonlyMap<string, number>;
   /** Re-runs the product sync for the footer's Sync button (v2 `sync-button.tsx`); without it no button shows. */
   onSync?(): Promise<void>;
-  /** The phone till draws one PosBar above both panes (v2's phone till), so the catalogue leaves its own out. */
+  /** SaleScreen draws the PosBar itself, over the cart column (v2 cart/index.tsx RegisterBar) or over both phone
+   *  panes, so the catalogue leaves its own out and starts with its search row. */
   hideBar?: boolean;
 }
 
-export type PosBarProps = Pick<CatalogueViewProps, 'storeName' | 'cashierName' | 'cashierControl' | 'hideOfflineBadge' | 'onSignOut'
+export type PosBarProps = Pick<CatalogueViewProps, 'storeName' | 'cashierName' | 'cashierControl' | 'onSignOut'
   | 'onOpenOrders' | 'onOpenCustomers' | 'onOpenReports' | 'onOpenHealth' | 'onOpenSettings'>;
 
 /** The till's top bar and the drawer its menu button opens: the bar owns the drawer's open state. */
-export function PosBar({ storeName, cashierName, cashierControl, hideOfflineBadge, onSignOut,
+export function PosBar({ storeName, cashierName, cashierControl, onSignOut,
   onOpenOrders, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings }: PosBarProps): JSX.Element {
   const areas = { onOpenOrders, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings };
   const [drawerOpen, setDrawerOpen] = useState(false);
   return <>
-    <RegisterBarShell storeName={storeName} hidePill={hideOfflineBadge} onOpenMenu={() => setDrawerOpen(true)}
+    <RegisterBarShell storeName={storeName} onOpenMenu={() => setDrawerOpen(true)}
       avatar={<>
         {cashierControl ?? <Text>{`Cashier: ${cashierName}`}</Text>}
         {cashierControl == null && <Button onPress={onSignOut}><Text>Sign out</Text></Button>}
@@ -89,7 +88,7 @@ export function PosBar({ storeName, cashierName, cashierControl, hideOfflineBadg
 }
 
 export function CatalogueView({
-  connector, currency, products, storeName, cashierName, cashierControl, hideOfflineBadge, status, notice, onSignOut, onOpenOrders, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings, onSelect, onAddEntry, onScan, message,
+  connector, currency, products, storeName, cashierName, cashierControl, status, notice, onSignOut, onOpenOrders, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings, onSelect, onAddEntry, onScan, message,
   viewState: controlledViewState, onViewStateChange,
   tax, inCartCounts, onSync, hideBar,
 }: CatalogueViewProps): JSX.Element {
@@ -247,7 +246,7 @@ export function CatalogueView({
     <ConnectorProvider connector={connector} traitContext={{ currency }}>
       <View className="flex-1 bg-background">
         {hideBar ? null : <PosBar storeName={storeName} cashierName={cashierName} cashierControl={cashierControl}
-          hideOfflineBadge={hideOfflineBadge} onSignOut={onSignOut} onOpenOrders={onOpenOrders} onOpenCustomers={onOpenCustomers}
+          onSignOut={onSignOut} onOpenOrders={onOpenOrders} onOpenCustomers={onOpenCustomers}
           onOpenReports={onOpenReports} onOpenHealth={onOpenHealth} onOpenSettings={onOpenSettings} />}
         <View className="flex-1 p-4">
         <CatalogueDisplayOptions state={viewState} onChange={changeViewState} products={products} quickFilterCount={quickFilters.length}
