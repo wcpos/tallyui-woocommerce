@@ -7,7 +7,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
 import { formatMoney } from '@tallyui/core';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
-import type { CatalogueEntry, CustomerSummary, ParkedOrderSummary, Payment, TenderVoid } from '@tallyui/pos';
+import type { CatalogueEntry, CustomerSummary, OutboxState, ParkedOrderSummary, Payment, TenderVoid } from '@tallyui/pos';
 import { createCustomersBlockedReason, type CashierCapabilities } from '../lib/auth/capabilities';
 import { drawerFigureText, drawerVerbs, sheetMoney } from '../lib/cashier/sheet-figures';
 import { inCartCounts } from '../lib/catalogue/tile-words';
@@ -70,6 +70,18 @@ export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | '
   adminUrl?: string;
   // Put on every new sale (v2's default customer); undefined while the app resolves it.
   defaultCustomer?: CustomerSummary | null;
+}
+
+/**
+ * Whether the sync line shows. v2 draws nothing under its open-order strip while sales are up to date (cart/tabs.tsx,
+ * cart/index.tsx: the strip is the last row, and a waiting or refused cart shows only as the tray's dot and its tab chip).
+ * TallyUI 3.12.0's SyncStatus (components/src/sale/sync-status.tsx) exports no test of its own, so this mirrors its
+ * condition for the bare "Sales are up to date.": line 110 `upToDate` (no sale pending; Tally passes no registerState),
+ * line 121 (a refused sale is never up to date), and lines 142-143 (a missing store adds its detail even while up to
+ * date). Tally passes no pullNotice. Any other state keeps SyncStatus's own words.
+ */
+export function syncLineShown(state: OutboxState): boolean {
+  return state.pending > 0 || !!state.rejected || !!state.backendMissing;
 }
 
 export function SaleScreen(props: SaleScreenProps): JSX.Element {
@@ -516,7 +528,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         </>
         );
       })() : null}
-      {outbox.enabled ? <SyncStatus state={outbox.state} /> : null}
+      {outbox.enabled && syncLineShown(outbox.state) ? <View testID="sync-status"><SyncStatus state={outbox.state} /></View> : null}
     </View>
   );
 

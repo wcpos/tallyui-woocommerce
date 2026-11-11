@@ -66,7 +66,9 @@ test('cash tender records and sends one sale, prints a final receipt, and starts
     </SessionProvider>,
   );
   await screen.findByText('Order store ready');
-  expect(screen.getByText('Sales are up to date.')).not.toBeNull();
+  // A1: v2 draws nothing under the open-order strip while sales are up to date.
+  expect(screen.queryByText('Sales are up to date.')).toBeNull();
+  expect(screen.queryByTestId('sync-status')).toBeNull();
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
   fireEvent.click(screen.getByTestId('cart-checkout'));
@@ -92,7 +94,8 @@ test('cash tender records and sends one sale, prints a final receipt, and starts
   expect(receipt.queryByText(/\(draft\)/)).toBeNull();
   await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
   expect(send.mock.calls.flatMap(([batch]) => batch)).toEqual([expect.objectContaining({ type: 'order.create' })]);
-  await waitFor(() => expect(screen.getByText('Sales are up to date.')).not.toBeNull());
+  await waitFor(() => expect(screen.queryByTestId('sync-status')).toBeNull());
+  expect(screen.queryByText('Sales are up to date.')).toBeNull();
   fireEvent.click(receipt.getByRole('button', { name: 'New sale' }));
   expect(screen.getByText('Scan or tap a product to start a sale.')).not.toBeNull();
   expect(screen.queryByTestId('receipt-order')).toBeNull();
@@ -104,4 +107,44 @@ test('cash tender records and sends one sale, prints a final receipt, and starts
   await takeCash(1000);
   await screen.findByTestId('receipt-order');
   expect(screen.queryByTestId('receipt-copy')).toBeNull();
+}, 20_000);
+
+// A1: while a sale waits, retries or was refused, the line under the strip is TallyUI's SyncStatus, in its own words.
+function renderWithTransport(send: CommandTransport<OrderCreateEnvelope>['send']) {
+  render(
+    <SessionProvider>
+      <OutboxProvider transportFor={() => ({ send })} storage={getRxStorageMemory()}>
+        <OrderStoreReady />
+        <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
+          storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}} />
+      </OutboxProvider>
+    </SessionProvider>,
+  );
+}
+
+test('a sale the store has not taken yet shows the sync line: waiting, then retrying', async () => {
+  renderWithTransport(async () => ({ kind: 'retry', reason: 'network' }));
+  await screen.findByText('Order store ready');
+  expect(screen.queryByTestId('sync-status')).toBeNull();
+  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
+  await takeCash(300);
+  await screen.findByTestId('receipt-order');
+  const line = await screen.findByTestId('sync-status');
+  await waitFor(() => expect(within(line).getByText('1 sale waiting to sync')).not.toBeNull());
+  await waitFor(() => expect(within(line).getByText(/^Retrying in \d+ s\.$/)).not.toBeNull());
+  expect(screen.queryByText('Sales are up to date.')).toBeNull();
+}, 20_000);
+
+test('a sale the store refused shows the sync line with SyncStatus\'s refusal', async () => {
+  renderWithTransport(async batch => ({ kind: 'results', results: batch.map(envelope => ({ id: envelope.id, status: 'rejected',
+    error: { code: 'store_configuration', message: 'A store setting needs changing.' } })) }));
+  await screen.findByText('Order store ready');
+  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
+  await takeCash(300);
+  await screen.findByTestId('receipt-order');
+  const line = await screen.findByTestId('sync-status');
+  await waitFor(() => expect(within(line).getByText(/^1 sale needs attention · The online store refused it\./)).not.toBeNull());
+  expect(screen.queryByText('Sales are up to date.')).toBeNull();
 }, 20_000);

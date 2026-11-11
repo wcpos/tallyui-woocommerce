@@ -459,7 +459,7 @@ test.each([true, false])('completed sale receipt UI, mailer available: %s', asyn
     expect(await collection.find().exec()).toEqual([]);
     expect(send).not.toHaveBeenCalled();
   }
-  await vi.waitFor(() => expect(screen.getByText('Sales are up to date.')).not.toBeNull());
+  await vi.waitFor(() => expect(screen.queryByTestId('sync-status')).toBeNull());
 }, 20_000);
 
 test('a queued email keeps Save to Billing for the send', async () => {
