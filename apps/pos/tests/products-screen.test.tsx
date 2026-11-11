@@ -72,6 +72,37 @@ test('stock: the managed quantity and its resolved badge; unmanaged shows a dash
   expect(text('product-stock-status-3')).toBe('On Backorder');
 });
 
+// react-native-web drops className from the DOM, so read it off the component that took the testID (as logs-screen.test).
+type Fiber = { memoizedProps?: { testID?: string; className?: unknown }; return?: Fiber; alternate?: Fiber };
+function classesOf(testID: string): string[] {
+  const node = screen.getByTestId(testID) as unknown as Record<string, unknown>;
+  const key = (prefix: string) => Object.keys(node).find(name => name.startsWith(prefix))!;
+  const created = node[key('__reactFiber$')] as Fiber;
+  let fiber: Fiber | undefined = created.memoizedProps === node[key('__reactProps$')] ? created : created.alternate;
+  const found: string[] = [];
+  for (; fiber; fiber = fiber.return) {
+    const { className, testID: id } = fiber.memoizedProps ?? {};
+    if (id === testID && typeof className === 'string') found.push(...className.split(/\s+/));
+  }
+  return found;
+}
+
+test('stock status is v2\'s dot and plain word: green In Stock, red Out of Stock, amber On Backorder; no badge', () => {
+  renderScreen([
+    product(1, 'Beans', { stock_status: 'instock' }),
+    product(2, 'Filters', { stock_status: 'outofstock' }),
+    product(3, 'Grinder', { stock_status: 'onbackorder' }),
+  ]);
+  expect(text('product-stock-status-1')).toBe('In Stock');
+  expect(classesOf('product-stock-status-1-dot')).toEqual(expect.arrayContaining(['size-2', 'rounded-full', 'bg-success']));
+  expect(classesOf('product-stock-status-2-dot')).toContain('bg-destructive');
+  expect(classesOf('product-stock-status-2-dot')).not.toContain('bg-success');
+  expect(classesOf('product-stock-status-3-dot')).toContain('bg-warning');
+  // A Badge is a filled, bordered pill; the status is a plain row.
+  expect(classesOf('product-stock-status-1')).not.toContain('border');
+  expect(classesOf('product-stock-status-1')).not.toContain('bg-success');
+});
+
 test('prices: price, regular and sale price as money in the store currency; an empty sale price shows nothing', () => {
   renderScreen([
     product(1, 'Beans', { price: '15', regular_price: '20', sale_price: '15', on_sale: true }),

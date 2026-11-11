@@ -15,12 +15,13 @@ import { formatMoney, moneyFromDecimalString } from '@tallyui/core';
 import { DATE_PRESETS, inRange, presetRange } from '@tallyui/pos';
 import type { DatePreset } from '@tallyui/pos';
 import {
-  Badge, Button, createSvgIcon, SearchInput, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, Table, TableBody,
+  Button, createSvgIcon, SearchInput, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, Table, TableBody,
   TableCell, TableHead, TableHeader, TableRow, Text, XIcon,
 } from '@tallyui/components';
 import type { SvgIconProps } from '@tallyui/components';
 import { AreaHeader } from './area-header';
 import { filterChipClassName, filterChipTextClassName } from './catalogue-filter-chips';
+import { StatusDot } from './status-dot';
 
 // v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
 const SEARCH_DEBOUNCE_MS = 250;
@@ -200,7 +201,8 @@ function countLabel(shown: number, total: number): string {
 
 function ActiveBadge({ coupon, now }: { coupon: CouponDoc; now: Date }): JSX.Element {
   const active = isActive(coupon, now);
-  return <Badge variant={active ? 'success' : 'secondary'} className="self-start rounded-md" label={active ? 'Active' : 'Inactive'} />;
+  // v2's ActiveBadge (cells/active.tsx): StatusBadge `ok` for Active, `muted` for Inactive.
+  return <StatusDot testID={`coupon-active-${coupon.code}`} tone={active ? 'success' : 'muted'} label={active ? 'Active' : 'Inactive'} />;
 }
 
 export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }: CouponsScreenProps): JSX.Element {

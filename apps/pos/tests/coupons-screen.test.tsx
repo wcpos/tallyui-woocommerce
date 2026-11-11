@@ -92,6 +92,31 @@ test('a published coupon with no expiry is Active; one whose expiry has passed i
   expect(row('old').queryByText('Active')).toBeNull();
 });
 
+// react-native-web drops className from the DOM, so read it off the component that took the testID (as logs-screen.test).
+type Fiber = { memoizedProps?: { testID?: string; className?: unknown }; return?: Fiber; alternate?: Fiber };
+function classesOf(testID: string): string[] {
+  const node = screen.getByTestId(testID) as unknown as Record<string, unknown>;
+  const key = (prefix: string) => Object.keys(node).find(name => name.startsWith(prefix))!;
+  const created = node[key('__reactFiber$')] as Fiber;
+  let fiber: Fiber | undefined = created.memoizedProps === node[key('__reactProps$')] ? created : created.alternate;
+  const found: string[] = [];
+  for (; fiber; fiber = fiber.return) {
+    const { className, testID: id } = fiber.memoizedProps ?? {};
+    if (id === testID && typeof className === 'string') found.push(...className.split(/\s+/));
+  }
+  return found;
+}
+
+test('the status is v2\'s dot and word, no badge: a green dot for Active, a grey one for Inactive', async () => {
+  await withCoupons();
+  expect(screen.getByTestId('coupon-active-10off').textContent).toBe('Active');
+  expect(classesOf('coupon-active-10off-dot')).toEqual(expect.arrayContaining(['size-2', 'rounded-full', 'bg-success']));
+  expect(screen.getByTestId('coupon-active-old').textContent).toBe('Inactive');
+  expect(classesOf('coupon-active-old-dot')).toContain('bg-muted-foreground');
+  // A Badge is a filled, bordered pill; the status is a plain row.
+  expect(classesOf('coupon-active-10off')).toEqual(['flex-row', 'items-center', 'gap-1.5']);
+});
+
 test('search matches the description as well as the code, and the footer counts what it shows', async () => {
   await withCoupons();
   expect(screen.getByTestId('data-table-count').textContent).toBe('3 coupons');
