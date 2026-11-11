@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { createRxDatabase, type RxCollection, type RxDatabase } from 'rxdb';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
@@ -31,7 +31,32 @@ beforeEach(async () => {
   orders = await addPosOrderCollection(db);
   collections = [{ key: 'products', label: 'Products', collection: products }];
 });
-afterEach(async () => { cleanup(); await db.close(); });
+const originalStorage = Object.getOwnPropertyDescriptor(navigator, 'storage');
+afterEach(async () => {
+  cleanup();
+  await db.close();
+  if (originalStorage) Object.defineProperty(navigator, 'storage', originalStorage);
+  else Reflect.deleteProperty(navigator, 'storage');
+});
+function setStorage(value: unknown) {
+  Object.defineProperty(navigator, 'storage', { configurable: true, value });
+}
+
+// react-native-web drops className from the DOM, so read it off the component that took the testID (as logs-screen.test).
+type Fiber = { memoizedProps?: { testID?: string; className?: unknown }; return?: Fiber; alternate?: Fiber };
+function classesOf(testID: string): string[] {
+  const node = screen.getByTestId(testID) as unknown as Record<string, unknown>;
+  const key = (prefix: string) => Object.keys(node).find(name => name.startsWith(prefix))!;
+  const created = node[key('__reactFiber$')] as Fiber;
+  let fiber: Fiber | undefined = created.memoizedProps === node[key('__reactProps$')] ? created : created.alternate;
+  const found: string[] = [];
+  for (; fiber; fiber = fiber.return) {
+    const { className, testID: id } = fiber.memoizedProps ?? {};
+    if (id === testID && typeof className === 'string') found.push(...className.split(/\s+/));
+  }
+  return found;
+}
+const textOf = (testID: string) => screen.getByTestId(testID).textContent;
 
 function insertOrder(id: string, extra: Partial<PosOrder>) {
   return orders.insert({ id, createdAt: '2026-10-07T09:00:00.000Z', updatedAt: '2026-10-07T09:00:00.000Z',
@@ -42,7 +67,7 @@ function insertOrder(id: string, extra: Partial<PosOrder>) {
 }
 
 test('shows refused orders, then the counts, then the queued emails', async () => {
-  mocks.outbox = { enabled: true, orders, requeue: vi.fn(async () => 1) };
+  mocks.outbox = { enabled: true, orders, state: { pending: 0, sending: false }, requeue: vi.fn(async () => 1) };
   await insertOrder('r1', { syncStatus: 'rejected' });
   await products.insert({ id: 'a' });
   const onBack = vi.fn();
@@ -63,7 +88,7 @@ test('shows refused orders, then the counts, then the queued emails', async () =
 });
 
 test('Send again goes through the outbox', async () => {
-  mocks.outbox = { enabled: true, orders, requeue: vi.fn(async () => 1) };
+  mocks.outbox = { enabled: true, orders, state: { pending: 0, sending: false }, requeue: vi.fn(async () => 1) };
   await insertOrder('r1', { syncStatus: 'rejected' });
   await products.insert({ id: 'a' });
   render(<HealthScreen receiptEmails={receiptEmails} collections={collections} onBack={vi.fn()} />);
@@ -77,4 +102,66 @@ test('without an open outbox there is no Orders row and no refused panel', () =>
   expect(screen.queryByTestId('db-row-orders')).toBeNull();
   expect(screen.queryByTestId('db-rejected')).toBeNull();
   expect(screen.getByTestId('queued-emails-stub').getAttribute('data-orders')).toBe('no');
+});
+
+test('the summary strip comes first: ready to sell, and the records sum the row counts', async () => {
+  mocks.outbox = { enabled: true, orders, state: { pending: 0, sending: false }, requeue: vi.fn(async () => 0) };
+  await products.bulkInsert([{ id: 'a' }, { id: 'b' }]);
+  await insertOrder('o1', {});
+  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} onBack={vi.fn()} />);
+  const strip = screen.getByTestId('db-stats');
+  expect(strip.compareDocumentPosition(screen.getByTestId('db-table')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  await waitFor(() => expect(textOf('db-row-count-products')).toBe('2'));
+  await waitFor(() => expect(textOf('db-row-count-orders')).toBe('1'));
+  await waitFor(() => expect(textOf('db-stat-ready-value')).toBe('✓ Ready to sell'));
+  expect(classesOf('db-stat-ready-value')).toContain('text-success');
+  expect(screen.getByText('catalog & open orders local')).not.toBeNull();
+  const sum = Number(textOf('db-row-count-products')) + Number(textOf('db-row-count-orders'));
+  await waitFor(() => expect(textOf('db-stat-records-value')).toBe(String(sum)));
+  expect(screen.getByText('records on this device')).not.toBeNull();
+});
+
+test('with no products local it reads Preparing…', async () => {
+  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} onBack={vi.fn()} />);
+  await waitFor(() => expect(textOf('db-row-count-products')).toBe('0'));
+  expect(textOf('db-stat-ready-value')).toBe('Preparing…');
+  expect(classesOf('db-stat-ready-value')).not.toContain('text-success');
+  expect(textOf('db-stat-records-value')).toBe('0');
+});
+
+test('the records value follows writes live', async () => {
+  await products.insert({ id: 'a' });
+  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} onBack={vi.fn()} />);
+  await waitFor(() => expect(textOf('db-stat-records-value')).toBe('1'));
+  await act(async () => { await products.insert({ id: 'b' }); });
+  await waitFor(() => expect(textOf('db-stat-records-value')).toBe('2'));
+  await act(async () => { await products.insert({ id: 'c' }); });
+  await waitFor(() => expect(textOf('db-stat-records-value')).toBe('3'));
+});
+
+test('changes waiting to send: 0 reads good, pending orders read bad', () => {
+  const { unmount } = render(<HealthScreen receiptEmails={receiptEmails} collections={collections} onBack={vi.fn()} />);
+  expect(textOf('db-stat-waiting-value')).toBe('0');
+  expect(classesOf('db-stat-waiting-value')).toContain('text-success');
+  expect(classesOf('db-stat-waiting-value')).not.toContain('text-destructive');
+  expect(screen.getByText('changes waiting to send')).not.toBeNull();
+  unmount();
+  mocks.outbox = { enabled: true, orders, state: { pending: 3, sending: false }, requeue: vi.fn(async () => 0) };
+  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} onBack={vi.fn()} />);
+  expect(textOf('db-stat-waiting-value')).toBe('3');
+  expect(classesOf('db-stat-waiting-value')).toContain('text-destructive');
+});
+
+test('the storage stat is hidden without navigator.storage', async () => {
+  setStorage(undefined);
+  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} onBack={vi.fn()} />);
+  await waitFor(() => expect(textOf('db-row-count-products')).toBe('0'));
+  expect(screen.queryByTestId('db-stat-storage')).toBeNull();
+});
+
+test('the storage stat reads the estimate', async () => {
+  setStorage({ estimate: () => Promise.resolve({ usage: 2048 }) });
+  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} onBack={vi.fn()} />);
+  await waitFor(() => expect(textOf('db-stat-storage-value')).toBe('2.0 KB'));
+  expect(screen.getByText('storage used')).not.toBeNull();
 });
