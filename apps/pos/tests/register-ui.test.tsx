@@ -55,7 +55,8 @@ async function setup(online?: OnlineStatus) {
         <RegisterProvider>
           <Probe />
           <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
-            storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}} />
+            storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}}
+            onSwitchCashier={async () => null} cashiers={[]} />
           <PortalHost />
         </RegisterProvider>
       </OutboxProvider>
@@ -67,6 +68,12 @@ async function setup(online?: OnlineStatus) {
   return { get register() { return register; }, orders: outbox.orders, send };
 }
 
+/** v2's one door to the register panel: the bar's avatar opens the cashier sheet, whose drawer figure opens the panel. */
+async function openRegisterPanel() {
+  fireEvent.click(within(screen.getByTestId('register-bar-shell')).getByTestId('register-bar-avatar'));
+  fireEvent.click(await screen.findByTestId('user-sheet-drawer'));
+}
+
 async function payCash() {
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByTestId('cart-checkout'));
@@ -74,7 +81,7 @@ async function payCash() {
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
 }
 
-test.each([900, 390])('Offline shows once: in the POS bar pill, then in the register pill beside it at width %s', async width => {
+test.each([900, 390])('Offline shows once, in the bar\'s own pill, with sessions off and on at width %s', async width => {
   vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width, height: 800, scale: 1, fontScale: 1 });
   await setup('online-website-unavailable');
   expect(screen.getByTestId('register-bar-pill').textContent).toBe('Offline');
@@ -83,15 +90,13 @@ test.each([900, 390])('Offline shows once: in the POS bar pill, then in the regi
     openCartTab();
   }
   toggleRegisterSessions();
-  if (width >= 900) {
-    expect((await screen.findByTestId('register-bar-pill')).textContent).toBe('Offline');
-    expect(screen.getAllByTestId('register-bar-pill')).toHaveLength(1);
-  } else {
-    // Both phone panes stay mounted, so "once" is per tab: on Cart the register bar carries it and the POS bar over both tabs draws none.
-    expect((await cartPane().findAllByTestId('register-bar-pill')).map(pill => pill.textContent)).toEqual(['Offline']);
-    expect(within(screen.getByTestId('register-bar-shell')).queryByTestId('register-bar-pill')).toBeNull();
+  await screen.findByTestId('open-register-card');
+  // One pill in the window, the bar's: the cart draws no register row of its own.
+  expect(screen.getAllByTestId('register-bar-pill').map(pill => pill.textContent)).toEqual(['Offline']);
+  expect(within(screen.getByTestId('register-bar-shell')).getByTestId('register-bar-pill')).not.toBeNull();
+  if (width < 900) {
     openProductsTab();
-    expect(within(screen.getByTestId('register-bar-shell')).getAllByTestId('register-bar-pill').map(pill => pill.textContent)).toEqual(['Offline']);
+    expect(screen.getAllByTestId('register-bar-pill').map(pill => pill.textContent)).toEqual(['Offline']);
   }
 });
 
@@ -103,7 +108,7 @@ test('sessions saved off: no register UI and the cart completes a cash sale', as
   expect(within(screen.getByTestId('cart-settings')).getByRole('switch', { name: 'Use register sessions' })
     .getAttribute('aria-checked')).toBe('false');
   fireEvent.click(screen.getByTestId('ui-settings-close'));
-  expect(screen.queryByTestId('register-bar')).toBeNull();
+  expect(screen.queryByTestId('register-bar-pill')).toBeNull();
   expect(screen.queryByTestId('open-register-card')).toBeNull();
   await payCash();
   await waitFor(() => expect(app.send).toHaveBeenCalledTimes(1));
@@ -125,7 +130,7 @@ test.each([900, 390])('the switch enables the register and replaces the cart at 
   fireEvent.click(toggle);
   expect(app.register.setting).toBe(true);
   expect(await screen.findByTestId('open-register-card')).not.toBeNull();
-  expect(screen.getByTestId('register-bar')).not.toBeNull();
+  expect(within(screen.getByTestId('register-bar-shell')).getByTestId('register-bar-pill').textContent).toBe('Register closed');
   expect(screen.queryByTestId('cart-checkout')).toBeNull();
 });
 
@@ -135,7 +140,7 @@ test('open, pay out, sell, count and close, then reuse the counted float', async
   fireEvent.change(await screen.findByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
   await screen.findByTestId('cart-checkout');
-  fireEvent.click(screen.getByTestId('register-bar-open-panel'));
+  await openRegisterPanel();
   fireEvent.click(await screen.findByTestId('register-panel-paid-out'));
   fireEvent.change(await screen.findByTestId('movement-amount'), { target: { value: '20.00' } });
   fireEvent.change(screen.getByTestId('movement-reason'), { target: { value: 'Milk' } });
@@ -144,7 +149,7 @@ test('open, pay out, sell, count and close, then reuse the counted float', async
   await waitFor(() => expect(screen.queryByTestId('movement-confirm')).toBeNull());
   fireEvent.click(screen.getByTestId('register-panel-dismiss'));
   await payCash();
-  fireEvent.click(screen.getByTestId('register-bar-open-panel'));
+  await openRegisterPanel();
   await waitFor(() => expect(screen.getByTestId('register-panel-sales-count').textContent).toBe('1 sale this session'));
   expect(within(screen.getByTestId('register-panel-expected')).getByText('$83.00')).not.toBeNull();
   fireEvent.click(screen.getByTestId('register-panel-close'));
@@ -174,7 +179,7 @@ test('switching sessions off removes the register UI and allows a sale without a
   toggleRegisterSessions();
   expect(app.register.setting).toBe(false);
   await waitFor(() => expect(app.register.session).toBeNull());
-  expect(screen.queryByTestId('register-bar')).toBeNull();
+  expect(screen.queryByTestId('register-bar-pill')).toBeNull();
   expect(screen.queryByTestId('open-register-card')).toBeNull();
   expect(screen.queryByTestId('register-panel')).toBeNull();
   expect(screen.queryByTestId('register-count')).toBeNull();
@@ -184,7 +189,7 @@ test('switching sessions off removes the register UI and allows a sale without a
   expect((await app.orders.find().exec())[0].toJSON()).not.toHaveProperty('sessionId');
 }, 20_000);
 
-test('phone (B12): with sessions on and the register open, the Cart tab has one menu button, the shared bar above the register bar', async () => {
+test('phone (B12): with sessions on and the register open, the Cart tab has one menu button and one bar, with no register row under it', async () => {
   vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
   localStorage.setItem(REGISTER_SESSIONS_KEY, 'true');
   await setup();
@@ -193,8 +198,9 @@ test('phone (B12): with sessions on and the register open, the Cart tab has one 
   fireEvent.click(screen.getByTestId('open-register-button'));
   await screen.findByTestId('cart-checkout');
   expect(screen.getAllByTestId('pos-drawer-open-button')).toHaveLength(1);
-  // Document order: the POS bar, then the cart pane's register bar under it.
-  const shell = screen.getByTestId('register-bar-shell');
-  const registerBar = cartPane().getByTestId('register-bar');
-  expect(shell.compareDocumentPosition(registerBar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.getAllByTestId('register-bar-shell')).toHaveLength(1);
+  expect(cartPane().queryByTestId('register-bar')).toBeNull();
+  expect(screen.queryByText('Register ›')).toBeNull();
+  await openRegisterPanel();
+  expect(await screen.findByTestId('register-panel')).not.toBeNull();
 }, 20_000);

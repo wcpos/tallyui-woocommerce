@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
-import { ClosureSheet, RegisterBar, RegisterColumn, RegisterCount, RegisterPanel, Switch, Text } from '@tallyui/components';
+import { ClosureSheet, RegisterColumn, RegisterCount, RegisterPanel, Switch, Text } from '@tallyui/components';
 import { Portal } from '@tallyui/primitives';
 import { useRegister } from '../lib/register/register-context';
-import { useIsOnline } from '../lib/online/online-status';
 import { ClosurePrint } from './closure-print';
 
 /** `inset` false drops the p-4 a settings group wants (the cart settings sheet's plain rows have none). */
@@ -27,7 +26,6 @@ export function RegisterControls({ currency, storeName, locale, cartEmpty, child
   panelOpen?: boolean; onPanelOpenChange?: (open: boolean) => void;
 }) {
   const register = useRegister();
-  const online = useIsOnline();
   const [ownOpen, setOwnOpen] = useState(false);
   const controlled = controlledOpen !== undefined && onPanelOpenChange !== undefined;
   const panelOpen = controlled ? controlledOpen : ownOpen;
@@ -48,11 +46,10 @@ export function RegisterControls({ currency, storeName, locale, cartEmpty, child
   if (!register?.enabled) return <>{children}</>;
   return (
     <View className="flex-1" dataSet={showClosure ? { print: 'hide' } : undefined}>
-      {/* No registerName: a Tally till has one register, so RegisterPanel titles itself "Register", as v2 register-panel.tsx
-          does for a single register, and RegisterBar names a register only with multiRegister. */}
-      <RegisterBar register={register} registerId={register.boundRegisterId}
-        online={online} multiRegister={false}
-        onOpenPanel={() => setPanelOpen(true)} onPressPill={() => setPanelOpen(true)} />
+      {/* No row of its own over the column: v2 draws one bar over the cart (cart/index.tsx RegisterBar), so the
+          register's pill is RegisterBarShell's and the way into the panel is the cashier sheet's drawer door.
+          No registerName: a Tally till has one register, so RegisterPanel titles itself "Register", as v2
+          register-panel.tsx does for a single register. */}
       <RegisterColumn register={register} registerId={register.boundRegisterId} registers={[]} onPick={() => {}}
         currency={currency} cartEmpty={cartEmpty} countSlot={<RegisterCount register={register} currency={currency} />}>
         {children}

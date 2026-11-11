@@ -53,7 +53,8 @@ async function setup() {
         <RegisterProvider>
           <Probe />
           <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
-            storeName={stores[0].name} locale={stores[0].locale} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}} />
+            storeName={stores[0].name} locale={stores[0].locale} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}}
+            onSwitchCashier={async () => null} cashiers={[]} />
           <PortalHost />
         </RegisterProvider>
       </OutboxProvider>
@@ -78,8 +79,14 @@ async function openRegister() {
   await screen.findByTestId('cart-checkout');
 }
 
+/** v2's one door to the register panel: the bar's avatar opens the cashier sheet, whose drawer figure opens the panel. */
+async function openRegisterPanel() {
+  fireEvent.click(within(screen.getByTestId('register-bar-shell')).getByTestId('register-bar-avatar'));
+  fireEvent.click(await screen.findByTestId('user-sheet-drawer'));
+}
+
 async function closeRegister(counted: string) {
-  fireEvent.click(screen.getByTestId('register-bar-open-panel'));
+  await openRegisterPanel();
   fireEvent.click(await screen.findByTestId('register-panel-close'));
   fireEvent.change(await screen.findByTestId('count-amount'), { target: { value: counted } });
   fireEvent.click(screen.getByTestId('count-close'));
@@ -90,7 +97,7 @@ async function closeRegister(counted: string) {
 test('ClosurePrint renders the figures from a real float, paid-out movement and sale', async () => {
   const app = await setup();
   await openRegister();
-  fireEvent.click(screen.getByTestId('register-bar-open-panel'));
+  await openRegisterPanel();
   fireEvent.click(await screen.findByTestId('register-panel-paid-out'));
   fireEvent.change(await screen.findByTestId('movement-amount'), { target: { value: '20.00' } });
   fireEvent.change(screen.getByTestId('movement-reason'), { target: { value: 'Milk' } });

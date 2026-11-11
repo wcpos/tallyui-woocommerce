@@ -2,6 +2,8 @@
 // the store as the place, the status pill, a spacer, then the cashier entry. v2 wraps the place in a
 // `register-bar-store` button only when the login has more than one store; this app has one store per
 // connection, so the place is plain text. On a wide window the app rail (app-rail.tsx) replaces the menu, as v2's permanent drawer does; the bell is notification-bell.tsx.
+// As v2's (cart/index.tsx RegisterBar, the column's first row) it heads the cart column, and it has no register
+// button: the avatar's sheet is the one door to the register panel (v2 register-bar.tsx, Paul 2026-10-29).
 import { useContext } from 'react';
 import type { JSX, ReactNode } from 'react';
 import { View } from 'react-native';
@@ -40,18 +42,17 @@ export function registerBarPill(register: BarRegister | null | undefined, online
 
 export interface RegisterBarShellProps {
   storeName: string;
-  /** Sessions on at the wide split: the TallyUI register bar beside the catalogue carries the pill (one pill per window). */
-  hidePill?: boolean;
   onOpenMenu(): void;
   /** The cashier entry, drawn last (CashierSheet's `register-bar-avatar` button, or the fallback). */
   avatar: ReactNode;
 }
 
-export function RegisterBarShell({ storeName, hidePill, onOpenMenu, avatar }: RegisterBarShellProps): JSX.Element {
+export function RegisterBarShell({ storeName, onOpenMenu, avatar }: RegisterBarShellProps): JSX.Element {
   const register = useRegister();
   const online = useIsOnline();
   const railShown = useContext(AppRailShown);
-  const pill = hidePill ? null : registerBarPill(register, online);
+  // The window's one pill: the register's state with sessions on, Offline alone with them off.
+  const pill = registerBarPill(register, online);
   // The pill is drawn as v2's StatusBadge and offline-badge.tsx draw a status: the dot carries the tone,
   // the word keeps the foreground colour.
   return (
