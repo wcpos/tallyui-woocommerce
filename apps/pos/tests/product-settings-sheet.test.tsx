@@ -127,6 +127,11 @@ test('Sort By lists the fields the catalogue can sort in v2\'s order and copy', 
   expect(screen.getAllByTestId(/^sort-by-option-/).map(node => node.textContent)).toEqual(['Name', 'SKU', 'Barcode', 'Price', 'Stock Quantity']);
 });
 
+test('Sort By is v2\'s select: its trigger ends in a chevron', () => {
+  openSheet();
+  expect(screen.getByTestId('sort-by').contains(screen.getByTestId('sort-by-chevron'))).toBe(true);
+});
+
 test('Sort By and Sort Direction reorder the grid and save the sort', () => {
   openSheet();
   fireEvent.click(screen.getByTestId('sort-direction-segment-desc'));
