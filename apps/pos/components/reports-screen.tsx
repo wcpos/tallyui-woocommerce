@@ -20,6 +20,7 @@ import { ClosurePanel } from './closure-panel';
 import { ClosurePrint } from './closure-print';
 import { HourlyBars } from './hourly-bars';
 import { ReportChips, reportCashiers } from './report-chips';
+import { ReportsHero } from './reports-hero';
 import { SalesTable } from './sales-table';
 import { SessionCard } from './session-card';
 import { TillStrip } from './till-strip';
@@ -59,12 +60,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const openClosure = openClosureId ? closures.find(c => c.id === openClosureId) ?? null : null;
   const reprintClosure = (closure: Closure) => { setReprint(closure); setPrintRequest(value => value + 1); };
   const room = salesRoom(shown, { now, currency, compare });
-  const { yesterdaySoFar, delta } = room;
   const money = (amount: number) => formatMoney({ amount, currency }, locale);
-  const signedMoney = (n: number) => n > 0 ? '+' + money(n) : n < 0 ? '−' + money(-n) : money(0);
-  const signedCount = (n: number) => n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0';
-  const percent = delta.percentTenths === null ? '—'
-    : `${delta.percentTenths > 0 ? '+' : delta.percentTenths < 0 ? '−' : ''}${(Math.abs(delta.percentTenths) / 10).toFixed(1)}%`;
   const table = openTable === 'payments' ? paymentsTable(room.today, money)
     : openTable === 'taxes' ? taxesTable(room.today, money)
     : openTable === 'orders' ? ordersTable(shown, { now, currency, money }) : null;
@@ -114,21 +110,12 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
           onCompare={setCompare}
           weekday={weekday}
         />
-        <View testID="reports-today" className="gap-2 rounded-lg border border-border p-4">
-          <Text accessibilityRole="header">Today</Text>
-          <Text>{`Total: ${money(room.today.totalMinor)}`}</Text>
-          <Text>{`${compare === 'yesterday' ? 'Yesterday' : `Last ${weekday}`} by now: ${money(yesterdaySoFar.totalMinor)}`}</Text>
-          <Text className={delta.totalMinor < 0 ? 'text-destructive' : delta.totalMinor === 0 ? 'text-muted-foreground' : undefined}>
-            {`Change: ${signedMoney(delta.totalMinor)} · ${percent}`}
-          </Text>
-          <Pressable testID="sales-room-orders-open" accessibilityRole="button" accessibilityLabel="Open Orders table" onPress={() => setOpenTable('orders')}>
-            <Text>{`Orders: ${room.today.count} (${signedCount(delta.count)})`}</Text>
-          </Pressable>
-          <Text>{`Average order: ${money(room.today.averageMinor)} (${signedMoney(delta.averageMinor)})`}</Text>
+        <ReportsHero today={room.today} previous={room.yesterdaySoFar} comparisonLabel={`vs ${comparisonName}`}
+          money={minor => money(minor) ?? ''} onOpenOrders={() => setOpenTable('orders')}>
           {room.today.pending > 0 && <Text>{`Waiting to sync: ${room.today.pending}`}</Text>}
           {room.today.rejected > 0 && <Text>{`Not accepted by the store: ${room.today.rejected}`}</Text>}
           {room.today.count === 0 && <Text>No sales yet today.</Text>}
-        </View>
+        </ReportsHero>
         <HourlyBars hours={room.hours} currency={currency} locale={locale} comparisonName={comparisonName} />
         {room.today.byMethod.length > 0 && <View testID="sales-room-payments" className="gap-2 rounded-lg border border-border p-4">
           <Pressable testID="sales-room-payments-open" accessibilityRole="button" accessibilityLabel="Open Payments table" onPress={() => setOpenTable('payments')}>

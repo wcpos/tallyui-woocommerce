@@ -42,6 +42,8 @@ beforeEach(() => { localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ bro
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
+const text = (testID: string) => screen.getByTestId(testID).textContent;
+
 async function setup({ multiplePayments, storeSettings = noTaxSettings }: { multiplePayments?: boolean; storeSettings?: StoreSettings } = {}) {
   let register!: ReturnType<typeof useRegister>;
   let outbox!: ReturnType<typeof useOutbox>;
@@ -199,16 +201,20 @@ test('the session card shows the open session, its expected cash and sales count
 test('Today starts empty and observes an Espresso cash sale', async () => {
   const app = await setup();
   expect(screen.queryByTestId('sales-room-hours')).toBeNull();
-  const today = within(screen.getByTestId('reports-today'));
+  const today = within(screen.getByTestId('reports-hero'));
   expect(today.getByText('No sales yet today.')).not.toBeNull();
   expect(screen.queryByTestId('sales-room-payments')).toBeNull();
   expect(within(screen.getByTestId('reports-closures')).getByTestId('closures-empty').textContent).toBe('No closures in this period');
   expect(screen.queryByTestId('x-report-print')).toBeNull();
   expect(screen.queryByTestId('closures-csv')).toBeNull();
   await payCash();
-  await waitFor(() => expect(today.getByText('Total: $3.00')).not.toBeNull());
-  expect(today.getByText('Orders: 1 (+1)')).not.toBeNull();
-  expect(today.getByText('Average order: $3.00 (+$3.00)')).not.toBeNull();
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+  expect(text('hero-orders')).toBe('1');
+  expect(text('hero-orders-delta')).toBe('—');
+  expect(text('hero-average')).toBe('$3.00');
+  expect(text('hero-average-delta')).toBe('—');
+  expect(text('hero-items')).toBe('1');
+  expect(text('hero-delta')).toBe('—');
   expect(within(screen.getByTestId('sales-room-payments')).getByText('Cash · 1 order · $3.00')).not.toBeNull();
   expect(screen.queryByText(/^Split tenders/)).toBeNull();
   expect(today.queryByText('No sales yet today.')).toBeNull();
@@ -220,12 +226,12 @@ test('Today starts empty and observes an Espresso cash sale', async () => {
 test('Today removes a sale when its createdAt moves to yesterday', async () => {
   const app = await setup();
   await payCash();
-  const today = within(screen.getByTestId('reports-today'));
-  await waitFor(() => expect(today.getByText('Total: $3.00')).not.toBeNull());
+  const today = within(screen.getByTestId('reports-hero'));
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
   const [order] = await app.orders.find().exec();
   const createdAt = new Date(Date.parse(dayRange(new Date()).startIso) - 60_000).toISOString();
   await act(async () => { await order.incrementalPatch({ createdAt }); });
-  await waitFor(() => expect(today.getByText('Total: $0.00')).not.toBeNull());
+  await waitFor(() => expect(text('hero-total')).toBe('$0.00'));
   expect(today.getByText('No sales yet today.')).not.toBeNull();
   expect(screen.queryByTestId('sales-room-payments')).toBeNull();
 }, 20_000);
@@ -236,15 +242,17 @@ test('the hero compares with yesterday up to the same time', async () => {
   try {
     const app = await setup();
     await payCash();
-    const today = within(screen.getByTestId('reports-today'));
-    await waitFor(() => expect(today.getByText('Total: $3.00')).not.toBeNull());
+    await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
     const [order] = await app.orders.find().exec();
     await act(async () => { await order.incrementalPatch({ createdAt: new Date(2026, 9, 5, 10, 0).toISOString() }); });
-    await waitFor(() => expect(today.getByText('Total: $0.00')).not.toBeNull());
-    expect(today.getByText('Yesterday by now: $3.00')).not.toBeNull();
-    expect(today.getByText('Change: −$3.00 · −100.0%')).not.toBeNull();
-    expect(today.getByText('Orders: 0 (−1)')).not.toBeNull();
-    expect(today.getByText('Average order: $0.00 (−$3.00)')).not.toBeNull();
+    await waitFor(() => expect(text('hero-total')).toBe('$0.00'));
+    expect(text('hero-delta')).toBe('−100.0% vs yesterday');
+    expect(text('hero-orders')).toBe('0');
+    expect(text('hero-orders-delta')).toBe('−1');
+    expect(text('hero-average')).toBe('$0.00');
+    expect(text('hero-average-delta')).toBe('−$3.00');
+    expect(text('hero-items')).toBe('0');
+    expect(text('hero-items-delta')).toBe('−1');
     expect(screen.getByTestId('sales-hour-10').getAttribute('aria-label')).toBe('10:00 — today $0.00, 0 orders; yesterday $3.00');
     expect(screen.queryByText(/^Busiest hour/)).toBeNull();
   } finally {
@@ -258,13 +266,14 @@ test("yesterday's sales after this time are not compared", async () => {
   try {
     const app = await setup();
     await payCash();
-    const today = within(screen.getByTestId('reports-today'));
-    await waitFor(() => expect(today.getByText('Total: $3.00')).not.toBeNull());
+    await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
     const [order] = await app.orders.find().exec();
     await act(async () => { await order.incrementalPatch({ createdAt: new Date(2026, 9, 5, 16, 0).toISOString() }); });
-    await waitFor(() => expect(today.getByText('Total: $0.00')).not.toBeNull());
-    expect(today.getByText('Yesterday by now: $0.00')).not.toBeNull();
-    expect(today.getByText('Change: $0.00 · —')).not.toBeNull();
+    await waitFor(() => expect(text('hero-total')).toBe('$0.00'));
+    expect(text('hero-delta')).toBe('—');
+    expect(screen.getByTestId('hero-delta').getAttribute('aria-label')).toBe('No comparison');
+    expect(text('hero-orders-delta')).toBe('—');
+    expect(text('hero-items-delta')).toBe('—');
   } finally {
     vi.useRealTimers();
   }
@@ -280,8 +289,9 @@ test('a split tender counts once per method', async () => {
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'New sale' }));
   await screen.findByText('Scan or tap a product to start a sale.');
-  const today = within(screen.getByTestId('reports-today'));
-  await waitFor(() => expect(today.getByText('Total: $6.00')).not.toBeNull());
+  await waitFor(() => expect(text('hero-total')).toBe('$6.00'));
+  expect(text('hero-orders')).toBe('1');
+  expect(text('hero-items')).toBe('2');
   const payments = within(screen.getByTestId('sales-room-payments'));
   expect(payments.getByText('Cash · 1 order · $2.00')).not.toBeNull();
   expect(payments.getByText('Card terminal · 1 order · $4.00')).not.toBeNull();
@@ -291,8 +301,7 @@ test('a split tender counts once per method', async () => {
 test('taxes by rate', async () => {
   await setup({ storeSettings: { ...noTaxSettings, taxRatesPpm: { default: 100000 } } });
   await payCash();
-  const today = within(screen.getByTestId('reports-today'));
-  await waitFor(() => expect(today.getByText('Total: $3.30')).not.toBeNull());
+  await waitFor(() => expect(text('hero-total')).toBe('$3.30'));
   expect(within(screen.getByTestId('sales-room-taxes')).getByText('Tax 10% — Net $3.00 — Tax $0.30 — Gross $3.30')).not.toBeNull();
 }, 20_000);
 
@@ -327,7 +336,7 @@ test('Reprint prints the mounted Copy document once without changing the closure
   const print = vi.spyOn(window, 'print').mockImplementation(() => {
     const document = screen.queryByTestId('closure-print-document');
     printedDocuments.push({ text: document?.textContent ?? null, dataPrint: document?.getAttribute('data-print'),
-      todayHidden: screen.getByTestId('reports-today').closest('[data-print="hide"]') !== null });
+      todayHidden: screen.getByTestId('reports-hero').closest('[data-print="hide"]') !== null });
   });
   fireEvent.click(await screen.findByTestId(`closure-reprint-${closure.id}`));
   await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
@@ -390,7 +399,7 @@ test('Print X report prints the mounted open session with its expected cash', as
   const print = vi.spyOn(window, 'print').mockImplementation(() => {
     const report = screen.getByTestId('closure-print-document');
     printedDocuments.push({ text: report.textContent, dataPrint: report.getAttribute('data-print'), opened: within(report).queryByText(/^Opened: .+ Paul$/) !== null,
-      todayHidden: screen.getByTestId('reports-today').closest('[data-print="hide"]') !== null });
+      todayHidden: screen.getByTestId('reports-hero').closest('[data-print="hide"]') !== null });
   });
   const button = within(screen.getByTestId('reports-session-card')).getByTestId('x-report-print');
   expect(button.textContent).toBe('Print X-report');
@@ -459,7 +468,7 @@ test('the Payments tile opens a table of methods', async () => {
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'New sale' }));
   await screen.findByText('Scan or tap a product to start a sale.');
-  await waitFor(() => expect(within(screen.getByTestId('reports-today')).getByText('Total: $6.00')).not.toBeNull());
+  await waitFor(() => expect(text('hero-total')).toBe('$6.00'));
   fireEvent.click(screen.getByTestId('sales-room-payments-open'));
   const table = within(await screen.findByTestId('sales-table'));
   expect(table.getAllByTestId(/^sales-table-row-/).map(row => row.getAttribute('data-testid'))).toEqual([
@@ -484,7 +493,7 @@ test('the Payments tile opens a table of methods', async () => {
 test('an open table follows live data', async () => {
   const app = await setup();
   await payCash();
-  await waitFor(() => expect(within(screen.getByTestId('reports-today')).getByText('Total: $3.00')).not.toBeNull());
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
   fireEvent.click(screen.getByTestId('sales-room-payments-open'));
   expect(within(await screen.findByTestId('sales-table')).getByTestId('sales-table-row-cash')).not.toBeNull();
   const [order] = await app.orders.find().exec();
@@ -501,7 +510,7 @@ test('an open table follows live data', async () => {
 test('the Taxes tile opens a table of rates', async () => {
   await setup({ storeSettings: { ...noTaxSettings, taxRatesPpm: { default: 100000 } } });
   await payCash();
-  await waitFor(() => expect(within(screen.getByTestId('reports-today')).getByText('Total: $3.30')).not.toBeNull());
+  await waitFor(() => expect(text('hero-total')).toBe('$3.30'));
   fireEvent.click(screen.getByTestId('sales-room-taxes-open'));
   const table = within(await screen.findByTestId('sales-table'));
   expect(table.getByText('Taxes collected')).not.toBeNull();
@@ -518,12 +527,14 @@ test('the Taxes tile opens a table of rates', async () => {
 test("the hero's Orders line opens a table of today's orders", async () => {
   const app = await setup();
   await payCash();
-  const today = within(screen.getByTestId('reports-today'));
-  await waitFor(() => expect(today.getByText('Total: $3.00')).not.toBeNull());
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
   const [order] = await app.orders.find().exec();
   const date = new Date(order.createdAt);
   const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-  fireEvent.click(screen.getByTestId('sales-room-orders-open'));
+  const opener = screen.getByTestId('sales-room-orders-open');
+  expect(opener.getAttribute('aria-label')).toBe('Open Orders table');
+  expect(opener.contains(screen.getByTestId('hero-orders'))).toBe(true);
+  fireEvent.click(opener);
   const table = within(await screen.findByTestId('sales-table'));
   expect(table.getByText('Orders')).not.toBeNull();
   expect(table.getAllByTestId(/^sales-table-row-/)).toHaveLength(1);
@@ -536,13 +547,13 @@ test("the hero's Orders line opens a table of today's orders", async () => {
   expect(table.getByTestId('sales-table-status').textContent).toBe('1 order · $3.00');
   fireEvent.click(table.getByTestId('sales-table-close'));
   await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
-  expect(today.getByText('Orders: 1 (+1)')).not.toBeNull();
+  expect(text('hero-orders')).toBe('1');
 }, 20_000);
 
 test('an open Orders table follows live data', async () => {
   const app = await setup();
   await payCash();
-  await waitFor(() => expect(within(screen.getByTestId('reports-today')).getByText('Total: $3.00')).not.toBeNull());
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
   fireEvent.click(screen.getByTestId('sales-room-orders-open'));
   const [order] = await app.orders.find().exec();
   expect(within(await screen.findByTestId('sales-table')).getByTestId(`sales-table-row-${order.id}`)).not.toBeNull();
@@ -567,7 +578,7 @@ test('Export CSV downloads the open table', async () => {
     expect(this.isConnected).toBe(true);
   });
   await payCash();
-  await waitFor(() => expect(within(screen.getByTestId('reports-today')).getByText('Total: $3.00')).not.toBeNull());
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
   fireEvent.click(screen.getByTestId('sales-room-payments-open'));
   const table = within(await screen.findByTestId('sales-table'));
   const button = table.getByTestId('sales-table-export');
@@ -596,7 +607,7 @@ test('Export CSV names the Orders table and carries its rows', async () => {
     expect(this.isConnected).toBe(true);
   });
   await payCash();
-  await waitFor(() => expect(within(screen.getByTestId('reports-today')).getByText('Total: $3.00')).not.toBeNull());
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
   const [order] = await app.orders.find().exec();
   const date = new Date(order.createdAt);
   const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
@@ -620,22 +631,24 @@ test('the hero compares with the same weekday last week when chosen', async () =
   try {
     const app = await setup();
     await payCash();
-    const today = within(screen.getByTestId('reports-today'));
-    await waitFor(() => expect(today.getByText('Total: $3.00')).not.toBeNull());
+    await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
     const [order] = await app.orders.find().exec();
     await act(async () => { await order.incrementalPatch({ createdAt: new Date(2026, 8, 29, 10, 0).toISOString() }); });
-    await waitFor(() => expect(today.getByText('Total: $0.00')).not.toBeNull());
-    expect(today.getByText('Yesterday by now: $0.00')).not.toBeNull();
+    await waitFor(() => expect(text('hero-total')).toBe('$0.00'));
+    expect(text('hero-delta')).toBe('—');
+    expect(text('hero-orders-delta')).toBe('—');
     expect(screen.getByTestId('hero-compare-lastweek').textContent).toBe('vs last Tuesday');
     fireEvent.click(screen.getByTestId('hero-compare-lastweek'));
-    await waitFor(() => expect(today.getByText('Last Tuesday by now: $3.00')).not.toBeNull());
-    expect(today.getByText('Change: −$3.00 · −100.0%')).not.toBeNull();
-    expect(today.getByText('Orders: 0 (−1)')).not.toBeNull();
+    await waitFor(() => expect(text('hero-delta')).toBe('−100.0% vs last Tuesday'));
+    expect(text('hero-orders-delta')).toBe('−1');
+    expect(text('hero-average-delta')).toBe('−$3.00');
+    expect(text('hero-items-delta')).toBe('−1');
     expect(screen.getByTestId('sales-hour-10').getAttribute('aria-label')).toBe('10:00 — today $0.00, 0 orders; last Tuesday $3.00');
     expect(screen.getByText('Filled: today · Dashed: last Tuesday')).not.toBeNull();
     expect(screen.getByTestId('hero-compare-lastweek').getAttribute('aria-selected')).toBe('true');
     fireEvent.click(screen.getByTestId('hero-compare-yesterday'));
-    await waitFor(() => expect(today.getByText('Yesterday by now: $0.00')).not.toBeNull());
+    await waitFor(() => expect(text('hero-delta')).toBe('—'));
+    expect(text('hero-orders-delta')).toBe('—');
   } finally {
     vi.useRealTimers();
   }
@@ -646,15 +659,15 @@ test('the cashier chip narrows every period figure to one cashier', async () => 
   expect(screen.getByTestId('hero-cashier-all').getAttribute('aria-selected')).toBe('true');
   expect(screen.getByTestId('hero-cashier-2').textContent).toBe('Paul');
   await payCash();
-  const today = within(screen.getByTestId('reports-today'));
-  await waitFor(() => expect(today.getByText('Total: $3.00')).not.toBeNull());
+  const today = within(screen.getByTestId('reports-hero'));
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
   const [order] = await app.orders.find().exec();
   expect(order.cashierRef).toBe('2');
   await act(async () => { await order.incrementalPatch({ cashierRef: '7' }); });
   expect(screen.queryByTestId('hero-cashier-7')).toBeNull();
-  await waitFor(() => expect(today.getByText('Total: $3.00')).not.toBeNull());
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
   fireEvent.click(screen.getByTestId('hero-cashier-2'));
-  await waitFor(() => expect(today.getByText('Total: $0.00')).not.toBeNull());
+  await waitFor(() => expect(text('hero-total')).toBe('$0.00'));
   expect(today.getByText('No sales yet today.')).not.toBeNull();
   expect(screen.queryByTestId('sales-room-payments')).toBeNull();
   fireEvent.click(screen.getByTestId('sales-room-orders-open'));
@@ -664,7 +677,7 @@ test('the cashier chip narrows every period figure to one cashier', async () => 
   fireEvent.click(table.getByTestId('sales-table-close'));
   await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
   await act(async () => { await order.incrementalPatch({ cashierRef: '2' }); });
-  await waitFor(() => expect(today.getByText('Total: $3.00')).not.toBeNull());
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
   fireEvent.click(screen.getByTestId('hero-cashier-all'));
   expect(screen.getByTestId('hero-cashier-all').getAttribute('aria-selected')).toBe('true');
 }, 20_000);
