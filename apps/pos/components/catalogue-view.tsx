@@ -208,7 +208,11 @@ export function CatalogueView({
     {/* v2's ChipRow: one horizontal scroller at every width, chips only; the filter bar opens from Product settings. */}
     <ScrollView testID="catalogue-chip-row" horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
       contentContainerClassName="items-center gap-2">
-      <CatalogueFilterChips products={products} filters={filters} onChange={setFilters} dimmed={drilled !== undefined} />
+      {/* v2 folds the place's own pill while a browse level is open (filter-bar.tsx:505, `place={browsePlace}` from
+          index.tsx:599): the Categories source's field, for a category and All products alike, and for a product drilled
+          inside the level. A product drilled from no level only dims it (filter-bar.tsx:508). */}
+      <CatalogueFilterChips products={products} filters={filters} onChange={setFilters} dimmed={drilled !== undefined}
+        placeField={level === null ? undefined : 'categories'} />
       <QuickFilterBar quickFilters={quickFilters} isActive={isActive} onPress={pressQuickFilter} dimmed={drilled !== undefined} />
     </ScrollView>
     <FilterBarDialog open={filterBarOpen} onOpenChange={setFilterBarOpen} quickFilters={quickFilters} onChange={changeQuickFilters}
