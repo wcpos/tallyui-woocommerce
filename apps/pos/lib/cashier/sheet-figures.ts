@@ -50,3 +50,32 @@ export function drawerFigureText(
   if (register.lastClosure) return `Register closed · last closure ${register.lastClosure.number}`;
   return undefined;
 }
+
+/** A `_gmt` time as device-local `HH:mm`; a stamp without a zone is UTC (WooCommerce's `_gmt` form). */
+function localHourMinute(gmt: string): string {
+  const date = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(gmt) ? gmt : `${gmt}Z`);
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+/**
+ * v2's DrawerDoor verbs (user-sheet.tsx; en/core.json `register.drawer_verbs`, `drawer_closed_verbs`,
+ * `drawer_counting_back`) and its `register.opened_at_by` line, shown only while a session is open.
+ */
+export function drawerVerbs(
+  register: {
+    session: { status: string; opened_at_gmt: string; opened_by?: string | null; counting_started_at_gmt?: string | null } | null;
+  } | null,
+  nameOf?: (id: string) => string | undefined,
+): { verbs: string; opener?: string } {
+  const session = register?.session;
+  if (session?.status === 'counting') {
+    const since = session.counting_started_at_gmt ? localHourMinute(session.counting_started_at_gmt) : '—';
+    return { verbs: `Counting since ${since} · back to the count` };
+  }
+  if (session?.status === 'open') {
+    const name = session.opened_by ? nameOf?.(session.opened_by) : undefined;
+    const opened = `opened ${localHourMinute(session.opened_at_gmt)}`;
+    return { verbs: 'Pay in · Pay out · Close register', opener: name ? `${opened} by ${name}` : opened };
+  }
+  return { verbs: 'Last closure · Open register' };
+}

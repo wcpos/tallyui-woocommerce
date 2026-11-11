@@ -9,7 +9,7 @@ import { formatMoney } from '@tallyui/core';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
 import type { CatalogueEntry, ParkedOrderSummary, Payment, TenderVoid } from '@tallyui/pos';
 import { createCustomersBlockedReason, type CashierCapabilities } from '../lib/auth/capabilities';
-import { drawerFigureText, sheetMoney } from '../lib/cashier/sheet-figures';
+import { drawerFigureText, drawerVerbs, sheetMoney } from '../lib/cashier/sheet-figures';
 import { inCartCounts } from '../lib/catalogue/tile-words';
 import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
 import { useRegister } from '../lib/register/register-context';
@@ -105,6 +105,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const [receiptSettings] = useReceiptSettings();
   const { width } = useWindowDimensions();
   const [cartOpen, setCartOpen] = useState(false);
+  // The register panel lives in RegisterControls (the cart side); the cashier sheet's drawer door opens it from the products side.
+  const [registerPanelOpen, setRegisterPanelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [voidError, setVoidError] = useState<string>();
   const [message, setMessage] = useState<string>();
@@ -379,6 +381,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     }
   }
 
+  const drawerFigure = drawerFigureText(register, minor => sheetMoney(minor, currency, props.locale));
   const browse = variants ? (
     <VariantChooser entries={variants} currency={currency} traits={connector.traits.product} onSelect={onAdd} onClose={() => setVariants(undefined)} />
   ) : <CatalogueView {...props} hideOfflineBadge={width >= 900 && register?.enabled === true} onSelect={onSelect} onScan={onScan} message={message}
@@ -390,7 +393,11 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       blockedReason={sale.stage.kind === 'tender' || sale.saving ? 'Finish or cancel the payment first.' : undefined}
       storeName={props.storeName}
       sales={outboxOrders ? { orders: outboxOrders, cashierRef: props.cashierRef, currency, locale: props.locale } : null}
-      drawerFigure={drawerFigureText(register, minor => sheetMoney(minor, currency, props.locale))}
+      drawer={drawerFigure ? { figure: drawerFigure,
+        ...drawerVerbs(register, id => id === props.cashierRef ? props.cashierName : undefined) } : undefined}
+      // On a narrow screen the products and the cart are never mounted together, so opening the cart is what mounts
+      // RegisterPanel; on a wide screen both panes are up and setCartOpen changes nothing.
+      onOpenDrawer={register?.enabled ? () => { setCartOpen(true); setRegisterPanelOpen(true); } : undefined}
       adminUrl={props.adminUrl}
     /> : props.cashierControl} />;
   const cartPane = (
@@ -497,7 +504,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
 
   const cart = (
     <View className="flex-1">
-      <RegisterControls currency={currency} storeName={props.storeName} locale={props.locale} cartEmpty={!sale.order.lineItems.length}>{cartPane}</RegisterControls>
+      <RegisterControls currency={currency} storeName={props.storeName} locale={props.locale} cartEmpty={!sale.order.lineItems.length}
+        panelOpen={registerPanelOpen} onPanelOpenChange={setRegisterPanelOpen}>{cartPane}</RegisterControls>
       <RegisterSwitch />
     </View>
   );
