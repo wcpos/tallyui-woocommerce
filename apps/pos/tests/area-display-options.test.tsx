@@ -11,6 +11,7 @@ import { areaColumnsKey, loadAreaColumns, saveAreaColumns } from '../lib/area-co
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider } from '../lib/sale/outbox-context';
+import { classesOf } from './classes-of';
 import { memoryStorage } from './memory-storage';
 
 const storeOrder: StoreOrder = {
@@ -133,4 +134,27 @@ test('an unknown id, a missing id, a malformed row or invalid JSON falls back to
   storage.setItem(key, JSON.stringify({ columns: [] }));
   expect(loadAreaColumns('orders', ORDERS_COLUMNS, storage)).toEqual(defaults);
   expect(loadAreaColumns('orders', ORDERS_COLUMNS, memoryStorage())).toEqual(defaults);
+});
+
+test("the display options tooltip shows on hover and is gone once Order Settings opens, as v2's closes on click", async () => {
+  await renderOrders();
+  const button = screen.getByTestId('orders-bar-display');
+  // A press with no hover first (a touch) opens the panel and no tooltip.
+  fireEvent.click(button);
+  expect(screen.getByTestId('orders-display-options')).not.toBeNull();
+  expect(screen.queryByRole('tooltip')).toBeNull();
+  fireEvent.click(screen.getByTestId('orders-display-close'));
+  fireEvent.pointerEnter(button);
+  expect(screen.getByRole('tooltip').textContent).toBe('Order Settings');
+  fireEvent.click(button);
+  expect(screen.getByTestId('orders-display-options')).not.toBeNull();
+  expect(screen.queryByRole('tooltip')).toBeNull();
+});
+
+test("Restore Default Settings is v2's outline-destructive: a red border on the card, the label in the foreground", async () => {
+  await renderOrders();
+  fireEvent.click(screen.getByTestId('orders-bar-display'));
+  expect(classesOf('orders-display-restore')).toEqual(expect.arrayContaining(['border-destructive', 'bg-card']));
+  expect(classesOf('orders-display-restore-label')).toContain('text-foreground');
+  expect(classesOf('orders-display-restore-label')).not.toContain('text-destructive');
 });

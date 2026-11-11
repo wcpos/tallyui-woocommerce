@@ -290,3 +290,36 @@ test('each Tile Fields switch is v2\'s FormSwitch row, and pressing its label to
   fireEvent.click(screen.getByTestId('tile-field-toggle-name-label'));
   expect(screen.getByTestId('tile-field-toggle-name').getAttribute('aria-checked')).toBe('true');
 });
+
+test("the sliders icon's tooltip shows on hover and is gone once the sheet opens, as v2's web tooltip closes on click", () => {
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  const button = screen.getByTestId('catalogue-settings-button');
+  fireEvent.pointerEnter(button);
+  expect(screen.getByRole('tooltip').textContent).toBe('Product settings');
+  fireEvent.click(button);
+  expect(screen.getByTestId('catalogue-settings')).not.toBeNull();
+  expect(screen.queryByRole('tooltip')).toBeNull();
+});
+
+test("the sliders icon's tooltip closes when the pointer leaves, with no press, as v2's hover tooltip", () => {
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  const button = screen.getByTestId('catalogue-settings-button');
+  fireEvent.pointerEnter(button);
+  expect(screen.getByRole('tooltip').textContent).toBe('Product settings');
+  fireEvent.pointerLeave(button);
+  expect(screen.queryByRole('tooltip')).toBeNull();
+  expect(screen.queryByTestId('catalogue-settings')).toBeNull();
+});
+
+test('pressing the sliders icon with no hover opens the sheet and no tooltip', () => {
+  openSheet();
+  expect(screen.getByTestId('catalogue-settings')).not.toBeNull();
+  expect(screen.queryByRole('tooltip')).toBeNull();
+});
+
+test("Restore Default Settings is v2's outline-destructive: a red border on the card, the label in the foreground", () => {
+  openSheet();
+  expect(classesOf('catalogue-settings-restore')).toEqual(expect.arrayContaining(['border-destructive', 'bg-card']));
+  expect(classesOf('catalogue-settings-restore-label')).toContain('text-foreground');
+  expect(classesOf('catalogue-settings-restore-label')).not.toContain('text-destructive');
+});

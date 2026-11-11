@@ -1,4 +1,5 @@
 // v2's Product settings side sheet (WCPOS monorepo `packages/core/src/screens/main/pos/products/ui-settings-form.tsx`).
+import { useRef } from 'react';
 import type { JSX } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Path } from 'react-native-svg';
@@ -30,16 +31,37 @@ const SORT_LABELS: Record<(typeof QUICK_FILTER_SORT_FIELDS)[number], string> = {
 
 function countLabel(count: number, one: string, many: string): string { return `${count} ${count === 1 ? one : many}`; }
 
-/** v2's Product settings trigger in the search row: a sliders icon with the tooltip "Product settings". */
-export function CatalogueSettingsButton({ onPress }: { onPress(): void }): JSX.Element {
+/** v2's UISettingsDialog trigger (ui-settings/index.tsx): the `filters` icon inside a Tooltip that names the panel.
+ *  v2's web tooltip (Radix) opens on hover and closes when the trigger is clicked, so the tooltip is gone once the
+ *  sheet opens. TallyUI's opens on a press instead, so the button opens it as the pointer enters, closes it as the
+ *  pointer leaves, and closes it on its own press (after the primitive's toggle), through the trigger's own open and
+ *  close, which place the content. */
+export function SettingsTrigger({ testID, label, tooltip, onPress }: { testID: string; label: string; tooltip: string; onPress(): void }): JSX.Element {
+  const trigger = useRef<View & { open?(): void; close?(): void }>(null);
+  // The pointer handlers sit on the button itself, with no wrapper, so the trigger stays a direct child of its row.
   return <Tooltip>
-    <TooltipTrigger asChild>
-      <IconButton testID="catalogue-settings-button" variant="ghost" accessibilityLabel="Product settings" onPress={onPress}>
+    <TooltipTrigger ref={trigger} asChild onPress={() => trigger.current?.close?.()}>
+      <IconButton testID={testID} variant="ghost" accessibilityLabel={label} onPress={onPress}
+        onPointerEnter={() => trigger.current?.open?.()} onPointerLeave={() => trigger.current?.close?.()}>
         <SlidersIcon size={20} className="text-foreground" />
       </IconButton>
     </TooltipTrigger>
-    <TooltipContent><Text>Product settings</Text></TooltipContent>
+    <TooltipContent><Text>{tooltip}</Text></TooltipContent>
   </Tooltip>;
+}
+
+/** v2's DialogFooter `destructive` slot (dialog/index.tsx): Button `outline-destructive`, a red border on the card fill
+ *  with the foreground label. TallyUI has no such variant, so it is `outline` with v2's border and fill; the label
+ *  takes the outline's `text-foreground`. The catalogue, area and cart settings sheets all draw this one. */
+export function RestoreDefaultsButton({ testID, onPress }: { testID: string; onPress(): void }): JSX.Element {
+  return <Button testID={testID} variant="outline" className="border-destructive bg-card" onPress={onPress}>
+    <Text testID={`${testID}-label`}>Restore Default Settings</Text>
+  </Button>;
+}
+
+/** v2's Product settings trigger in the search row: a sliders icon with the tooltip "Product settings". */
+export function CatalogueSettingsButton({ onPress }: { onPress(): void }): JSX.Element {
+  return <SettingsTrigger testID="catalogue-settings-button" label="Product settings" tooltip="Product settings" onPress={onPress} />;
 }
 
 /** The sheet itself. Its open state lives with the catalogue, since the search row that holds the trigger remounts with the view. */
@@ -167,9 +189,7 @@ export function CatalogueDisplayOptions({ state, onChange, products, quickFilter
         </ScrollView>
         <View className="flex-row justify-between border-t border-border px-4 pt-4">
           {/* The panel position belongs to Cart Settings (v2 pos-cart.position), so restoring the products keeps it. */}
-          <Button testID="catalogue-settings-restore" variant="outline" className="border-destructive" onPress={() => onChange({ ...CATALOGUE_VIEW_DEFAULTS, position: state.position })}>
-            <Text className="text-destructive">Restore Default Settings</Text>
-          </Button>
+          <RestoreDefaultsButton testID="catalogue-settings-restore" onPress={() => onChange({ ...CATALOGUE_VIEW_DEFAULTS, position: state.position })} />
           <Button testID="catalogue-settings-close" variant="outline" onPress={() => setOpen(false)}><Text>Close</Text></Button>
         </View>
       </DialogContent>

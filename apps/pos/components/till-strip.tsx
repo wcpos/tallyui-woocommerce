@@ -7,6 +7,7 @@ import { formatMoney } from '@tallyui/core';
 import { formatClosureDate, replacedOrderIds, type Closure, type PosOrder } from '@tallyui/pos';
 import { useIsWide } from '../lib/layout/wide';
 import { useRegister } from '../lib/register/register-context';
+import { PrintIcon } from './report-chips';
 import { openedAtLabel } from './session-card';
 
 // lucide `chevron-right`, v2's `chevronRight` on `till-closures`.
@@ -142,8 +143,9 @@ export function TillStrip({ orders, currency, locale, resolveCashierName, onPrin
   const actions = (printable || onOpenClosures) && <View testID="till-actions" className={`flex-row items-center gap-2 ${phone ? (printable ? 'justify-between' : 'justify-end') : ''}`}>
     {/* A blind cashier gets no X-report, as on the session card: the X print carries the expected cash. */}
     {printable && (active
-      ? <Button testID="till-xreport" variant="outline" onPress={onPrintXReport}><Text>Print X-report</Text></Button>
-      : closure && <Button testID="till-reprint" variant="outline" onPress={() => onReprint?.(closure)}><Text>Print closure</Text></Button>)}
+      // v2 till-strip.tsx: one print button, `<Icon name="print" />` before its label, for both.
+      ? <Button testID="till-xreport" variant="outline" onPress={onPrintXReport}><PrintIcon testID="till-xreport-icon" size={16} /><Text>Print X-report</Text></Button>
+      : closure && <Button testID="till-reprint" variant="outline" onPress={() => onReprint?.(closure)}><PrintIcon testID="till-reprint-icon" size={16} /><Text>Print closure</Text></Button>)}
     {/* v2 till-strip.tsx `till-closures`: the chevron at the end of the actions is the way into Closures. */}
     {onOpenClosures && <IconButton testID="till-closures" variant="ghost" accessibilityLabel="Closures" onPress={onOpenClosures}>
       <ChevronRightIcon size={20} />
