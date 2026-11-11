@@ -901,7 +901,7 @@ test('the hero compares with the same weekday last week when chosen', async () =
     await waitFor(() => expect(text('hero-total')).toBe('$0.00'));
     expect(text('hero-delta')).toBe('—');
     expect(text('hero-orders-delta')).toBe('—');
-    expect(text('hero-chip-compare')).toBe('vs yesterday▾');
+    expect(text('hero-chip-compare')).toBe('vs yesterday');
     fireEvent.click(screen.getByTestId('hero-chip-compare'));
     expect(within(await screen.findByTestId('hero-compare-menu')).getByTestId('hero-compare-menu-hint').textContent)
       .toBe('A live day is compared at the same time of day');
@@ -914,7 +914,7 @@ test('the hero compares with the same weekday last week when chosen', async () =
     expect(text('hero-average-delta')).toBe('−$3.00');
     expect(text('hero-items-delta')).toBe('−1');
     expect(screen.getByTestId('sales-hour-10').getAttribute('aria-label')).toBe('10:00 — today $0.00, 0 orders; last Tuesday $3.00');
-    expect(text('hero-chip-compare')).toBe('vs last Tuesday▾');
+    expect(text('hero-chip-compare')).toBe('vs last Tuesday');
     await choose('compare', 'yesterday');
     await waitFor(() => expect(text('hero-delta')).toBe('—'));
     expect(text('hero-orders-delta')).toBe('—');
@@ -925,7 +925,7 @@ test('the hero compares with the same weekday last week when chosen', async () =
 
 test('the cashier chip narrows every period figure to one cashier', async () => {
   const app = await setup();
-  expect(text('hero-chip-cashier')).toBe('Everyone▾');
+  expect(text('hero-chip-cashier')).toBe('Everyone');
   fireEvent.click(screen.getByTestId('hero-chip-cashier'));
   expect(within(await screen.findByTestId('hero-cashier-menu')).getAllByRole('menuitem').map(row => row.textContent))
     .toEqual(['Everyone✓', 'Paul']);
@@ -942,7 +942,7 @@ test('the cashier chip narrows every period figure to one cashier', async () => 
   await screen.findByTestId('hero-cashier-menu');
   expect(screen.queryByTestId('hero-cashier-7')).toBeNull();
   fireEvent.click(screen.getByTestId('hero-cashier-2'));
-  expect(text('hero-chip-cashier')).toBe('Paul▾');
+  expect(text('hero-chip-cashier')).toBe('Paul');
   await waitFor(() => expect(text('hero-total')).toBe('$0.00'));
   expect(today.getByText('No sales yet today.')).not.toBeNull();
   expect(text('card-payments-empty')).toBe('No payments in this period.');
@@ -955,7 +955,7 @@ test('the cashier chip narrows every period figure to one cashier', async () => 
   await act(async () => { await order.incrementalPatch({ cashierRef: '2' }); });
   await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
   fireEvent.click(screen.getByTestId('hero-chip-cashier-clear'));
-  expect(text('hero-chip-cashier')).toBe('Everyone▾');
+  expect(text('hero-chip-cashier')).toBe('Everyone');
   expect(screen.queryByTestId('hero-chip-cashier-clear')).toBeNull();
   expect(screen.queryByTestId('hero-cashier-menu')).toBeNull();
   await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
@@ -967,7 +967,7 @@ test('the scope strip holds the cashier chip and Print summary; the compare chip
   expect(strip.getByTestId('hero-chip-cashier')).not.toBeNull();
   expect(strip.getByTestId('reports-print-summary').textContent).toBe('Print summary');
   expect(strip.queryByTestId('hero-chip-compare')).toBeNull();
-  expect(within(screen.getByTestId('reports-hero')).getByTestId('hero-chip-compare').textContent).toBe('vs yesterday▾');
+  expect(within(screen.getByTestId('reports-hero')).getByTestId('hero-chip-compare').textContent).toBe('vs yesterday');
 }, 20_000);
 
 /** Presses Print summary and returns what the mounted summary held when `window.print` ran. */
@@ -1047,7 +1047,7 @@ test('the date menu lists the presets; Yesterday counts only yesterday against t
   try {
     const app = await setup();
     const strip = within(screen.getByTestId('reports-scope-strip'));
-    expect(strip.getByTestId('reports-period').textContent).toBe('Today · Tue 6 Oct▾');
+    expect(strip.getByTestId('reports-period').textContent).toBe('Today · Tue 6 Oct');
     fireEvent.click(screen.getByTestId('reports-period'));
     expect(within(await screen.findByTestId('reports-period-menu')).getAllByRole('menuitem').map(row => row.textContent))
       .toEqual(['Today✓', 'Yesterday', 'This week', 'Last week', 'This month', 'Last month']);
@@ -1055,12 +1055,12 @@ test('the date menu lists the presets; Yesterday counts only yesterday against t
     await salesAt(app, [new Date(2026, 9, 6, 9, 0), new Date(2026, 9, 5, 10, 0), new Date(2026, 9, 5, 11, 0), new Date(2026, 9, 4, 16, 0)]);
     await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
     await choosePeriod('yesterday');
-    expect(text('reports-period')).toBe('Yesterday · Mon 5 Oct▾');
+    expect(text('reports-period')).toBe('Yesterday · Mon 5 Oct');
     await waitFor(() => expect(text('hero-total')).toBe('$6.00'));
     // The day before's 16:00 sale is after now's time of day, and a closed day is compared whole.
     expect(text('hero-delta')).toBe('+100.0% vs yesterday');
     expect(text('hero-orders-delta')).toBe('+1');
-    expect(text('hero-chip-compare')).toBe('vs yesterday▾');
+    expect(text('hero-chip-compare')).toBe('vs yesterday');
     expect(text('hero-chart-toggle-segment-hour')).toBe('By hour');
     expect(screen.getByTestId('sales-hour-10')).not.toBeNull();
     // A closed day's running total is the amount alone; Today's reads "… now".
@@ -1087,7 +1087,7 @@ test('This week counts the week by day against the week before, cut at now on it
     const app = await setup();
     await salesAt(app, [new Date(2026, 9, 6, 9, 0), new Date(2026, 9, 5, 10, 0), new Date(2026, 8, 28, 10, 0), new Date(2026, 8, 29, 16, 0)]);
     await choosePeriod('thisWeek');
-    expect(text('reports-period')).toBe('This week · 5–6 Oct▾');
+    expect(text('reports-period')).toBe('This week · 5–6 Oct');
     await waitFor(() => expect(text('hero-total')).toBe('$6.00'));
     // Tuesday the week before at 16:00 is after now's 14:30: only Monday's sale is compared.
     expect(text('hero-delta')).toBe('+100.0% vs week before');

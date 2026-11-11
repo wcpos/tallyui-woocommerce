@@ -74,9 +74,13 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
     {open && <Dialog open onOpenChange={next => { if (!next) setOpen(false); }}><DialogPortal>
       <DialogOverlay testID="cart-settings-overlay" className={railShown && side === 'left' ? BESIDE_RAIL : undefined} />
       <DialogPrimitive.Content testID="cart-settings" dataSet={{ side }} className={CART_SHEET[side](railShown)}>
-        <View className="flex-row items-center justify-between px-4">
-          <DialogTitle>Cart Settings</DialogTitle>
-          <IconButton variant="ghost" size="sm" testID="cart-settings-x" accessibilityLabel="Close" onPress={() => setOpen(false)}><XIcon size={16} /></IconButton>
+        {/* v2's DialogHeader (dialog/index.tsx: pl-4 pr-ctl) holds only the title, its dialog rank 16 px leading-none;
+            the close is an absolute h-ctl square at top-1 right-1, as on the product settings sheet. */}
+        <View testID="cart-settings-header" className="pl-4 pr-11">
+          <DialogTitle testID="cart-settings-title" className="text-base">Cart Settings</DialogTitle>
+        </View>
+        <View testID="cart-settings-close-slot" className="absolute right-1 top-1">
+          <IconButton variant="ghost" className="h-11 w-11" testID="cart-settings-x" accessibilityLabel="Close" onPress={() => setOpen(false)}><XIcon size={18} /></IconButton>
         </View>
         {/* v2's plain rows: VStack's gap-2 between fields (components vstack/index.tsx), FormItem's gap-1.5 inside one
             (form/common.tsx), no box around a field. */}

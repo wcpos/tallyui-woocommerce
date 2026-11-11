@@ -42,8 +42,8 @@ async function menu(name: 'cashier' | 'compare') {
 
 test('the chips show Everyone and yesterday, and their menus offer Everyone first', async () => {
   show(props());
-  expect(screen.getByTestId('hero-chip-cashier').textContent).toBe('Everyone▾');
-  expect(screen.getByTestId('hero-chip-compare').textContent).toBe('vs yesterday▾');
+  expect(screen.getByTestId('hero-chip-cashier').textContent).toBe('Everyone');
+  expect(screen.getByTestId('hero-chip-compare').textContent).toBe('vs yesterday');
   expect(screen.queryByTestId('hero-chip-cashier-clear')).toBeNull();
   expect(screen.queryByTestId('hero-chip-compare-clear')).toBeNull();
   expect((await menu('cashier')).getAllByRole('menuitem').map(row => row.textContent)).toEqual(['Everyone✓', 'Paul', 'Ann']);
@@ -60,8 +60,8 @@ test('the compare menu carries the same-time hint, and there is no standalone hi
 
 test('a chosen cashier and comparison show on their chips and are marked in the menus', async () => {
   show(props({ cashierId: '5', compare: 'lastweek' }));
-  expect(screen.getByTestId('hero-chip-cashier').textContent).toBe('Ann▾');
-  expect(screen.getByTestId('hero-chip-compare').textContent).toBe('vs last Tuesday▾');
+  expect(screen.getByTestId('hero-chip-cashier').textContent).toBe('Ann');
+  expect(screen.getByTestId('hero-chip-compare').textContent).toBe('vs last Tuesday');
   await menu('cashier');
   expect(screen.getByTestId('hero-cashier-5').getAttribute('aria-selected')).toBe('true');
   expect(screen.getByTestId('hero-cashier-all').getAttribute('aria-selected')).toBe('false');

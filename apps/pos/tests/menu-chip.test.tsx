@@ -16,10 +16,10 @@ function setup(value = 'all', hint: string | null = 'A hint') {
 
 test('the chip shows the chosen label, or the raw value when no choice matches', () => {
   setup('5');
-  expect(screen.getByTestId('hero-chip-cashier').textContent).toBe('Ann▾');
+  expect(screen.getByTestId('hero-chip-cashier').textContent).toBe('Ann');
   cleanup();
   setup('9');
-  expect(screen.getByTestId('hero-chip-cashier').textContent).toBe('9▾');
+  expect(screen.getByTestId('hero-chip-cashier').textContent).toBe('9');
 });
 
 test('pressing the chip opens a menu of every choice with the chosen one marked, then the hint', async () => {
@@ -105,4 +105,12 @@ test('the chip is v2 Chip: a 44 rounded pill with a leading icon, tinted when of
   cleanup();
   setup();
   expect(screen.queryByTestId('hero-chip-cashier-icon')).toBeNull();
+});
+
+test('the chip draws no caret after its label, as v2\'s Chip, on or off its default', () => {
+  setup('all');
+  expect(screen.getByTestId('hero-chip-cashier').textContent).not.toContain('▾');
+  cleanup();
+  setup('5');
+  expect(screen.getByTestId('hero-chip-cashier').textContent).not.toContain('▾');
 });
