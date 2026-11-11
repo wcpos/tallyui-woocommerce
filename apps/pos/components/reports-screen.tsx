@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, View } from 'react-native';
+import { Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { Button, Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
@@ -23,6 +23,7 @@ import { ReportCards } from './report-cards';
 import { ReportChips, reportCashiers } from './report-chips';
 import { ReportsHero } from './reports-hero';
 import { SalesTable } from './sales-table';
+import { Segmented } from './segmented';
 import { SessionCard } from './session-card';
 import { TillStrip } from './till-strip';
 
@@ -49,6 +50,9 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const [openClosureId, setOpenClosureId] = useState<string | null>(null);
   const [openTable, setOpenTable] = useState<'payments' | 'taxes' | 'orders' | null>(null);
   const [printRequest, setPrintRequest] = useState(0);
+  // The chart view is device state for the visit (v2 reports LEDGER 23): not persisted, in no query.
+  const [chartView, setChartView] = useState<'hour' | 'run'>('hour');
+  const wide = useWindowDimensions().width >= 600;
   locale = locale.replaceAll('_', '-');
   const shown = cashierId === null ? sales : sales.filter(order => order.cashierRef === cashierId);
   const weekday = new Date(range.startIso).toLocaleDateString(locale, { weekday: 'long' });
@@ -121,8 +125,16 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
           {room.today.pending > 0 && <Text>{`Waiting to sync: ${room.today.pending}`}</Text>}
           {room.today.rejected > 0 && <Text>{`Not accepted by the store: ${room.today.rejected}`}</Text>}
           {room.today.count === 0 && <Text>No sales yet today.</Text>}
+          {room.hours.length > 0 && <View className="flex-row justify-end">
+            <View className={wide ? 'w-72' : 'w-full'}>
+              <Segmented testID="hero-chart-toggle" label="Chart view" value={chartView}
+                segments={[{ value: 'hour', label: 'By hour' }, { value: 'run', label: 'Running total' }]}
+                onChange={value => setChartView(value as typeof chartView)} />
+            </View>
+          </View>}
+          <HourlyBars hours={room.hours} money={minor => money(minor) ?? ''} comparisonName={comparisonName}
+            nowHour={now.getHours()} view={chartView} />
         </ReportsHero>
-        <HourlyBars hours={room.hours} currency={currency} locale={locale} comparisonName={comparisonName} />
         <ReportCards period={room.today} money={minor => money(minor) ?? ''} moneyWhole={moneyWhole} onOpenTable={setOpenTable} />
         {room.today.taxMinor !== 0 && <View testID="sales-room-taxes" className="gap-2 rounded-lg border border-border p-4">
           <Pressable testID="sales-room-taxes-open" accessibilityRole="button" accessibilityLabel="Open Taxes table" onPress={() => setOpenTable('taxes')}>

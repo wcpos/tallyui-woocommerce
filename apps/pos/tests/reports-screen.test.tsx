@@ -217,8 +217,9 @@ test('Today starts empty and observes an Espresso cash sale', async () => {
   expect(text('hero-average-delta')).toBe('—');
   expect(text('hero-items')).toBe('1');
   expect(text('hero-delta')).toBe('—');
-  // The Orders, Payments and Where sold cards sit right after the hourly bars (v2 PeriodSection).
-  expect(screen.getByTestId('sales-room-hours').nextElementSibling).toBe(screen.getByTestId('reports-period-section'));
+  // The chart sits in the hero, and the Orders, Payments and Where sold cards right after it (v2 PeriodSection).
+  expect(today.getByTestId('sales-room-hours')).not.toBeNull();
+  expect(screen.getByTestId('reports-hero').nextElementSibling).toBe(screen.getByTestId('reports-period-section'));
   expect(text('card-orders-figure')).toBe('1');
   expect(text('card-where-sold-donut-row-store-value')).toBe('$3.00');
   expect(text('card-payments-donut-row-cash-value')).toBe('$3.00');
@@ -247,6 +248,24 @@ test('Today removes a sale when its createdAt moves to yesterday', async () => {
   expect(text('card-payments-empty')).toBe('No payments in this period.');
 }, 20_000);
 
+test('the hero chart switches between By hour and Running total', async () => {
+  await setup();
+  expect(screen.queryByTestId('hero-chart-toggle')).toBeNull();
+  await payCash();
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+  const hero = within(screen.getByTestId('reports-hero'));
+  const toggle = within(hero.getByTestId('hero-chart-toggle'));
+  expect(toggle.getByTestId('hero-chart-toggle-segment-hour').getAttribute('aria-checked')).toBe('true');
+  expect(toggle.getByTestId('hero-chart-toggle-segment-hour').textContent).toBe('By hour');
+  expect(toggle.getByTestId('hero-chart-toggle-segment-run').getAttribute('aria-checked')).toBe('false');
+  expect(hero.getByTestId('hero-chart-peak').textContent).toBe('$3.00 · 1 order');
+  expect(hero.queryByTestId('hero-chart-total')).toBeNull();
+  fireEvent.click(toggle.getByText('Running total'));
+  await waitFor(() => expect(hero.getByTestId('hero-chart-total').textContent).toBe('$3.00 now'));
+  expect(hero.queryByTestId('hero-chart-peak')).toBeNull();
+  expect(toggle.getByTestId('hero-chart-toggle-segment-run').getAttribute('aria-checked')).toBe('true');
+}, 20_000);
+
 test('the hero compares with yesterday up to the same time', async () => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date(2026, 9, 6, 14, 30));
@@ -265,7 +284,7 @@ test('the hero compares with yesterday up to the same time', async () => {
     expect(text('hero-items')).toBe('0');
     expect(text('hero-items-delta')).toBe('−1');
     expect(screen.getByTestId('sales-hour-10').getAttribute('aria-label')).toBe('10:00 — today $0.00, 0 orders; yesterday $3.00');
-    expect(screen.queryByText(/^Busiest hour/)).toBeNull();
+    expect(screen.queryByTestId('hero-chart-peak')).toBeNull();
   } finally {
     vi.useRealTimers();
   }
@@ -658,7 +677,6 @@ test('the hero compares with the same weekday last week when chosen', async () =
     expect(text('hero-average-delta')).toBe('−$3.00');
     expect(text('hero-items-delta')).toBe('−1');
     expect(screen.getByTestId('sales-hour-10').getAttribute('aria-label')).toBe('10:00 — today $0.00, 0 orders; last Tuesday $3.00');
-    expect(screen.getByText('Filled: today · Dashed: last Tuesday')).not.toBeNull();
     expect(screen.getByTestId('hero-compare-lastweek').getAttribute('aria-selected')).toBe('true');
     fireEvent.click(screen.getByTestId('hero-compare-yesterday'));
     await waitFor(() => expect(text('hero-delta')).toBe('—'));
