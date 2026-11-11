@@ -54,8 +54,8 @@ function AreaAvatar({ testID }: { testID: string }): JSX.Element | null {
 /** v2's ManagementBar over PageBar (WCPOS monorepo `components/management-bar/index.tsx`,
  *  `packages/components/src/page-bar/index.tsx`): beside the rail, the search at the row's start up to v2's cap
  *  (`max-w-160`), then the area's own actions, then the bell and the avatar (`BarControls`). With no rail the title
- *  row carries the cluster and the search takes a row of its own, as v2's phone bar does. No area here has v2's
- *  column settings (`DisplayOptions`) yet, so no settings icon is drawn. */
+ *  row carries the cluster and the search takes a row of its own, as v2's phone bar does. An area passes its
+ *  display options (v2's `DisplayOptions` settings icon, area-display-options.tsx) as a child, so they sit before the bell. */
 export function AreaToolbar({ area, title, onBack, titleSlot, search, children }: {
   /** The testID stem: `<area>-bar`, `<area>-back`, `<area>-bar-bell`, `<area>-bar-avatar`. */
   area: string;

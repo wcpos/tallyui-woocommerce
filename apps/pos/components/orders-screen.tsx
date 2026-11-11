@@ -6,7 +6,9 @@ import { buildReceiptDataFromPosOrder, buildReceiptDataFromStoreOrder, type PosO
 import { useOutbox } from '../lib/sale/outbox-context';
 import { useRegister } from '../lib/register/register-context';
 import { matchesOrderSearch, toHistoryRow, type OrderHistorySource } from '../lib/orders/order-history';
-import { OrdersTable } from './orders-table';
+import { useAreaColumns } from '../lib/area-columns';
+import { ORDERS_COLUMNS, OrdersTable } from './orders-table';
+import { AreaDisplayOptions } from './area-display-options';
 import { OrderDetailSheet } from './order-detail';
 import { ReceiptPrintSheet } from './receipt-print-sheet';
 import { ReceiptZoom } from './receipt-zoom';
@@ -32,6 +34,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName }: {
   const [viewing, setViewing] = useState<StoreOrder | null>(null);
   const [term, setTerm] = useState('');
   const [search, setSearch] = useState('');
+  const [columns, setColumns] = useAreaColumns('orders', ORDERS_COLUMNS);
   const request = useRef(0);
   // The count is in memory only, for each order opened in this screen.
   const counts = useRef(new Map<string, number>());
@@ -94,7 +97,9 @@ export function OrdersScreen({ onBack, history, storeName, cashierName }: {
   return (
     <View className="flex-1 bg-background">
       <AreaToolbar area="orders" title="Orders" onBack={onBack}
-        search={outbox.enabled && !opened && !viewing ? <SearchInput testID="search-orders" value={term} onChangeText={setTerm} placeholder="Search Orders" /> : null} />
+        search={outbox.enabled && !opened && !viewing ? <SearchInput testID="search-orders" value={term} onChangeText={setTerm} placeholder="Search Orders" /> : null}>
+        <AreaDisplayOptions area="orders" columns={ORDERS_COLUMNS} settings={columns} onChange={setColumns} />
+      </AreaToolbar>
       {outbox.enabled
         ? opened
           ? <View className="min-h-0 flex-1 px-4 pb-4"><ReceiptZoom><ReceiptPrintSheet orderId={opened.posOrder?.id ?? opened.data.header.orderNumber}><Receipt receipt={opened.data} posOrder={opened.posOrder} newSale={() => setOpened(null)} doneLabel="Back" /></ReceiptPrintSheet></ReceiptZoom></View>
@@ -111,6 +116,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName }: {
                     <Text testID="no-data-message-description" className="text-center text-muted-foreground">Sales you take will appear here.</Text>
                   </View>
             : <OrdersTable local={local} store={orders} footer={footer} active={loading}
+              visible={columns.filter(column => column.visible).map(column => column.id)}
               onSync={history ? () => { void loadPage(1, search); } : undefined}
               onOpen={row => { if (row.kind === 'store') setViewing(row.order); else open(row.order); }} />
         : <View className="p-4"><Text>Orders show once the store is connected.</Text></View>}

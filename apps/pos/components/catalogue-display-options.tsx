@@ -12,13 +12,13 @@ import { Segmented } from './segmented';
 import { ChevronDownIcon, FieldLabel, SELECT_FACE, SwitchRow } from './select-chevron';
 
 const CheckIcon = createSvgIcon('CheckIcon', () => <Path d="M20 6 9 17l-5-5" />);
-// lucide `sliders-horizontal`, v2's Product settings trigger.
-const SlidersIcon = createSvgIcon('SlidersIcon', () => <>
+// lucide `sliders-horizontal`, v2's `filters` icon: the Product settings trigger and the areas' display options (area-display-options.tsx).
+export const SlidersIcon = createSvgIcon('SlidersIcon', () => <>
   <Path d="M21 4h-7" /><Path d="M10 4H3" /><Path d="M21 12h-9" /><Path d="M8 12H3" /><Path d="M21 20h-5" /><Path d="M12 20H3" />
   <Path d="M14 2v4" /><Path d="M8 10v4" /><Path d="M16 18v4" />
 </>);
 
-const RIGHT_SHEET = 'left-auto right-0 top-0 h-full w-full max-w-lg translate-x-0 translate-y-0 gap-4 rounded-none border-0 border-l border-border bg-card p-0 py-4';
+export const RIGHT_SHEET = 'left-auto right-0 top-0 h-full w-full max-w-lg translate-x-0 translate-y-0 gap-4 rounded-none border-0 border-l border-border bg-card p-0 py-4';
 const LEFT_SHEET = 'left-0 right-auto top-0 h-full w-full max-w-lg translate-x-0 translate-y-0 gap-4 rounded-none border-0 border-r border-border bg-card p-0 py-4';
 
 export function settingsSheetClassName(position: PanelPosition): string {
