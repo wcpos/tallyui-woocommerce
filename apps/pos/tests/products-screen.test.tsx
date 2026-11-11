@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
+import { PortalHost } from '@tallyui/primitives';
 import { ProductsScreen } from '../components/products-screen';
 import fixtureProducts from './fixtures/products.json';
 
@@ -27,7 +28,9 @@ afterEach(() => {
 });
 
 function renderScreen(products: any[], onBack = vi.fn()) {
-  const view = render(<ProductsScreen products={products} connector={connector} currency="USD" locale="en_US" onBack={onBack} />);
+  // The chips' Select opens in a portal; the wrapper keeps the host across rerenders.
+  const view = render(<ProductsScreen products={products} connector={connector} currency="USD" locale="en_US" onBack={onBack} />,
+    { wrapper: ({ children }) => <>{children}<PortalHost /></> });
   return { ...view, onBack };
 }
 
@@ -147,4 +150,62 @@ test('narrow window: a list row per product with name, price and stock badge; Ba
   expect(tea.getByText('In Stock')).not.toBeNull();
   fireEvent.click(screen.getByTestId('products-back'));
   expect(onBack).toHaveBeenCalledOnce();
+});
+
+const [espresso, coldBrew] = fixtureProducts;
+const onSalePill = () => screen.getByTestId('filter-pill-on_sale');
+
+test('the chips start off: every product lists, out of stock too, and the stock chip reads Stock Status', () => {
+  renderScreen([product(1, 'Beans'), product(2, 'Filters', { stock_status: 'outofstock' }), product(3, 'Grinder', { stock_status: 'onbackorder' })]);
+  expect(rowIds()).toEqual(['product-row-1', 'product-row-2', 'product-row-3']);
+  expect(text('data-table-count')).toBe('3 products');
+  expect(text('filter-pill-stock_status')).toBe('Stock Status');
+  expect(screen.queryByTestId('filter-pill-remove-stock_status')).toBeNull();
+  expect(onSalePill().getAttribute('aria-pressed')).toBe('false');
+});
+
+test('On Sale leaves the on-sale products and the footer follows; pressing it again brings every product back', () => {
+  renderScreen(fixtureProducts);
+  fireEvent.click(onSalePill());
+  expect(onSalePill().getAttribute('aria-pressed')).toBe('true');
+  expect(rowIds()).toEqual([`product-row-${coldBrew.id}`]);
+  expect(text('data-table-count')).toBe('Showing 1 of 3');
+  fireEvent.click(onSalePill());
+  expect(onSalePill().getAttribute('aria-pressed')).toBe('false');
+  expect(rowIds()).toHaveLength(3);
+  expect(text('data-table-count')).toBe('3 products');
+});
+
+test('Category leaves that category, and with a search only products that match both', async () => {
+  renderScreen(fixtureProducts);
+  fireEvent.click(screen.getByTestId('filter-pill-categories'));
+  fireEvent.click(screen.getByTestId('category-option-25'));
+  expect(text('filter-pill-categories')).toBe('Coffee');
+  expect(rowIds()).toEqual([`product-row-${coldBrew.id}`, `product-row-${espresso.id}`]);
+  expect(text('data-table-count')).toBe('Showing 2 of 3');
+  typeSearch(espresso.sku);
+  await waitFor(() => expect(rowIds()).toEqual([`product-row-${espresso.id}`]));
+  expect(text('data-table-count')).toBe('Showing 1 of 3');
+});
+
+test('a chip and a search that leave nothing: "No products found", and Clear filters clears both', async () => {
+  renderScreen(fixtureProducts);
+  fireEvent.click(onSalePill());
+  typeSearch(espresso.sku);
+  await waitFor(() => expect(text('no-data-message-title')).toBe('No products found'));
+  fireEvent.click(within(screen.getByTestId('no-data-message')).getByRole('button', { name: 'Clear filters' }));
+  expect(rowIds()).toHaveLength(3);
+  expect(text('data-table-count')).toBe('3 products');
+  expect((screen.getByTestId('search-products') as HTMLInputElement).value).toBe('');
+  expect(onSalePill().getAttribute('aria-pressed')).toBe('false');
+});
+
+test('the Category chip offers every product\'s categories, not only the shown ones', () => {
+  renderScreen(fixtureProducts);
+  fireEvent.click(onSalePill());
+  expect(rowIds()).toEqual([`product-row-${coldBrew.id}`]);
+  fireEvent.click(screen.getByTestId('filter-pill-categories'));
+  // Merch (27) is carried only by the T-Shirt, which On Sale hides.
+  expect(screen.getAllByTestId(/^category-option-/).map(el => el.getAttribute('data-testid')))
+    .toEqual(['category-option-25', 'category-option-27']);
 });
