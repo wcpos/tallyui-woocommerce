@@ -20,12 +20,17 @@ export function RegisterSwitch() {
   );
 }
 
-export function RegisterControls({ currency, storeName, locale, cartEmpty, children }: {
+export function RegisterControls({ currency, storeName, locale, cartEmpty, children, panelOpen: controlledOpen, onPanelOpenChange }: {
   currency: string; storeName: string; locale?: string; cartEmpty: boolean; children: ReactNode;
+  /** Given together, the parent controls the panel (the cashier sheet's drawer door opens it); otherwise the panel keeps its own state. */
+  panelOpen?: boolean; onPanelOpenChange?: (open: boolean) => void;
 }) {
   const register = useRegister();
   const online = useIsOnline();
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const controlled = controlledOpen !== undefined && onPanelOpenChange !== undefined;
+  const panelOpen = controlled ? controlledOpen : ownOpen;
+  const setPanelOpen = controlled ? onPanelOpenChange : setOwnOpen;
   const [showClosure, setShowClosure] = useState(false);
   const hadCounting = useRef(false);
   useEffect(() => {

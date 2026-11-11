@@ -12,7 +12,8 @@ import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import { RegisterProvider, useRegister } from '../lib/register/register-context';
-import { cashierSalesTotal, drawerFigureText } from '../lib/cashier/sheet-figures';
+import { cashierSalesTotal, drawerFigureText, drawerVerbs } from '../lib/cashier/sheet-figures';
+import { CashierSheet } from '../components/cashier-sheet';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 
@@ -96,6 +97,85 @@ test('drawerFigureText shows the last closure when the register is closed and no
   expect(drawerFigureText(null, money)).toBeUndefined();
 });
 
+test("drawerVerbs offers v2's drawer verbs for an open session, with who opened it and when (local time)", () => {
+  const openedAt = new Date(2026, 9, 6, 14, 40).toISOString();
+  const nameOf = (id: string) => id === '2' ? 'Ann' : undefined;
+  expect(drawerVerbs({ session: { status: 'open', opened_at_gmt: openedAt, opened_by: '2' } }, nameOf))
+    .toEqual({ verbs: 'Pay in · Pay out · Close register', opener: 'opened 14:40 by Ann' });
+  expect(drawerVerbs({ session: { status: 'open', opened_at_gmt: openedAt, opened_by: '9' } }, nameOf))
+    .toEqual({ verbs: 'Pay in · Pay out · Close register', opener: 'opened 14:40' });
+});
+
+test('drawerVerbs offers the last closure and opening with no session, and the way back to a count', () => {
+  expect(drawerVerbs({ session: null })).toEqual({ verbs: 'Last closure · Open register' });
+  expect(drawerVerbs({ session: { status: 'counting', opened_at_gmt: new Date(2026, 9, 6, 8, 0).toISOString(), opened_by: '2',
+    counting_started_at_gmt: new Date(2026, 9, 6, 9, 5).toISOString() } }, () => 'Ann'))
+    .toEqual({ verbs: 'Counting since 09:05 · back to the count' });
+});
+
+function hhmm(iso: string) {
+  const date = new Date(iso);
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+async function openSessionAndSheet() {
+  const app = await setup();
+  act(() => app.register.setSetting(true));
+  await act(async () => { await app.register.actions.openSession({ expectedFloatMinor: 10000, countedFloatMinor: 10000 }); });
+  await waitFor(() => expect(app.register.session?.status).toBe('open'));
+  fireEvent.click(screen.getByTestId('register-bar-avatar'));
+  return app;
+}
+
+test('the drawer door names its verbs and opener, and opens the register panel (wide)', async () => {
+  const app = await openSessionAndSheet();
+  const door = await screen.findByTestId('user-sheet-drawer');
+  expect(door.getAttribute('role')).toBe('button');
+  expect(door.getAttribute('aria-label')).toBe('In the drawer, $100.00');
+  expect(within(screen.getByTestId('user-sheet-drawer-verbs')).getByText('Pay in · Pay out · Close register')).not.toBeNull();
+  expect(within(door).getByText(`opened ${hhmm(app.register.session!.opened_at_gmt)} by Paul`)).not.toBeNull();
+  expect(screen.queryByTestId('register-panel')).toBeNull();
+  fireEvent.click(door);
+  await waitFor(() => expect(screen.queryByTestId('user-sheet')).toBeNull());
+  expect(await screen.findByTestId('register-panel')).not.toBeNull();
+}, 20_000);
+
+test('on a narrow screen the drawer door opens the cart so the register panel shows', async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 600, height: 800, scale: 1, fontScale: 1 });
+  await openSessionAndSheet();
+  expect(screen.queryByText('Back to products')).toBeNull();
+  fireEvent.click(await screen.findByTestId('user-sheet-drawer'));
+  expect(await screen.findByTestId('register-panel')).not.toBeNull();
+  expect(screen.getByText('Back to products')).not.toBeNull();
+}, 20_000);
+
+test('while a payment blocks the sheet the drawer door is disabled and pressing it does nothing', () => {
+  const onOpenDrawer = vi.fn();
+  const sheet = (blockedReason?: string) => <><CashierSheet name="Bob Ross" cashiers={[]} onSwitch={() => {}} onAddAnother={() => {}}
+    onSignOut={() => {}} drawer={{ figure: '$12.00', verbs: 'Pay in · Pay out · Close register' }} onOpenDrawer={onOpenDrawer}
+    blockedReason={blockedReason} /><PortalHost /></>;
+  // The avatar is disabled while blocked, so open the sheet first, then block it (the sheet keeps its open state).
+  const { rerender } = render(sheet());
+  fireEvent.click(screen.getByTestId('register-bar-avatar'));
+  rerender(sheet('Finish or cancel the payment first.'));
+  const door = screen.getByTestId('user-sheet-drawer');
+  expect(door.getAttribute('aria-disabled')).toBe('true');
+  fireEvent.click(door);
+  expect(onOpenDrawer).not.toHaveBeenCalled();
+  expect(screen.getByTestId('user-sheet')).not.toBeNull();
+});
+
+test('without onOpenDrawer the drawer block shows the figure only and is not a button', () => {
+  render(<><CashierSheet name="Bob Ross" cashiers={[]} onSwitch={() => {}} onAddAnother={() => {}} onSignOut={() => {}}
+    drawer={{ figure: '$12.00', verbs: 'Pay in · Pay out · Close register', opener: 'opened 10:00 by Bob' }} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('register-bar-avatar'));
+  const block = screen.getByTestId('user-sheet-drawer');
+  expect(within(block).getByText('$12.00')).not.toBeNull();
+  expect(block.getAttribute('role')).toBeNull();
+  expect(screen.queryByTestId('user-sheet-drawer-verbs')).toBeNull();
+  expect(screen.queryByText('opened 10:00 by Bob')).toBeNull();
+});
+
 test("the sheet shows this cashier's sales today and the drawer while a session is open", async () => {
   const app = await setup();
   act(() => app.register.setSetting(true));
@@ -127,6 +207,7 @@ test('with register sessions off the sheet shows sales today but no drawer', asy
   fireEvent.click(screen.getByTestId('register-bar-avatar'));
   expect(await within(await screen.findByTestId('user-sheet-sales-today')).findByText('$3.00')).not.toBeNull();
   expect(screen.queryByTestId('user-sheet-drawer')).toBeNull();
+  expect(screen.queryByTestId('user-sheet-drawer-verbs')).toBeNull();
 }, 20_000);
 
 test('the sheet names the store, bands the hand-off and links to WordPress admin', async () => {
