@@ -15,6 +15,7 @@ import { searchProducts, sortProducts } from '@tallyui/pos';
 import type { ProductSort } from '@tallyui/pos';
 import { resolveStock, STOCK_LABEL } from '../lib/products/resolve-stock';
 import type { StockState } from '../lib/products/resolve-stock';
+import { AreaHeader } from './area-header';
 
 // v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
 const SEARCH_DEBOUNCE_MS = 250;
@@ -176,10 +177,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   return (
     <ConnectorProvider connector={connector} traitContext={{ currency }}>
       <View testID="screen-products" className="flex-1 bg-background">
-        <View className="flex-row items-center justify-between p-4">
-          <Text accessibilityRole="header">Products</Text>
-          <Button testID="products-back" onPress={onBack}><Text>Back</Text></Button>
-        </View>
+        <AreaHeader title="Products" backTestID="products-back" onBack={onBack} />
         <View className="px-4 pb-2">
           <SearchInput testID="search-products" value={term} onChangeText={setTerm} placeholder="Search products" />
         </View>

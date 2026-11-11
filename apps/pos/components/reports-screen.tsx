@@ -26,6 +26,7 @@ import { SalesTable } from './sales-table';
 import { Segmented } from './segmented';
 import { SessionCard } from './session-card';
 import { TillStrip } from './till-strip';
+import { AreaHeader } from './area-header';
 
 export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }: {
   storeName: string; currency: string; locale?: string; onBack(): void;
@@ -107,10 +108,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
 
   return (
     <View className="flex-1 bg-background" dataSet={reprint ? { print: 'hide' } : undefined}>
-      <View className="flex-row items-center justify-between p-4">
-        <Text accessibilityRole="header">Reports</Text>
-        <Button testID="reports-back" onPress={onBack}><Text>Back</Text></Button>
-      </View>
+      <AreaHeader title="Reports" backTestID="reports-back" onBack={onBack} gap={false} />
       <ScrollView contentContainerClassName="gap-4 p-4">
         <TillStrip orders={orders} currency={currency} locale={locale} resolveCashierName={resolveCashierName}
           onPrintXReport={printXReport} onReprint={reprintClosure} onOpenClosure={closure => setOpenClosureId(closure.id)} />

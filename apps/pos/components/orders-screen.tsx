@@ -11,6 +11,7 @@ import { OrderDetailSheet } from './order-detail';
 import { ReceiptPrintSheet } from './receipt-print-sheet';
 import { ReceiptZoom } from './receipt-zoom';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
+import { AreaHeader } from './area-header';
 
 // The till id; the bound register is the drawer.
 const REGISTER_ID = 'web';
@@ -92,10 +93,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName }: {
   </> : undefined;
   return (
     <View className="flex-1 bg-background">
-      <View className="flex-row items-center justify-between p-4">
-        <Text accessibilityRole="header">Orders</Text>
-        <Button testID="orders-back" onPress={onBack}><Text>Back</Text></Button>
-      </View>
+      <AreaHeader title="Orders" backTestID="orders-back" onBack={onBack} />
       {outbox.enabled && !opened && !viewing && <View className="px-4 pb-2"><SearchInput testID="search-orders" value={term} onChangeText={setTerm} placeholder="Search Orders" /></View>}
       {outbox.enabled
         ? opened
