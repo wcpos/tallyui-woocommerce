@@ -112,7 +112,7 @@ afterEach(() => {
 
 test('barcode Enter adds Espresso, shows feedback and clears search', () => {
   render(<SaleScreen {...props} products={[products[0], products[1], shirt]} />);
-  const input = screen.getByPlaceholderText('Search name, SKU or barcode') as HTMLInputElement;
+  const input = screen.getByPlaceholderText('Search products') as HTMLInputElement;
   fireEvent.change(input, { target: { value: '2000000000015' } });
   fireEvent.keyDown(input, { key: 'Enter' });
   expect(cartTabCount()).toBe('1');
@@ -122,7 +122,7 @@ test('barcode Enter adds Espresso, shows feedback and clears search', () => {
 
 test('submitting the same barcode twice adds two items', () => {
   render(<SaleScreen {...props} products={[products[0], products[1], shirt]} />);
-  const input = screen.getByPlaceholderText('Search name, SKU or barcode');
+  const input = screen.getByPlaceholderText('Search products');
   for (let i = 0; i < 2; i++) {
     fireEvent.change(input, { target: { value: '2000000000015' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -132,7 +132,7 @@ test('submitting the same barcode twice adds two items', () => {
 
 test('a variation barcode adds the exact option without opening the chooser', () => {
   render(<SaleScreen {...props} products={[products[0], products[1], shirt]} />);
-  const input = screen.getByPlaceholderText('Search name, SKU or barcode');
+  const input = screen.getByPlaceholderText('Search products');
   fireEvent.change(input, { target: { value: '2000000000138' } });
   fireEvent.keyDown(input, { key: 'Enter' });
   expect(screen.queryByText('Choose an option')).toBeNull();
@@ -142,7 +142,7 @@ test('a variation barcode adds the exact option without opening the chooser', ()
 
 test('a variable parent barcode opens the chooser without adding', () => {
   render(<SaleScreen {...props} products={[products[0], products[1], shirt]} />);
-  const input = screen.getByPlaceholderText('Search name, SKU or barcode');
+  const input = screen.getByPlaceholderText('Search products');
   fireEvent.change(input, { target: { value: '2000000000121' } });
   fireEvent.keyDown(input, { key: 'Enter' });
   expect(screen.getByText('Choose an option')).not.toBeNull();
@@ -151,7 +151,7 @@ test('a variable parent barcode opens the chooser without adding', () => {
 
 test('an unknown barcode stays in search and reports no match', () => {
   render(<SaleScreen {...props} products={[products[0], products[1], shirt]} />);
-  const input = screen.getByPlaceholderText('Search name, SKU or barcode') as HTMLInputElement;
+  const input = screen.getByPlaceholderText('Search products') as HTMLInputElement;
   fireEvent.change(input, { target: { value: '999999999' } });
   fireEvent.keyDown(input, { key: 'Enter' });
   expect(productsPane().getByText('Barcode not found — 999999999')).not.toBeNull();
@@ -161,7 +161,7 @@ test('an unknown barcode stays in search and reports no match', () => {
 
 test('an out-of-stock barcode reports stock and adds nothing', () => {
   render(<SaleScreen {...props} products={[{ ...products[0], stock_status: 'outofstock', stock_quantity: 0 }]} />);
-  const input = screen.getByPlaceholderText('Search name, SKU or barcode') as HTMLInputElement;
+  const input = screen.getByPlaceholderText('Search products') as HTMLInputElement;
   fireEvent.change(input, { target: { value: '2000000000015' } });
   fireEvent.keyDown(input, { key: 'Enter' });
   expect(productsPane().getByText('Espresso out of stock')).not.toBeNull();
@@ -171,7 +171,7 @@ test('an out-of-stock barcode reports stock and adds nothing', () => {
 
 test('several barcode matches report the count and keep the code in search', () => {
   render(<SaleScreen {...props} products={[products[0], { ...products[0], id: 980, name: 'Espresso Twin' }]} />);
-  const input = screen.getByPlaceholderText('Search name, SKU or barcode') as HTMLInputElement;
+  const input = screen.getByPlaceholderText('Search products') as HTMLInputElement;
   fireEvent.change(input, { target: { value: '2000000000015' } });
   fireEvent.keyDown(input, { key: 'Enter' });
   expect(productsPane().getByText('Several matches: 2 products found — 2000000000015')).not.toBeNull();
@@ -188,7 +188,7 @@ test('with scan sound on, an added product plays success and a parent or unknown
   installFakeAudio();
   localStorage.setItem(SCAN_SOUND_KEY, JSON.stringify({ enabled: true, theme: 'classic' }));
   render(<SaleScreen {...props} products={[products[0], products[1], shirt]} />);
-  const input = screen.getByPlaceholderText('Search name, SKU or barcode');
+  const input = screen.getByPlaceholderText('Search products');
   scanInto(input, '2000000000015');
   expect(productsPane().getByText('Espresso added to cart')).not.toBeNull();
   expect(tones()).toEqual(['sine 880', 'sine 1320']);
@@ -208,7 +208,7 @@ test('with scan sound on, a scanned product the cart refuses plays failure, not 
   installFakeAudio();
   localStorage.setItem(SCAN_SOUND_KEY, JSON.stringify({ enabled: true, theme: 'classic' }));
   render(<SaleScreen {...props} products={[{ ...products[0], price: '1e307', regular_price: '1e307', on_sale: false }]} />);
-  scanInto(screen.getByPlaceholderText('Search name, SKU or barcode'), '2000000000015');
+  scanInto(screen.getByPlaceholderText('Search products'), '2000000000015');
   expect(productsPane().getByText('Price must be integer minor units')).not.toBeNull();
   expect(screen.queryByText('Espresso added to cart')).toBeNull();
   expect(tones()).toEqual(['square 330', 'square 220']);
@@ -217,7 +217,7 @@ test('with scan sound on, a scanned product the cart refuses plays failure, not 
 test('with scan sound off, a scan plays nothing', () => {
   installFakeAudio();
   render(<SaleScreen {...props} products={[products[0], products[1], shirt]} />);
-  const input = screen.getByPlaceholderText('Search name, SKU or barcode');
+  const input = screen.getByPlaceholderText('Search products');
   scanInto(input, '2000000000015');
   scanInto(input, '999999999');
   expect(productsPane().getByText('Barcode not found — 999999999')).not.toBeNull();
@@ -257,7 +257,7 @@ test('narrow: adds, opens, changes quantity, removes and returns to products', (
   expect(screen.getByText('Scan or tap a product to start a sale.')).not.toBeNull();
   openProductsTab();
   expect(paneShown('products')).toBe(true);
-  expect(screen.getByPlaceholderText('Search name, SKU or barcode')).not.toBeNull();
+  expect(screen.getByPlaceholderText('Search products')).not.toBeNull();
   expect(productsPane().getByText('Espresso')).not.toBeNull();
   expect(cartTabCount()).toBe('New');
 });
@@ -547,7 +547,7 @@ test('a real setUnitPrice refusal stays in the price popover without closing it'
 test('wide: the grid and cart render together at 900px and Cold Brew costs $4.00', () => {
   vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
   render(<SaleScreen {...props} />);
-  expect(screen.getByPlaceholderText('Search name, SKU or barcode')).not.toBeNull();
+  expect(screen.getByPlaceholderText('Search products')).not.toBeNull();
   expect(screen.getByText('Scan or tap a product to start a sale.')).not.toBeNull();
   // The phone tab bar is the narrow layout's alone.
   expect(screen.queryByTestId('pos-tab-bar')).toBeNull();

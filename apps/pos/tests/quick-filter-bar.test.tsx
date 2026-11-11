@@ -97,7 +97,7 @@ test('pressing another quick filter replaces the first', () => {
 test('a quick filter with a search fills the search box', () => {
   render(<CatalogueView {...props} />);
   fireEvent.click(screen.getByTestId('quick-filter-cheap'));
-  expect((screen.getByPlaceholderText('Search name, SKU or barcode') as HTMLInputElement).value).toBe('Esp');
+  expect((screen.getByPlaceholderText('Search products') as HTMLInputElement).value).toBe('Esp');
   expect(screen.getByText('Espresso')).not.toBeNull();
   expect(screen.queryByText('Cold Brew')).toBeNull();
   expect(screen.queryByText('T-Shirt')).toBeNull();
@@ -106,7 +106,7 @@ test('a quick filter with a search fills the search box', () => {
 test('typing in search turns the active quick filter off but keeps its filters', () => {
   render(<CatalogueView {...props} />);
   fireEvent.click(screen.getByTestId('quick-filter-sale'));
-  const search = screen.getByPlaceholderText('Search name, SKU or barcode');
+  const search = screen.getByPlaceholderText('Search products');
   fireEvent.change(search, { target: { value: 'Cold' } });
   expect(screen.getByTestId('quick-filter-sale').getAttribute('aria-pressed')).toBe('false');
   expect(screen.getByText('Cold Brew')).not.toBeNull();
@@ -123,7 +123,7 @@ test('the quick filter sort does not change the saved sort', () => {
 
 test('a table header sort replaces the quick filter sort', () => {
   const { container } = render(<CatalogueView {...props} />);
-  fireEvent.click(screen.getByTestId('view-toggle-table'));
+  fireEvent.click(screen.getByTestId('view-mode-toggle'));
   fireEvent.click(screen.getByTestId('quick-filter-coffee'));
   expect(container.textContent!.indexOf('Espresso')).toBeLessThan(container.textContent!.indexOf('Cold Brew'));
   fireEvent.click(screen.getByTestId('product-table-sort-name'));
