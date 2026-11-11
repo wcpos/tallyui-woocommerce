@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import type { ComponentProps, JSX, ReactNode } from 'react';
-import { TextInput, View } from 'react-native';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { Path } from 'react-native-svg';
 import type { RxCollection } from 'rxdb';
-import { Button, Cart, createSvgIcon, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, IconButton, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SettingsGroup, Text } from '@tallyui/components';
+import { Button, Cart, createSvgIcon, Dialog, DialogContent, DialogTitle, IconButton, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SettingsGroup, Text, XIcon } from '@tallyui/components';
 import { useRegister } from '../lib/register/register-context';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { CartAddMenu } from './cart-add-menu';
@@ -15,10 +15,32 @@ import type { CartSettings } from '../lib/sale/cart-settings';
 import { AutoPrintReceiptSetting } from './auto-print-setting';
 import { RECEIPT_SETTINGS_DEFAULTS, saveReceiptSettings } from '../lib/receipts/receipt-settings';
 
-const SettingsIcon = createSvgIcon('SettingsIcon', () => <>
-  <Path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-  <Path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" />
+// v2's UISettingsDialog trigger is the `filters` icon; in tabler, v2's default set, that is `adjustments-horizontal`.
+const FiltersIcon = createSvgIcon('FiltersIcon', () => <>
+  <Path d="M12 6a2 2 0 1 0 4 0a2 2 0 1 0-4 0M4 6h8m4 0h4" />
+  <Path d="M6 12a2 2 0 1 0 4 0a2 2 0 1 0-4 0m-2 0h2m4 0h10" />
+  <Path d="M15 18a2 2 0 1 0 4 0a2 2 0 1 0-4 0M4 18h11m4 0h1" />
 </>);
+
+// v2's UISettingsDialog is a full-height `lg` (512px) side panel; DrawerSheet's FRONT_DRAWER is the same trick.
+const SHEET = 'top-0 h-full w-[512px] max-w-full translate-x-0 translate-y-0 gap-4 rounded-none border-0 border-border bg-card p-0 py-4';
+const CART_SHEET: Record<PanelPosition, string> = { left: `left-0 right-auto border-r ${SHEET}`, right: `left-auto right-0 border-l ${SHEET}` };
+
+/** A full-width two-cell segmented control, as v2's FormSegmentedControl draws it; the chosen cell is tinted. */
+function SegmentedRow({ title, testID, cells }: {
+  title: string; testID?: string; cells: { testID: string; label: string; selected: boolean; onPress(): void }[];
+}): JSX.Element {
+  return <View className="gap-1">
+    <View className="px-4 py-2"><Text className="text-sm font-semibold text-foreground">{title}</Text></View>
+    <View testID={testID} role="tablist" aria-label={title} className="min-h-11 flex-row overflow-hidden rounded-lg border border-border bg-card">
+      {cells.map((cell, i) => <Pressable key={cell.testID} testID={cell.testID} role="tab" aria-selected={cell.selected} onPress={cell.onPress}
+        className={'flex-1 items-center justify-center px-3 py-1.5 web:hover:bg-accent active:opacity-70'
+          + (i > 0 ? ' border-l border-border' : '') + (cell.selected ? ' bg-primary/10' : '')}>
+        <Text className={'text-base ' + (cell.selected ? 'text-primary' : 'text-foreground')}>{cell.label}</Text>
+      </Pressable>)}
+    </View>
+  </View>;
+}
 
 export function CartSettingsDialog({ position, onPositionChange, settings, onSettingsChange }: {
   position: PanelPosition;                     // the PRODUCTS side (AppCatalogueViewState.position)
@@ -28,57 +50,54 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
 }): JSX.Element {
   const [open, setOpen] = useState(false);
   const register = useRegister();
+  // v2's usePanelSide('cart') docks the cart's panels opposite the cart, so on the products side: `position`.
+  const side = position;
   return <>
-    <IconButton testID="cart-settings-button" accessibilityLabel="Cart settings" onPress={() => setOpen(true)}><SettingsIcon size={20} /></IconButton>
+    <IconButton testID="cart-settings-button" accessibilityLabel="Cart settings" onPress={() => setOpen(true)}><FiltersIcon size={20} /></IconButton>
     {open && <Dialog open onOpenChange={next => { if (!next) setOpen(false); }}>
-      <DialogContent testID="cart-settings">
-        <DialogHeader><DialogTitle>Cart Settings</DialogTitle></DialogHeader>
-        <SettingsGroup title="Panel position">
+      <DialogContent testID="cart-settings" dataSet={{ side }} className={CART_SHEET[side]}>
+        <View className="flex-row items-center justify-between px-4">
+          <DialogTitle>Cart Settings</DialogTitle>
+          <IconButton variant="ghost" size="sm" testID="cart-settings-x" accessibilityLabel="Close" onPress={() => setOpen(false)}><XIcon size={16} /></IconButton>
+        </View>
+        <ScrollView className="flex-1" contentContainerClassName="gap-4 px-4 py-1">
           {/* Cart left puts the products on the right (v2 pos-columns: productsOnRight = cart position left). */}
-          <View testID="cart-setting-panel-position" className="flex-row gap-4">
-            <Button testID="cart-setting-panel-position-left" variant={position === 'right' ? 'default' : 'outline'}
-              aria-selected={position === 'right'}
-              onPress={() => onPositionChange('right')}><Text>Cart left</Text></Button>
-            <Button testID="cart-setting-panel-position-right" variant={position === 'left' ? 'default' : 'outline'}
-              aria-selected={position === 'left'}
-              onPress={() => onPositionChange('left')}><Text>Cart right</Text></Button>
-          </View>
-        </SettingsGroup>
-        <SettingsGroup title="Open orders position">
-          <View className="flex-row gap-4">
-            <Button testID="cart-setting-open-orders-top" variant={settings.openOrdersPosition === 'top' ? 'default' : 'outline'}
-              aria-selected={settings.openOrdersPosition === 'top'}
-              onPress={() => onSettingsChange({ ...settings, openOrdersPosition: 'top' })}><Text>Top</Text></Button>
-            <Button testID="cart-setting-open-orders-bottom" variant={settings.openOrdersPosition === 'bottom' ? 'default' : 'outline'}
-              aria-selected={settings.openOrdersPosition === 'bottom'}
-              onPress={() => onSettingsChange({ ...settings, openOrdersPosition: 'bottom' })}><Text>Bottom</Text></Button>
-          </View>
-        </SettingsGroup>
-        <SettingsGroup title="Sort items">
-          <Select value={{ value: settings.sortLines, label: LINE_SORTS.find(sort => sort.id === settings.sortLines)!.label }}
-            onValueChange={option => { if (option) onSettingsChange({ ...settings, sortLines: normalizeLineSort(option.value) }); }}>
-            <SelectTrigger testID="cart-sort-items"><SelectValue /></SelectTrigger>
-            <SelectContent><SelectGroup>
-              {LINE_SORTS.map(({ id, label }) => <SelectItem key={id} value={id} label={label}
-                testID={`cart-sort-items-option-${id}`}><Text>{label}</Text></SelectItem>)}
-            </SelectGroup></SelectContent>
-          </Select>
-          <Text testID="cart-sort-items-hint" className="text-sm text-muted-foreground">Fees and shipping always stay last</Text>
-        </SettingsGroup>
-        {/* Remount on any key change, so the slots re-read the stored keys and a refusal clears. */}
-        <QuickDiscountsSetting key={settings.quickDiscounts.join(',')} keys={settings.quickDiscounts}
-          onChange={next => onSettingsChange({ ...settings, quickDiscounts: next })} />
-        <AutoPrintReceiptSetting />
-        {/* The register sessions switch, once under the cart; RegisterSwitch renders nothing without a register. */}
-        {register && <SettingsGroup title="Register sessions"><RegisterSwitch /></SettingsGroup>}
-        <DialogFooter>
-          <Button testID="ui-settings-restore-defaults" variant="destructive" onPress={() => {
+          <SegmentedRow title="Panel position" testID="cart-setting-panel-position" cells={[
+            { testID: 'cart-setting-panel-position-left', label: 'Cart left', selected: position === 'right', onPress: () => onPositionChange('right') },
+            { testID: 'cart-setting-panel-position-right', label: 'Cart right', selected: position === 'left', onPress: () => onPositionChange('left') },
+          ]} />
+          <SegmentedRow title="Open orders position" cells={[
+            { testID: 'cart-setting-open-orders-top', label: 'Top', selected: settings.openOrdersPosition === 'top',
+              onPress: () => onSettingsChange({ ...settings, openOrdersPosition: 'top' }) },
+            { testID: 'cart-setting-open-orders-bottom', label: 'Bottom', selected: settings.openOrdersPosition === 'bottom',
+              onPress: () => onSettingsChange({ ...settings, openOrdersPosition: 'bottom' }) },
+          ]} />
+          <SettingsGroup title="Sort items">
+            <Select value={{ value: settings.sortLines, label: LINE_SORTS.find(sort => sort.id === settings.sortLines)!.label }}
+              onValueChange={option => { if (option) onSettingsChange({ ...settings, sortLines: normalizeLineSort(option.value) }); }}>
+              <SelectTrigger testID="cart-sort-items"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectGroup>
+                {LINE_SORTS.map(({ id, label }) => <SelectItem key={id} value={id} label={label}
+                  testID={`cart-sort-items-option-${id}`}><Text>{label}</Text></SelectItem>)}
+              </SelectGroup></SelectContent>
+            </Select>
+            <Text testID="cart-sort-items-hint" className="text-sm text-muted-foreground">Fees and shipping always stay last</Text>
+          </SettingsGroup>
+          {/* Remount on any key change, so the slots re-read the stored keys and a refusal clears. */}
+          <QuickDiscountsSetting key={settings.quickDiscounts.join(',')} keys={settings.quickDiscounts}
+            onChange={next => onSettingsChange({ ...settings, quickDiscounts: next })} />
+          <AutoPrintReceiptSetting />
+          {/* The register sessions switch, once under the cart; RegisterSwitch renders nothing without a register. */}
+          {register && <SettingsGroup title="Register sessions"><RegisterSwitch /></SettingsGroup>}
+        </ScrollView>
+        <View className="flex-row justify-between border-t border-border px-4 pt-4">
+          <Button testID="ui-settings-restore-defaults" variant="outline" className="border-destructive" onPress={() => {
             onPositionChange(CATALOGUE_VIEW_DEFAULTS.position);
             onSettingsChange(CART_SETTINGS_DEFAULTS);
             saveReceiptSettings(RECEIPT_SETTINGS_DEFAULTS);
-          }}><Text>Restore Default Settings</Text></Button>
-          <Button testID="ui-settings-close" onPress={() => setOpen(false)}><Text>Close</Text></Button>
-        </DialogFooter>
+          }}><Text className="text-destructive">Restore Default Settings</Text></Button>
+          <Button testID="ui-settings-close" variant="outline" onPress={() => setOpen(false)}><Text>Close</Text></Button>
+        </View>
       </DialogContent>
     </Dialog>}
   </>;
@@ -101,7 +120,11 @@ function parseQuickDiscount(text: string): number | undefined | null {
  */
 function QuickDiscountsSetting({ keys, onChange }: { keys: readonly number[]; onChange(next: number[]): void }): JSX.Element {
   const [refused, setRefused] = useState<number | null>(null);
-  const [drafts, setDrafts] = useState(() => Array.from({ length: QUICK_DISCOUNT_SLOTS }, (_, i) => keys[i] === undefined ? '' : String(keys[i])));
+  const stored = (i: number) => keys[i] === undefined ? '' : String(keys[i]);
+  const [drafts, setDrafts] = useState(() => Array.from({ length: QUICK_DISCOUNT_SLOTS }, (_, i) => stored(i)));
+  // The slot being typed in. At rest a slot reads as v2's key (PriceKeypad rest="key": `−5%`, a blank `–`);
+  // a refused entry stays on show until it is fixed, as v2's keypad stays open on a refusal.
+  const [editing, setEditing] = useState<number | null>(null);
   const commit = (index: number) => {
     const parsed = parseQuickDiscount(drafts[index]);
     if (parsed === null) { setRefused(index); return; }
@@ -114,13 +137,18 @@ function QuickDiscountsSetting({ keys, onChange }: { keys: readonly number[]; on
       : 'No quick keys. The price keypad shows the digits only.';
   return <SettingsGroup title="Quick Discounts">
     <View testID="cart-setting-quick-discounts" className="m-2 h-12 flex-row overflow-hidden rounded-md border border-border bg-card">
-      {drafts.map((draft, i) => <View key={i} className={i > 0 ? 'flex-1 border-l border-border' : 'flex-1'}>
-        <TextInput testID={`cart-setting-quick-discount-${i}`} accessibilityLabel={`Quick discount ${i + 1}`}
-          keyboardType="numeric" aria-invalid={refused === i} value={draft}
-          onChangeText={text => setDrafts(prev => prev.map((d, j) => j === i ? text : d))}
-          onBlur={() => commit(i)} onSubmitEditing={() => commit(i)}
-          className="h-full min-w-0 px-3 text-center text-foreground" />
-      </View>)}
+      {drafts.map((draft, i) => {
+        const typing = editing === i || refused === i;
+        return <View key={i} className={i > 0 ? 'flex-1 border-l border-border' : 'flex-1'}>
+          <TextInput testID={`cart-setting-quick-discount-${i}`} accessibilityLabel={`Quick discount ${i + 1}`}
+            keyboardType="numeric" aria-invalid={refused === i} placeholder="–"
+            value={typing ? draft : keys[i] === undefined ? '' : `−${keys[i]}%`}
+            onFocus={() => { if (refused !== i) setDrafts(prev => prev.map((d, j) => j === i ? stored(i) : d)); setEditing(i); }}
+            onChangeText={text => { setEditing(i); setDrafts(prev => prev.map((d, j) => j === i ? text : d)); }}
+            onBlur={() => { setEditing(null); commit(i); }} onSubmitEditing={() => commit(i)}
+            className={'h-full min-w-0 px-3 text-center ' + (typing ? 'text-foreground' : 'font-medium text-primary placeholder:text-muted-foreground')} />
+        </View>;
+      })}
     </View>
     <Text testID="cart-setting-quick-discounts-hint" role={refused !== null ? 'alert' : undefined}
       className={`px-3 pb-2 text-sm ${refused !== null ? 'text-destructive' : 'text-muted-foreground'}`}>{description}</Text>

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
@@ -232,6 +233,7 @@ const slot = (i: number) => screen.getByTestId(`cart-setting-quick-discount-${i}
 const slots = () => [0, 1, 2].map(i => slot(i).value);
 const storedKeys = () => JSON.parse(localStorage.getItem(CART_SETTINGS_KEY) ?? '{}').quickDiscounts;
 function enter(i: number, value: string) {
+  fireEvent.focus(slot(i));
   fireEvent.change(slot(i), { target: { value } });
   fireEvent.blur(slot(i));
 }
@@ -240,20 +242,20 @@ test('Quick Discounts shows the three keys and writes a changed or emptied slot 
   renderCart();
   fireEvent.click(screen.getByTestId('cart-settings-button'));
   expect(within(screen.getByTestId('cart-settings')).getByText('Quick Discounts')).not.toBeNull();
-  expect(slots()).toEqual(['5', '10', '15']);
+  expect(slots()).toEqual(['−5%', '−10%', '−15%']);
   expect(slot(0).getAttribute('aria-label')).toBe('Quick discount 1');
   expect(slot(2).getAttribute('aria-label')).toBe('Quick discount 3');
   expect(screen.getByTestId('cart-setting-quick-discounts-hint').textContent)
     .toBe('As the cashier sees them on the price keypad. Tap a key to change it.');
   enter(1, '20');
   expect(storedKeys()).toEqual([5, 20, 15]);
-  expect(slots()).toEqual(['5', '20', '15']);
+  expect(slots()).toEqual(['−5%', '−20%', '−15%']);
   enter(0, '');
   expect(storedKeys()).toEqual([20, 15]);
-  expect(slots()).toEqual(['20', '15', '']);
+  expect(slots()).toEqual(['−20%', '−15%', '']);
   enter(1, '0');
   expect(storedKeys()).toEqual([20]);
-  expect(slots()).toEqual(['20', '', '']);
+  expect(slots()).toEqual(['−20%', '', '']);
   expect(JSON.parse(localStorage.getItem(CART_SETTINGS_KEY)!).sortLines).toBe('newest_top');
 });
 
@@ -288,9 +290,9 @@ test('Restore Default Settings brings back the 5, 10 and 15 quick discounts', ()
   localStorage.setItem(CART_SETTINGS_KEY, '{"sortLines":"name","openOrdersPosition":"bottom","quickDiscounts":[20]}');
   renderCart();
   fireEvent.click(screen.getByTestId('cart-settings-button'));
-  expect(slots()).toEqual(['20', '', '']);
+  expect(slots()).toEqual(['−20%', '', '']);
   fireEvent.click(screen.getByTestId('ui-settings-restore-defaults'));
-  expect(slots()).toEqual(['5', '10', '15']);
+  expect(slots()).toEqual(['−5%', '−10%', '−15%']);
   expect(storedKeys()).toEqual([5, 10, 15]);
 });
 
@@ -307,4 +309,74 @@ test("a line's Price form shows the quick discounts from Cart Settings and follo
   expect(storedKeys()).toEqual([20]);
   fireEvent.click(screen.getByTestId('ui-settings-close'));
   expect(keys()).toEqual(['−20%']);
+});
+
+test.each([
+  ['the ✕', () => fireEvent.click(screen.getByTestId('cart-settings-x'))],
+  ['Close', () => fireEvent.click(screen.getByTestId('ui-settings-close'))],
+  ['Escape', () => fireEvent.keyDown(screen.getByTestId('cart-settings'), { key: 'Escape' })],
+] as const)('%s closes the Cart Settings sheet', (_how, close) => {
+  renderCart();
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  expect(screen.getByTestId('cart-settings-x').getAttribute('aria-label')).toBe('Close');
+  close();
+  expect(screen.queryByTestId('cart-settings')).toBeNull();
+});
+
+test.each(['left', 'right'] as const)('with the products on the %s, the sheet docks over them as v2 docks it', position => {
+  renderCart({ position });
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  expect(screen.getByTestId('cart-settings').getAttribute('data-side')).toBe(position);
+});
+
+function PositionHarness() {
+  const [position, setPosition] = useState<PanelPosition>('left');
+  return <Harness position={position} onPositionChange={setPosition} />;
+}
+
+test('pressing a Panel position cell selects it and moves the sheet to the products side', () => {
+  render(<><TaxProvider ratesPpm={{}} pricesIncludeTax={false}><PositionHarness /></TaxProvider><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  const cell = (side: string) => screen.getByTestId(`cart-setting-panel-position-${side}`);
+  expect(cell('right').getAttribute('aria-selected')).toBe('true');
+  fireEvent.click(cell('left'));
+  expect(cell('left').getAttribute('aria-selected')).toBe('true');
+  expect(cell('right').getAttribute('aria-selected')).toBe('false');
+  expect(screen.getByTestId('cart-settings').getAttribute('data-side')).toBe('right');
+  fireEvent.click(cell('right'));
+  expect(cell('right').getAttribute('aria-selected')).toBe('true');
+  expect(screen.getByTestId('cart-settings').getAttribute('data-side')).toBe('left');
+});
+
+test('pressing an Open orders position cell selects it and saves it', () => {
+  renderCart();
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  const cell = (where: string) => screen.getByTestId(`cart-setting-open-orders-${where}`);
+  const savedPosition = () => JSON.parse(localStorage.getItem(CART_SETTINGS_KEY) ?? '{}').openOrdersPosition;
+  fireEvent.click(cell('top'));
+  expect(cell('top').getAttribute('aria-selected')).toBe('true');
+  expect(cell('bottom').getAttribute('aria-selected')).toBe('false');
+  expect(savedPosition()).toBe('top');
+  fireEvent.click(cell('bottom'));
+  expect(cell('bottom').getAttribute('aria-selected')).toBe('true');
+  expect(cell('top').getAttribute('aria-selected')).toBe('false');
+  expect(savedPosition()).toBe('bottom');
+});
+
+test('a quick discount slot reads as its key at rest and as the plain number while it is edited', () => {
+  renderCart();
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  expect(slots()).toEqual(['−5%', '−10%', '−15%']);
+  fireEvent.focus(slot(0));
+  expect(slot(0).value).toBe('5');
+  expect(slots().slice(1)).toEqual(['−10%', '−15%']);
+  fireEvent.change(slot(0), { target: { value: '20' } });
+  expect(slot(0).value).toBe('20');
+  fireEvent.blur(slot(0));
+  expect(storedKeys()).toEqual([20, 10, 15]);
+  expect(slots()).toEqual(['−20%', '−10%', '−15%']);
+  fireEvent.focus(slot(2));
+  fireEvent.blur(slot(2));
+  expect(slots()).toEqual(['−20%', '−10%', '−15%']);
+  expect(storedKeys()).toEqual([20, 10, 15]);
 });
