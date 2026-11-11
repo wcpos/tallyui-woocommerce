@@ -47,11 +47,36 @@ const quickFilters: QuickFilter[] = [
   { id: 'cheap', type: 'quick', label: 'Under 5', conditions: [{ field: 'price', value: { max: 5 } }] },
 ];
 
-test('the customise button shows with no quick filters and opens an empty dialog', () => {
+// v2's entry: Product settings › Customise filter bar.
+function openFilterBar(): void {
+  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
+  fireEvent.click(screen.getByTestId('customize-filter-bar'));
+}
+
+test('the chip row holds the chips and quick filters, and no filter bar button', () => {
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  const row = screen.getByTestId('catalogue-chip-row');
+  expect(within(row).getByTestId('filter-chips')).not.toBeNull();
+  expect(within(row).getByTestId('quick-filter-bar')).not.toBeNull();
+  expect(screen.queryByTestId('filter-bar-customize')).toBeNull();
+  expect(screen.queryByText('Filter bar')).toBeNull();
+});
+
+test('Product settings shows the Filter bar section; Customise filter bar closes the sheet and opens the dialog', () => {
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
+  const section = screen.getByTestId('catalogue-settings-filter-bar');
+  expect(within(section).getByText('Filter bar')).not.toBeNull();
+  expect(within(section).getByText('Choose which filters appear on the bar and add quick filters that apply several conditions at once.')).not.toBeNull();
+  fireEvent.click(within(section).getByTestId('customize-filter-bar'));
+  expect(screen.queryByTestId('catalogue-settings')).toBeNull();
+  expect(within(screen.getByTestId('filter-bar-modal')).getByText('Filter bar')).not.toBeNull();
+});
+
+test('Customise filter bar opens an empty dialog with no quick filters', () => {
   localStorage.removeItem(QUICK_FILTERS_KEY);
   render(<><CatalogueView {...props} /><PortalHost /></>);
-  expect(screen.getByTestId('filter-bar-customize')).not.toBeNull();
-  fireEvent.click(screen.getByTestId('filter-bar-customize'));
+  openFilterBar();
   expect(within(screen.getByTestId('filter-bar-modal')).getByText('Filter bar')).not.toBeNull();
   expect(screen.getByTestId('filter-bar-hint')).not.toBeNull();
   expect(screen.queryAllByTestId(/^filter-bar-item-/)).toHaveLength(0);
@@ -59,7 +84,7 @@ test('the customise button shows with no quick filters and opens an empty dialog
 
 test('the list shows each quick filter with its summary in bar order', () => {
   render(<><CatalogueView {...props} /><PortalHost /></>);
-  fireEvent.click(screen.getByTestId('filter-bar-customize'));
+  openFilterBar();
   expect(screen.getAllByTestId(/^filter-bar-item-/).map(row => row.getAttribute('data-testid')))
     .toEqual(['filter-bar-item-sale', 'filter-bar-item-cheap']);
   expect(screen.getByTestId('filter-bar-item-cheap').textContent).toContain('Under 5');
@@ -68,7 +93,7 @@ test('the list shows each quick filter with its summary in bar order', () => {
 
 test('adding a quick filter saves it to the bar and storage', () => {
   render(<><CatalogueView {...props} /><PortalHost /></>);
-  fireEvent.click(screen.getByTestId('filter-bar-customize'));
+  openFilterBar();
   fireEvent.click(screen.getByTestId('filter-bar-add-quick-filter'));
   fireEvent.change(screen.getByTestId('quick-filter-name'), { target: { value: 'Coffee' } });
   fireEvent.click(screen.getByTestId('quick-filter-add-condition'));
@@ -91,7 +116,7 @@ test('adding a quick filter saves it to the bar and storage', () => {
 
 test('editing a quick filter replaces it in place', () => {
   render(<><CatalogueView {...props} /><PortalHost /></>);
-  fireEvent.click(screen.getByTestId('filter-bar-customize'));
+  openFilterBar();
   fireEvent.click(screen.getByTestId('filter-bar-edit-sale'));
   fireEvent.change(screen.getByTestId('quick-filter-name'), { target: { value: '' } });
   fireEvent.change(screen.getByTestId('quick-filter-name'), { target: { value: 'Sale items' } });
@@ -107,7 +132,7 @@ test('editing a quick filter replaces it in place', () => {
 test('cancel in the editor changes nothing', () => {
   const saved = localStorage.getItem(QUICK_FILTERS_KEY);
   render(<><CatalogueView {...props} /><PortalHost /></>);
-  fireEvent.click(screen.getByTestId('filter-bar-customize'));
+  openFilterBar();
   fireEvent.click(screen.getByTestId('filter-bar-edit-sale'));
   fireEvent.change(screen.getByTestId('quick-filter-name'), { target: { value: 'Unsaved name' } });
   fireEvent.click(screen.getByTestId('quick-filter-cancel'));
@@ -117,7 +142,7 @@ test('cancel in the editor changes nothing', () => {
 
 test('delete asks first and cancel keeps the quick filter', () => {
   render(<><CatalogueView {...props} /><PortalHost /></>);
-  fireEvent.click(screen.getByTestId('filter-bar-customize'));
+  openFilterBar();
   fireEvent.click(screen.getByTestId('filter-bar-delete-sale'));
   expect(screen.getByText('Delete quick filter?')).not.toBeNull();
   expect(screen.getByTestId('filter-bar-item-sale')).not.toBeNull();
@@ -130,7 +155,7 @@ test('delete asks first and cancel keeps the quick filter', () => {
 
 test('confirming a delete removes it from the list, the bar and storage', () => {
   render(<><CatalogueView {...props} /><PortalHost /></>);
-  fireEvent.click(screen.getByTestId('filter-bar-customize'));
+  openFilterBar();
   fireEvent.click(screen.getByTestId('filter-bar-delete-sale'));
   expect(screen.getByText('Delete quick filter?')).not.toBeNull();
   fireEvent.click(screen.getByTestId('filter-bar-delete-confirm'));
@@ -141,7 +166,7 @@ test('confirming a delete removes it from the list, the bar and storage', () => 
 
 test('deleting the quick filter being edited closes the editor', () => {
   render(<><CatalogueView {...props} /><PortalHost /></>);
-  fireEvent.click(screen.getByTestId('filter-bar-customize'));
+  openFilterBar();
   fireEvent.click(screen.getByTestId('filter-bar-edit-sale'));
   expect(screen.getByTestId('quick-filter-name')).not.toBeNull();
   fireEvent.click(screen.getByTestId('filter-bar-delete-sale'));
@@ -152,7 +177,7 @@ test('deleting the quick filter being edited closes the editor', () => {
 
 test('move buttons reorder the list, the bar and storage', () => {
   render(<><CatalogueView {...props} /><PortalHost /></>);
-  fireEvent.click(screen.getByTestId('filter-bar-customize'));
+  openFilterBar();
   expect(screen.getByTestId('filter-bar-move-up-sale').getAttribute('aria-disabled')).toBe('true');
   expect(screen.getByTestId('filter-bar-move-down-cheap').getAttribute('aria-disabled')).toBe('true');
   fireEvent.click(screen.getByTestId('filter-bar-move-down-sale'));
@@ -171,7 +196,7 @@ test('move buttons reorder the list, the bar and storage', () => {
 
 test('close shuts the dialog', () => {
   render(<><CatalogueView {...props} /><PortalHost /></>);
-  fireEvent.click(screen.getByTestId('filter-bar-customize'));
+  openFilterBar();
   expect(screen.getByTestId('filter-bar-modal')).not.toBeNull();
   fireEvent.click(screen.getByTestId('filter-bar-modal-close'));
   expect(screen.queryByTestId('filter-bar-modal')).toBeNull();
@@ -181,7 +206,7 @@ test('deleting the applied quick filter clears its filters', () => {
   render(<><CatalogueView {...props} /><PortalHost /></>);
   fireEvent.click(screen.getByTestId('quick-filter-sale'));
   expect(screen.queryByText('T-Shirt')).toBeNull();
-  fireEvent.click(screen.getByTestId('filter-bar-customize'));
+  openFilterBar();
   fireEvent.click(screen.getByTestId('filter-bar-delete-sale'));
   fireEvent.click(screen.getByTestId('filter-bar-delete-confirm'));
   fireEvent.click(screen.getByTestId('filter-bar-modal-close'));
@@ -193,7 +218,7 @@ test('deleting the applied quick filter clears its filters', () => {
 test('changing the applied quick filter conditions clears its filters', () => {
   render(<><CatalogueView {...props} /><PortalHost /></>);
   fireEvent.click(screen.getByTestId('quick-filter-sale'));
-  fireEvent.click(screen.getByTestId('filter-bar-customize'));
+  openFilterBar();
   fireEvent.click(screen.getByTestId('filter-bar-edit-sale'));
   fireEvent.click(screen.getByTestId('quick-filter-toggle-on_sale-no'));
   fireEvent.click(screen.getByTestId('quick-filter-save'));
@@ -207,7 +232,7 @@ test('changing the applied quick filter conditions clears its filters', () => {
 test('renaming the applied quick filter keeps it applied', () => {
   render(<><CatalogueView {...props} /><PortalHost /></>);
   fireEvent.click(screen.getByTestId('quick-filter-sale'));
-  fireEvent.click(screen.getByTestId('filter-bar-customize'));
+  openFilterBar();
   fireEvent.click(screen.getByTestId('filter-bar-edit-sale'));
   fireEvent.change(screen.getByTestId('quick-filter-name'), { target: { value: 'Sale items' } });
   fireEvent.click(screen.getByTestId('quick-filter-save'));
@@ -220,7 +245,7 @@ test('renaming the applied quick filter keeps it applied', () => {
 test('reordering keeps the applied quick filter applied', () => {
   render(<><CatalogueView {...props} /><PortalHost /></>);
   fireEvent.click(screen.getByTestId('quick-filter-sale'));
-  fireEvent.click(screen.getByTestId('filter-bar-customize'));
+  openFilterBar();
   fireEvent.click(screen.getByTestId('filter-bar-move-down-sale'));
   fireEvent.click(screen.getByTestId('filter-bar-modal-close'));
   expect(screen.getByTestId('quick-filter-sale').getAttribute('aria-pressed')).toBe('true');
@@ -229,7 +254,7 @@ test('reordering keeps the applied quick filter applied', () => {
 
 test('editing another quick filter loads it into the editor', () => {
   render(<><CatalogueView {...props} /><PortalHost /></>);
-  fireEvent.click(screen.getByTestId('filter-bar-customize'));
+  openFilterBar();
   fireEvent.click(screen.getByTestId('filter-bar-edit-sale'));
   expect((screen.getByTestId('quick-filter-name') as HTMLInputElement).value).toBe('On sale');
   fireEvent.click(screen.getByTestId('filter-bar-edit-cheap'));

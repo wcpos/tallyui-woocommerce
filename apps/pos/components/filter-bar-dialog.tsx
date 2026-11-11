@@ -11,7 +11,10 @@ import { QuickFilterEditor } from './quick-filter-editor';
 
 type Editing = { mode: 'new' } | { mode: 'edit'; quickFilter: QuickFilter } | null;
 
-export function FilterBarDialog({ quickFilters, onChange, products, connector, currency, baselineSort }: {
+/** Controlled: v2 opens it from Product settings › Customise filter bar (ui-settings-form.tsx), not from the chip row. */
+export function FilterBarDialog({ open, onOpenChange, quickFilters, onChange, products, connector, currency, baselineSort }: {
+  open: boolean;
+  onOpenChange(open: boolean): void;
   quickFilters: QuickFilter[];
   onChange(next: QuickFilter[]): void;
   products: any[];
@@ -19,7 +22,6 @@ export function FilterBarDialog({ quickFilters, onChange, products, connector, c
   currency: string;
   baselineSort: ProductSort | null;
 }): JSX.Element {
-  const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Editing>(null);
   const [deleting, setDeleting] = useState<QuickFilter | null>(null);
   const { height } = useWindowDimensions();
@@ -28,7 +30,7 @@ export function FilterBarDialog({ quickFilters, onChange, products, connector, c
     return (money && formatMoney(money)) ?? String(value);
   };
   function close() {
-    setOpen(false);
+    onOpenChange(false);
     setEditing(null);
     setDeleting(null);
   }
@@ -46,8 +48,6 @@ export function FilterBarDialog({ quickFilters, onChange, products, connector, c
   }
 
   return <>
-    <Button variant="outline" testID="filter-bar-customize" accessibilityLabel="Customise filter bar"
-      onPress={() => setOpen(true)}><Text>Filter bar</Text></Button>
     {open && <Dialog open onOpenChange={next => { if (!next) close(); }}>
       <DialogContent testID="filter-bar-modal" className="w-full max-w-3xl">
         <DialogHeader><DialogTitle>Filter bar</DialogTitle></DialogHeader>

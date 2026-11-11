@@ -56,9 +56,11 @@ export function CatalogueSettingsButton({ onPress }: { onPress(): void }): JSX.E
 }
 
 /** The sheet itself. Its open state lives with the catalogue, since the search row that holds the trigger remounts with the view. */
-export function CatalogueDisplayOptions({ state, onChange, products, quickFilterCount, open, onOpenChange: setOpen }: {
+export function CatalogueDisplayOptions({ state, onChange, products, quickFilterCount, open, onOpenChange: setOpen, onCustomiseFilterBar }: {
   state: AppCatalogueViewState; onChange(next: AppCatalogueViewState): void; products: any[]; quickFilterCount: number;
   open: boolean; onOpenChange(open: boolean): void;
+  /** Opens the filter bar dialog; the sheet closes first, as v2's "Customise filter bar" does. */
+  onCustomiseFilterBar(): void;
 }): JSX.Element {
   const tileSize = typeof state.gridColumns === 'number' ? state.gridColumns : 4;
   const categoryCount = termOptions(products, 'categories', 'category').length;
@@ -154,6 +156,15 @@ export function CatalogueDisplayOptions({ state, onChange, products, quickFilter
                 onCheckedChange={next => onChange({ ...state, columns: state.columns.map(c => c.id === id ? { ...c, visible: next } : c) })} />;
             })}
           </View>}
+          <View testID="catalogue-settings-filter-bar" className="gap-2 px-1 pt-2">
+            <View className="gap-0.5">
+              <Text role="heading" aria-level={2} className="text-sm font-semibold">Filter bar</Text>
+              <Text className="text-sm text-muted-foreground">Choose which filters appear on the bar and add quick filters that apply several conditions at once.</Text>
+            </View>
+            <Button variant="outline" testID="customize-filter-bar" onPress={() => { setOpen(false); onCustomiseFilterBar(); }}>
+              <Text>Customise filter bar</Text>
+            </Button>
+          </View>
         </ScrollView>
         <View className="flex-row justify-between border-t border-border px-4 pt-4">
           {/* The panel position belongs to Cart Settings (v2 pos-cart.position), so restoring the products keeps it. */}
