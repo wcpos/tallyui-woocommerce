@@ -120,6 +120,13 @@ async function applyCoupon(code: string) {
   fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
 }
 
+// RNW's Pressable takes its new onPress in a passive effect, and under CI load the chip can show before that effect runs:
+// + then parks the order from the render before the coupon. The empty act waits a task, after React's pending effects.
+async function parkWithPlus() {
+  await act(async () => {});
+  await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
+}
+
 function total() {
   const footer = within(screen.getByTestId('cart-footer'));
   return within(footer.getByText('Total').parentElement!);
@@ -239,7 +246,7 @@ test('a parked sale keeps its coupon', async () => {
     await addEspresso();
     await applyCoupon('save10');
     await screen.findByTestId('coupon-chip-save10');
-    await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
+    await parkWithPlus();
     await waitFor(() => expect(parkedTabs()).toHaveLength(1));
     expect((await parkedCarts.find().exec())[0].toJSON().coupons).toEqual(['save10']);
     await waitFor(() => expect(screen.queryByTestId('coupon-chip-save10')).toBeNull());
@@ -251,7 +258,7 @@ test('a parked sale keeps its coupon', async () => {
 
     await (await db.coupons.findOne('c-1').exec())!.remove();
     await waitFor(() => expect(screen.queryByTestId('parked-sales')).toBeNull());
-    await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
+    await parkWithPlus();
     await waitFor(() => expect(parkedTabs()).toHaveLength(1));
     openParkedList();
     fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' }));
