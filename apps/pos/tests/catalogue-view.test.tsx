@@ -352,7 +352,7 @@ test('column switches update the table immediately and survive a remount', () =>
   expect(screen.getByTestId('product-table-sort-category')).not.toBeNull();
   fireEvent.click(screen.getByTestId('catalogue-settings-button'));
   fireEvent.click(screen.getByRole('switch', { name: 'Show SKU' }));
-  fireEvent.click(screen.getByRole('switch', { name: 'Show Category' }));
+  fireEvent.click(screen.getByRole('switch', { name: 'Show Categories' }));
   expect(screen.getByTestId('product-table-sort-sku')).not.toBeNull();
   expect(screen.queryByTestId('product-table-sort-category')).toBeNull();
   expect(screen.getByText(products[0].sku)).not.toBeNull();
@@ -371,7 +371,7 @@ test('the name column switch is disabled and cannot hide the name', () => {
   localStorage.setItem(CATALOGUE_VIEW_KEY, '{"view":"table","browseBy":"all"}');
   render(<><CatalogueView {...props} /><PortalHost /></>);
   fireEvent.click(screen.getByTestId('catalogue-settings-button'));
-  const toggle = screen.getByRole('switch', { name: 'Show Name' });
+  const toggle = screen.getByRole('switch', { name: 'Show Product Name' });
   expect(toggle.getAttribute('aria-disabled')).toBe('true');
   fireEvent.click(toggle);
   expect(toggle.getAttribute('aria-checked')).toBe('true');
@@ -443,7 +443,7 @@ test('the SKU tile switch updates immediately, saves and survives a remount', ()
 test('category, barcode and stock switches show their tile fields', () => {
   render(<><CatalogueView {...props} /><PortalHost /></>);
   fireEvent.click(screen.getByTestId('catalogue-settings-button'));
-  for (const label of ['Category', 'Barcode', 'Stock']) {
+  for (const label of ['Categories', 'Barcode', 'Stock']) {
     fireEvent.click(screen.getByRole('switch', { name: `Show ${label} on tiles` }));
   }
   const tile = within(screen.getByTestId('product-tile-80'));
@@ -464,7 +464,7 @@ test('the price tile switch hides price and keeps name visible', () => {
 test('the name tile switch hides name and keeps price visible', () => {
   render(<><CatalogueView {...props} /><PortalHost /></>);
   fireEvent.click(screen.getByTestId('catalogue-settings-button'));
-  fireEvent.click(screen.getByRole('switch', { name: 'Show Name on tiles' }));
+  fireEvent.click(screen.getByRole('switch', { name: 'Show Product Name on tiles' }));
   const tile = within(screen.getByTestId('product-tile-80'));
   expect(tile.queryByText('Espresso')).toBeNull();
   expect(tile.getByText('$3.00')).not.toBeNull();

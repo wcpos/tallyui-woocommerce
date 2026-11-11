@@ -20,23 +20,24 @@ export type BrowseBy = (typeof BROWSE_BY)[number];
 // v2's DEFAULT_BROWSE_BY: a till opens on its categories until the cashier chooses.
 export const DEFAULT_BROWSE_BY: BrowseBy = 'categories';
 export interface AppCatalogueViewState extends CatalogueViewState { columns: CatalogueColumnSetting[]; tileFields: CatalogueTileFields; position: PanelPosition; width: number; showOutOfStock: boolean; browseBy: BrowseBy }
-// Stock and categories are columns here because ProductTable has no name sub-fields.
+// Stock and categories are columns here because ProductTable has no name sub-fields. Labels are v2's pos-products
+// labels (use-ui-label.ts): `name` is "Product Name", `category` is "Categories", in columns and tile fields alike.
 export const CATALOGUE_COLUMNS: { id: CatalogueColumnId; label: string; visible: boolean }[] = [
-  { id: 'name', label: 'Name', visible: true },
+  { id: 'name', label: 'Product Name', visible: true },
   { id: 'price', label: 'Price', visible: true },
   { id: 'stock', label: 'Stock', visible: true },
-  { id: 'category', label: 'Category', visible: true },
+  { id: 'category', label: 'Categories', visible: true },
   { id: 'sku', label: 'SKU', visible: false },
   { id: 'barcode', label: 'Barcode', visible: false },
 ];
 // Grid tile fields in WCPOS v2's order, with v2's defaults (name and price on). v2's Cost of Goods Sold field is
 // left out: the connector has no COGS trait.
 export const CATALOGUE_TILE_FIELDS: { id: CatalogueTileFieldId; label: string; visible: boolean }[] = [
-  { id: 'name', label: 'Name', visible: true },
+  { id: 'name', label: 'Product Name', visible: true },
   { id: 'price', label: 'Price', visible: true },
   { id: 'tax', label: 'Tax', visible: false },
   { id: 'on_sale', label: 'On Sale', visible: false },
-  { id: 'category', label: 'Category', visible: false },
+  { id: 'category', label: 'Categories', visible: false },
   { id: 'sku', label: 'SKU', visible: false },
   { id: 'barcode', label: 'Barcode', visible: false },
   { id: 'stock', label: 'Stock', visible: false },

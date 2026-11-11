@@ -26,9 +26,10 @@ const FolderIcon = createSvgIcon('FolderIcon', () => <>
 
 const STOCK_LABELS: Record<QuickFilterStockStatus, string> = { instock: 'In Stock', outofstock: 'Out of Stock', onbackorder: 'On Backorder' };
 
-/** v2's chip: fully rounded, primary ink and a light primary fill when on. */
-export function filterChipClassName(active: boolean): string {
-  return 'h-9 flex-row items-center gap-1.5 self-start rounded-full border px-3 ' + (active ? 'border-primary bg-primary/10' : 'border-border bg-card');
+/** v2's chip: fully rounded, primary ink and a light primary fill when on; v2's Chip `dimmed` is `opacity-45`. */
+export function filterChipClassName(active: boolean, dimmed = false): string {
+  return 'h-9 flex-row items-center gap-1.5 self-start rounded-full border px-3 ' + (active ? 'border-primary bg-primary/10' : 'border-border bg-card')
+    + (dimmed ? ' opacity-45' : '');
 }
 
 export function filterChipTextClassName(active: boolean): string {
@@ -55,10 +56,11 @@ export function termOptions(products: any[], field: 'categories' | 'tags', prefi
     .map(([id, name]) => ({ value: String(id), label: name, testID: `${prefix}-option-${id}` }));
 }
 
-function SelectChip({ field, icon: Icon, active, label, extra, selected, options, emptyText, onChoose, onRemove }: {
+function SelectChip({ field, icon: Icon, active, dimmed = false, label, extra, selected, options, emptyText, onChoose, onRemove }: {
   field: 'stock_status' | 'categories' | 'tags';
   icon: ComponentType<SvgIconProps>;
   active: boolean;
+  dimmed?: boolean;
   label: string;
   extra: number;
   selected: { value: string; label: string } | undefined;
@@ -67,8 +69,8 @@ function SelectChip({ field, icon: Icon, active, label, extra, selected, options
   onChoose(value: string): void;
   onRemove(): void;
 }): JSX.Element {
-  return <View className={filterChipClassName(active)}>
-    <Select value={selected} onValueChange={option => { if (option) onChoose(option.value); }}>
+  return <View className={filterChipClassName(active, dimmed)}>
+    <Select value={selected} disabled={dimmed} onValueChange={option => { if (option) onChoose(option.value); }}>
       <SelectTrigger testID={`filter-pill-${field}`} className="h-auto w-auto justify-start gap-1.5 rounded-none border-0 bg-transparent px-0 py-0">
         <Icon size={16} />
         <Text className={filterChipTextClassName(active)}>{label}</Text>
@@ -79,7 +81,7 @@ function SelectChip({ field, icon: Icon, active, label, extra, selected, options
           <SelectItem key={option.value} value={option.value} label={option.label} testID={option.testID}><Text>{option.label}</Text></SelectItem>)}
       </SelectGroup></SelectContent>
     </Select>
-    {active && <Pressable testID={`filter-pill-remove-${field}`} role="button" accessibilityLabel="Remove" hitSlop={8}
+    {active && !dimmed && <Pressable testID={`filter-pill-remove-${field}`} role="button" accessibilityLabel="Remove" hitSlop={8}
       onPress={onRemove}><XIcon size={14} /></Pressable>}
   </View>;
 }
@@ -88,9 +90,12 @@ export interface CatalogueFilterChipsProps {
   products: any[];
   filters: CatalogueFilters;
   onChange(next: CatalogueFilters): void;
+  /** v2's `level === 'variations'` (filter-bar.tsx): while a product is drilled into, every chip but Stock status is
+   * dimmed and opens nothing, since a product filter does not apply to its variations. */
+  dimmed?: boolean;
 }
 
-export function CatalogueFilterChips({ products, filters, onChange }: CatalogueFilterChipsProps): JSX.Element {
+export function CatalogueFilterChips({ products, filters, onChange, dimmed = false }: CatalogueFilterChipsProps): JSX.Element {
   const stock = filters.stock_status;
   const stockLabel = stock !== undefined && stock in STOCK_LABELS ? STOCK_LABELS[stock] : undefined;
   const onSale = filters.on_sale === true;
@@ -99,7 +104,7 @@ export function CatalogueFilterChips({ products, filters, onChange }: CatalogueF
     const ids = filters[field] ?? [];
     const firstId = ids[0];
     const label = firstId === undefined ? baseLabel : options.find(option => option.value === String(firstId))?.label ?? `#${firstId}`;
-    return <SelectChip field={field} icon={FolderIcon} active={ids.length > 0} label={label} extra={Math.max(ids.length - 1, 0)}
+    return <SelectChip field={field} icon={FolderIcon} active={ids.length > 0} dimmed={dimmed} label={label} extra={Math.max(ids.length - 1, 0)}
       selected={firstId === undefined ? undefined : { value: String(firstId), label }} options={options} emptyText={emptyText}
       onChoose={value => onChange({ ...filters, [field]: [Number(value)] })} onRemove={() => onChange(without(filters, field))} />;
   }
@@ -109,7 +114,8 @@ export function CatalogueFilterChips({ products, filters, onChange }: CatalogueF
       options={(Object.keys(STOCK_LABELS) as QuickFilterStockStatus[]).map(value => ({ value, label: STOCK_LABELS[value], testID: `stock-status-option-${value}` }))}
       onChoose={value => onChange({ ...filters, stock_status: value as QuickFilterStockStatus })}
       onRemove={() => onChange(without(filters, 'stock_status'))} />
-    <Pressable testID="filter-pill-on_sale" role="button" aria-pressed={onSale} className={filterChipClassName(onSale)}
+    <Pressable testID="filter-pill-on_sale" role="button" aria-pressed={onSale} disabled={dimmed}
+      className={filterChipClassName(onSale, dimmed)}
       onPress={() => onChange(onSale ? without(filters, 'on_sale') : { ...filters, on_sale: true })}>
       <CurrencyIcon size={16} />
       <Text className={filterChipTextClassName(onSale)}>On Sale</Text>

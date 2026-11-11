@@ -7,6 +7,8 @@ import { CatalogueView } from '../components/catalogue-view';
 import type { CatalogueViewProps } from '../components/catalogue-view';
 import { SaleScreen } from '../components/sale-screen';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { QUICK_FILTERS_KEY } from '../lib/catalogue/quick-filters';
+import { classesOf } from './classes-of';
 import { noTaxSettings } from './fixtures/store-settings';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
@@ -143,4 +145,47 @@ test('on the till a variation tile adds its variant to the cart, with no picker'
   fireEvent.click(screen.getByTestId('variation-tile-106'));
   expect(cartTabCount()).toBe('1');
   expect(screen.getByTestId('drill-back')).not.toBeNull();
+});
+
+// v2's filter-bar.tsx: `level === 'variations'` dims every chip but Stock status (Chip `dimmed`: opacity-45, disabled).
+test('while drilled in, the product filter chips are dimmed and disabled; pressing one leaves the filters alone', () => {
+  data.set(QUICK_FILTERS_KEY, JSON.stringify([{ id: 'sale', type: 'quick', label: 'Sale', conditions: [{ field: 'on_sale', value: true }] }]));
+  renderView();
+  drillIn();
+  const onSale = screen.getByTestId('filter-pill-on_sale');
+  expect(onSale.getAttribute('aria-disabled')).toBe('true');
+  expect(classesOf('filter-pill-on_sale')).toContain('opacity-45');
+  expect(screen.getByTestId('filter-pill-categories').getAttribute('aria-disabled')).toBe('true');
+  expect(screen.getByTestId('quick-filter-sale').getAttribute('aria-disabled')).toBe('true');
+  expect(screen.getByTestId('filter-pill-stock_status').getAttribute('aria-disabled')).toBeNull();
+  fireEvent.click(onSale);
+  fireEvent.click(screen.getByTestId('quick-filter-sale'));
+  expect(onSale.getAttribute('aria-pressed')).toBe('false');
+  expect(screen.getByTestId('drill-back')).not.toBeNull();
+  expect(variationTiles()).toEqual(['variation-tile-104', 'variation-tile-105', 'variation-tile-106']);
+});
+
+// v2's filter-bar.tsx:147-150: a dimmed chip opens nothing and has no ×; Stock status stays live, × and all.
+test('while drilled in, an active Category chip loses its ×, and In Stock keeps its own', () => {
+  render(<><CatalogueView connector={createWooCommerceConnector()} currency={stores[0].currency} products={[products[0], shirt]}
+    storeName={stores[0].name} cashierName="Paul" status="ready" onSignOut={() => {}} onAddEntry={vi.fn()} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('filter-pill-categories'));
+  fireEvent.click(screen.getByTestId('category-option-27'));
+  expect(screen.getByTestId('filter-pill-remove-categories')).not.toBeNull();
+  drillIn();
+  expect(screen.getByTestId('drill-back')).not.toBeNull();
+  expect(screen.getByTestId('filter-pill-categories').textContent).toBe('Merch');
+  expect(screen.queryByTestId('filter-pill-remove-categories')).toBeNull();
+  expect(screen.getByTestId('filter-pill-remove-stock_status')).not.toBeNull();
+});
+
+test('after the back chevron the chips work again', () => {
+  renderView();
+  drillIn();
+  fireEvent.click(screen.getByTestId('drill-back'));
+  const onSale = screen.getByTestId('filter-pill-on_sale');
+  expect(onSale.getAttribute('aria-disabled')).toBeNull();
+  expect(classesOf('filter-pill-on_sale')).not.toContain('opacity-45');
+  fireEvent.click(onSale);
+  expect(screen.getByTestId('filter-pill-on_sale').getAttribute('aria-pressed')).toBe('true');
 });
