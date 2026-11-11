@@ -22,6 +22,7 @@ import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeLeg } from './tender-helpers';
 import { parkedTabs } from './open-orders-helpers';
+import { sessionsOff } from './cart-head-helpers';
 
 // The register's column wraps the cart in a layout this harness doesn't need (as in register-session.test.tsx).
 vi.mock('@tallyui/components', async importOriginal => ({
@@ -46,6 +47,7 @@ beforeEach(() => {
     setItem: (key: string, value: string) => { data.set(key, value); },
     removeItem: (key: string) => { data.delete(key); },
   });
+  sessionsOff();
   const home = `https://shop.example/${crypto.randomUUID()}`;
   saveSession({
     site: { name: stores[0].name, home, wpApiUrl: `${home}/wp-json`, wcposApiUrl: `${home}/wp-json/wcpos/v2`, authUrl: `${home}/wcpos-auth/` },

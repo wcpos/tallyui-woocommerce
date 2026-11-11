@@ -10,6 +10,15 @@
 - Round 2: 6/45 (match 6, close 28, differs 3, missing 8)
 - Round 1: 0/45 (match 0, close 11, differs 23, missing 11)
 
+Register sessions: a front desk ruling of 2026-11-11 supersedes the
+2026-10-06 ruling that made sessions opt-in. Paul's target is "look and
+function like demo.wcpos.com/pos", so Tally Woo now turns sessions on for a
+till with no saved choice. A till that saved a choice keeps it. The switch
+is also in Settings › General, where it can be reached while the register
+is closed. The default is set in this app only; the shared TallyUI packages
+keep theirs, so Medusa POS and Vendure POS do not change. A4 and C7 keep
+their round 4 status until the next round re-captures them.
+
 The score is the number of `match` rows out of all rows in the four tables.
 Rows under "Not compared this round" are not scored.
 
@@ -141,12 +150,12 @@ A phone cart was voided, and no order was left from it.
 
 The gaps that can be built here, in the order a cashier would notice them.
 
-1. **Register sessions** (A4, C7). Turn sessions on by default, so the
-   cashier sheet shows "In the drawer" from the start. Keep the sessions
-   switch reachable while the register is closed. Show the close step as a
+1. **Register sessions** (A4, C7). Done: sessions are on by default, and the
+   switch is in Settings › General (see the note at the top). Left: show the close step as a
    right side sheet with the drawer amount in large type, "Session sales
    $N · N sales", Expected in the drawer and Other tenders as rows, and
-   Cancel / Print X-report / Close register at the foot.
+   Cancel / Print X-report / Close register at the foot. That waits on
+   TallyUI: `RegisterPanel` has no side variant (gap file, row C7).
 2. **Catalogue polish** (A5, A10, A12). Keep two-line tile names clear of
    the image scrim. Make Sort By a select with a chevron and give the
    Variations Popover option its normal weight. On the phone, let Tile

@@ -5,7 +5,9 @@ import type { CustomerSummary } from '@tallyui/pos';
 import type { CurrencyPosition, StoreInfo } from '../../lib/catalogue/store-info';
 import type { CustomerSource } from '../../lib/customers/customer-source';
 import type { DefaultCustomerSetting } from '../../lib/customers/default-customer';
+import { useRegister } from '../../lib/register/register-context';
 import { CustomerPicker } from '../customer-picker';
+import { RegisterSwitch } from '../register-controls';
 
 export function wooSettingsUrl(siteHome: string): string {
   return `${siteHome.replace(/\/+$/, '')}/wp-admin/admin.php?page=wc-settings`;
@@ -84,6 +86,7 @@ export function GeneralSettings(props: {
   const href = wooSettingsUrl(props.siteHome);
   const address = props.store.address;
   const format = props.store.numberFormat;
+  const register = useRegister();
   return (
     <View testID="screen-settings-general" className="gap-5">
       <SettingsGroup title="Store" testID="settings-general-store">
@@ -109,6 +112,9 @@ export function GeneralSettings(props: {
           value={format?.decimals === undefined ? undefined : String(format.decimals)} href={href} />
         <LockedRow testID="settings-general-locked-price_thousand_sep" label="Thousand Separator" value={format?.thousandSeparator} href={href} />
       </SettingsGroup>
+      {/* The same switch as Cart Settings, read from the one RegisterProvider at the root layout, so the two agree. It
+          is here because a closed register replaces the cart, and Cart Settings with it. Open or closed, it shows. */}
+      {register && <SettingsGroup title="Register sessions" testID="settings-general-register"><RegisterSwitch /></SettingsGroup>}
     </View>
   );
 }

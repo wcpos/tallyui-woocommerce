@@ -24,7 +24,7 @@ import { RegisterProvider, useRegister } from '../lib/register/register-context'
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
-import { openAddMenuItem } from './cart-head-helpers';
+import { openAddMenuItem, sessionsOff } from './cart-head-helpers';
 // Applying a coupon awaits an RxDB lookup, so the 1 s default async timeout flakes on CI.
 configure({ asyncUtilTimeout: 5_000 });
 
@@ -50,6 +50,7 @@ beforeEach(async () => {
   const data = new Map<string, string>();
   vi.stubGlobal('localStorage', { getItem: (key: string) => data.get(key) ?? null,
     setItem: (key: string, value: string) => { data.set(key, value); } });
+  sessionsOff();
   // Browse All products: the flat grid these tests tap.
   localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all' }));
   const home = `https://shop.example/${crypto.randomUUID()}`;

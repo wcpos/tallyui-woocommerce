@@ -16,6 +16,7 @@ import { cashierSalesTotal, drawerFigureText, drawerVerbs } from '../lib/cashier
 import { CashierSheet } from '../components/cashier-sheet';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { sessionsOff } from './cart-head-helpers';
 
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
@@ -24,6 +25,7 @@ beforeEach(() => {
     getItem: (key: string) => data.get(key) ?? null,
     setItem: (key: string, value: string) => { data.set(key, value); },
   });
+  sessionsOff();
   const home = `https://shop.example/${crypto.randomUUID()}`;
   saveSession({
     site: { name: stores[0].name, home, wpApiUrl: `${home}/wp-json`, wcposApiUrl: `${home}/wp-json/wcpos/v2`, authUrl: `${home}/wcpos-auth/` },
