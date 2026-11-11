@@ -418,8 +418,6 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       {width < 900 && message ? <Text>{message}</Text> : null}
       {sale.stage.kind === 'cart' ? (
         <>
-          {props.customers ? <CustomerPicker source={props.customers} customer={sale.order.customer ?? null} onChange={sale.setCustomer}
-            createBlockedReason={createCustomersBlockedReason(effective)} /> : null}
           <ParkedSales sale={sale} parked={summaries} onPark={onPark} onResume={onResume}
             onDiscard={onDiscard} currency={currency} open={parkedOpen} onOpenChange={setParkedOpen} />
           {/* M6's order notes can take the price-change reason via onPriceChange. */}
@@ -428,6 +426,9 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             afterSubtotal={couponsOffered && props.couponCollections ? <CouponRows sale={sale} /> : undefined}
             // v2's cart "+" menu hosts the order discount, charges and coupons (the Coupon side of Add discount).
             orderActions={false} coupons={props.couponCollections?.coupons ?? null} couponsOffered={couponsOffered}
+            // B5/B6: v2's cart head row starts with the customer chip; Add new customer is in the + menu.
+            customer={props.customers ? <CustomerPicker source={props.customers} customer={sale.order.customer ?? null} onChange={sale.setCustomer} /> : null}
+            customers={props.customers ?? null} createCustomersBlockedReason={createCustomersBlockedReason(effective)}
             checkout={checkout}
             position={viewState.position} onPositionChange={position => setViewState({ ...viewState, position })}
             openOrders={<OpenOrderTabs parked={parked} current={sale.order} currency={currency} locale={props.locale} onSelect={onResume} onNew={onPark} onError={setMessage}

@@ -14,7 +14,6 @@ import { PortalHost } from '@tallyui/primitives';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
-import { CREATE_CUSTOMERS_DENIED } from '../lib/auth/capabilities';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
@@ -55,46 +54,65 @@ beforeEach(() => {
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
+function renderPicker(customer: Customer | null = null) {
+  render(<><CustomerPicker source={source} customer={customer} onChange={onChange} /><PortalHost /></>);
+}
+
+// The chip, then the dropdown panel (v2 cart-header.tsx's Combobox of CustomerSearch withGuest).
 function openPicker(customer: Customer | null = null) {
-  render(<CustomerPicker source={source} customer={customer} onChange={onChange} />);
+  renderPicker(customer);
   fireEvent.click(screen.getByTestId('cart-customer-name'));
+  return within(screen.getByTestId('customer-select-panel'));
 }
 
 function typeQuery(value: string) {
-  fireEvent.change(screen.getByPlaceholderText('Search Customers'), { target: { value } });
+  fireEvent.change(within(screen.getByTestId('customer-select-panel')).getByPlaceholderText('Search Customers'), { target: { value } });
 }
 
-test('blocks new customers and shows the supplied reason', () => {
-  render(<CustomerPicker source={source} customer={null} onChange={onChange} createBlockedReason="Locked because" />);
-  fireEvent.click(screen.getByTestId('cart-customer-name'));
-  const button = screen.getByRole('button', { name: 'New customer' });
-  expect(button.getAttribute('aria-disabled')).toBe('true');
-  fireEvent.click(button);
-  expect(screen.queryByPlaceholderText('email@example.com')).toBeNull();
-  expect(screen.getByText('Locked because')).not.toBeNull();
+const dismissals = {
+  Escape: () => fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' }),
+  'an outside press': () => fireEvent.pointerDown(document.body),
+  'the chip again': () => fireEvent.click(screen.getByTestId('cart-customer-name')),
+};
+
+test('the panel has no create path: no New customer, no customer form and no Cancel', () => {
+  const panel = openPicker();
+  expect(panel.queryByRole('button', { name: 'New customer' })).toBeNull();
+  expect(panel.queryByPlaceholderText('email@example.com')).toBeNull();
+  expect(panel.queryByRole('button', { name: 'Cancel' })).toBeNull();
 });
 
-test('SaleScreen closes creation when cashier permissions have not been read', () => {
+test.each(['Escape', 'an outside press'] as const)('the panel drops over the cart, and %s closes it without changing the customer', async how => {
   render(<SaleScreen storeSettings={noTaxSettings} {...saleProps} customers={source} />);
+  fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByTestId('cart-customer-name'));
-  expect(screen.getByRole('button', { name: 'New customer' }).getAttribute('aria-disabled')).toBe('true');
-  expect(screen.getByText('Your permissions have not been read from the store.')).not.toBeNull();
+  const panel = within(screen.getByTestId('customer-select-panel'));
+  await panel.findByLabelText(annaLabel);
+  // A popover: the cart lines are still there under it, not pushed out by an inline list.
+  expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
+  expect(screen.getByTestId('cart-footer')).not.toBeNull();
+  if (how === 'Escape') dismissals.Escape();
+  else fireEvent.pointerDown(screen.getByTestId('cart-footer'));
+  expect(screen.queryByTestId('customer-select-panel')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Customer: Guest' })).not.toBeNull();
+  expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
 });
 
-test('SaleScreen allows a cashier with create_customers to open the form', () => {
-  render(<SaleScreen storeSettings={noTaxSettings} {...saleProps} customers={source} cashier={{ known: true, granted: ['create_customers'] }} />);
-  fireEvent.click(screen.getByTestId('cart-customer-name'));
-  const button = screen.getByRole('button', { name: 'New customer' });
-  expect(button.getAttribute('aria-disabled')).toBeNull();
-  fireEvent.click(button);
-  expect(screen.getByPlaceholderText('email@example.com')).not.toBeNull();
+test('a press inside the panel keeps it open', async () => {
+  const panel = openPicker();
+  await panel.findByLabelText(annaLabel);
+  fireEvent.pointerDown(panel.getByPlaceholderText('Search Customers'));
+  expect(screen.getByTestId('customer-select-panel')).not.toBeNull();
 });
 
-test('SaleScreen explains how to grant customer creation when the known list denies it', () => {
-  render(<SaleScreen storeSettings={noTaxSettings} {...saleProps} customers={source} cashier={{ known: true, granted: [] }} />);
-  fireEvent.click(screen.getByTestId('cart-customer-name'));
-  expect(screen.getByRole('button', { name: 'New customer' }).getAttribute('aria-disabled')).toBe('true');
-  expect(screen.getByText(CREATE_CUSTOMERS_DENIED)).not.toBeNull();
+test('the customer chip is in the cart head row, before the + menu', () => {
+  render(<SaleScreen storeSettings={noTaxSettings} {...saleProps} customers={source} />);
+  const head = screen.getByTestId('cart-head');
+  const chip = within(head).getByTestId('cart-customer-name');
+  expect(within(head).getByText('Customer')).not.toBeNull();
+  expect(chip.compareDocumentPosition(within(head).getByTestId('cart-add-menu')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  // Nothing customer-shaped is left above the cart head.
+  expect(screen.getAllByTestId('cart-customer-name')).toHaveLength(1);
 });
 
 test('searches from two trimmed characters and attaches the selected summary', async () => {
@@ -162,11 +180,12 @@ test('an empty default list says No customers found until the next request', asy
   expect(screen.queryByText('No customers found')).toBeNull();
 });
 
-test('closing before the default list arrives leaves nothing behind, and reopening loads afresh', async () => {
+test.each(Object.keys(dismissals) as (keyof typeof dismissals)[])('closing with %s before the default list arrives leaves nothing behind, and reopening loads afresh', async how => {
   let resolveDefault!: (customers: Customer[]) => void;
   search.mockImplementationOnce(() => new Promise(resolve => { resolveDefault = resolve; }));
   openPicker();
-  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  dismissals[how]();
+  expect(screen.queryByTestId('customer-select-panel')).toBeNull();
   await act(async () => { resolveDefault([gee]); });
   expect(screen.getByRole('button', { name: 'Customer: Guest' })).not.toBeNull();
   expect(screen.queryByPlaceholderText('Search Customers')).toBeNull();
@@ -211,47 +230,16 @@ test('a short query shows the default list and invalidates a pending search', as
   expect(search).toHaveBeenCalledTimes(3);
 });
 
-test('requires email, omits empty fields and attaches the created customer', async () => {
-  openPicker();
-  fireEvent.click(screen.getByRole('button', { name: 'New customer' }));
-  expect(screen.queryByPlaceholderText('Street address')).toBeNull();
-  fireEvent.change(screen.getByPlaceholderText('email@example.com'), { target: { value: '   ' } });
-  fireEvent.click(screen.getByText('Create customer'));
-  expect(screen.getByText('An email is required')).not.toBeNull();
-  expect(create).not.toHaveBeenCalled();
-  fireEvent.change(screen.getByPlaceholderText('email@example.com'), { target: { value: ' gee@example.invalid ' } });
-  fireEvent.change(screen.getByPlaceholderText('First name'), { target: { value: ' Gee ' } });
-  fireEvent.change(screen.getByPlaceholderText('Last name'), { target: { value: '  ' } });
-  fireEvent.click(screen.getByText('Create customer'));
-  await waitFor(() => expect(onChange).toHaveBeenCalledExactlyOnceWith(summary));
-  expect(create).toHaveBeenCalledExactlyOnceWith({ email: 'gee@example.invalid', firstName: 'Gee' });
-  expect(screen.queryByText('Create customer')).toBeNull();
-});
-
-test.each(['search', 'create'] as const)('failed %s keeps the attached customer and shows the message', async method => {
-  if (method === 'search') search.mockResolvedValueOnce([anna]);
-  source[method].mockRejectedValueOnce(new CustomerServiceError('network', 'Offline'));
-  openPicker(gee);
-  if (method === 'search') typeQuery('gee');
-  else {
-    fireEvent.click(screen.getByRole('button', { name: 'New customer' }));
-    fireEvent.change(screen.getByPlaceholderText('email@example.com'), { target: { value: 'gee@example.invalid' } });
-    fireEvent.click(screen.getByText('Create customer'));
-  }
-  expect(await screen.findByText("Could not reach the store's customers: Offline")).not.toBeNull();
+// The create tests (Add new customer) are in cart-add-menu.test.tsx: v2 creates from the cart's + menu.
+test('a failed search keeps the attached customer and shows the message in the panel', async () => {
+  search.mockResolvedValueOnce([anna]);
+  search.mockRejectedValueOnce(new CustomerServiceError('network', 'Offline'));
+  const panel = openPicker(gee);
+  typeQuery('gee');
+  expect(await panel.findByText("Could not reach the store's customers: Offline")).not.toBeNull();
   expect(onChange).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  dismissals.Escape();
   expect(screen.getByRole('button', { name: 'Customer: Gee Four' })).not.toBeNull();
-});
-
-test('a refused create shows the store message without changing the customer', async () => {
-  create.mockRejectedValueOnce(new CustomerServiceError('invalid', 'An account is already registered with your email address.'));
-  openPicker();
-  fireEvent.click(screen.getByRole('button', { name: 'New customer' }));
-  fireEvent.change(screen.getByPlaceholderText('email@example.com'), { target: { value: 'gee@example.invalid' } });
-  fireEvent.click(screen.getByText('Create customer'));
-  expect(await screen.findByText('The store refused: An account is already registered with your email address.')).not.toBeNull();
-  expect(onChange).not.toHaveBeenCalled();
 });
 
 test('unauthorized search asks for sign-in without showing the underlying error', async () => {
@@ -264,15 +252,15 @@ test('unauthorized search asks for sign-in without showing the underlying error'
 });
 
 test('Guest clears the attached customer', () => {
-  render(<CustomerPicker source={source} customer={gee} onChange={onChange} />);
+  renderPicker(gee);
   expect(screen.getByRole('button', { name: 'Customer: Gee Four' })).not.toBeNull();
   fireEvent.click(screen.getByTestId('cart-customer-name'));
-  fireEvent.click(screen.getByTestId('customer-option-guest'));
+  fireEvent.click(within(screen.getByTestId('customer-select-panel')).getByTestId('customer-option-guest'));
   expect(onChange).toHaveBeenCalledExactlyOnceWith(null);
 });
 
 test('a guest order shows the Customer label and a Guest chip', () => {
-  render(<CustomerPicker source={source} customer={null} onChange={onChange} />);
+  renderPicker();
   expect(screen.getByText('Customer')).not.toBeNull();
   const chip = screen.getByTestId('cart-customer-name');
   expect(within(chip).getByTestId('cart-customer-initials').textContent).toBe('GU');
@@ -281,7 +269,7 @@ test('a guest order shows the Customer label and a Guest chip', () => {
 });
 
 test('a customer chip shows initials and the name under the customer accessible name', () => {
-  render(<CustomerPicker source={source} customer={gee} onChange={onChange} />);
+  renderPicker(gee);
   const chip = screen.getByRole('button', { name: 'Customer: Gee Four' });
   expect(chip.getAttribute('data-testid')).toBe('cart-customer-name');
   expect(within(chip).getByTestId('cart-customer-initials').textContent).toBe('GF');
@@ -289,20 +277,21 @@ test('a customer chip shows initials and the name under the customer accessible 
 });
 
 test('the Guest option clears the customer and closes the panel', () => {
-  openPicker(gee);
-  expect(screen.getByPlaceholderText('Search Customers')).not.toBeNull();
-  fireEvent.click(screen.getByTestId('customer-option-guest'));
+  const panel = openPicker(gee);
+  expect(panel.getByPlaceholderText('Search Customers')).not.toBeNull();
+  fireEvent.click(panel.getByTestId('customer-option-guest'));
   expect(onChange).toHaveBeenCalledExactlyOnceWith(null);
-  expect(screen.queryByPlaceholderText('Search Customers')).toBeNull();
+  expect(screen.queryByTestId('customer-select-panel')).toBeNull();
 });
 
 test('a guest order still lists Guest first above Search Customers', () => {
-  openPicker();
-  const guest = screen.getByTestId('customer-option-guest');
+  const panel = openPicker();
+  const guest = panel.getByTestId('customer-option-guest');
   expect(guest.getAttribute('role')).toBe('button');
   expect(within(guest).getByText('GU')).not.toBeNull();
   expect(within(guest).getByText('Guest')).not.toBeNull();
-  expect(screen.getByPlaceholderText('Search Customers')).not.toBeNull();
+  const searchField = panel.getByPlaceholderText('Search Customers');
+  expect(guest.compareDocumentPosition(searchField) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
 test.each([undefined, null])('no customer controls without a source (%s)', customers => {
