@@ -37,10 +37,10 @@ import { ReceiptZoom } from './receipt-zoom';
 import { ReceiptPrintSheet } from './receipt-print-sheet';
 import { ReceiptPaidMoment } from './receipt-paid-moment';
 import { useReceiptSettings } from '../lib/receipts/receipt-settings';
-import { RegisterControls, RegisterSwitch } from './register-controls';
+import { RegisterControls } from './register-controls';
 import { CancelPaymentView } from './cancel-payment-view';
 import { CashierSheet, type CashierOption } from './cashier-sheet';
-import { CouponEntry, CouponRows } from './coupon-entry';
+import { CouponRows } from './coupon-entry';
 import { OpenOrderTabs } from './open-order-tabs';
 import { PanelResizeHandle } from './panel-resize-handle';
 import { CartWithSettings } from './cart-settings';
@@ -422,12 +422,12 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             createBlockedReason={createCustomersBlockedReason(effective)} /> : null}
           <ParkedSales sale={sale} parked={summaries} onPark={onPark} onResume={onResume}
             onDiscard={onDiscard} currency={currency} open={parkedOpen} onOpenChange={setParkedOpen} />
-          {/* Add coupon sits above the cart; WCPOS v2 has it in an add-items menu. Applied coupons are rows under Subtotal (afterSubtotal). */}
-          {couponsOffered && props.couponCollections ? <CouponEntry sale={sale} coupons={props.couponCollections.coupons} currency={currency} /> : null}
           {/* M6's order notes can take the price-change reason via onPriceChange. */}
           {/* B7: quantity and price open keypad popovers, as v2's cart/cells/quantity-keypad.tsx and cart/cells/price.tsx do. */}
           <CartWithSettings sale={{ ...sale, startTender: gatedStartTender }} canEditPrice lineEditor="popover" taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)}
             afterSubtotal={couponsOffered && props.couponCollections ? <CouponRows sale={sale} /> : undefined}
+            // v2's cart "+" menu hosts the order discount, charges and coupons (the Coupon side of Add discount).
+            orderActions={false} coupons={props.couponCollections?.coupons ?? null} couponsOffered={couponsOffered}
             checkout={checkout}
             position={viewState.position} onPositionChange={position => setViewState({ ...viewState, position })}
             openOrders={<OpenOrderTabs parked={parked} current={sale.order} currency={currency} locale={props.locale} onSelect={onResume} onNew={onPark} onError={setMessage}
@@ -519,7 +519,6 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     <View className="flex-1">
       <RegisterControls currency={currency} storeName={props.storeName} locale={props.locale} cartEmpty={!sale.order.lineItems.length}
         panelOpen={registerPanelOpen} onPanelOpenChange={setRegisterPanelOpen}>{cartPane}</RegisterControls>
-      <RegisterSwitch />
     </View>
   );
 

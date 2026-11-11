@@ -22,6 +22,7 @@ import { dayRange } from '../lib/reports/today-sales';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash, takeLeg } from './tender-helpers';
+import { toggleRegisterSessions } from './cart-head-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 
 beforeEach(() => {
@@ -82,7 +83,7 @@ async function payCash() {
 }
 
 async function openRegister(enable = true) {
-  if (enable) fireEvent.click(screen.getByRole('switch', { name: 'Use register sessions' }));
+  if (enable) toggleRegisterSessions();
   fireEvent.change(await screen.findByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
   await screen.findByTestId('cart-checkout');

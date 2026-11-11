@@ -1,13 +1,23 @@
 import { useState } from 'react';
 import type { ComponentProps, JSX, ReactNode } from 'react';
 import { TextInput, View } from 'react-native';
-import { Button, Cart, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SettingsGroup, Text } from '@tallyui/components';
+import { Path } from 'react-native-svg';
+import type { RxCollection } from 'rxdb';
+import { Button, Cart, createSvgIcon, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, IconButton, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SettingsGroup, Text } from '@tallyui/components';
+import { useRegister } from '../lib/register/register-context';
+import { CartAddMenu } from './cart-add-menu';
+import { RegisterSwitch } from './register-controls';
 import { CATALOGUE_VIEW_DEFAULTS } from '../lib/catalogue/catalogue-view-state';
 import type { PanelPosition } from '../lib/catalogue/catalogue-view-state';
 import { CART_SETTINGS_DEFAULTS, isQuickDiscount, LINE_SORTS, normalizeLineSort, QUICK_DISCOUNT_SLOTS, sortCartLines, useCartSettings } from '../lib/sale/cart-settings';
 import type { CartSettings } from '../lib/sale/cart-settings';
 import { AutoPrintReceiptSetting } from './auto-print-setting';
 import { RECEIPT_SETTINGS_DEFAULTS, saveReceiptSettings } from '../lib/receipts/receipt-settings';
+
+const SettingsIcon = createSvgIcon('SettingsIcon', () => <>
+  <Path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+  <Path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" />
+</>);
 
 export function CartSettingsDialog({ position, onPositionChange, settings, onSettingsChange }: {
   position: PanelPosition;                     // the PRODUCTS side (AppCatalogueViewState.position)
@@ -16,8 +26,9 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
   onSettingsChange(next: CartSettings): void;
 }): JSX.Element {
   const [open, setOpen] = useState(false);
+  const register = useRegister();
   return <>
-    <Button testID="cart-settings-button" variant="outline" onPress={() => setOpen(true)}><Text>Cart Settings</Text></Button>
+    <IconButton testID="cart-settings-button" accessibilityLabel="Cart settings" onPress={() => setOpen(true)}><SettingsIcon size={20} /></IconButton>
     {open && <Dialog open onOpenChange={next => { if (!next) setOpen(false); }}>
       <DialogContent testID="cart-settings">
         <DialogHeader><DialogTitle>Cart Settings</DialogTitle></DialogHeader>
@@ -57,6 +68,8 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
         <QuickDiscountsSetting key={settings.quickDiscounts.join(',')} keys={settings.quickDiscounts}
           onChange={next => onSettingsChange({ ...settings, quickDiscounts: next })} />
         <AutoPrintReceiptSetting />
+        {/* The register sessions switch, once under the cart; RegisterSwitch renders nothing without a register. */}
+        {register && <SettingsGroup title="Register sessions"><RegisterSwitch /></SettingsGroup>}
         <DialogFooter>
           <Button testID="ui-settings-restore-defaults" variant="destructive" onPress={() => {
             onPositionChange(CATALOGUE_VIEW_DEFAULTS.position);
@@ -117,15 +130,18 @@ export type CartWithSettingsProps = ComponentProps<typeof Cart> & {
   position: PanelPosition;
   onPositionChange(next: PanelPosition): void;
   openOrders?: ReactNode; // the open-order tab strip, placed by settings.openOrdersPosition
+  coupons?: RxCollection | null; // the synced coupons for the + menu's Coupon side
+  couponsOffered?: boolean;      // the sale screen's coupon gate
 };
 
-export function CartWithSettings({ position, onPositionChange, openOrders, sale, ...cartProps }: CartWithSettingsProps): JSX.Element {
+export function CartWithSettings({ position, onPositionChange, openOrders, coupons = null, couponsOffered = false, sale, ...cartProps }: CartWithSettingsProps): JSX.Element {
   const [settings, setSettings] = useCartSettings();
   const openOrdersStrip = <View testID="cart-open-orders">{openOrders}</View>;
   return <>
     {settings.openOrdersPosition === 'top' && openOrdersStrip}
-    {/* The cart's head row: v2 opens Cart Settings from the cart header (pos/cart/cart-header.tsx). */}
-    <View testID="cart-head" className="flex-row justify-end">
+    {/* The cart's head row: v2's cart header (pos/cart/cart-header.tsx) ends with the + menu and the Cart Settings icon. */}
+    <View testID="cart-head" className="flex-row items-center justify-end gap-1">
+      <CartAddMenu sale={sale} taxClasses={cartProps.taxClasses} coupons={coupons} couponsOffered={couponsOffered} />
       <CartSettingsDialog position={position} onPositionChange={onPositionChange} settings={settings} onSettingsChange={setSettings} />
     </View>
     {/* Sort a copy for display only: the order builder's lineItems keep the add order (receipts, parking, the order). */}

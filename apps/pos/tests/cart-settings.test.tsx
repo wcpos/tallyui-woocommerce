@@ -146,6 +146,15 @@ test('Cart left and Cart right show the side and report the products side', () =
   expect(onPositionChange).toHaveBeenLastCalledWith('left');
 });
 
+test('without a register provider, Cart Settings has no Register sessions group', () => {
+  renderCart();
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  const settings = within(screen.getByTestId('cart-settings'));
+  expect(settings.getByText('Panel position')).not.toBeNull();
+  expect(settings.queryByText('Register sessions')).toBeNull();
+  expect(settings.queryByRole('switch', { name: 'Use register sessions' })).toBeNull();
+});
+
 test('Restore Default Settings puts the cart right and newest at top and keeps the dialog open', () => {
   localStorage.setItem(CART_SETTINGS_KEY, '{"sortLines":"price"}');
   const onPositionChange = vi.fn();

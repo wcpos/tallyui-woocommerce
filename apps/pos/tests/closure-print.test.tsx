@@ -16,6 +16,7 @@ import { RegisterProvider, useRegister } from '../lib/register/register-context'
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
+import { toggleRegisterSessions } from './cart-head-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 
 beforeEach(() => {
@@ -70,7 +71,7 @@ async function payCash() {
 }
 
 async function openRegister() {
-  fireEvent.click(screen.getByRole('switch', { name: 'Use register sessions' }));
+  toggleRegisterSessions();
   fireEvent.change(await screen.findByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
   await screen.findByTestId('cart-checkout');
