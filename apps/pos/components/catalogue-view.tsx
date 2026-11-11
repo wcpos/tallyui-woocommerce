@@ -49,7 +49,6 @@ export interface CatalogueViewProps {
   onOpenCustomers?(): void;
   onOpenReports?(): void;
   onOpenHealth?(): void;
-  onOpenLogs?(): void;
   onOpenSettings?(): void;
   viewState?: AppCatalogueViewState;
   onViewStateChange?(next: AppCatalogueViewState): void;
@@ -62,7 +61,7 @@ export interface CatalogueViewProps {
 }
 
 export function CatalogueView({
-  connector, currency, products, storeName, cashierName, cashierControl, hideOfflineBadge, status, notice, onSignOut, onOpenOrders, onOpenCustomers, onOpenReports, onOpenHealth, onOpenLogs, onOpenSettings, onSelect, onScan, message,
+  connector, currency, products, storeName, cashierName, cashierControl, hideOfflineBadge, status, notice, onSignOut, onOpenOrders, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings, onSelect, onScan, message,
   viewState: controlledViewState, onViewStateChange,
   tax, inCartCounts, onSync,
 }: CatalogueViewProps): JSX.Element {
@@ -189,7 +188,7 @@ export function CatalogueView({
           </>} />
         <DrawerSheet open={drawerOpen} onOpenChange={setDrawerOpen}
           onOpenOrders={onOpenOrders} onOpenCustomers={onOpenCustomers} onOpenReports={onOpenReports}
-          onOpenHealth={onOpenHealth} onOpenLogs={onOpenLogs} onOpenSettings={onOpenSettings} />
+          onOpenHealth={onOpenHealth} onOpenSettings={onOpenSettings} />
         <View className="flex-1 p-4">
         <CatalogueDisplayOptions state={viewState} onChange={changeViewState} products={products} quickFilterCount={quickFilters.length}
           open={settingsOpen} onOpenChange={setSettingsOpen} />

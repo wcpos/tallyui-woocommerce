@@ -11,18 +11,19 @@ const testIdsIn = (group: string) =>
 
 const bar = <RegisterBarShell storeName="Corner Café" avatar={null} onOpenMenu={() => {}} />;
 
-test('the rail lists POS, Products, Orders, Coupons, Customers and Reports, then Store health, Logs and Settings at the foot, then the version', () => {
+test('the rail lists POS, Products, Orders, Coupons, Customers and Reports, then Store health and Settings at the foot, then the version', () => {
   render(<AppRail active="pos" onNavigate={() => {}} />);
   expect(testIdsIn('drawer-top-group')).toEqual(['drawer-item-pos', 'drawer-item-products', 'drawer-item-orders', 'drawer-item-coupons', 'drawer-item-customers', 'drawer-item-reports']);
-  expect(testIdsIn('drawer-bottom-group')).toEqual(['drawer-item-health', 'drawer-item-logs', 'drawer-item-settings']);
+  expect(testIdsIn('drawer-bottom-group')).toEqual(['drawer-item-health', 'drawer-item-settings']);
   expect(screen.getByTestId('drawer-version').textContent).toBe('v 0.1.0');
-  for (const id of ['drawer-item-support']) expect(screen.queryByTestId(id)).toBeNull();
+  // Logs is a Store health page (v2), not a rail item.
+  for (const id of ['drawer-item-support', 'drawer-item-logs']) expect(screen.queryByTestId(id)).toBeNull();
 });
 
 test('each rail item is an icon button named for its area', () => {
   render(<AppRail active="pos" onNavigate={() => {}} />);
   const items = [['POS', 'drawer-item-pos'], ['Products', 'drawer-item-products'], ['Orders', 'drawer-item-orders'], ['Coupons', 'drawer-item-coupons'], ['Customers', 'drawer-item-customers'],
-    ['Reports', 'drawer-item-reports'], ['Store health', 'drawer-item-health'], ['Logs', 'drawer-item-logs'], ['Settings', 'drawer-item-settings']];
+    ['Reports', 'drawer-item-reports'], ['Store health', 'drawer-item-health'], ['Settings', 'drawer-item-settings']];
   for (const [label, testID] of items) expect(screen.getByRole('button', { name: label }).getAttribute('data-testid')).toBe(testID);
 });
 

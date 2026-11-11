@@ -16,8 +16,14 @@ function NavRow({ item, selected, onPress }: { item: SettingsNavItem; selected: 
   );
 }
 
-export function SettingsArea({ items, currentHref, onNavigate, onBack, wide, children }: {
+/** v2 `NavigationAreaLayout`: Settings and Store health; `title` and `testIDPrefix` default to Settings'. */
+export function SettingsArea({ items, currentHref, onNavigate, onBack, wide, title: areaTitle = 'Settings',
+  testIDPrefix: id = 'settings', children }: {
   items: SettingsNavItem[];
+  /** The phone bar's area title. */
+  title?: string;
+  /** Prefixes the area's test ids (`<prefix>-screen`, `<prefix>-back`, …). */
+  testIDPrefix?: string;
   currentHref: string;
   onNavigate(href: string): void;
   onBack(): void;
@@ -31,23 +37,23 @@ export function SettingsArea({ items, currentHref, onNavigate, onBack, wide, chi
   ));
   // v2 `AreaPage` (scroll): one card centred at 896, its heading, a rule (`border-t`: no hairline class here), the body.
   const page = (
-    <ScrollView testID="settings-screen" className="flex-1">
+    <ScrollView testID={`${id}-screen`} className="flex-1">
       <View className="mx-auto w-full max-w-4xl p-3">
-        <View testID="settings-page" className="rounded-lg border border-border bg-card overflow-hidden">
+        <View testID={`${id}-page`} className="rounded-lg border border-border bg-card overflow-hidden">
           {title !== undefined && (
             <View className="gap-0.5 px-4 pt-4 pb-3">
-              <Text testID="settings-page-title" role="heading" aria-level={1} className="text-xl font-semibold">{title}</Text>
+              <Text testID={`${id}-page-title`} role="heading" aria-level={1} className="text-xl font-semibold">{title}</Text>
             </View>
           )}
-          <View testID="settings-page-body" className="border-t border-border p-4">{children}</View>
+          <View testID={`${id}-page-body`} className="border-t border-border p-4">{children}</View>
         </View>
       </View>
     </ScrollView>
   );
   if (wide) {
     return (
-      <View testID="settings-navigation" className="flex-1 flex-row bg-background">
-        <View testID="settings-navigation-rail" className="w-56 shrink-0 gap-0.5 border-r border-border/50 bg-background p-3">
+      <View testID={`${id}-navigation`} className="flex-1 flex-row bg-background">
+        <View testID={`${id}-navigation-rail`} className="w-56 shrink-0 gap-0.5 border-r border-border/50 bg-background p-3">
           {navRows}
         </View>
         {page}
@@ -56,15 +62,15 @@ export function SettingsArea({ items, currentHref, onNavigate, onBack, wide, chi
   }
   return (
     <SettingsLayout
-      testID="settings-navigation"
+      testID={`${id}-navigation`}
       layout="stacked"
       headerSlot={
         <View className="flex-row items-center gap-4 p-4">
-          <Button testID="settings-back" onPress={onBack}><Text>Back</Text></Button>
-          <Text className="text-xl font-semibold">Settings</Text>
+          <Button testID={`${id}-back`} onPress={onBack}><Text>Back</Text></Button>
+          <Text className="text-xl font-semibold">{areaTitle}</Text>
         </View>
       }
-      navSlot={<View testID="settings-navigation-rail" className="gap-1 p-2">{navRows}</View>}
+      navSlot={<View testID={`${id}-navigation-rail`} className="gap-1 p-2">{navRows}</View>}
       contentSlot={page}
     />
   );

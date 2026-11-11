@@ -1,5 +1,5 @@
 import { useEffect, useState, type JSX } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Badge, Button, Text } from '@tallyui/components';
 import type { LogLevel } from '@tallyui/pos';
 import type { LogCollection, LogRecord } from '../lib/logs/log-store';
@@ -24,11 +24,11 @@ function Stat({ testID, value, label, tone, onPress }: {
     : <View testID={testID} className="-m-1 p-1">{body}</View>;
 }
 
-export function LogsScreen({ collection, storeName, siteUrl, onBack,
+export function LogsScreen({ collection, storeName, siteUrl,
   copyText = typeof navigator !== 'undefined' && navigator.clipboard?.writeText
     ? text => navigator.clipboard.writeText(text) : null, now = Date.now, sync,
 }: {
-  collection: LogCollection; storeName: string; siteUrl: string; onBack(): void;
+  collection: LogCollection; storeName: string; siteUrl: string;
   copyText?: ((text: string) => Promise<void>) | null; now?: () => number;
   /** The outboxes' stuck records and changes waiting to send (outboxSyncStats); both stats are drawn only when given. */
   sync?: OutboxSyncStats;
@@ -57,12 +57,9 @@ export function LogsScreen({ collection, storeName, siteUrl, onBack,
       setCopyStatus("Couldn't copy debug info");
     }
   }
+  // The Store health area (app/health/_layout.tsx) draws the scroll, the page title and the way back.
   return (
-    <ScrollView testID="screen-logs" className="flex-1 bg-background p-4">
-      <View className="mb-4 flex-row items-center gap-4">
-        <Button testID="logs-back" variant="ghost" onPress={onBack}><Text>Back</Text></Button>
-        <Text className="flex-1 text-xl font-semibold">Logs</Text>
-      </View>
+    <View testID="screen-logs">
       <View testID="logs-stats" className="mb-4 flex-row flex-wrap items-start gap-x-6 gap-y-3 border-b border-border pb-3">
         <Stat testID="logs-stat-events" value={stats.eventsToday} label="events today" onPress={() => setPreset('all')} />
         <Stat testID="logs-stat-errors" value={stats.errorsToday} label="errors today"
@@ -116,6 +113,6 @@ export function LogsScreen({ collection, storeName, siteUrl, onBack,
       </View>)}
       {filtered.length === 0 && <Text testID="logs-empty">No logs found</Text>}
       <Text testID="logs-footer" className="mt-4 text-muted-foreground">{`Showing ${filtered.length} of ${counted.length}`}</Text>
-    </ScrollView>
+    </View>
   );
 }

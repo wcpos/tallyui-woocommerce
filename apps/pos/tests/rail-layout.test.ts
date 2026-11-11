@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { railKeyForPath, railNavigation } from '../lib/layout/rail-routes';
+import { RAIL_FOOT, RAIL_HREF, RAIL_LABEL, railKeyForPath, railNavigation } from '../lib/layout/rail-routes';
 import { isWideWindow } from '../lib/layout/wide';
 
 test('isWideWindow: at least 768 wide and 480 tall, nothing in between', () => {
@@ -18,10 +18,17 @@ test('railKeyForPath: each area by its route, settings pages under settings, nul
   expect(railKeyForPath('/customers')).toBe('customers');
   expect(railKeyForPath('/reports')).toBe('reports');
   expect(railKeyForPath('/health')).toBe('health');
-  expect(railKeyForPath('/logs')).toBe('logs');
   expect(railKeyForPath('/settings')).toBe('settings');
   expect(railKeyForPath('/settings/theme')).toBe('settings');
   for (const pathname of ['/', '/connect', '/auth/callback', '/ordersx']) expect(railKeyForPath(pathname)).toBeNull();
+});
+
+test('Logs is a Store health page: /health/logs and /health/database select Store health, and the foot has no Logs item', () => {
+  expect(railKeyForPath('/health/logs')).toBe('health');
+  expect(railKeyForPath('/health/database')).toBe('health');
+  expect(RAIL_FOOT).toEqual(['health', 'settings']);
+  expect(Object.keys(RAIL_HREF)).not.toContain('logs');
+  expect(Object.keys(RAIL_LABEL)).not.toContain('logs');
 });
 
 test('railNavigation: POS dismisses to the till, the till pushes an area, an area replaces an area, the same area does nothing', () => {
