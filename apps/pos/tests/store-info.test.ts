@@ -1,7 +1,8 @@
+import { formatMoney } from '@tallyui/core';
 import { expect, test, vi } from 'vitest';
 import { SessionExpiredError } from '../lib/auth/session';
 import type { Session } from '../lib/auth/session';
-import { fetchStoreInfo, StoreAccessDeniedError } from '../lib/catalogue/store-info';
+import { fetchStoreInfo, StoreAccessDeniedError, toBcp47Locale } from '../lib/catalogue/store-info';
 import stores from './fixtures/stores.json';
 
 const home = 'https://shop.example';
@@ -14,9 +15,22 @@ const headers = { Authorization: 'Bearer t1' };
 test('maps the first fixture store and sends the supplied headers', async () => {
   const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(Response.json(stores));
   expect(await fetchStoreInfo(session, headers, fetchImpl as unknown as typeof fetch)).toEqual({
-    id: 0, name: stores[0].name, currency: 'USD', locale: 'en_US', address: {}, calcTaxes: false,
+    id: 0, name: stores[0].name, currency: 'USD', locale: 'en-US', address: {}, calcTaxes: false,
   });
   expect(fetchImpl).toHaveBeenCalledWith(`${session.site.wcposApiUrl}/stores`, { headers });
+});
+
+test.each([
+  ['en_US', 'en-US'], ['de_DE_formal', 'de-DE-formal'], ['pt_PT_ao90', 'pt-PT'], ['en-GB', 'en-GB'],
+  ['', undefined], [undefined, undefined], [42, undefined],
+] as const)('toBcp47Locale(%j) is %j', (value, expected) => {
+  expect(toBcp47Locale(value)).toBe(expected);
+});
+
+test('a WordPress en_US store locale reaches formatMoney as en-US and formats money', async () => {
+  const info = await respond({ locale: 'en_US' });
+  expect(info.locale).toBe('en-US');
+  expect(formatMoney({ amount: 600, currency: 'USD' }, info.locale)).toBe('$6.00');
 });
 
 const respond = (fields: Record<string, unknown>) => fetchStoreInfo(session, headers,

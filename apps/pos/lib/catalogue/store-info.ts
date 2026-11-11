@@ -36,6 +36,22 @@ function yesNo(value: unknown): boolean | undefined {
   return undefined;
 }
 
+// WordPress locales use `_` (`en_US`, `de_DE_formal`), which Intl rejects, and `formatMoney` then
+// returns undefined, so screens fall back to raw minor units. Convert to a BCP 47 tag, dropping
+// trailing subtags Intl does not accept (`pt_PT_ao90` -> `pt-PT`).
+export function toBcp47Locale(value: unknown): string | undefined {
+  if (typeof value !== 'string' || value === '') return undefined;
+  const subtags = value.replaceAll('_', '-').split('-');
+  while (subtags.length > 0) {
+    try {
+      return Intl.getCanonicalLocales(subtags.join('-'))[0];
+    } catch {
+      subtags.pop();
+    }
+  }
+  return undefined;
+}
+
 export async function fetchStoreInfo(
   session: Session, headers: Record<string, string>, fetchImpl: typeof fetch = fetch,
 ): Promise<StoreInfo> {
@@ -48,7 +64,7 @@ export async function fetchStoreInfo(
   const [store] = await response.json();
   if (!store) throw new Error('stores response is empty');
   return {
-    id: store.id, name: store.name, currency: store.currency.toUpperCase(), locale: store.locale,
+    id: store.id, name: store.name, currency: store.currency.toUpperCase(), locale: toBcp47Locale(store.locale),
     address: {
       address1: text(store.store_address), address2: text(store.store_address_2), city: text(store.store_city),
       state: text(store.store_state), postcode: text(store.store_postcode), country: text(store.store_country),
