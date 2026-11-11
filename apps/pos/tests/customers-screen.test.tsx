@@ -40,37 +40,39 @@ function memoryStorage(): Storage {
 const gee: Customer = { id: '7', name: 'Gee Four', firstName: 'Gee', lastName: 'Four', email: 'gee@example.invalid', phone: '123', company: 'Four Co' };
 const ada: Customer = { id: '9', name: 'Ada Lovelace', firstName: 'Ada', lastName: 'Lovelace' };
 
-function renderScreen(search = vi.fn<CustomerSource['search']>(), onBack = vi.fn(),
+function renderScreen(search = vi.fn<CustomerSource['search']>().mockResolvedValue([]), onBack = vi.fn(),
   { create = vi.fn<CustomerSource['create']>(), createBlockedReason }: { create?: Mock<CustomerSource['create']>; createBlockedReason?: string } = {}) {
   render(<><CustomersScreen source={{ search, create }} onBack={onBack} createBlockedReason={createBlockedReason} /><PortalHost /><Toaster /></>);
   return { search, onBack, create };
 }
 
+// The default list, search(''), delivers the rows on open; no typing needed.
 async function findRows(search = vi.fn<CustomerSource['search']>().mockResolvedValue([gee, ada]), options = {}) {
   const rendered = renderScreen(search, vi.fn(), options);
-  fireEvent.change(screen.getByPlaceholderText('Search Customers'), { target: { value: 'gee' } });
   await screen.findByTestId('customers-body');
   return rendered;
 }
 
-test('before a search it asks for one and calls nothing', () => {
-  const { search } = renderScreen();
+const searchBox = () => screen.getByPlaceholderText('Search Customers');
+
+test('on open it lists the store\'s default customers', async () => {
+  const { search } = renderScreen(vi.fn<CustomerSource['search']>().mockResolvedValue([gee, ada]));
   expect(screen.getByRole('heading', { name: 'Customers' })).not.toBeNull();
-  expect(screen.getByTestId('no-data-message-title').textContent).toBe('Search Customers');
-  expect(screen.getByTestId('no-data-message-description').textContent).toBe('Type at least 2 characters of a name, email or phone.');
-  expect(screen.queryByTestId('no-data-message-action')).toBeNull();
-  expect(search).not.toHaveBeenCalled();
-  expect(screen.queryByTestId('data-table-count')).toBeNull();
+  expect(await screen.findByTestId('customers-row-7')).not.toBeNull();
+  expect(screen.getByTestId('customers-row-9')).not.toBeNull();
+  expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 2');
+  expect(screen.queryByTestId('no-data-message')).toBeNull();
+  expect(search.mock.calls).toEqual([['']]);
 });
 
 test('Search Customers asks the store after a pause with the trimmed text', async () => {
-  const { search } = renderScreen(vi.fn<CustomerSource['search']>().mockResolvedValue([gee, ada]));
-  const box = screen.getByPlaceholderText('Search Customers');
+  const { search } = renderScreen(vi.fn<CustomerSource['search']>(async q => q ? [gee, ada] : []));
+  const box = searchBox();
   fireEvent.change(box, { target: { value: ' g' } });
   fireEvent.change(box, { target: { value: ' ge' } });
   fireEvent.change(box, { target: { value: ' gee ' } });
   const row = await screen.findByTestId('customers-row-7');
-  expect(search.mock.calls).toEqual([['gee']]);
+  expect(search.mock.calls).toEqual([[''], ['gee']]);
   for (const heading of ['First Name', 'Last Name', 'Email', 'Billing Address']) expect(screen.getByText(heading)).not.toBeNull();
   expect(screen.queryByText('Phone')).toBeNull();
   for (const value of ['GF', 'Gee', 'Four', 'Gee Four', 'Four Co']) expect(within(row).getByText(value)).not.toBeNull();
@@ -81,12 +83,83 @@ test('Search Customers asks the store after a pause with the trimmed text', asyn
   expect(within(row9).queryByTestId(/^customer-email-/)).toBeNull();
 });
 
-test('one character does not search', async () => {
-  const { search } = renderScreen();
-  fireEvent.change(screen.getByPlaceholderText('Search Customers'), { target: { value: 'g' } });
+test('one character keeps the default list and does not search with it', async () => {
+  const { search } = renderScreen(vi.fn<CustomerSource['search']>().mockResolvedValue([gee, ada]));
+  await screen.findByTestId('customers-row-7');
+  fireEvent.change(searchBox(), { target: { value: 'g' } });
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 400)); });
-  expect(search).not.toHaveBeenCalled();
-  expect(screen.getByTestId('no-data-message-title').textContent).toBe('Search Customers');
+  expect(search.mock.calls).toEqual([['']]);
+  expect(screen.getByTestId('customers-row-7')).not.toBeNull();
+  expect(screen.getByTestId('customers-row-9')).not.toBeNull();
+  expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 2');
+});
+
+test('two characters search and replace the rows; clearing the box goes back to the default list', async () => {
+  const { search } = renderScreen(vi.fn<CustomerSource['search']>(async q => q ? [ada] : [gee]));
+  await screen.findByTestId('customers-row-7');
+  fireEvent.change(searchBox(), { target: { value: 'ad' } });
+  await screen.findByTestId('customers-row-9');
+  expect(screen.queryByTestId('customers-row-7')).toBeNull();
+  expect(search.mock.calls).toEqual([[''], ['ad']]);
+  fireEvent.change(searchBox(), { target: { value: '' } });
+  await screen.findByTestId('customers-row-7');
+  expect(screen.queryByTestId('customers-row-9')).toBeNull();
+  expect(search.mock.calls).toEqual([[''], ['ad'], ['']]);
+});
+
+test('an empty default list says No customers found without Clear search', async () => {
+  renderScreen(vi.fn<CustomerSource['search']>().mockResolvedValue([]));
+  await vi.waitFor(() => expect(screen.getByTestId('no-data-message-title').textContent).toBe('No customers found'));
+  expect(screen.queryByTestId('no-data-message-action')).toBeNull();
+  expect(screen.queryByTestId('no-data-message-description')).toBeNull();
+  expect(screen.queryByTestId('data-table-count')).toBeNull();
+});
+
+test('a failed default load says so and Try again loads it again', async () => {
+  const { search } = renderScreen(vi.fn<CustomerSource['search']>()
+    .mockRejectedValueOnce(new Error('Offline')).mockResolvedValueOnce([gee]));
+  expect((await screen.findByTestId('customers-error')).textContent).toBe("Could not reach the store's customers: Offline");
+  fireEvent.click(screen.getByTestId('customers-retry'));
+  await screen.findByTestId('customers-row-7');
+  expect(screen.queryByTestId('customers-error')).toBeNull();
+  expect(search.mock.calls).toEqual([[''], ['']]);
+});
+
+test('a slow default list landing after a search does not replace the search results', async () => {
+  let resolveDefault!: (found: Customer[]) => void;
+  const { search } = renderScreen(vi.fn<CustomerSource['search']>()
+    .mockReturnValueOnce(new Promise<Customer[]>(r => { resolveDefault = r; }))
+    .mockResolvedValueOnce([ada]));
+  fireEvent.change(searchBox(), { target: { value: 'ada' } });
+  await screen.findByTestId('customers-row-9');
+  await act(async () => { resolveDefault([gee]); });
+  expect(screen.queryByTestId('customers-row-7')).toBeNull();
+  expect(screen.getByTestId('customers-row-9')).not.toBeNull();
+  expect(search.mock.calls).toEqual([[''], ['ada']]);
+});
+
+test('a slow default list failing after a search does not replace the search results', async () => {
+  let rejectDefault!: (cause: Error) => void;
+  const { search } = renderScreen(vi.fn<CustomerSource['search']>()
+    .mockReturnValueOnce(new Promise<Customer[]>((_, reject) => { rejectDefault = reject; }))
+    .mockResolvedValueOnce([ada]));
+  fireEvent.change(searchBox(), { target: { value: 'ada' } });
+  await screen.findByTestId('customers-row-9');
+  await act(async () => { rejectDefault(new Error('Offline')); });
+  expect(screen.queryByTestId('customers-error')).toBeNull();
+  expect(screen.getByTestId('customers-row-9')).not.toBeNull();
+  expect(search.mock.calls).toEqual([[''], ['ada']]);
+});
+
+test('closing Add Customer loads the list again', async () => {
+  const { search } = renderScreen(vi.fn<CustomerSource['search']>()
+    .mockResolvedValueOnce([ada]).mockResolvedValueOnce([ada, gee]));
+  await screen.findByTestId('customers-row-9');
+  expect(screen.queryByTestId('customers-row-7')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Add new customer' }));
+  fireEvent.click(screen.getByTestId('customer-form-close'));
+  await screen.findByTestId('customers-row-7');
+  expect(search.mock.calls).toEqual([[''], ['']]);
 });
 
 test('a narrow window lists name and email rows', async () => {
@@ -117,11 +190,12 @@ test('while the store answers it says Searching…', async () => {
 test('a slower earlier search does not replace a later one', async () => {
   let resolveFirst!: (found: Customer[]) => void;
   const { search } = renderScreen(vi.fn<CustomerSource['search']>()
+    .mockResolvedValueOnce([])
     .mockReturnValueOnce(new Promise<Customer[]>(r => { resolveFirst = r; }))
     .mockResolvedValueOnce([ada]));
-  const box = screen.getByPlaceholderText('Search Customers');
+  const box = searchBox();
   fireEvent.change(box, { target: { value: 'gee' } });
-  await vi.waitFor(() => expect(search).toHaveBeenCalledOnce());
+  await vi.waitFor(() => expect(search).toHaveBeenCalledTimes(2));
   fireEvent.change(box, { target: { value: 'ada' } });
   await screen.findByTestId('customers-row-9');
   await act(async () => { resolveFirst([gee]); });
@@ -131,7 +205,7 @@ test('a slower earlier search does not replace a later one', async () => {
 
 test('with nothing matching it says so and Clear search empties the box', async () => {
   const { search } = renderScreen(vi.fn<CustomerSource['search']>().mockResolvedValue([]));
-  const box = screen.getByPlaceholderText('Search Customers');
+  const box = searchBox();
   fireEvent.change(box, { target: { value: 'zzz' } });
   await vi.waitFor(() => expect(screen.getByTestId('no-data-message-title').textContent).toBe('No customers match your search'));
   expect(screen.queryByTestId('no-data-message-description')).toBeNull();
@@ -139,8 +213,8 @@ test('with nothing matching it says so and Clear search empties the box', async 
   expect(clear.textContent).toBe('Clear search');
   fireEvent.click(clear);
   expect((box as HTMLInputElement).value).toBe('');
-  expect(screen.getByTestId('no-data-message-title').textContent).toBe('Search Customers');
-  expect(search.mock.calls).toEqual([['zzz']]);
+  await vi.waitFor(() => expect(screen.getByTestId('no-data-message-title').textContent).toBe('No customers found'));
+  expect(search.mock.calls).toEqual([[''], ['zzz'], ['']]);
 });
 
 test.each([
@@ -148,7 +222,7 @@ test.each([
   [new CustomerServiceError('invalid', 'Bad search'), 'The store refused: Bad search'],
   [new CustomerServiceError('network', 'Offline'), "Could not reach the store's customers: Offline"],
 ])('a failed search says %s', async (cause, expected) => {
-  renderScreen(vi.fn<CustomerSource['search']>().mockRejectedValueOnce(cause));
+  renderScreen(vi.fn<CustomerSource['search']>().mockResolvedValueOnce([]).mockRejectedValueOnce(cause));
   fireEvent.change(screen.getByPlaceholderText('Search Customers'), { target: { value: 'gee' } });
   expect((await screen.findByTestId('customers-error')).textContent).toBe(expected);
   expect(screen.queryByTestId(/^customers-row-/)).toBeNull();
@@ -156,13 +230,13 @@ test.each([
 
 test('Try again searches again', async () => {
   const { search } = renderScreen(vi.fn<CustomerSource['search']>()
-    .mockRejectedValueOnce(new Error('Offline')).mockResolvedValueOnce([gee]));
-  fireEvent.change(screen.getByPlaceholderText('Search Customers'), { target: { value: 'gee' } });
+    .mockResolvedValueOnce([]).mockRejectedValueOnce(new Error('Offline')).mockResolvedValueOnce([gee]));
+  fireEvent.change(searchBox(), { target: { value: 'gee' } });
   await screen.findByTestId('customers-error', {}, { timeout: 5000 });
   fireEvent.click(screen.getByTestId('customers-retry'));
   await screen.findByTestId('customers-row-7', {}, { timeout: 5000 });
   expect(screen.queryByTestId('customers-error')).toBeNull();
-  expect(search.mock.calls).toEqual([['gee'], ['gee']]);
+  expect(search.mock.calls).toEqual([[''], ['gee'], ['gee']]);
 }, 20_000);
 
 test('without a store it says so', () => {
