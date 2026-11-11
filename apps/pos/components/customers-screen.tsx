@@ -5,10 +5,13 @@ import { Circle, Line, Path } from 'react-native-svg';
 import { ConnectorUnauthorizedError, CustomerServiceError } from '@tallyui/core';
 import type { Customer } from '@tallyui/core';
 import { Avatar, Button, IconButton, SearchInput, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Text, createSvgIcon } from '@tallyui/components';
+import { useAreaColumns } from '../lib/area-columns';
+import type { AreaColumn } from '../lib/area-columns';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { DEFAULT_CUSTOMER_SORT, billingLines, customerInitials, nextSort, sortCustomers } from '../lib/customers/customer-table';
 import type { CustomerSort, CustomerSortField } from '../lib/customers/customer-table';
 import { AddCustomerDialog } from './add-customer-dialog';
+import { AreaDisplayOptions } from './area-display-options';
 import { AreaToolbar } from './area-header';
 import { CaptionRowInset, TableCount, TableSurface } from './table-surface';
 
@@ -17,12 +20,39 @@ const SEARCH_DEBOUNCE_MS = 250;
 // The customer picker's floor (components/customer-picker.tsx:46); the store search is online. Below it the
 // screen shows the store's default list, search(''), as the picker does and as v2's Customers screen opens.
 const MIN_QUERY_CHARS = 2;
-// v2 packages/core/src/screens/main/customers/initial-settings.json: the sortable columns, in order.
-const SORTABLE: { id: CustomerSortField; label: string }[] = [
-  { id: 'first_name', label: 'First Name' },
-  { id: 'last_name', label: 'Last Name' },
-  { id: 'email', label: 'Email' },
+
+export type CustomersColumnId = 'avatar_url' | 'id' | 'first_name' | 'last_name' | 'email' | 'billing';
+// v2's customers columns (ui-settings/initial-settings.json `customers.columns`) that a store Customer carries, in
+// its order, with v2's keys, its `show` and its labels (use-ui-label.ts). Not offered: role, username, shipping,
+// date_created_gmt and date_modified_gmt, which the connector's Customer does not carry, and Actions.
+export const CUSTOMERS_COLUMNS: readonly AreaColumn<CustomersColumnId>[] = [
+  { id: 'avatar_url', label: 'Image', visible: true },
+  { id: 'id', label: 'ID', visible: false },
+  { id: 'first_name', label: 'First Name', visible: true },
+  { id: 'last_name', label: 'Last Name', visible: true },
+  { id: 'email', label: 'Email', visible: true },
+  { id: 'billing', label: 'Billing Address', visible: true },
 ];
+// Each column's width in the row's flex layout.
+const COLUMN_CLASS: Partial<Record<CustomersColumnId, string>> = {
+  avatar_url: 'w-16 flex-none', email: 'flex-[2]', billing: 'flex-[2]',
+};
+// The columns the header sorts (customer-table.ts sorts the loaded rows on these).
+function sortable(id: CustomersColumnId): id is CustomerSortField {
+  return id === 'first_name' || id === 'last_name' || id === 'email';
+}
+
+function customerCell(id: CustomersColumnId, c: Customer): JSX.Element {
+  const className = COLUMN_CLASS[id];
+  switch (id) {
+    case 'avatar_url': return <TableCell key={id} className={className}><Avatar size="md" fallback={customerInitials(c)} /></TableCell>;
+    case 'id': return <TableCell key={id}><Text>{c.id}</Text></TableCell>;
+    case 'first_name': return <TableCell key={id}><Text>{c.firstName ?? ''}</Text></TableCell>;
+    case 'last_name': return <TableCell key={id}><Text>{c.lastName ?? ''}</Text></TableCell>;
+    case 'email': return <TableCell key={id} className={className}><Text testID={c.email ? `customer-email-${c.email}` : undefined}>{c.email ?? ''}</Text></TableCell>;
+    case 'billing': return <TableCell key={id} className={`${className} gap-0.5`}>{billingLines(c).map(line => <Text key={line}>{line}</Text>)}</TableCell>;
+  }
+}
 
 const ChevronRightIcon = createSvgIcon('ChevronRightIcon', () => <><Line x1={9} y1={6} x2={15} y2={12} /><Line x1={15} y1={12} x2={9} y2={18} /></>);
 const SortAscIcon = createSvgIcon('SortAscIcon', () => <><Line x1={6} y1={15} x2={12} y2={9} /><Line x1={12} y1={9} x2={18} y2={15} /></>);
@@ -53,6 +83,7 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
   const [attempt, setAttempt] = useState(0);
   const [sort, setSort] = useState<CustomerSort>(DEFAULT_CUSTOMER_SORT);
   const [adding, setAdding] = useState(false);
+  const [settings, setSettings] = useAreaColumns('customers', CUSTOMERS_COLUMNS);
   const request = useRef(0);
   const { width } = useWindowDimensions();
 
@@ -85,6 +116,8 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
   function clear() { setTerm(''); setQuery(''); }
   function retry() { setAttempt(n => n + 1); }
   const shown = sortCustomers(results, sort);
+  // The columns the display options leave on, in the area's order.
+  const columns = CUSTOMERS_COLUMNS.filter(column => settings.some(setting => setting.id === column.id && setting.visible));
 
   const body = error ? (
     <View className="gap-2 p-4">
@@ -111,25 +144,22 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
           </View>
         )) : <Table>
           <TableHeader><TableRow>
-            <TableHead className="w-16 flex-none" />
-            {SORTABLE.map(({ id, label }) => <TableHead key={id} className={id === 'email' ? 'flex-[2]' : undefined}>
-              <Pressable testID={`data-table-header-${id}`} accessibilityRole="button" onPress={() => setSort(s => nextSort(s, id))}>
-                <View testID={sort.field === id ? `data-table-sort-${id}-${sort.direction}` : undefined} className="flex-row items-center gap-1">
-                  <Text>{label}</Text>
-                  {sort.field === id ? (sort.direction === 'asc' ? <SortAscIcon size={12} /> : <SortDescIcon size={12} />) : null}
-                </View>
-              </Pressable>
+            {columns.map(({ id, label }) => <TableHead key={id} className={COLUMN_CLASS[id]}>
+              {/* v2 hides the avatar column's label (`hideLabel`). */}
+              {id === 'avatar_url' ? null : sortable(id)
+                ? <Pressable testID={`data-table-header-${id}`} accessibilityRole="button" onPress={() => setSort(s => nextSort(s, id))}>
+                  <View testID={sort.field === id ? `data-table-sort-${id}-${sort.direction}` : undefined} className="flex-row items-center gap-1">
+                    <Text>{label}</Text>
+                    {sort.field === id ? (sort.direction === 'asc' ? <SortAscIcon size={12} /> : <SortDescIcon size={12} />) : null}
+                  </View>
+                </Pressable>
+                : <Text>{label}</Text>}
             </TableHead>)}
-            <TableHead className="flex-[2]"><Text>Billing Address</Text></TableHead>
             <TableHead className="w-16 flex-none" />
           </TableRow></TableHeader>
           <TableBody>
             {shown.map(c => <TableRow key={c.id} testID={`customers-row-${c.id}`}>
-              <TableCell className="w-16 flex-none"><Avatar size="md" fallback={customerInitials(c)} /></TableCell>
-              <TableCell><Text>{c.firstName ?? ''}</Text></TableCell>
-              <TableCell><Text>{c.lastName ?? ''}</Text></TableCell>
-              <TableCell className="flex-[2]"><Text testID={c.email ? `customer-email-${c.email}` : undefined}>{c.email ?? ''}</Text></TableCell>
-              <TableCell className="flex-[2] gap-0.5">{billingLines(c).map(line => <Text key={line}>{line}</Text>)}</TableCell>
+              {columns.map(({ id }) => customerCell(id, c))}
               <TableCell className="w-16 flex-none">
                 <IconButton testID="customer-open-button" accessibilityLabel="Open customer" variant="ghost" size="sm" disabled><ChevronRightIcon size={16} /></IconButton>
               </TableCell>
@@ -146,6 +176,8 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
         search={source ? <SearchInput testID="search-customers" value={term} onChangeText={setTerm} placeholder="Search Customers" /> : null}>
         {source ? <IconButton testID="customers-add-button" accessibilityLabel="Add new customer" variant="ghost"
           disabled={createBlockedReason !== undefined} onPress={() => setAdding(true)}><AddCustomerIcon size={20} /></IconButton> : null}
+        {/* v2's order: add, then the settings icon, then the bell and the avatar. */}
+        <AreaDisplayOptions area="customers" columns={CUSTOMERS_COLUMNS} settings={settings} onChange={setSettings} />
       </AreaToolbar>
       {source ? <>
         {createBlockedReason !== undefined

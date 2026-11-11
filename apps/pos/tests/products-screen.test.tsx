@@ -44,7 +44,7 @@ test('the table shows v2 headers in order, and rows come name asc whatever the i
   expect(screen.getByTestId('screen-products')).not.toBeNull();
   expect(screen.getByRole('heading', { name: 'Products' })).not.toBeNull();
   const headers = screen.getAllByRole('columnheader').map(header => header.textContent?.replace(/ [▲▼]$/, ''));
-  expect(headers).toEqual(['Image', 'Name', 'Stock', 'Stock Status', 'Categories', 'Price', 'Regular Price', 'Sale Price']);
+  expect(headers).toEqual(['Image', 'Product', 'Stock', 'Stock Status', 'Categories', 'Price', 'Regular Price', 'Sale Price']);
   expect(rowIds()).toEqual(['product-row-2', 'product-row-3', 'product-row-1']);
 });
 
