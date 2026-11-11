@@ -2,7 +2,7 @@ const savedTimezone = process.env.TZ;
 process.env.TZ = 'America/Los_Angeles';
 
 import { afterAll, expect, test } from 'vitest';
-import type { PosOrder } from '@tallyui/pos';
+import { comparisonRange, presetRange, type DatePreset, type PosOrder } from '@tallyui/pos';
 import { salesRoom } from '../lib/reports/sales-room';
 
 afterAll(() => {
@@ -11,6 +11,8 @@ afterAll(() => {
 });
 
 const now = new Date(2026, 9, 6, 14, 30);
+/** Today, 6 Oct, against yesterday. */
+const day = { range: { from: '2026-10-06', to: '2026-10-06' }, preset: 'today' as const, comparison: { from: '2026-10-05', to: '2026-10-05' } };
 const base: Omit<PosOrder, 'id' | 'totalMinor' | 'payments' | 'syncStatus'> = {
   createdAt: new Date(2026, 9, 6, 9, 15).toISOString(), updatedAt: now.toISOString(),
   currency: 'USD', pricesIncludeTax: false, lines: [], subtotalMinor: 0, discountMinor: 0,
@@ -61,13 +63,13 @@ const lastWeek: PosOrder[] = [
 ];
 
 test('today totals every sync state in the store currency only', () => {
-  expect(salesRoom(orders, { now, currency: 'USD' }).today).toMatchObject({
+  expect(salesRoom(orders, { now, currency: 'USD', ...day }).today).toMatchObject({
     count: 4, totalMinor: 2996, taxMinor: 196, averageMinor: 749, pending: 1, rejected: 1, splitCount: 1,
   });
 }, 20_000);
 
 test('a split counts once per method with its applied amounts', () => {
-  expect(salesRoom(orders, { now, currency: 'USD' }).today.byMethod).toEqual([
+  expect(salesRoom(orders, { now, currency: 'USD', ...day }).today.byMethod).toEqual([
     { method: 'cash', label: 'Cash', count: 3, totalMinor: 758 },
     { method: 'external', label: 'Card terminal', count: 2, totalMinor: 2238 },
   ]);
@@ -77,13 +79,13 @@ test('two cash legs on one order count one cash order', () => {
   const order: PosOrder = { ...base, id: 'two-cash', createdAt: new Date(2026, 9, 6, 10, 0).toISOString(),
     subtotalMinor: 500, totalMinor: 500, syncStatus: 'applied',
     payments: [{ id: 'cash1', method: 'cash', amountMinor: 300 }, { id: 'cash2', method: 'cash', amountMinor: 200 }] };
-  const { today } = salesRoom([order], { now, currency: 'USD' });
+  const { today } = salesRoom([order], { now, currency: 'USD', ...day });
   expect(today.byMethod).toEqual([{ method: 'cash', label: 'Cash', count: 1, totalMinor: 500 }]);
   expect(today.splitCount).toBe(1);
 }, 20_000);
 
 test('tax rows mirror the Z report', () => {
-  const { today } = salesRoom(orders, { now, currency: 'USD' });
+  const { today } = salesRoom(orders, { now, currency: 'USD', ...day });
   expect(today.taxRates).toEqual([
     { ratePpm: 13750, label: 'Tax 1.375%', netMinor: 1600, taxMinor: 22, grossMinor: 1622 },
     { ratePpm: 72500, label: 'Tax 7.25%', netMinor: 2400, taxMinor: 174, grossMinor: 2574 },
@@ -103,30 +105,30 @@ test('tax rates include fee and shipping tax', () => {
     subtotalMinor: 800, taxMinor: 102, totalMinor: 1502,
     payments: [{ id: 'p1', method: 'cash', amountMinor: 1502 }],
   }];
-  expect(salesRoom(list, { now, currency: 'USD' }).today.taxRates).toMatchObject([
+  expect(salesRoom(list, { now, currency: 'USD', ...day }).today.taxRates).toMatchObject([
     { ratePpm: 72500, netMinor: 1400, taxMinor: 102, grossMinor: 1502 },
   ]);
 });
 
 test('yesterday excludes the day before and tomorrow', () => {
-  const result = salesRoom(orders, { now, currency: 'USD' });
+  const result = salesRoom(orders, { now, currency: 'USD', ...day });
   expect(result.yesterday).toMatchObject({ count: 2, totalMinor: 1000 });
   expect(result.yesterday.byMethod).toEqual([
     { method: 'cash', label: 'Cash', count: 1, totalMinor: 400 },
     { method: 'external', label: 'Card terminal', count: 1, totalMinor: 600 },
   ]);
-  expect(result).toEqual(salesRoom(orders.filter(order => order.id !== 'X2' && order.id !== 'X3'), { now, currency: 'USD' }));
+  expect(result).toEqual(salesRoom(orders.filter(order => order.id !== 'X2' && order.id !== 'X3'), { now, currency: 'USD', ...day }));
 }, 20_000);
 
 test('the comparison uses yesterday up to the same time', () => {
-  const { yesterdaySoFar, delta } = salesRoom(orders, { now, currency: 'USD' });
+  const { yesterdaySoFar, delta } = salesRoom(orders, { now, currency: 'USD', ...day });
   expect(yesterdaySoFar).toEqual({ count: 1, totalMinor: 400, averageMinor: 400, items: 0 });
   expect(delta).toEqual({ totalMinor: 2596, percentTenths: 6490, count: 3, averageMinor: 349, items: 2 });
-  expect(salesRoom(orders.filter(order => order.id.startsWith('T')), { now, currency: 'USD' }).delta.percentTenths).toBeNull();
+  expect(salesRoom(orders.filter(order => order.id.startsWith('T')), { now, currency: 'USD', ...day }).delta.percentTenths).toBeNull();
 }, 20_000);
 
 test('hours span both days\' sales', () => {
-  const { hours } = salesRoom(orders, { now, currency: 'USD' });
+  const { hours } = salesRoom(orders, { now, currency: 'USD', ...day });
   expect(hours.map(bucket => bucket.hour)).toEqual([9, 10, 11, 12, 13, 14, 15, 16]);
   for (const bucket of hours) {
     expect(bucket.today).toEqual(bucket.hour === 9 ? { count: 2, totalMinor: 1158 }
@@ -134,7 +136,7 @@ test('hours span both days\' sales', () => {
     expect(bucket.yesterday).toEqual(bucket.hour === 11 ? { count: 1, totalMinor: 400 }
       : bucket.hour === 16 ? { count: 1, totalMinor: 600 } : { count: 0, totalMinor: 0 });
   }
-  expect(salesRoom([], { now, currency: 'USD' }).hours).toEqual([]);
+  expect(salesRoom([], { now, currency: 'USD', ...day }).hours).toEqual([]);
 }, 20_000);
 
 test('runs in a non-UTC zone', () => {
@@ -142,7 +144,7 @@ test('runs in a non-UTC zone', () => {
 }, 20_000);
 
 test('last week compares the same weekday up to the same time', () => {
-  const result = salesRoom([...orders, ...lastWeek], { now, currency: 'USD', compare: 'lastweek' });
+  const result = salesRoom([...orders, ...lastWeek], { now, currency: 'USD', ...day, comparison: { from: '2026-09-29', to: '2026-09-29' } });
   expect(result.yesterday).toMatchObject({ count: 2, totalMinor: 1200 });
   expect(result.yesterdaySoFar).toEqual({ count: 1, totalMinor: 250, averageMinor: 250, items: 0 });
   expect(result.delta).toEqual({ totalMinor: 2746, percentTenths: 10984, count: 3, averageMinor: 499, items: 2 });
@@ -152,9 +154,9 @@ test('last week compares the same weekday up to the same time', () => {
 }, 20_000);
 
 test('compare defaults to yesterday', () => {
-  expect(salesRoom([...orders, ...lastWeek], { now, currency: 'USD', compare: 'yesterday' }))
-    .toEqual(salesRoom([...orders, ...lastWeek], { now, currency: 'USD' }));
-  expect(salesRoom([...orders, ...lastWeek], { now, currency: 'USD' }).yesterday).toMatchObject({ count: 2, totalMinor: 1000 });
+  expect(salesRoom([...orders, ...lastWeek], { now, currency: 'USD', ...day, comparison: comparisonRange(day.range, 'previous', 'today') }))
+    .toEqual(salesRoom([...orders, ...lastWeek], { now, currency: 'USD', ...day }));
+  expect(salesRoom([...orders, ...lastWeek], { now, currency: 'USD', ...day }).yesterday).toMatchObject({ count: 2, totalMinor: 1000 });
 }, 20_000);
 
 const line = (id: string, quantity: number) => ({ id, productId: `product-${id}`, name: `Item ${id}`, sku: id, quantity,
@@ -173,36 +175,76 @@ const itemOrders: PosOrder[] = [
 ];
 
 test('items sums the line quantities of the orders counted today', () => {
-  expect(salesRoom(itemOrders, { now, currency: 'USD' }).today).toMatchObject({ count: 2, items: 6 });
+  expect(salesRoom(itemOrders, { now, currency: 'USD', ...day }).today).toMatchObject({ count: 2, items: 6 });
 }, 20_000);
 
 test("the comparison's items count only the comparison day's orders before the same time", () => {
-  const result = salesRoom(itemOrders, { now, currency: 'USD' });
+  const result = salesRoom(itemOrders, { now, currency: 'USD', ...day });
   expect(result.yesterday).toMatchObject({ count: 2, items: 9 });
   expect(result.yesterdaySoFar).toEqual({ count: 1, totalMinor: 400, averageMinor: 400, items: 4 });
   expect(result.delta.items).toBe(2);
 }, 20_000);
 
 test('the median takes the middle total of an odd count', () => {
-  const today = salesRoom(orders.filter(order => order.id !== 'T4'), { now, currency: 'USD' }).today;
+  const today = salesRoom(orders.filter(order => order.id !== 'T4'), { now, currency: 'USD', ...day }).today;
   expect(today.count).toBe(3);
   expect(today.medianMinor).toBe(858);
 }, 20_000);
 
 test('the median of an even count averages the middle two, rounded', () => {
-  expect(salesRoom(orders, { now, currency: 'USD' }).today.medianMinor).toBe(579);
+  expect(salesRoom(orders, { now, currency: 'USD', ...day }).today.medianMinor).toBe(579);
   const pair = [orders[0], orders[3]].map((order, index) => ({ ...order, totalMinor: [100, 201][index] }));
-  expect(salesRoom(pair, { now, currency: 'USD' }).today.medianMinor).toBe(151);
+  expect(salesRoom(pair, { now, currency: 'USD', ...day }).today.medianMinor).toBe(151);
 }, 20_000);
 
 test('largest is the biggest order total, null with no orders', () => {
-  const result = salesRoom(orders, { now, currency: 'USD' });
+  const result = salesRoom(orders, { now, currency: 'USD', ...day });
   expect(result.today.largestMinor).toBe(1738);
   expect(result.yesterday.largestMinor).toBe(600);
-  expect(salesRoom([], { now, currency: 'USD' }).today).toMatchObject({ medianMinor: 0, largestMinor: null, discountMinor: 0 });
+  expect(salesRoom([], { now, currency: 'USD', ...day }).today).toMatchObject({ medianMinor: 0, largestMinor: null, discountMinor: 0 });
 }, 20_000);
 
 test("discountMinor sums the orders' discounts", () => {
   const discounted = orders.map(order => ({ ...order, discountMinor: order.id === 'T1' ? 50 : order.id === 'T3' ? 125 : 0 }));
-  expect(salesRoom(discounted, { now, currency: 'USD' }).today.discountMinor).toBe(175);
+  expect(salesRoom(discounted, { now, currency: 'USD', ...day }).today.discountMinor).toBe(175);
+}, 20_000);
+
+/** A preset's range at `now` and the comparison the screen gives a week or month: the period before. */
+const period = (preset: DatePreset) => {
+  const range = presetRange(preset, now, 'device');
+  return { range, preset, comparison: comparisonRange(range, 'previous', preset) };
+};
+const sale = (id: string, at: Date, totalMinor: number): PosOrder => ({ ...base, id, createdAt: at.toISOString(),
+  subtotalMinor: totalMinor, totalMinor, syncStatus: 'applied', payments: [{ id, method: 'cash', amountMinor: totalMinor }] });
+
+test('Yesterday counts only its own day, by hour, and compares the whole day before', () => {
+  const result = salesRoom(orders, { now, currency: 'USD', ...period('yesterday') });
+  expect(result.today).toMatchObject({ count: 2, totalMinor: 1000 });
+  // X2 at 23:59 is after now's time of day, yet a closed day is compared whole.
+  expect(result.yesterdaySoFar).toMatchObject({ count: 1, totalMinor: 5000 });
+  expect(result.hours.map(bucket => bucket.hour)).toEqual([11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]);
+  expect(result.hours.some(bucket => bucket.day)).toBe(false);
+}, 20_000);
+
+test("This week buckets by day and cuts the comparison's last day at now's time of day", () => {
+  const weekBefore = [...lastWeek, sale('S1', new Date(2026, 8, 28, 18, 0), 300)];
+  const result = salesRoom([...orders, ...weekBefore], { now, currency: 'USD', ...period('thisWeek') });
+  expect(result.today).toMatchObject({ count: 6, totalMinor: 3996 });
+  expect(result.yesterday).toMatchObject({ count: 3, totalMinor: 1500 });
+  // Monday's 18:00 counts whole; Tuesday's 16:45 is after 14:30 and is left out.
+  expect(result.yesterdaySoFar).toMatchObject({ count: 2, totalMinor: 550 });
+  expect(result.hours).toEqual([
+    { hour: 0, day: '2026-10-05', today: { count: 2, totalMinor: 1000 }, yesterday: { count: 1, totalMinor: 300 } },
+    { hour: 1, day: '2026-10-06', today: { count: 4, totalMinor: 2996 }, yesterday: { count: 2, totalMinor: 1200 } },
+  ]);
+}, 20_000);
+
+test('Last month compares the whole month before', () => {
+  const list = [sale('M1', new Date(2026, 8, 30, 20, 0), 700), sale('A1', new Date(2026, 7, 31, 23, 0), 400),
+    sale('A2', new Date(2026, 7, 1, 9, 0), 100), sale('J1', new Date(2026, 6, 31, 12, 0), 9000)];
+  const result = salesRoom([...orders, ...list], { now, currency: 'USD', ...period('lastMonth') });
+  expect(result.today).toMatchObject({ count: 1, totalMinor: 700 });
+  expect(result.yesterdaySoFar).toMatchObject({ count: 2, totalMinor: 500 });
+  expect(result.hours).toHaveLength(30);
+  expect(result.hours[29]).toMatchObject({ day: '2026-09-30', today: { totalMinor: 700 }, yesterday: { totalMinor: 0 } });
 }, 20_000);

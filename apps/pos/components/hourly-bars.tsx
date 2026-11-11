@@ -10,9 +10,13 @@ const pad = (hour: number) => String(hour).padStart(2, '0');
 /** v2 measures its label with the chart font; this estimates text-xs semibold, and the plot clamps it. */
 const labelWidth = (text: string) => text.length * 7.5 + 16;
 
-/** v2 reports/chart: the hero's By hour bars or Running total line, with the comparison day dashed over them. */
-export function HourlyBars({ hours, money, comparisonName = 'yesterday', nowHour, view }: {
-  hours: readonly HourBucket[]; money(minor: number): string; comparisonName?: string; nowHour: number; view: 'hour' | 'run';
+/**
+ * v2 reports/chart: the hero's By hour (By day over several days) bars or Running total line, the comparison dashed
+ * over them. `nowHour` is the last bucket that is not in the future: an hour, or a day bucket's index. A `live`
+ * period (one that runs to now) reads its running total "… now", a closed one the amount alone, as v2 does.
+ */
+export function HourlyBars({ hours, money, comparisonName = 'yesterday', nowHour, live = true, view }: {
+  hours: readonly HourBucket[]; money(minor: number): string; comparisonName?: string; nowHour: number; live?: boolean; view: 'hour' | 'run';
 }) {
   const [primary, muted] = useCSSVariable(['--color-primary', '--color-muted-foreground'])
     .map(value => value === undefined ? undefined : String(value));
@@ -59,26 +63,27 @@ export function HourlyBars({ hours, money, comparisonName = 'yesterday', nowHour
   return (
     <View testID="sales-room-hours" className="h-48 pt-6" onLayout={event => setWidth(event.nativeEvent.layout.width)}>
       <View className="flex-1 flex-row">
-        {hours.map(({ hour, today, yesterday }, i) => {
-          const HH = pad(hour);
+        {hours.map(({ hour, day, today, yesterday }, i) => {
+          const id = day ? `sales-day-${day}` : `sales-hour-${pad(hour)}`;
+          const name = day ? String(Number(day.slice(8))) : `${pad(hour)}:00`;
           return (
             <View
               key={hour}
-              testID={`sales-hour-${HH}`}
+              testID={id}
               className="flex-1 items-center justify-end px-0.5"
-              accessibilityLabel={`${HH}:00 — today ${money(today.totalMinor)}, ${orders(today.count)}; ${comparisonName} ${money(yesterday.totalMinor)}`}
+              accessibilityLabel={`${day ?? name} — ${day ? '' : 'today '}${money(today.totalMinor)}, ${orders(today.count)}; ${comparisonName} ${money(yesterday.totalMinor)}`}
             >
               <View className="w-full max-w-12 flex-1 justify-end">
                 {!run && (
                   <View
-                    testID={`sales-hour-${HH}-today`}
+                    testID={`${id}-today`}
                     className="rounded-sm bg-primary"
                     style={{ height: `${pct(today.totalMinor)}%`, opacity: i === busiest ? 1 : 0.55 }}
                   />
                 )}
               </View>
               {/* Every column keeps its label slot, so the bars share one baseline. */}
-              <Text numberOfLines={1} className="mt-1 h-4 w-12 text-center text-xs text-muted-foreground">{i % k === 0 ? `${HH}:00` : ''}</Text>
+              <Text numberOfLines={1} className="mt-1 h-4 w-12 text-center text-xs text-muted-foreground">{i % k === 0 ? name : ''}</Text>
             </View>
           );
         })}
@@ -96,7 +101,7 @@ export function HourlyBars({ hours, money, comparisonName = 'yesterday', nowHour
         </Svg>
         {!run && busiest >= 0 && label('hero-chart-peak', busiest, hours[busiest].today.totalMinor,
           `${money(hours[busiest].today.totalMinor)} · ${orders(hours[busiest].today.count)}`, 'text-primary')}
-        {run && label('hero-chart-total', Math.max(0, end), todayEnd, `${money(todayEnd)} now`, 'text-primary')}
+        {run && label('hero-chart-total', Math.max(0, end), todayEnd, live ? `${money(todayEnd)} now` : money(todayEnd), 'text-primary')}
         {run && compared && label('hero-chart-comparison-total', n - 1, previousEnd, money(previousEnd), 'text-muted-foreground', true)}
       </View>
     </View>

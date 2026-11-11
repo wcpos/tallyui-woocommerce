@@ -852,3 +852,81 @@ test('the summary lists taxes by rate when there is tax', async () => {
   await printSummary();
   expect(within(screen.getByTestId('sales-summary-taxes')).getByText('Tax 10% — Net $3.00 — Tax $0.30 — Gross $3.30')).not.toBeNull();
 }, 20_000);
+
+/** Opens the date button's menu and picks a preset. */
+async function choosePeriod(preset: string) {
+  fireEvent.click(screen.getByTestId('reports-period'));
+  fireEvent.click(within(await screen.findByTestId('reports-period-menu')).getByTestId(`reports-period-${preset}`));
+  expect(screen.queryByTestId('reports-period-menu')).toBeNull();
+}
+
+/** Pays one cash sale per moment, then moves each to its moment. */
+async function salesAt(app: Awaited<ReturnType<typeof setup>>, moments: Date[]) {
+  for (const _ of moments) await payCash();
+  await waitFor(() => expect(text('hero-orders')).toBe(String(moments.length)));
+  const docs = await app.orders.find().exec();
+  await act(async () => { for (const [i, doc] of docs.entries()) await doc.incrementalPatch({ createdAt: moments[i].toISOString() }); });
+}
+
+test('the date menu lists the presets; Yesterday counts only yesterday against the whole day before, and prints it', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 9, 6, 14, 30));
+  try {
+    const app = await setup();
+    const strip = within(screen.getByTestId('reports-scope-strip'));
+    expect(strip.getByTestId('reports-period').textContent).toBe('Today · Tue 6 Oct▾');
+    fireEvent.click(screen.getByTestId('reports-period'));
+    expect(within(await screen.findByTestId('reports-period-menu')).getAllByRole('menuitem').map(row => row.textContent))
+      .toEqual(['Today✓', 'Yesterday', 'This week', 'Last week', 'This month', 'Last month']);
+    fireEvent.click(screen.getByTestId('reports-period-today'));
+    await salesAt(app, [new Date(2026, 9, 6, 9, 0), new Date(2026, 9, 5, 10, 0), new Date(2026, 9, 5, 11, 0), new Date(2026, 9, 4, 16, 0)]);
+    await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+    await choosePeriod('yesterday');
+    expect(text('reports-period')).toBe('Yesterday · Mon 5 Oct▾');
+    await waitFor(() => expect(text('hero-total')).toBe('$6.00'));
+    // The day before's 16:00 sale is after now's time of day, and a closed day is compared whole.
+    expect(text('hero-delta')).toBe('+100.0% vs yesterday');
+    expect(text('hero-orders-delta')).toBe('+1');
+    expect(text('hero-chip-compare')).toBe('vs yesterday▾');
+    expect(text('hero-chart-toggle-segment-hour')).toBe('By hour');
+    expect(screen.getByTestId('sales-hour-10')).not.toBeNull();
+    // A closed day's running total is the amount alone; Today's reads "… now".
+    fireEvent.click(screen.getByText('Running total'));
+    await waitFor(() => expect(text('hero-chart-total')).toBe('$6.00'));
+    fireEvent.click(screen.getByTestId('sales-room-orders-open'));
+    const table = within(await screen.findByTestId('sales-table'));
+    expect(table.getAllByTestId(/^sales-table-row-/).map(row => within(row).getAllByText(/./)[1].textContent)).toEqual(['11:00', '10:00']);
+    expect(table.getByTestId('sales-table-status').textContent).toBe('2 orders · $6.00');
+    fireEvent.click(table.getByTestId('sales-table-close'));
+    await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
+    await printSummary();
+    expect(text('sales-summary-scope')).toBe('Yesterday · This till · Everyone');
+    expect(text('sales-summary-total')).toBe('Total sales: $6.00');
+  } finally {
+    vi.useRealTimers();
+  }
+}, 40_000);
+
+test('This week counts the week by day against the week before, cut at now on its last day', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 9, 6, 14, 30));
+  try {
+    const app = await setup();
+    await salesAt(app, [new Date(2026, 9, 6, 9, 0), new Date(2026, 9, 5, 10, 0), new Date(2026, 8, 28, 10, 0), new Date(2026, 8, 29, 16, 0)]);
+    await choosePeriod('thisWeek');
+    expect(text('reports-period')).toBe('This week · 5–6 Oct▾');
+    await waitFor(() => expect(text('hero-total')).toBe('$6.00'));
+    // Tuesday the week before at 16:00 is after now's 14:30: only Monday's sale is compared.
+    expect(text('hero-delta')).toBe('+100.0% vs week before');
+    expect(screen.getAllByTestId(/^sales-day-\d{4}-\d\d-\d\d$/).map(column => column.getAttribute('data-testid')))
+      .toEqual(['sales-day-2026-10-05', 'sales-day-2026-10-06']);
+    expect(text('hero-chart-toggle-segment-hour')).toBe('By day');
+    const chip = screen.getByTestId('hero-chip-compare');
+    expect(chip.textContent).toBe('vs week before');
+    expect(chip.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(chip);
+    expect(screen.queryByTestId('hero-compare-menu')).toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
+}, 40_000);

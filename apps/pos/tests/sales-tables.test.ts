@@ -13,6 +13,8 @@ afterAll(() => {
 });
 
 const now = new Date(2026, 9, 6, 14, 30);
+/** Today, 6 Oct, against yesterday. */
+const day = { range: { from: '2026-10-06', to: '2026-10-06' }, preset: 'today' as const, comparison: { from: '2026-10-05', to: '2026-10-05' } };
 const base: Omit<PosOrder, 'id' | 'totalMinor' | 'payments' | 'syncStatus'> = {
   createdAt: new Date(2026, 9, 6, 9, 15).toISOString(), updatedAt: now.toISOString(),
   currency: 'USD', pricesIncludeTax: false, lines: [], subtotalMinor: 0, discountMinor: 0,
@@ -55,7 +57,7 @@ const orders: PosOrder[] = [
 ];
 
 const money = (n: number) => formatMoney({ amount: n, currency: 'USD' }, 'en-US');
-const today = salesRoom(orders, { now, currency: 'USD' }).today;
+const today = salesRoom(orders, { now, currency: 'USD', ...day }).today;
 
 test('payments table sorts by amount and shares the period total', () => {
   const table = paymentsTable(today, money);
@@ -77,7 +79,7 @@ test('taxes table lists rates ascending and totals the period, not the rows', ()
 }, 20_000);
 
 test('an empty period has no rows and a zero total', () => {
-  const empty = salesRoom([], { now, currency: 'USD' }).today;
+  const empty = salesRoom([], { now, currency: 'USD', ...day }).today;
   const payments = paymentsTable(empty, money);
   expect(payments.rows).toEqual([]);
   expect(payments.total).toEqual(['Total', '0', '$0.00', '']);
@@ -95,7 +97,7 @@ test('heads and alignment', () => {
 }, 20_000);
 
 test("orders table lists today's orders newest first in the store currency", () => {
-  const table = ordersTable(orders, { now, currency: 'USD', money });
+  const table = ordersTable(orders, { range: day.range, currency: 'USD', money });
   expect(table.rows.map(row => row.cells)).toEqual([
     ['T4', '13:50', 'Cash', '$1.00'],
     ['T3', '13:05', 'Card terminal', '$17.38'],
@@ -113,19 +115,19 @@ test('orders table names a method once however many legs it has', () => {
   const extra: PosOrder = { ...base, id: 'C1', createdAt: new Date(2026, 9, 6, 11, 0).toISOString(),
     totalMinor: 500, syncStatus: 'applied',
     payments: [{ id: 'cash-1', method: 'cash', amountMinor: 300 }, { id: 'cash-2', method: 'cash', amountMinor: 200 }] };
-  const table = ordersTable([...orders, extra], { now, currency: 'USD', money });
+  const table = ordersTable([...orders, extra], { range: day.range, currency: 'USD', money });
   expect(table.rows.find(row => row.key === 'C1')?.cells[2]).toBe('Cash');
 }, 20_000);
 
 test("orders table shows the store's display id once synced", () => {
   const synced = orders.map(order => order.id === 'T3'
     ? { ...order, serverRefs: { orderId: '115', displayId: '115', totalMinor: 1738 } } : order);
-  const table = ordersTable(synced, { now, currency: 'USD', money });
+  const table = ordersTable(synced, { range: day.range, currency: 'USD', money });
   expect(table.rows.find(row => row.key === 'T3')?.cells[0]).toBe('T3 · #115');
 }, 20_000);
 
 test('orders table with no orders today', () => {
-  const table = ordersTable([], { now, currency: 'USD', money });
+  const table = ordersTable([], { range: day.range, currency: 'USD', money });
   expect(table.rows).toEqual([]);
   expect(table.total).toEqual(['Total', '', '', '$0.00']);
   expect(table.status).toBe('0 orders · $0.00');
