@@ -35,6 +35,13 @@ const GLYPH: Record<RailKey, typeof RegisterIcon> = {
 
 /** True while AppFrame draws the rail; the register bar then draws no menu button. */
 export const AppRailShown = createContext(false);
+/** The rail area of the current route (null outside AppFrame or off the rail's routes); a sheet closes when it changes. */
+export const AppRailArea = createContext<RailKey | null>(null);
+
+// The rail's width (v2's 64), and the left edge of a sheet that opens beside it. One literal class each, as
+// uniwind needs them, kept side by side: change both together.
+export const RAIL_WIDTH = 'w-16';
+export const BESIDE_RAIL = 'left-16';
 
 export function AppRail({ active, onNavigate }: { active: RailKey; onNavigate(to: RailKey): void }): JSX.Element {
   const item = (key: RailKey) => {
@@ -51,7 +58,7 @@ export function AppRail({ active, onNavigate }: { active: RailKey; onNavigate(to
     );
   };
   return (
-    <View testID="drawer-panel-permanent" className="w-16 items-center border-r border-border bg-muted px-2 py-2">
+    <View testID="drawer-panel-permanent" className={`${RAIL_WIDTH} items-center border-r border-border bg-muted px-2 py-2`}>
       <View testID="drawer-top-group" className="items-center gap-2">{RAIL_TOP.map(item)}</View>
       <View testID="drawer-bottom-group" className="mt-auto items-center gap-2">{RAIL_FOOT.map(item)}</View>
       <Text testID="drawer-version" className="py-2 text-center text-xs text-muted-foreground opacity-50">{`v ${SOFTWARE_VERSION}`}</Text>
@@ -68,11 +75,11 @@ export function AppFrame({ wide, pathname, onNavigate, children }: {
   const key = railKeyForPath(pathname);
   const shown = wide && key !== null;
   return (
-    <AppRailShown.Provider value={shown}>
+    <AppRailShown.Provider value={shown}><AppRailArea.Provider value={key}>
       <View className="flex-1 flex-row bg-background">
         {shown && <AppRail active={key} onNavigate={to => onNavigate(key, to)} />}
         <View className="flex-1">{children}</View>
       </View>
-    </AppRailShown.Provider>
+    </AppRailArea.Provider></AppRailShown.Provider>
   );
 }
