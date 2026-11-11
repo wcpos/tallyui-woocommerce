@@ -273,6 +273,14 @@ test('Tile Size\'s slider lays its track in a row and takes v2\'s 8 px track hei
   expect(classesOf('tile-size')).toEqual(expect.arrayContaining(['flex-row', '-my-1.5']));
 });
 
+test('Tile Fields take v2\'s pos-products labels: the first switch reads "Product Name", the category one "Categories"', () => {
+  openSheet();
+  const rows = screen.getAllByTestId(/^tile-field-toggle-[a-z_]+-label$/);
+  expect(rows[0].textContent).toBe('Product Name');
+  expect(screen.getByRole('switch', { name: 'Show Product Name on tiles' })).not.toBeNull();
+  expect(screen.getByTestId('tile-field-toggle-category-label').textContent).toBe('Categories');
+});
+
 test('each Tile Fields switch is v2\'s FormSwitch row, and pressing its label toggles it off and on', () => {
   openSheet();
   expect(classesOf('tile-field-toggle-name-row')).toEqual(['w-full', 'flex-row', 'items-center', 'gap-3']);

@@ -206,8 +206,8 @@ export function CatalogueView({
     {/* v2's ChipRow: one horizontal scroller at every width, chips only; the filter bar opens from Product settings. */}
     <ScrollView testID="catalogue-chip-row" horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
       contentContainerClassName="items-center gap-2">
-      <CatalogueFilterChips products={products} filters={filters} onChange={setFilters} />
-      <QuickFilterBar quickFilters={quickFilters} isActive={isActive} onPress={pressQuickFilter} />
+      <CatalogueFilterChips products={products} filters={filters} onChange={setFilters} dimmed={drilled !== undefined} />
+      <QuickFilterBar quickFilters={quickFilters} isActive={isActive} onPress={pressQuickFilter} dimmed={drilled !== undefined} />
     </ScrollView>
     <FilterBarDialog open={filterBarOpen} onOpenChange={setFilterBarOpen} quickFilters={quickFilters} onChange={changeQuickFilters}
       products={products} connector={connector} currency={currency} baselineSort={viewState.sort} />
