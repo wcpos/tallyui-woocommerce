@@ -429,8 +429,10 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   ) : <CatalogueView {...props} onSelect={onSelect} onAddEntry={onAdd} onScan={onScan} message={message}
     tax={tax} inCartCounts={inCart} hideBar
     viewState={viewState} onViewStateChange={setViewState} cashierControl={cashierControl} />;
+  // v2's cart column paints its own surface, white in Light (pos/cart/index.tsx:75 `isColumn ? 'bg-cart'`, :187), and
+  // its rows sit 8 px in (cart/foot.tsx:35 `gap-2 p-2`; cart-header.tsx:119 `px-2 py-2`).
   const cartPane = (
-    <View className="flex-1 bg-background p-4">
+    <View testID="cart-pane" className="flex-1 bg-card p-2">
       {width < 900 && message ? <Text>{message}</Text> : null}
       {sale.stage.kind === 'cart' ? (
         <>
@@ -547,10 +549,10 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       style={{ flexGrow: shown, flexShrink: 1, flexBasis: 0 }}>{multiTender ? <View testID="checkout-ledger-column" className="flex-1 bg-muted p-4">
         <LedgerPane closing order={sale.order} onRemove={cancelling || sale.saving ? undefined : id => { void removeLeg(id); }} />
       </View> : browse}</View>;
-    // The bar heads the cart column on whichever side the cart sits, as v2's goes with its cart.
+    // The bar heads the cart column on whichever side the cart sits, as v2's goes with its cart, on the cart's surface.
     const cartPanel = <View key="cart" testID="pos-cart-panel"
       style={{ flexGrow: 100 - shown, flexShrink: 1, flexBasis: 0 }}
-      className={`${viewState.position === 'right' ? 'border-r' : 'border-l'} border-border`}>{bar}{cart}</View>;
+      className={`${viewState.position === 'right' ? 'border-r' : 'border-l'} border-border bg-card`}>{bar}{cart}</View>;
     const handle = <PanelResizeHandle key="handle" width={shown} position={viewState.position}
       groupWidth={groupWidth} onResize={setLiveWidth}
       onCommit={w => { setViewState({ ...viewState, width: w }); setLiveWidth(null); }} />;

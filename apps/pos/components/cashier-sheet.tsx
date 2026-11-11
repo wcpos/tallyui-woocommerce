@@ -61,7 +61,10 @@ export function CashierSheet(props: {
   return <>
     {/* v2's CashierEntry (packages/core/src/screens/main/pos/cart/register-bar.tsx): the initials avatar on the accent wash. */}
     <IconButton testID="register-bar-avatar" accessibilityLabel={props.name} disabled={Boolean(props.blockedReason)} className="rounded-lg bg-accent" onPress={() => setOpen(true)}>
-      <View className="size-7 items-center justify-center rounded-full bg-primary"><Text className="text-xs font-medium text-primary-foreground">{getInitials(props.name)}</Text></View>
+      {/* v2's Avatar default `xs`: `size-5`, 20 px, with `text-2xs` initials (monorepo packages/components/src/avatar/index.tsx:42,58,76). */}
+      <View testID="register-bar-avatar-initials" className="size-5 items-center justify-center rounded-full bg-primary">
+        <Text className="text-2xs font-medium text-primary-foreground">{getInitials(props.name)}</Text>
+      </View>
     </IconButton>
     {props.blockedReason && <Text>{props.blockedReason}</Text>}
     {open && <Dialog open onOpenChange={setOpen}>

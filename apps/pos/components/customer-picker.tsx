@@ -112,7 +112,8 @@ export function CustomerPicker({ source, customer, onChange }: {
         <PopoverTrigger asChild>
           <Pressable accessibilityRole="button" testID="cart-customer-name"
             accessibilityLabel={`Customer: ${customer ? customer.name : 'Guest'}`}
-            className="rounded-full border border-border bg-card px-3 min-h-9 flex-row items-center gap-2">
+            // h-11: v2's default Chip, `h-ctl px-3`, 44 px (monorepo packages/components/src/chip/index.tsx:158).
+            className="rounded-full border border-border bg-card px-3 h-11 flex-row items-center gap-2">
             <Initials testID="cart-customer-initials" text={customer ? customerInitials(customer) : 'GU'} />
             <Text numberOfLines={1}>{customer ? customer.name : 'Guest'}</Text>
           </Pressable>

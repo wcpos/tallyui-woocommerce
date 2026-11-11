@@ -200,7 +200,8 @@ export function CatalogueView({
   // v2's PageBar: the search fills the row, the view toggle and Product settings sit beside it, the chips below.
   const searchSlot = <View className="gap-2">
     <View className="flex-row items-center gap-2">
-      <SearchInput className="flex-1" value={term} onChangeText={setTerm} placeholder="Search products"
+      {/* h-11: v2's control height `h-ctl`, 44 px (monorepo apps/main/global.css:40), over TallyUI's 40. */}
+      <SearchInput testID="catalogue-search" className="h-11 flex-1" value={term} onChangeText={setTerm} placeholder="Search products"
         onSubmitEditing={() => { const code = term.trim(); if (code && onScan) scan(code); }} />
       <ViewModeToggle view={viewState.view} onChange={view => setViewState({ ...viewState, view })} />
       <CatalogueSettingsButton onPress={() => setSettingsOpen(true)} />
@@ -252,7 +253,9 @@ export function CatalogueView({
         {hideBar ? null : <PosBar storeName={storeName} cashierName={cashierName} cashierControl={cashierControl}
           onSignOut={onSignOut} onOpenOrders={onOpenOrders} onOpenCustomers={onOpenCustomers}
           onOpenReports={onOpenReports} onOpenHealth={onOpenHealth} onOpenSettings={onOpenSettings} />}
-        <View className="flex-1 p-4">
+        {/* No inset of its own: the search row, the chips and the grid sit in TallyUI's px-3, v2's 12 px page gutter
+            (monorepo apps/main/global.css:30 `--spacing-gutter: calc(var(--spacing) * 3)`; pos/products/index.tsx:551). */}
+        <View testID="pos-products-column" className="flex-1">
         <CatalogueDisplayOptions state={viewState} onChange={changeViewState} products={products} quickFilterCount={quickFilters.length}
           open={settingsOpen} onOpenChange={setSettingsOpen} onCustomiseFilterBar={() => setFilterBarOpen(true)} />
         {message ? <Text>{message}</Text> : null}
@@ -302,7 +305,7 @@ export function CatalogueView({
           filterSlot={crumb}
           emptyState={emptyState}
         />}
-        <View testID="data-table-caption-row" className="flex-row items-center gap-2 pt-2">
+        <View testID="data-table-caption-row" className="flex-row items-center gap-2 px-3 py-2">
           <View className="flex-1" />
           <Text testID="data-table-count" className="text-sm text-muted-foreground">{countLabel}</Text>
           {onSync ? <IconButton testID="catalogue-sync" accessibilityRole="button" accessibilityLabel="Sync" variant="ghost" size="sm"

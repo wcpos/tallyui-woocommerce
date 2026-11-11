@@ -29,9 +29,10 @@ const FolderIcon = createSvgIcon('FolderIcon', () => <>
 
 const STOCK_LABELS: Record<QuickFilterStockStatus, string> = { instock: 'In Stock', outofstock: 'Out of Stock', onbackorder: 'On Backorder' };
 
-/** v2's chip: fully rounded, primary ink and a light primary fill when on; v2's Chip `dimmed` is `opacity-45`. */
+/** v2's chip: fully rounded, primary ink and a light primary fill when on; v2's Chip `dimmed` is `opacity-45`.
+ *  `h-11` is the default Chip's `h-ctl px-3`, 44 px (monorepo packages/components/src/chip/index.tsx:158). */
 export function filterChipClassName(active: boolean, dimmed = false): string {
-  return 'h-9 flex-row items-center gap-1.5 self-start rounded-full border px-3 ' + (active ? 'border-primary bg-primary/10' : 'border-border bg-card')
+  return 'h-11 flex-row items-center gap-1.5 self-start rounded-full border px-3 ' + (active ? 'border-primary bg-primary/10' : 'border-border bg-card')
     + (dimmed ? ' opacity-45' : '');
 }
 

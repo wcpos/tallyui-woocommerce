@@ -8,6 +8,7 @@ import type { CatalogueViewProps } from '../components/catalogue-view';
 import { CATALOGUE_TILE_FIELDS, CATALOGUE_VIEW_DEFAULTS, CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { classesOf } from './classes-of';
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 
@@ -251,6 +252,19 @@ test('v2 search row: "Search products" with the view toggle and Product settings
   expect(screen.queryByTestId('view-toggle-grid')).toBeNull();
   expect(screen.queryByTestId('view-toggle-table')).toBeNull();
   expect(screen.queryByText('Product settings')).toBeNull();
+});
+
+// P11-S2: v2's 12 px page gutter (apps/main/global.css:30, TallyUI's px-3) with no column padding of its own, and its
+// 44 px controls (`h-ctl`, global.css:40) across the search row and the chips.
+test('v2 insets and controls: no column padding, a 44 px search row and 44 px chips', () => {
+  render(<CatalogueView {...props} />);
+  expect(classesOf('pos-products-column')).toEqual(['flex-1']);
+  expect(classesOf('catalogue-search')).toContain('h-11');
+  for (const id of ['view-mode-toggle', 'catalogue-settings-button']) {
+    expect(classesOf(id)).toEqual(expect.arrayContaining(['h-11', 'w-11']));
+  }
+  expect(classesOf('filter-pill-on_sale')).toContain('h-11');
+  expect(classesOf('filter-pill-on_sale')).not.toContain('h-9');
 });
 
 test('the view toggle switches the grid to the table and back, and the view persists', () => {

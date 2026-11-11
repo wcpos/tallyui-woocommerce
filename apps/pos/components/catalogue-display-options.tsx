@@ -36,12 +36,14 @@ function countLabel(count: number, one: string, many: string): string { return `
  *  sheet opens. TallyUI's opens on a press instead, so the button opens it as the pointer enters, closes it as the
  *  pointer leaves, and closes it on its own press (after the primitive's toggle), through the trigger's own open and
  *  close, which place the content. */
-export function SettingsTrigger({ testID, label, tooltip, onPress }: { testID: string; label: string; tooltip: string; onPress(): void }): JSX.Element {
+export function SettingsTrigger({ testID, label, tooltip, onPress, className }: {
+  testID: string; label: string; tooltip: string; onPress(): void; className?: string;
+}): JSX.Element {
   const trigger = useRef<View & { open?(): void; close?(): void }>(null);
   // The pointer handlers sit on the button itself, with no wrapper, so the trigger stays a direct child of its row.
   return <Tooltip>
     <TooltipTrigger ref={trigger} asChild onPress={() => trigger.current?.close?.()}>
-      <IconButton testID={testID} variant="ghost" accessibilityLabel={label} onPress={onPress}
+      <IconButton testID={testID} variant="ghost" className={className} accessibilityLabel={label} onPress={onPress}
         onPointerEnter={() => trigger.current?.open?.()} onPointerLeave={() => trigger.current?.close?.()}>
         <SlidersIcon size={20} className="text-foreground" />
       </IconButton>
@@ -74,9 +76,11 @@ export function SheetCloseButton({ testID, onPress }: { testID: string; onPress(
  *  travel together, since tailwind-merge clears the line height with a font size. */
 export const SHEET_TITLE = 'text-lg leading-none';
 
-/** v2's Product settings trigger in the search row: a sliders icon with the tooltip "Product settings". */
+/** v2's Product settings trigger in the search row: a sliders icon with the tooltip "Product settings". `h-11 w-11` is
+ *  v2's IconButton `size-ctl`, 44 px (monorepo packages/components/src/icon-button/index.tsx:26), over TallyUI's 40. */
 export function CatalogueSettingsButton({ onPress }: { onPress(): void }): JSX.Element {
-  return <SettingsTrigger testID="catalogue-settings-button" label="Product settings" tooltip="Product settings" onPress={onPress} />;
+  return <SettingsTrigger testID="catalogue-settings-button" label="Product settings" tooltip="Product settings" onPress={onPress}
+    className="h-11 w-11" />;
 }
 
 /** The sheet itself. Its open state lives with the catalogue, since the search row that holds the trigger remounts with the view. */

@@ -68,7 +68,10 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
   // v2's usePanelSide('cart') docks the cart's panels opposite the cart, so on the products side: `position`.
   const side = position;
   return <>
-    <IconButton testID="cart-settings-button" accessibilityLabel="Cart settings" onPress={() => setOpen(true)}><FiltersIcon size={20} /></IconButton>
+    {/* v2's IconButton: `size-ctl` 44 px, its default 18 px glyph muted (monorepo packages/components/src/icon-button/index.tsx:26,93). */}
+    <IconButton testID="cart-settings-button" accessibilityLabel="Cart settings" className="h-11 w-11" onPress={() => setOpen(true)}>
+      <FiltersIcon testID="cart-settings-button-icon" size={18} className="text-muted-foreground" />
+    </IconButton>
     {/* DialogContent's overlay is a fixed inset-0 with no class option, which would dim the rail. Back to
         DialogContent if TallyUI adds an overlay className. */}
     {open && <Dialog open onOpenChange={next => { if (!next) setOpen(false); }}><DialogPortal>

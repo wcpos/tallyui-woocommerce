@@ -19,6 +19,7 @@ import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { classesOf } from './classes-of';
 
 function SaleScreen(props: ComponentProps<typeof SaleScreenWithoutHost>) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
@@ -74,6 +75,13 @@ const dismissals = {
   'an outside press': () => fireEvent.pointerDown(document.body),
   'the chip again': () => fireEvent.click(screen.getByTestId('cart-customer-name')),
 };
+
+// P11-S2: the chip is v2's default Chip, `h-ctl`, 44 px (packages/components/src/chip/index.tsx:158).
+test('the customer chip is 44 px high', () => {
+  renderPicker();
+  expect(classesOf('cart-customer-name')).toContain('h-11');
+  expect(classesOf('cart-customer-name')).not.toContain('min-h-9');
+});
 
 test('the panel has no create path: no New customer, no customer form and no Cancel', () => {
   const panel = openPicker();

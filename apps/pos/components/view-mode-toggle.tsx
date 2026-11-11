@@ -21,7 +21,8 @@ export function ViewModeToggle({ view, onChange }: { view: CatalogueViewMode; on
   const label = view === 'table' ? 'Switch to grid view' : 'Switch to table view';
   return <Tooltip>
     <TooltipTrigger asChild>
-      <IconButton testID="view-mode-toggle" variant="ghost" accessibilityLabel={label}
+      {/* h-11 w-11: v2's IconButton `size-ctl`, 44 px (monorepo packages/components/src/icon-button/index.tsx:26). */}
+      <IconButton testID="view-mode-toggle" variant="ghost" className="h-11 w-11" accessibilityLabel={label}
         onPress={() => onChange(view === 'table' ? 'grid' : 'table')}>
         {view === 'table' ? <GridIcon size={20} className="text-foreground" /> : <ListIcon size={20} className="text-foreground" />}
       </IconButton>
