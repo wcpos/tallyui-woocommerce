@@ -2,9 +2,9 @@
 // columns of ui-settings `initial-settings.json` "coupons" without Actions, newest first (date_created_gmt desc),
 // and the cell rules of cells/active.tsx, usage.tsx, editable-amount.tsx, editable-date.tsx and discount-type.tsx.
 // The Status, Discount Type and Expires filter chips and Clear all follow v2's coupons/filter-bar/, combined with the
-// search (AND). Deviations: no inline editing, Add, Actions column, column settings or sortable headers, since edits
-// must go through the store's REST API; the coupons collection is replicated from the server, so this screen never
-// writes to it. The expiry date shows in the device's time zone, not the store's (v2's date-picker-input.tsx), and the
+// search (AND). The bar's display options switch v2's columns (area-display-options.tsx). Deviations: no inline
+// editing, Add, Actions column, column reordering or sortable headers, since edits must go through the store's REST
+// API; the coupons collection is replicated from the server, so this screen never writes to it. The expiry date shows in the device's time zone, not the store's (v2's date-picker-input.tsx), and the
 // Expires chip offers the report date presets instead of v2's calendar.
 import { useEffect, useState } from 'react';
 import type { ComponentType, JSX } from 'react';
@@ -19,9 +19,13 @@ import {
   TableCell, TableHead, TableHeader, TableRow, Text, XIcon,
 } from '@tallyui/components';
 import type { SvgIconProps } from '@tallyui/components';
+import { useAreaColumns } from '../lib/area-columns';
+import type { AreaColumn } from '../lib/area-columns';
+import { AreaDisplayOptions } from './area-display-options';
 import { AreaToolbar } from './area-header';
 import { filterChipClassName, filterChipTextClassName } from './catalogue-filter-chips';
 import { StatusDot } from './status-dot';
+import type { StatusTone } from './status-dot';
 import { CaptionRowInset, TableCount, TableSurface, useCatalogueSync } from './table-surface';
 
 // v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
@@ -64,16 +68,27 @@ const CalendarIcon = createSvgIcon('CalendarIcon', () => <>
 type FilterKey = 'status' | 'discount_type' | 'date_expires_gmt';
 type CouponFilters = Partial<Record<FilterKey, string>>;
 
-// The default shown columns, in v2's order, without Actions; className sizes each cell in the row's flex layout.
-const COLUMNS = [
-  { id: 'active', label: 'Active', className: 'w-28 flex-none' },
-  { id: 'code', label: 'Code', className: undefined },
-  { id: 'amount', label: 'Amount', className: undefined },
-  { id: 'discount_type', label: 'Type', className: undefined },
-  { id: 'description', label: 'Description', className: 'flex-[2]' },
-  { id: 'usage_count', label: 'Usage', className: undefined },
-  { id: 'date_expires_gmt', label: 'Expiry Date', className: undefined },
-] as const;
+export type CouponsColumnId = 'active' | 'code' | 'amount' | 'discount_type' | 'description' | 'usage_count'
+  | 'date_expires_gmt' | 'status' | 'date_created_gmt' | 'date_modified_gmt';
+// v2's coupons columns (ui-settings/initial-settings.json `coupons.columns`), in its order, with v2's keys, its `show`
+// and its labels (use-ui-label.ts), without Actions; className sizes each cell in the row's flex layout. Every one
+// of them is a field of the replicated coupon doc.
+export const COUPONS_COLUMNS: readonly (AreaColumn<CouponsColumnId> & { className?: string })[] = [
+  { id: 'active', label: 'Active', visible: true, className: 'w-28 flex-none' },
+  { id: 'code', label: 'Code', visible: true },
+  { id: 'amount', label: 'Amount', visible: true },
+  { id: 'discount_type', label: 'Type', visible: true },
+  { id: 'description', label: 'Description', visible: true, className: 'flex-[2]' },
+  { id: 'usage_count', label: 'Usage', visible: true },
+  { id: 'date_expires_gmt', label: 'Expiry Date', visible: true },
+  { id: 'status', label: 'Status', visible: false },
+  { id: 'date_created_gmt', label: 'Date Created', visible: false },
+  { id: 'date_modified_gmt', label: 'Date Modified', visible: false },
+];
+
+// v2 coupons/cells/status.tsx: its tones (publish ok, draft muted, pending warning) and core.json's words. An unknown
+// status reads as itself with a muted dot, where v2 uses its `default` tone.
+const STATUS_TONE: Record<string, StatusTone> = { publish: 'success', draft: 'muted', pending: 'warning' };
 
 interface CouponDoc {
   uuid: string;
@@ -83,6 +98,7 @@ interface CouponDoc {
   discount_type?: string;
   description?: string;
   date_created_gmt?: string;
+  date_modified_gmt?: string;
   date_expires_gmt?: string | null;
   usage_count?: number | null;
   usage_limit?: number | null;
@@ -128,10 +144,11 @@ function usageText(coupon: CouponDoc): string {
   return coupon.usage_limit != null && coupon.usage_limit > 0 ? `${count} / ${coupon.usage_limit}` : String(count);
 }
 
-/** v2 date-picker-input.tsx shows `d MMM yyyy`; here the same parts in the locale, with no time. */
-function expiryText(coupon: CouponDoc, locale: string | undefined): string {
-  if (!coupon.date_expires_gmt) return '';
-  const date = utcDate(coupon.date_expires_gmt);
+/** v2 date-picker-input.tsx shows `d MMM yyyy`; here the same parts in the locale, with no time. The other date
+ *  columns (created, modified) and the products area's date read the same way. */
+export function gmtDayText(value: string | null | undefined, locale: string | undefined): string {
+  if (!value) return '';
+  const date = utcDate(value);
   if (Number.isNaN(date.getTime())) return '';
   const options = { day: 'numeric', month: 'short', year: 'numeric' } as const;
   try {
@@ -201,11 +218,35 @@ function ActiveBadge({ coupon, now }: { coupon: CouponDoc; now: Date }): JSX.Ele
   return <StatusDot testID={`coupon-active-${coupon.code}`} tone={active ? 'success' : 'muted'} label={active ? 'Active' : 'Inactive'} />;
 }
 
+function couponCell(id: CouponsColumnId, className: string | undefined, c: CouponDoc, now: Date, currency: string,
+  locale: string | undefined): JSX.Element {
+  switch (id) {
+    case 'active': return <TableCell key={id} className={className}><ActiveBadge coupon={c} now={now} /></TableCell>;
+    case 'code': return <TableCell key={id} className={className}><Text className="font-medium">{c.code}</Text></TableCell>;
+    case 'amount': return <TableCell key={id} className={className}><Text>{couponAmount(c, currency, locale)}</Text></TableCell>;
+    case 'discount_type': return <TableCell key={id} className={className}><Text>{typeLabel(c)}</Text></TableCell>;
+    case 'description': return <TableCell key={id} className={className}><Text>{c.description ?? ''}</Text></TableCell>;
+    case 'usage_count': return <TableCell key={id} className={className}><Text testID={`coupon-usage-${c.code}`}>{usageText(c)}</Text></TableCell>;
+    case 'date_expires_gmt': return <TableCell key={id} className={className}><Text testID={`coupon-expiry-${c.code}`}>{gmtDayText(c.date_expires_gmt, locale)}</Text></TableCell>;
+    case 'status': {
+      const status = c.status ?? '';
+      const label = STATUS_CHOICES.find(choice => choice.value === status)?.label ?? status;
+      return <TableCell key={id} className={className}>
+        <StatusDot testID={`coupon-status-${c.code}`} tone={STATUS_TONE[status] ?? 'muted'} label={label} />
+      </TableCell>;
+    }
+    case 'date_created_gmt':
+    case 'date_modified_gmt':
+      return <TableCell key={id} className={className}><Text testID={`coupon-${id}-${c.code}`}>{gmtDayText(c[id], locale)}</Text></TableCell>;
+  }
+}
+
 export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }: CouponsScreenProps): JSX.Element {
   const [all, setAll] = useState<CouponDoc[] | null>(null);
   const [term, setTerm] = useState('');
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<CouponFilters>({});
+  const [settings, setSettings] = useAreaColumns('coupons', COUPONS_COLUMNS);
   const { width } = useWindowDimensions();
   const sync = useCatalogueSync();
   const locale = storeLocale?.replaceAll('_', '-');
@@ -239,6 +280,8 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
   const now = new Date();
   const shown = all ? all.filter(coupon => (!query || matches(coupon, query)) && passes(coupon, filters, now)) : [];
   const total = all?.length ?? 0;
+  // The columns the display options leave on, in the area's order.
+  const columns = COUPONS_COLUMNS.filter(column => settings.some(setting => setting.id === column.id && setting.visible));
 
   const body = all === null ? null : total === 0 ? (
     <View testID="no-data-message" className="flex-1 items-center justify-center gap-2 p-6">
@@ -262,19 +305,13 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
           </View>
         )) : <Table>
           <TableHeader><TableRow>
-            {COLUMNS.map(({ id, label, className }) => (
+            {columns.map(({ id, label, className }) => (
               <TableHead key={id} className={className}><Text testID={`coupons-header-${id}`}>{label}</Text></TableHead>
             ))}
           </TableRow></TableHeader>
           <TableBody>
             {shown.map(c => <TableRow key={c.uuid} testID={`coupons-row-${c.code}`}>
-              <TableCell className="w-28 flex-none"><ActiveBadge coupon={c} now={now} /></TableCell>
-              <TableCell><Text className="font-medium">{c.code}</Text></TableCell>
-              <TableCell><Text>{couponAmount(c, currency, locale)}</Text></TableCell>
-              <TableCell><Text>{typeLabel(c)}</Text></TableCell>
-              <TableCell className="flex-[2]"><Text>{c.description ?? ''}</Text></TableCell>
-              <TableCell><Text testID={`coupon-usage-${c.code}`}>{usageText(c)}</Text></TableCell>
-              <TableCell><Text testID={`coupon-expiry-${c.code}`}>{expiryText(c, locale)}</Text></TableCell>
+              {columns.map(({ id, className }) => couponCell(id, className, c, now, currency, locale))}
             </TableRow>)}
           </TableBody>
         </Table>}
@@ -284,7 +321,9 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
   return (
     <View testID="screen-coupons" className="flex-1 bg-background">
       <AreaToolbar area="coupons" title="Coupons" onBack={onBack}
-        search={<SearchInput testID="search-coupons" value={term} onChangeText={setTerm} placeholder="Search Coupons" />} />
+        search={<SearchInput testID="search-coupons" value={term} onChangeText={setTerm} placeholder="Search Coupons" />}>
+        <AreaDisplayOptions area="coupons" columns={COUPONS_COLUMNS} settings={settings} onChange={setSettings} />
+      </AreaToolbar>
       <View className="px-4 pb-2">
         <View testID="coupons-filter-chips" className="flex-row flex-wrap items-center gap-2">
           {pill('status', InfoIcon, 'Status', STATUS_CHOICES)}
