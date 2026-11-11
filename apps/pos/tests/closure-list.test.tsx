@@ -130,6 +130,52 @@ test('All, Open and Closed filter the list', () => {
   expect(screen.getByTestId('closure-row-c4')).not.toBeNull();
 });
 
+// react-native-web drops className from the DOM, so read it off the nearest component above the node (as
+// reports-hero.test). After an update the node's fiber can be the stale alternate: take the one holding its props.
+type Fiber = { memoizedProps?: { className?: unknown }; return?: Fiber; alternate?: Fiber; type?: unknown };
+function classesOf(element: Element): string[] {
+  const node = element as unknown as Record<string, unknown>;
+  const key = (prefix: string) => Object.keys(node).find(name => name.startsWith(prefix))!;
+  const created = node[key('__reactFiber$')] as Fiber;
+  let fiber: Fiber | undefined = created.memoizedProps === node[key('__reactProps$')] ? created : created.alternate;
+  for (; fiber; fiber = fiber.return) {
+    const { className } = fiber.memoizedProps ?? {};
+    if (typeof fiber.type !== 'string' && typeof className === 'string') return className.split(/\s+/);
+  }
+  return [];
+}
+
+test('the selected tab is underlined and the underline moves when pressed', () => {
+  render(<ClosureList {...props} rows={rows} />);
+  const tab = (value: string) => screen.getByTestId(`closures-filter-${value}`);
+  expect(tab('all').getAttribute('aria-selected')).toBe('true');
+  expect(classesOf(tab('all'))).toEqual(expect.arrayContaining(['border-b-2', 'border-primary']));
+  expect(tab('closed').getAttribute('aria-selected')).toBe('false');
+  expect(classesOf(tab('closed'))).not.toContain('border-primary');
+  fireEvent.click(tab('closed'));
+  expect(tab('closed').getAttribute('aria-selected')).toBe('true');
+  expect(classesOf(tab('closed'))).toEqual(expect.arrayContaining(['border-b-2', 'border-primary']));
+  expect(tab('all').getAttribute('aria-selected')).toBe('false');
+  expect(classesOf(tab('all'))).not.toContain('border-primary');
+});
+
+test('the column heads are small uppercase captions', () => {
+  render(<ClosureList {...props} rows={rows} />);
+  const heads = within(screen.getByTestId('closures-head')).getAllByText(/./);
+  expect(heads).toHaveLength(5);
+  for (const head of heads) {
+    expect(classesOf(head)).toEqual(expect.arrayContaining(['text-xs', 'uppercase', 'tracking-wide', 'text-muted-foreground']));
+  }
+});
+
+test('each day label sits on a tinted band', () => {
+  render(<ClosureList {...props} rows={rows} />);
+  for (const day of ['2026-11-10', '2026-11-09', '2026-11-08']) {
+    const band = screen.getByTestId(`closure-day-label-${day}`).parentElement!;
+    expect(classesOf(band)).toEqual(expect.arrayContaining(['bg-muted/50', 'px-3', 'py-2']));
+  }
+});
+
 test('an open session with no closure today says so', () => {
   const sessionRows = <Text testID="fake-session">Open session</Text>;
   const { rerender } = render(<ClosureList {...props} rows={[c2, c1]} openSessions={1} sessionRows={sessionRows} />);

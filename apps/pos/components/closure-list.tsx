@@ -57,28 +57,28 @@ export function ClosureList({ rows, sessionRows, openSessions, blind, today, cur
 
   return (
     <View testID="closure-list" className="gap-2">
-      <View className="flex-row flex-wrap items-center justify-between gap-2">
-        <View testID="closures-filter" className="flex-row rounded-md bg-muted p-1">
+      <View className="flex-row flex-wrap items-end justify-between gap-2">
+        <View testID="closures-filter" className="flex-row border-b border-border">
           {(['all', 'open', 'closed'] as const).map(value => <Pressable key={value} testID={`closures-filter-${value}`}
-            className={`rounded-sm px-3 py-1.5${filter === value ? ' bg-background' : ''}`} role="tab" aria-selected={filter === value}
+            className={`-mb-px border-b-2 px-3 py-2 ${filter === value ? 'border-primary' : 'border-transparent'}`} role="tab" aria-selected={filter === value}
             onPress={() => setFilter(value)}>
             <Text className={`text-sm font-medium ${filter === value ? 'text-foreground' : 'text-muted-foreground'}`}>{value === 'all' ? 'All' : value === 'open' ? 'Open' : 'Closed'}</Text>
           </Pressable>)}
         </View>
-        <Text testID="closures-count" className="text-muted-foreground">{`${n} ${n === 1 ? 'session' : 'sessions'}`}</Text>
+        <Text testID="closures-count" className="pb-2 text-muted-foreground">{`${n} ${n === 1 ? 'session' : 'sessions'}`}</Text>
       </View>
-      <View testID="closures-head" className="flex-row gap-2 border-b border-border pb-1">
+      <View testID="closures-head" className="flex-row gap-2 py-1">
         {(blind ? ['Closure', 'Counted'] : ['Closure', 'Expected', 'Counted', 'Difference', 'Result']).map(label =>
-          <Text key={label} className={`text-xs font-medium text-muted-foreground ${label === 'Closure' ? 'flex-1' : 'w-24 text-right'}`}>{label}</Text>)}
+          <Text key={label} className={`text-xs uppercase tracking-wide text-muted-foreground ${label === 'Closure' ? 'flex-1' : 'w-24 text-right'}`}>{label}</Text>)}
       </View>
       {visible.map(([day, closures]) => {
         const f = closures.length > 0 ? formatClosureDate(closures[0].opened_at, { timezone: 'device', locale }) : null;
         const label = day === today ? 'Today' : day === yesterday ? 'Yesterday' : `${f!.weekday_short} ${Number(f!.day)} ${f!.month_short}`;
         const counted = closures.reduce((sum, c) => sum + (c.counted.cash ?? 0), 0);
         const variance = closures.reduce((sum, c) => sum + (c.variance.cash ?? 0), 0);
-        return <View key={day} testID={`closure-day-${day}`} className="gap-1 pt-2">
-          <View className="flex-row items-baseline justify-between">
-            <Text testID={`closure-day-label-${day}`} className="font-semibold">{label}</Text>
+        return <View key={day} testID={`closure-day-${day}`} className="gap-1">
+          <View className="flex-row items-baseline justify-between bg-muted/50 px-3 py-2">
+            <Text testID={`closure-day-label-${day}`}>{label}</Text>
             {closures.length > 0 && <Text testID={`closure-day-summary-${day}`} className="text-muted-foreground">
               {`${money(counted)} counted`}{!blind && <> · <Text className={drawerResultClass(variance)}>{resultText(variance, money)}</Text></>}
             </Text>}
