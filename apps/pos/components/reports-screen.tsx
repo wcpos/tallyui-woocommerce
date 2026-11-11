@@ -21,8 +21,9 @@ import { ClosurePrint } from './closure-print';
 import { ClosureStats } from './closure-stats';
 import { HourlyBars } from './hourly-bars';
 import { ReportCards } from './report-cards';
-import { ReportChips, reportCashiers } from './report-chips';
+import { CompareChip, PrintSummaryButton, ReportChips, reportCashiers } from './report-chips';
 import { ReportsHero } from './reports-hero';
+import { SalesSummaryPrint } from './sales-summary-print';
 import { SalesTable } from './sales-table';
 import { Segmented } from './segmented';
 import { SessionCard } from './session-card';
@@ -48,7 +49,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const now = useMinuteClock();
   const [sales, setSales] = useState<PosOrder[]>([]);
   const [rows, setRows] = useState<Closure[]>([]);
-  const [reprint, setReprint] = useState<Closure | 'x' | null>(null);
+  const [reprint, setReprint] = useState<Closure | 'x' | 'summary' | null>(null);
   const [openClosureId, setOpenClosureId] = useState<string | null>(null);
   const [openTable, setOpenTable] = useState<'payments' | 'taxes' | 'orders' | null>(null);
   const [printRequest, setPrintRequest] = useState(0);
@@ -68,6 +69,9 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const openClosure = openClosureId ? closures.find(c => c.id === openClosureId) ?? null : null;
   const reprintClosure = (closure: Closure) => { setReprint(closure); setPrintRequest(value => value + 1); };
   const printXReport = () => { setReprint('x'); setPrintRequest(value => value + 1); };
+  const printSummary = () => { setReprint('summary'); setPrintRequest(value => value + 1); };
+  const reportCashierRows = reportCashiers([...(user ? [user] : []), ...cashiers.map(entry => entry.tokens.user)]);
+  const cashierName = cashierId === null ? 'Everyone' : reportCashierRows.find(row => row.id === cashierId)?.name ?? cashierId;
   const room = salesRoom(shown, { now, currency, compare });
   const money = (amount: number) => formatMoney({ amount, currency }, locale);
   // The donut centres read whole currency units: the amount rounded to whole units, shown with no decimals.
@@ -114,28 +118,26 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
       <ScrollView contentContainerClassName="gap-4 p-4">
         <TillStrip orders={orders} currency={currency} locale={locale} resolveCashierName={resolveCashierName}
           onPrintXReport={printXReport} onReprint={reprintClosure} onOpenClosure={closure => setOpenClosureId(closure.id)} />
-        <ReportChips
-          cashiers={reportCashiers([...(user ? [user] : []), ...cashiers.map(entry => entry.tokens.user)])}
-          cashierId={cashierId}
-          onCashier={setCashierId}
-          compare={compare}
-          onCompare={setCompare}
-          weekday={weekday}
-        />
+        {/* v2 `SalesScope`: the chips left, Print summary right. The date menu comes in slice 2. */}
+        <View testID="reports-scope-strip" className="flex-row items-center gap-2">
+          <View className="min-w-0 flex-1">
+            <ReportChips cashiers={reportCashierRows} cashierId={cashierId} onCashier={setCashierId} />
+          </View>
+          <View className="shrink-0 items-end"><PrintSummaryButton wide={wide} onPress={printSummary} /></View>
+        </View>
         <ReportsHero today={room.today} previous={room.yesterdaySoFar} comparisonLabel={`vs ${comparisonName}`}
-          money={minor => money(minor) ?? ''} onOpenOrders={() => setOpenTable('orders')}>
+          money={minor => money(minor) ?? ''} onOpenOrders={() => setOpenTable('orders')}
+          compareChip={<CompareChip compare={compare} onCompare={setCompare} weekday={weekday} />}
+          toggle={room.hours.length > 0 && <View className={wide ? 'w-72' : 'w-full'}>
+            <Segmented testID="hero-chart-toggle" label="Chart view" value={chartView}
+              segments={[{ value: 'hour', label: 'By hour' }, { value: 'run', label: 'Running total' }]}
+              onChange={value => setChartView(value as typeof chartView)} />
+          </View>}
+          chart={<HourlyBars hours={room.hours} money={minor => money(minor) ?? ''} comparisonName={comparisonName}
+            nowHour={now.getHours()} view={chartView} />}>
           {room.today.pending > 0 && <Text>{`Waiting to sync: ${room.today.pending}`}</Text>}
           {room.today.rejected > 0 && <Text>{`Not accepted by the store: ${room.today.rejected}`}</Text>}
           {room.today.count === 0 && <Text>No sales yet today.</Text>}
-          {room.hours.length > 0 && <View className="flex-row justify-end">
-            <View className={wide ? 'w-72' : 'w-full'}>
-              <Segmented testID="hero-chart-toggle" label="Chart view" value={chartView}
-                segments={[{ value: 'hour', label: 'By hour' }, { value: 'run', label: 'Running total' }]}
-                onChange={value => setChartView(value as typeof chartView)} />
-            </View>
-          </View>}
-          <HourlyBars hours={room.hours} money={minor => money(minor) ?? ''} comparisonName={comparisonName}
-            nowHour={now.getHours()} view={chartView} />
         </ReportsHero>
         <ReportCards period={room.today} money={minor => money(minor) ?? ''} moneyWhole={moneyWhole} onOpenTable={setOpenTable} />
         {room.today.taxMinor !== 0 && <View testID="sales-room-taxes" className="gap-2 rounded-lg border border-border p-4">
@@ -169,7 +171,10 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
         {openClosure && <ClosurePanel closure={openClosure} storeName={storeName} currency={currency} locale={locale} blind={register.blind} resolveCashierName={resolveCashierName} onReprint={reprintClosure} onClose={() => setOpenClosureId(null)} />}
       </ScrollView>
       {reprint && <Portal name="closure-reprint">
-        {reprint === 'x'
+        {reprint === 'summary'
+          ? <SalesSummaryPrint storeName={storeName} scope={`Today · This till · ${cashierName}`} period={room.today}
+              date={formatClosureDate(range.startIso, { timezone: 'device', locale }).date} money={minor => money(minor) ?? ''} locale={locale} />
+          : reprint === 'x'
           ? register.session && <ClosurePrint kind="x" closure={register.session} expected={register.expected} storeName={storeName} currency={currency} locale={locale} registerName="This till" resolveCashierName={resolveCashierName} />
           : <ClosurePrint closure={reprint} storeName={storeName} currency={currency} locale={locale} registerName="This till" resolveCashierName={resolveCashierName} copy />}
       </Portal>}

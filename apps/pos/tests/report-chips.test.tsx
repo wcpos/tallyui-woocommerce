@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import { PortalHost } from '@tallyui/primitives';
-import { ReportChips, reportCashiers } from '../components/report-chips';
+import { CompareChip, PrintSummaryButton, ReportChips, reportCashiers } from '../components/report-chips';
 import type { Compare } from '../lib/reports/sales-room';
 
 afterEach(cleanup);
@@ -19,8 +19,20 @@ function props(overrides: { cashierId?: string | null; compare?: Compare } = {})
 }
 
 function show(chips: ReturnType<typeof props>) {
-  render(<><ReportChips {...chips} /><PortalHost /></>);
+  render(<><ReportChips {...chips} /><CompareChip {...chips} /><PortalHost /></>);
 }
+
+test('Print summary is a labelled outline button when wide and an icon button with the same name when narrow', () => {
+  const onPress = vi.fn();
+  render(<PrintSummaryButton wide onPress={onPress} />);
+  expect(screen.getByTestId('reports-print-summary').textContent).toBe('Print summary');
+  fireEvent.click(screen.getByTestId('reports-print-summary'));
+  expect(onPress).toHaveBeenCalledOnce();
+  cleanup();
+  render(<PrintSummaryButton wide={false} onPress={onPress} />);
+  expect(screen.getByTestId('reports-print-summary').textContent).toBe('');
+  expect(screen.getByRole('button', { name: 'Print summary' })).toBe(screen.getByTestId('reports-print-summary'));
+});
 
 async function menu(name: 'cashier' | 'compare') {
   fireEvent.click(screen.getByTestId(`hero-chip-${name}`));

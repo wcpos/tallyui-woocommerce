@@ -787,3 +787,68 @@ test('the cashier chip narrows every period figure to one cashier', async () => 
   expect(screen.queryByTestId('hero-cashier-menu')).toBeNull();
   await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
 }, 20_000);
+
+test('the scope strip holds the cashier chip and Print summary; the compare chip sits in the hero', async () => {
+  await setup();
+  const strip = within(screen.getByTestId('reports-scope-strip'));
+  expect(strip.getByTestId('hero-chip-cashier')).not.toBeNull();
+  expect(strip.getByTestId('reports-print-summary').textContent).toBe('Print summary');
+  expect(strip.queryByTestId('hero-chip-compare')).toBeNull();
+  expect(within(screen.getByTestId('reports-hero')).getByTestId('hero-chip-compare').textContent).toBe('vs yesterday▾');
+}, 20_000);
+
+/** Presses Print summary and returns what the mounted summary held when `window.print` ran. */
+async function printSummary() {
+  const printed: { text: string | null; dataPrint: string | null | undefined; todayHidden: boolean }[] = [];
+  const print = vi.spyOn(window, 'print').mockImplementation(() => {
+    const summary = screen.queryByTestId('sales-summary-print');
+    printed.push({ text: summary?.textContent ?? null, dataPrint: summary?.getAttribute('data-print'),
+      todayHidden: screen.getByTestId('reports-hero').closest('[data-print="hide"]') !== null });
+  });
+  fireEvent.click(screen.getByTestId('reports-print-summary'));
+  await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+  return printed[0];
+}
+
+test('Print summary prints the shown sales: scope, total, orders and a row per payment method', async () => {
+  await setup();
+  await payCash();
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+  const printed = await printSummary();
+  expect(printed.dataPrint).toBe('summary');
+  expect(printed.todayHidden).toBe(true);
+  expect(printed.text).toContain('Sales summary');
+  expect(printed.text).toContain(stores[0].name);
+  expect(text('sales-summary-scope')).toBe('Today · This till · Everyone');
+  expect(text('sales-summary-total')).toBe('Total sales: $3.00');
+  expect(text('sales-summary-orders')).toBe('Orders: 1');
+  expect(within(screen.getByTestId('sales-summary-payments')).getAllByTestId(/^sales-summary-payment-/).map(row => row.textContent))
+    .toEqual(['Cash — 1 — $3.00']);
+  expect(printed.text).toMatch(/Printed: .+/);
+  expect(screen.queryByTestId('sales-summary-taxes')).toBeNull();
+  expect(screen.queryByTestId('closure-print-document')).toBeNull();
+}, 20_000);
+
+test("with a cashier chosen, the summary counts only that cashier's sales", async () => {
+  const app = await setup();
+  await payCash();
+  await payCash();
+  await waitFor(() => expect(text('hero-total')).toBe('$6.00'));
+  const [order] = await app.orders.find().exec();
+  await act(async () => { await order.incrementalPatch({ cashierRef: '7' }); });
+  await choose('cashier', '2');
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+  await printSummary();
+  expect(text('sales-summary-scope')).toBe('Today · This till · Paul');
+  expect(text('sales-summary-total')).toBe('Total sales: $3.00');
+  expect(text('sales-summary-orders')).toBe('Orders: 1');
+  expect(text('sales-summary-payment-cash')).toBe('Cash — 1 — $3.00');
+}, 30_000);
+
+test('the summary lists taxes by rate when there is tax', async () => {
+  await setup({ storeSettings: { ...noTaxSettings, taxRatesPpm: { default: 100000 } } });
+  await payCash();
+  await waitFor(() => expect(text('hero-total')).toBe('$3.30'));
+  await printSummary();
+  expect(within(screen.getByTestId('sales-summary-taxes')).getByText('Tax 10% — Net $3.00 — Tax $0.30 — Gross $3.30')).not.toBeNull();
+}, 20_000);

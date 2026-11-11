@@ -125,3 +125,20 @@ test('a wide window sets the figure beside its companions, a narrow one above th
   renderHero(today, { count: 0, totalMinor: 0, averageMinor: 0, items: 0 }, { width: 600 });
   expect(nodeClasses(screen.getByTestId('hero-figure').parentElement!)).toContain('flex-row');
 });
+
+test('the compare chip and chart toggle share a row when wide; narrow, the chip sits alone above the toggle', () => {
+  const show = (width: number) => {
+    vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width, height: 800, scale: 1, fontScale: 1 });
+    render(<ReportsHero today={today} previous={today} comparisonLabel="vs yesterday" money={money} onOpenOrders={() => {}}
+      compareChip={<ReactNative.Text testID="chip">vs yesterday</ReactNative.Text>} toggle={<ReactNative.View testID="toggle" />} />);
+  };
+  show(900);
+  expect(classesOf('hero-compare-row')).toEqual(expect.arrayContaining(['flex-row', 'justify-between']));
+  expect(screen.getByTestId('chip').parentElement).toBe(screen.getByTestId('hero-compare-row'));
+  expect(screen.getByTestId('toggle').parentElement).toBe(screen.getByTestId('hero-compare-row'));
+  cleanup();
+  show(400);
+  expect(classesOf('hero-compare-row')).not.toContain('flex-row');
+  expect(nodeClasses(screen.getByTestId('chip').parentElement!)).toEqual(['self-start']);
+  expect(screen.getByTestId('toggle').parentElement).toBe(screen.getByTestId('hero-compare-row'));
+});

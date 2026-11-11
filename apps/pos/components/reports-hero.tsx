@@ -24,10 +24,14 @@ function Difference({ testID, delta, text }: { testID: string; delta: number | n
   );
 }
 
-/** The Reports headline row (v2 reports/hero `Figures`): the day's total, then Orders, Average order and Items. */
-export function ReportsHero({ today, previous, comparisonLabel, money, onOpenOrders, children }: {
+/**
+ * The Reports headline row (v2 reports/hero `Figures`): the day's total, then Orders, Average order and Items.
+ * Under them `children` (status lines), then the compare chip and chart toggle (v2 `Hero`), then the chart.
+ */
+export function ReportsHero({ today, previous, comparisonLabel, money, onOpenOrders, compareChip, toggle, chart, children }: {
   today: HeroFigures; previous: HeroFigures; comparisonLabel: string;
-  money(minor: number): string; onOpenOrders(): void; children?: ReactNode;
+  money(minor: number): string; onOpenOrders(): void;
+  compareChip?: ReactNode; toggle?: ReactNode; chart?: ReactNode; children?: ReactNode;
 }) {
   const wide = useWindowDimensions().width >= WIDE_MIN_WIDTH;
   // No orders to compare with: every line reads "—", never a difference against nothing.
@@ -64,6 +68,11 @@ export function ReportsHero({ today, previous, comparisonLabel, money, onOpenOrd
         </View>
       </View>
       {children}
+      {/* Wide: one row, the chip left and the toggle right; a phone puts the chip on its own row above a full-width toggle. */}
+      {(compareChip || toggle) && (wide
+        ? <View testID="hero-compare-row" className="flex-row items-center justify-between gap-2">{compareChip}{toggle}</View>
+        : <View testID="hero-compare-row" className="gap-4"><View className="self-start">{compareChip}</View>{toggle}</View>)}
+      {chart}
     </View>
   );
 }
