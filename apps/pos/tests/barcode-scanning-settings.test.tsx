@@ -2,7 +2,9 @@ import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-li
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { BarcodeScanningSettings } from '../components/settings/barcode-scanning-settings';
 import { readScanSettings, SCAN_SETTINGS_KEY, writeScanSettings } from '../lib/scan/scan-settings';
+import { readScanSoundSettings, SCAN_SOUND_KEY, writeScanSoundSettings } from '../lib/scan/scan-sound';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
+import { installFakeAudio, tones } from './fake-audio-context';
 
 function memoryStorage(): Storage {
   const data = new Map<string, string>();
@@ -110,4 +112,49 @@ test('a test scan never reaches the till underneath', () => {
   burst('2000000000015', 5);
   expect(screen.getByTestId('barcode-test-result').textContent).toBe('scan');
   expect(till).not.toHaveBeenCalled();
+});
+
+test('Sound sits between Scanning and the Test, off by default with no options', () => {
+  render(<BarcodeScanningSettings />);
+  const titles = ['Scanning', 'Sound', 'Barcode Scanning Test'].map(title => screen.getByText(title));
+  expect(titles[0].compareDocumentPosition(titles[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(titles[1].compareDocumentPosition(titles[2]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.getByTestId('settings-barcode-sound-group')).not.toBeNull();
+  expect(screen.getByText('Play a sound on scan')).not.toBeNull();
+  expect(screen.getByTestId('settings-barcode-sound').getAttribute('aria-checked')).toBe('false');
+  expect(screen.queryByTestId('scan-sound-options')).toBeNull();
+});
+
+test('turning Sound on shows the themes, volume and switches, and a theme saves for this device', () => {
+  render(<BarcodeScanningSettings />);
+  fireEvent.click(screen.getByTestId('settings-barcode-sound'));
+  expect(screen.getByTestId('scan-sound-options')).not.toBeNull();
+  expect(JSON.parse(localStorage.getItem(SCAN_SOUND_KEY)!).enabled).toBe(true);
+  for (const text of [
+    'Sound theme', 'Classic', 'Bright rising blip / low buzz', 'Checkout', 'Supermarket-style flat beep / double low tone',
+    'Soft', 'Gentle chime / muted knock — for quiet shops', 'Volume', 'Success sound', 'Failure sound',
+  ]) expect(screen.getByText(text)).not.toBeNull();
+  for (const theme of ['classic', 'checkout', 'soft']) {
+    expect(screen.getByTestId(`sound-preview-success-${theme}`).getAttribute('aria-label')).toBe('Preview success sound');
+    expect(screen.getByTestId(`sound-preview-failure-${theme}`).getAttribute('aria-label')).toBe('Preview failure sound');
+  }
+  expect(screen.getByTestId('settings-barcode-sound-volume')).not.toBeNull();
+  expect(screen.getByTestId('sound-preview-volume')).not.toBeNull();
+  expect(screen.getByTestId('sound-theme-classic').getAttribute('aria-checked')).toBe('true');
+  expect(screen.getByTestId('settings-barcode-sound-success').getAttribute('aria-checked')).toBe('true');
+  expect(screen.getByTestId('settings-barcode-sound-failure').getAttribute('aria-checked')).toBe('true');
+  fireEvent.click(screen.getByTestId('sound-theme-soft'));
+  expect(screen.getByTestId('sound-theme-soft').getAttribute('aria-checked')).toBe('true');
+  expect(readScanSoundSettings()).toEqual({ enabled: true, theme: 'soft', volume: 0.15, success: true, failure: true });
+});
+
+test('a preview plays its row theme even with that kind switched off', () => {
+  installFakeAudio();
+  writeScanSoundSettings({ enabled: true, success: false, failure: false });
+  render(<BarcodeScanningSettings />);
+  fireEvent.click(screen.getByTestId('sound-preview-success-soft'));
+  expect(tones()).toEqual(['sine 660', 'sine 990']);
+  installFakeAudio();
+  fireEvent.click(screen.getByTestId('sound-preview-failure-checkout'));
+  expect(tones()).toEqual(['square 240', 'square 240']);
 });
