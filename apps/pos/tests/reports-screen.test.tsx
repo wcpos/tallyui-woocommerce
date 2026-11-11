@@ -8,14 +8,14 @@ import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { orderReference } from '@tallyui/components';
 import type { OrderCreateEnvelope, StoreSettings } from '@tallyui/core';
-import type { CommandTransport } from '@tallyui/pos';
+import { formatClosureDate, presetRange, type Closure, type CommandTransport } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
 import { CatalogueView } from '../components/catalogue-view';
 import { ReportsScreen } from '../components/reports-screen';
 import { SaleScreen } from '../components/sale-screen';
 import { drawerResultClass } from '../components/till-strip';
 import { SessionProvider } from '../lib/auth/session-context';
-import { saveSession } from '../lib/auth/session';
+import { loadSession, saveCashiers, saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import { RegisterProvider, useRegister } from '../lib/register/register-context';
 import { dayRange } from '../lib/reports/today-sales';
@@ -105,6 +105,37 @@ async function closeRegister(counted: string) {
   await screen.findByTestId('closure-print-document');
   fireEvent.click(await screen.findByTestId('closure-done'));
   await waitFor(() => expect(screen.queryByTestId('closure-print-document')).toBeNull());
+}
+
+/** Opens the Closures room through the till strip's chevron (v2 `till-closures`). */
+async function enterClosures() {
+  fireEvent.click(screen.getByTestId('till-closures'));
+  await screen.findByTestId('closures-scope-row');
+}
+
+/** The device's business day `days` before today, `yyyy-MM-dd`. */
+const dayBefore = (days: number) => {
+  const now = new Date();
+  return formatClosureDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - days, 12).toISOString(), { timezone: 'device', locale: 'en-US' }).date_ymd;
+};
+
+/** Writes a copy of the last real closure, moved to another day or closer, to the closures collection. */
+async function copyClosure(app: Awaited<ReturnType<typeof setup>>, id: string, over: Partial<Closure>) {
+  const source = (await app.orders.database.collections.closures.findOne(app.register.lastClosure!.id).exec())!.toJSON();
+  await app.orders.database.collections.closures.insert({ ...source, id, session_id: id, ...over });
+}
+
+/** Reads the Export CSV of the current scope: its file name and its data rows' business days. */
+async function exportClosures() {
+  vi.stubGlobal('URL', class extends URL {
+    static createObjectURL = vi.fn(() => 'blob:closures-test');
+    static revokeObjectURL = vi.fn();
+  });
+  const anchors: HTMLAnchorElement[] = [];
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { anchors.push(this); });
+  fireEvent.click(screen.getByTestId('closures-csv'));
+  const csv = await (vi.mocked(URL.createObjectURL).mock.calls[0][0] as Blob).text();
+  return { filename: anchors[0].download, days: csv.split('\r\n').slice(1).map(line => line.split(',')[0].slice(1, -1)) };
 }
 
 async function movement(type: 'paid-in' | 'paid-out' | 'no-sale', amount: string | null, reason: string) {
@@ -197,6 +228,7 @@ test('the session card shows the open session, its expected cash and sales count
   await openRegister();
   await payCash();
   await waitFor(() => expect(app.register.salesCount).toBe(1));
+  await enterClosures();
   const card = within(screen.getByTestId('reports-closures')).getByTestId('reports-session-card');
   expect(card.textContent).toContain('● Open · This till');
   expect(card.textContent).toMatch(/since \d{2}:\d{2} · Paul · 1 sale/);
@@ -215,7 +247,8 @@ test('Today starts empty and observes an Espresso cash sale', async () => {
   const today = within(screen.getByTestId('reports-hero'));
   expect(today.getByText('No sales yet today.')).not.toBeNull();
   expect(text('card-payments-empty')).toBe('No payments in this period.');
-  expect(within(screen.getByTestId('reports-closures')).getByTestId('closures-empty').textContent).toBe('No closures in this period');
+  // Closures is its own room now: the Sales page has no closures section.
+  expect(screen.queryByTestId('reports-closures')).toBeNull();
   expect(screen.queryByTestId('x-report-print')).toBeNull();
   expect(screen.queryByTestId('closures-csv')).toBeNull();
   await payCash();
@@ -353,6 +386,7 @@ test('Closures lists real counted closures newest first', async () => {
   await payCash();
   await waitFor(() => expect(app.register.salesCount).toBe(1));
   await closeRegister('103.00');
+  await enterClosures();
   const room = within(screen.getByTestId('reports-closures'));
   await waitFor(() => expect(room.getAllByTestId(/^closure-title-/)).toHaveLength(1));
   const first = app.register.lastClosure!;
@@ -374,11 +408,12 @@ test('Reprint prints the mounted Copy document once without changing the closure
   const closure = app.register.lastClosure!;
   const collection = app.orders.database.collections.closures;
   const before = (await collection.findOne(closure.id).exec())!.toJSON();
+  await enterClosures();
   const printedDocuments: { text: string | null; dataPrint: string | null | undefined; todayHidden: boolean }[] = [];
   const print = vi.spyOn(window, 'print').mockImplementation(() => {
     const document = screen.queryByTestId('closure-print-document');
     printedDocuments.push({ text: document?.textContent ?? null, dataPrint: document?.getAttribute('data-print'),
-      todayHidden: screen.getByTestId('reports-hero').closest('[data-print="hide"]') !== null });
+      todayHidden: screen.getByTestId('reports-closures').closest('[data-print="hide"]') !== null });
   });
   fireEvent.click(await screen.findByTestId(`closure-reprint-${closure.id}`));
   await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
@@ -403,6 +438,7 @@ test('tapping a closure opens its panel, Print closure prints the Copy and Close
   await waitFor(() => expect(app.register.salesCount).toBe(1));
   await closeRegister('103.00');
   const closure = app.register.lastClosure!;
+  await enterClosures();
   fireEvent.click(await screen.findByTestId(`closure-open-${closure.id}`));
   await screen.findByTestId('closure-panel');
   expect(screen.getByTestId('closure-panel-title').textContent).toBe('Closure 1');
@@ -437,11 +473,12 @@ test('Print X report prints the mounted open session with its expected cash', as
   await payCash();
   await waitFor(() => expect(app.register.expected.cash).toBe(8300));
   const before = app.register.session;
+  await enterClosures();
   const printedDocuments: { text: string | null; dataPrint: string | null; todayHidden: boolean; opened: boolean }[] = [];
   const print = vi.spyOn(window, 'print').mockImplementation(() => {
     const report = screen.getByTestId('closure-print-document');
     printedDocuments.push({ text: report.textContent, dataPrint: report.getAttribute('data-print'), opened: within(report).queryByText(/^Opened: .+ Paul$/) !== null,
-      todayHidden: screen.getByTestId('reports-hero').closest('[data-print="hide"]') !== null });
+      todayHidden: screen.getByTestId('reports-closures').closest('[data-print="hide"]') !== null });
   });
   const button = within(screen.getByTestId('reports-session-card')).getByTestId('x-report-print');
   expect(button.textContent).toBe('Print X-report');
@@ -513,6 +550,7 @@ test('Export CSV downloads the listed closures and revokes its object URL', asyn
   await setup();
   await openRegister();
   await closeRegister('100.00');
+  await enterClosures();
   vi.stubGlobal('URL', class extends URL {
     static createObjectURL = vi.fn(() => 'blob:closures-test');
     static revokeObjectURL = vi.fn();
@@ -531,10 +569,144 @@ test('Export CSV downloads the listed closures and revokes its object URL', asyn
   expect(blob.type).toBe('text/csv;charset=utf-8');
   expect(await blob.text()).toContain('"Business day","Closure"');
   expect(click).toHaveBeenCalledTimes(1);
-  expect(anchors[0].download).toMatch(/^closures-\d{4}-\d{2}-\d{2}\.csv$/);
+  expect(anchors[0].download).toBe(`closures-${dayBefore(0)}-${dayBefore(0)}.csv`);
   expect(anchors[0].href).toBe('blob:closures-test');
   expect(anchors[0].isConnected).toBe(false);
   expect(URL.revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:closures-test');
+}, 20_000);
+
+test('the till strip chevron opens the Closures room under its own bar, and the arrow returns to Sales', async () => {
+  const app = await setup();
+  expect(screen.queryByTestId('reports-closures')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Closures' })).toBe(screen.getByTestId('till-closures'));
+  await enterClosures();
+  expect(screen.queryByTestId('reports-hero')).toBeNull();
+  expect(screen.queryByTestId('reports-till')).toBeNull();
+  expect(app.register.registerName).toBeTruthy();
+  expect(text('closures-title')).toBe(`${stores[0].name} · ${app.register.registerName}`);
+  const row = within(screen.getByTestId('closures-scope-row'));
+  expect(row.getByTestId('reports-period').textContent).toContain('Today · ');
+  expect(within(row.getByTestId('closures-cashier')).getByTestId('hero-chip-cashier').textContent).toContain('All cashiers');
+  expect(row.getByTestId('closures-csv').textContent).toBe('Export CSV');
+  expect(within(screen.getByTestId('reports-closures')).getByTestId('closures-empty').textContent).toBe('No closures in this period');
+  fireEvent.click(screen.getByRole('button', { name: 'Sales' }));
+  await screen.findByTestId('reports-hero');
+  expect(screen.queryByTestId('closures-scope-row')).toBeNull();
+  expect(screen.queryByTestId('reports-back-sales')).toBeNull();
+}, 20_000);
+
+test('the Closures date menu scopes the list: Today shows only today, a wider period the earlier day too', async () => {
+  const app = await setup();
+  await openRegister();
+  await closeRegister('100.00');
+  const today = app.register.lastClosure!;
+  const earlier = dayBefore(3);
+  const at = new Date(`${earlier}T12:00:00`).toISOString();
+  await copyClosure(app, 'earlier', { number: 0, business_day: earlier, opened_at: at, closed_at: at });
+  await enterClosures();
+  await waitFor(() => expect(screen.getAllByTestId(/^closure-title-/)).toHaveLength(1));
+  expect(screen.getByTestId(`closure-row-${today.id}`)).not.toBeNull();
+  // Three days back always falls in this or last week or month; prefer a period that runs to today.
+  const wider = (['thisWeek', 'thisMonth', 'lastWeek', 'lastMonth'] as const).find(preset => {
+    const range = presetRange(preset, new Date(), 'device');
+    return range.from <= earlier && earlier <= range.to;
+  })!;
+  fireEvent.click(screen.getByTestId('reports-period'));
+  fireEvent.click(await screen.findByTestId(`reports-period-${wider}`));
+  await waitFor(() => expect(screen.getByTestId('closure-row-earlier')).not.toBeNull());
+  expect(screen.queryByTestId(`closure-row-${today.id}`) !== null).toBe(presetRange(wider, new Date(), 'device').to >= dayBefore(0));
+  // The Sales page keeps its own date: still Today.
+  fireEvent.click(screen.getByTestId('reports-back-sales'));
+  expect((await screen.findByTestId('reports-period')).textContent).toContain('Today · ');
+}, 20_000);
+
+test('the Closures cashier chip narrows the list to one closer; All cashiers lists both', async () => {
+  const app = await setup();
+  await openRegister();
+  await closeRegister('100.00');
+  const paul = app.register.lastClosure!;
+  expect(paul.closed_by).toBe('2');
+  await copyClosure(app, 'ann', { number: 2, closed_by: '5' });
+  await enterClosures();
+  await waitFor(() => expect(screen.getAllByTestId(/^closure-title-/)).toHaveLength(2));
+  await choose('cashier', '2');
+  await waitFor(() => expect(screen.getAllByTestId(/^closure-title-/)).toHaveLength(1));
+  expect(screen.getByTestId(`closure-row-${paul.id}`)).not.toBeNull();
+  expect(text('hero-chip-cashier')).toContain('Paul');
+  await choose('cashier', 'all');
+  await waitFor(() => expect(screen.getAllByTestId(/^closure-title-/)).toHaveLength(2));
+}, 20_000);
+
+test("the open session follows the Closures cashier chip: it counts only for its opener", async () => {
+  // Ann is a second cashier on this till, so the chip offers her.
+  const me = loadSession()!;
+  saveCashiers({ [me.site.home]: [{ ...me, tokens: { ...me.tokens, user: { id: 5, uuid: 'ann', displayName: 'Ann' } } }] });
+  const app = await setup();
+  await openRegister();
+  await closeRegister('100.00');
+  await copyClosure(app, 'ann', { number: 2, closed_by: '5' });
+  await openRegister(false);
+  expect(app.register.session?.opened_by).toBe('2');
+  await enterClosures();
+  await waitFor(() => expect(text('closure-stat-sessions')).toBe('3'));
+  expect(screen.getByTestId('reports-session-card')).not.toBeNull();
+  await choose('cashier', '5');
+  await waitFor(() => expect(text('closure-stat-sessions')).toBe('1'));
+  expect(screen.queryByTestId('reports-session-card')).toBeNull();
+  expect(text('closures-count')).toBe('1 session');
+  expect(screen.getByTestId('closure-row-ann')).not.toBeNull();
+  await choose('cashier', '2');
+  await waitFor(() => expect(text('closure-stat-sessions')).toBe('2'));
+  expect(screen.getByTestId('reports-session-card')).not.toBeNull();
+  expect(text('closures-count')).toBe('2 sessions');
+}, 20_000);
+
+test('the open session follows the Closures date: a period that ends before today leaves it out', async () => {
+  await setup();
+  await openRegister();
+  await enterClosures();
+  await waitFor(() => expect(text('closure-stat-sessions')).toBe('1'));
+  expect(screen.getByTestId('reports-session-card')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('reports-period'));
+  fireEvent.click(await screen.findByTestId('reports-period-lastWeek'));
+  await waitFor(() => expect(text('closure-stat-sessions')).toBe('0'));
+  expect(screen.queryByTestId('reports-session-card')).toBeNull();
+  expect(text('closures-count')).toBe('0 sessions');
+}, 20_000);
+
+test("the Sales strip's last closure opens its panel when it falls outside the Closures room's Today", async () => {
+  const app = await setup();
+  await openRegister();
+  await closeRegister('100.00');
+  const closure = app.register.lastClosure!;
+  const earlier = dayBefore(3);
+  const at = new Date(`${earlier}T12:00:00`).toISOString();
+  const doc = (await app.orders.database.collections.closures.findOne(closure.id).exec())!;
+  await doc.incrementalPatch({ business_day: earlier, opened_at: at, closed_at: at });
+  await waitFor(() => expect(app.register.lastClosure?.business_day).toBe(earlier));
+  expect(text('till-last-closure')).not.toContain('Today');
+  fireEvent.click(screen.getByTestId('till-last-closure'));
+  await screen.findByTestId('closure-panel');
+  expect(text('closure-panel-title')).toBe(`Closure ${closure.number}`);
+}, 20_000);
+
+test('Closures Export CSV exports the rows in scope, and is disabled on the Open tab', async () => {
+  const app = await setup();
+  await openRegister();
+  await closeRegister('100.00');
+  const earlier = dayBefore(3);
+  const at = new Date(`${earlier}T12:00:00`).toISOString();
+  await copyClosure(app, 'earlier', { number: 0, business_day: earlier, opened_at: at, closed_at: at });
+  await enterClosures();
+  const button = screen.getByTestId('closures-csv');
+  expect(button.getAttribute('aria-disabled')).toBeNull();
+  fireEvent.click(screen.getByTestId('closures-filter-open'));
+  await waitFor(() => expect(button.getAttribute('aria-disabled')).toBe('true'));
+  fireEvent.click(screen.getByTestId('closures-filter-all'));
+  await waitFor(() => expect(button.getAttribute('aria-disabled')).toBeNull());
+  const { filename, days } = await exportClosures();
+  expect(filename).toBe(`closures-${dayBefore(0)}-${dayBefore(0)}.csv`);
+  expect(days).toEqual([dayBefore(0)]);
 }, 20_000);
 
 test('the drawer offers Reports only when an onOpenReports handler is supplied', () => {
