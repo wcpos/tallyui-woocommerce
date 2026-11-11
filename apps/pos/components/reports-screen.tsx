@@ -64,6 +64,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   }, today), 'device');
   const openClosure = openClosureId ? closures.find(c => c.id === openClosureId) ?? null : null;
   const reprintClosure = (closure: Closure) => { setReprint(closure); setPrintRequest(value => value + 1); };
+  const printXReport = () => { setReprint('x'); setPrintRequest(value => value + 1); };
   const room = salesRoom(shown, { now, currency, compare });
   const money = (amount: number) => formatMoney({ amount, currency }, locale);
   // The donut centres read whole currency units: the amount rounded to whole units, shown with no decimals.
@@ -111,7 +112,8 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
         <Button testID="reports-back" onPress={onBack}><Text>Back</Text></Button>
       </View>
       <ScrollView contentContainerClassName="gap-4 p-4">
-        <TillStrip orders={orders} currency={currency} locale={locale} resolveCashierName={resolveCashierName} />
+        <TillStrip orders={orders} currency={currency} locale={locale} resolveCashierName={resolveCashierName}
+          onPrintXReport={printXReport} onReprint={reprintClosure} onOpenClosure={closure => setOpenClosureId(closure.id)} />
         <ReportChips
           cashiers={reportCashiers([...(user ? [user] : []), ...cashiers.map(entry => entry.tokens.user)])}
           cashierId={cashierId}
@@ -151,7 +153,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
           </View>
           <ClosureList
             rows={closures}
-            sessionRows={<SessionCard currency={currency} locale={locale} resolveCashierName={resolveCashierName} onPrintXReport={() => { setReprint('x'); setPrintRequest(value => value + 1); }} />}
+            sessionRows={<SessionCard currency={currency} locale={locale} resolveCashierName={resolveCashierName} onPrintXReport={printXReport} />}
             openSessions={register.enabled && (register.session?.status === 'open' || register.session?.status === 'counting') ? 1 : 0}
             blind={register.blind}
             today={today}

@@ -1,9 +1,9 @@
 import { useEffect, useState, type JSX } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import type { RxCollection } from 'rxdb';
-import { Text } from '@tallyui/components';
+import { Button, Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
-import { formatClosureDate, replacedOrderIds, type PosOrder } from '@tallyui/pos';
+import { formatClosureDate, replacedOrderIds, type Closure, type PosOrder } from '@tallyui/pos';
 import { useRegister } from '../lib/register/register-context';
 import { openedAtLabel } from './session-card';
 
@@ -12,10 +12,15 @@ export function drawerResultClass(varianceMinor: number): string {
   return varianceMinor < 0 ? 'text-destructive' : varianceMinor > 0 ? 'text-success' : 'text-muted-foreground';
 }
 
-export function TillStrip({ orders, currency, locale, resolveCashierName }: {
+export function TillStrip({ orders, currency, locale, resolveCashierName, onPrintXReport, onReprint, onOpenClosure }: {
   orders: RxCollection<PosOrder> | null;
   currency: string; locale: string;
   resolveCashierName(id: string): string;
+  /** v2's `till-actions`: Print X-report while the session is open, Print closure for the last one when closed. */
+  onPrintXReport?(): void;
+  onReprint?(closure: Closure): void;
+  /** v2's `till-last-closure` press opens that closure. */
+  onOpenClosure?(closure: Closure): void;
 }): JSX.Element {
   const register = useRegister();
   const bound = register.enabled;
@@ -85,6 +90,10 @@ export function TillStrip({ orders, currency, locale, resolveCashierName }: {
   const since = active
     ? `since ${openedAtLabel(session.opened_at_gmt, locale)} · ${session.opened_by ? resolveCashierName(session.opened_by) : 'Cashier'}`
     : closure && f ? `Closed ${f.time} · ${closure.closed_by ? resolveCashierName(closure.closed_by) : 'Cashier'}` : '';
+  const lastLine = closure && f && <Text testID={onOpenClosure ? undefined : 'till-last-closure'} className="text-muted-foreground">
+    {`Last closure #${closure.number} · ${heading} ${f.time}`}
+    {!register.blind && <>{' · '}<Text testID="till-last-result" className={resultColor}>{resultText}</Text></>}
+  </Text>;
 
   return (
     <View testID="reports-till" className="gap-3 rounded-lg border border-border p-4">
@@ -94,10 +103,9 @@ export function TillStrip({ orders, currency, locale, resolveCashierName }: {
           {bound && <Text testID="till-status" className={active ? 'text-success' : 'text-muted-foreground'}>{active ? '● Open' : '● Closed'}</Text>}
           {bound && since && <Text testID="till-since" className="text-muted-foreground">{since}</Text>}
         </View>
-        {closure && f && <Text testID="till-last-closure" className="text-muted-foreground">
-          {`Last closure #${closure.number} · ${heading} ${f.time}`}
-          {!register.blind && <>{' · '}<Text testID="till-last-result" className={resultColor}>{resultText}</Text></>}
-        </Text>}
+        {closure && lastLine && (onOpenClosure
+          ? <Pressable testID="till-last-closure" accessibilityRole="button" className="self-start" onPress={() => onOpenClosure(closure)}>{lastLine}</Pressable>
+          : lastLine)}
       </View>
       {rows.length > 0 && <View testID="till-equation" className="flex-row flex-wrap items-center gap-2">
         {rows.map(([id, sign, label, amount]) => {
@@ -111,6 +119,12 @@ export function TillStrip({ orders, currency, locale, resolveCashierName }: {
           </View>;
         })}
         {!!note && <Text testID="till-note" className="text-muted-foreground">{note}</Text>}
+      </View>}
+      {bound && (active ? !register.blind : closure) && <View testID="till-actions" className="flex-row flex-wrap items-center gap-2">
+        {/* A blind cashier gets no X-report, as on the session card: the X print carries the expected cash. */}
+        {active
+          ? <Button testID="till-xreport" variant="outline" onPress={onPrintXReport}><Text>Print X-report</Text></Button>
+          : closure && <Button testID="till-reprint" variant="outline" onPress={() => onReprint?.(closure)}><Text>Print closure</Text></Button>}
       </View>}
     </View>
   );
