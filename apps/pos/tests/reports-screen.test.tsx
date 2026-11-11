@@ -47,6 +47,13 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 const text = (testID: string) => screen.getByTestId(testID).textContent;
 
+/** Opens a Reports menu chip and picks one of its rows. */
+async function choose(name: 'cashier' | 'compare', value: string) {
+  fireEvent.click(screen.getByTestId(`hero-chip-${name}`));
+  fireEvent.click(within(await screen.findByTestId(`hero-${name}-menu`)).getByTestId(`hero-${name}-${value}`));
+  expect(screen.queryByTestId(`hero-${name}-menu`)).toBeNull();
+}
+
 async function setup({ multiplePayments, storeSettings = noTaxSettings }: { multiplePayments?: boolean; storeSettings?: StoreSettings } = {}) {
   let register!: ReturnType<typeof useRegister>;
   let outbox!: ReturnType<typeof useOutbox>;
@@ -451,6 +458,56 @@ test('Print X report prints the mounted open session with its expected cash', as
   expect(await app.orders.database.collections.closures.find().exec()).toHaveLength(0);
 }, 20_000);
 
+test("the till strip's Print X-report prints the mounted open session, as the session card's does", async () => {
+  const app = await setup();
+  await openRegister();
+  await payCash();
+  await waitFor(() => expect(app.register.expected.cash).toBe(10300));
+  const before = app.register.session;
+  const printedDocuments: { text: string | null; dataPrint: string | null; todayHidden: boolean; opened: boolean }[] = [];
+  const print = vi.spyOn(window, 'print').mockImplementation(() => {
+    const report = screen.getByTestId('closure-print-document');
+    printedDocuments.push({ text: report.textContent, dataPrint: report.getAttribute('data-print'), opened: within(report).queryByText(/^Opened: .+ Paul$/) !== null,
+      todayHidden: screen.getByTestId('reports-hero').closest('[data-print="hide"]') !== null });
+  });
+  expect(screen.queryByTestId('till-reprint')).toBeNull();
+  const button = within(screen.getByTestId('till-actions')).getByTestId('till-xreport');
+  expect(button.textContent).toBe('Print X-report');
+  fireEvent.click(button);
+  await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+  expect(printedDocuments[0].opened).toBe(true);
+  expect(printedDocuments[0].text).not.toContain('Closed:');
+  expect(printedDocuments[0].dataPrint).toBe('closure');
+  expect(printedDocuments[0].todayHidden).toBe(true);
+  expect(printedDocuments[0].text).toContain('X report');
+  expect(printedDocuments[0].text).toContain('Expected: $103.00');
+  expect(printedDocuments[0].text).not.toContain('Closure #');
+  expect(app.register.session).toEqual(before);
+  expect(await app.orders.database.collections.closures.find().exec()).toHaveLength(0);
+}, 20_000);
+
+test("the till strip's last closure opens its panel, and its Print closure prints the Copy", async () => {
+  const app = await setup();
+  await openRegister();
+  await closeRegister('100.00');
+  const closure = app.register.lastClosure!;
+  expect(screen.queryByTestId('till-xreport')).toBeNull();
+  const printed: (string | null | undefined)[] = [];
+  const print = vi.spyOn(window, 'print').mockImplementation(() => {
+    printed.push(screen.queryByTestId('closure-print-document')?.textContent);
+  });
+  fireEvent.click(await screen.findByTestId('till-reprint'));
+  await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+  expect(printed[0]).toContain('Closure #1');
+  expect(printed[0]).toContain('Copy');
+  expect(screen.queryByTestId('closure-panel')).toBeNull();
+  fireEvent.click(screen.getByTestId('till-last-closure'));
+  await screen.findByTestId('closure-panel');
+  expect(screen.getByTestId('closure-panel-title').textContent).toBe(`Closure ${closure.number}`);
+  fireEvent.click(screen.getByTestId('closure-panel-close'));
+  await waitFor(() => expect(screen.queryByTestId('closure-panel')).toBeNull());
+}, 20_000);
+
 test('Download CSV downloads the listed closures and revokes its object URL', async () => {
   await setup();
   await openRegister();
@@ -671,15 +728,21 @@ test('the hero compares with the same weekday last week when chosen', async () =
     await waitFor(() => expect(text('hero-total')).toBe('$0.00'));
     expect(text('hero-delta')).toBe('—');
     expect(text('hero-orders-delta')).toBe('—');
-    expect(screen.getByTestId('hero-compare-lastweek').textContent).toBe('vs last Tuesday');
+    expect(text('hero-chip-compare')).toBe('vs yesterday▾');
+    fireEvent.click(screen.getByTestId('hero-chip-compare'));
+    expect(within(await screen.findByTestId('hero-compare-menu')).getByTestId('hero-compare-menu-hint').textContent)
+      .toBe('A live day is compared at the same time of day');
+    expect(screen.queryByTestId('hero-compare-hint')).toBeNull();
+    expect(text('hero-compare-lastweek')).toBe('vs last Tuesday');
     fireEvent.click(screen.getByTestId('hero-compare-lastweek'));
+    expect(screen.queryByTestId('hero-compare-menu')).toBeNull();
     await waitFor(() => expect(text('hero-delta')).toBe('−100.0% vs last Tuesday'));
     expect(text('hero-orders-delta')).toBe('−1');
     expect(text('hero-average-delta')).toBe('−$3.00');
     expect(text('hero-items-delta')).toBe('−1');
     expect(screen.getByTestId('sales-hour-10').getAttribute('aria-label')).toBe('10:00 — today $0.00, 0 orders; last Tuesday $3.00');
-    expect(screen.getByTestId('hero-compare-lastweek').getAttribute('aria-selected')).toBe('true');
-    fireEvent.click(screen.getByTestId('hero-compare-yesterday'));
+    expect(text('hero-chip-compare')).toBe('vs last Tuesday▾');
+    await choose('compare', 'yesterday');
     await waitFor(() => expect(text('hero-delta')).toBe('—'));
     expect(text('hero-orders-delta')).toBe('—');
   } finally {
@@ -689,17 +752,24 @@ test('the hero compares with the same weekday last week when chosen', async () =
 
 test('the cashier chip narrows every period figure to one cashier', async () => {
   const app = await setup();
-  expect(screen.getByTestId('hero-cashier-all').getAttribute('aria-selected')).toBe('true');
-  expect(screen.getByTestId('hero-cashier-2').textContent).toBe('Paul');
+  expect(text('hero-chip-cashier')).toBe('Everyone▾');
+  fireEvent.click(screen.getByTestId('hero-chip-cashier'));
+  expect(within(await screen.findByTestId('hero-cashier-menu')).getAllByRole('menuitem').map(row => row.textContent))
+    .toEqual(['Everyone✓', 'Paul']);
+  fireEvent.click(screen.getByTestId('hero-chip-cashier'));
+  await waitFor(() => expect(screen.queryByTestId('hero-cashier-menu')).toBeNull());
   await payCash();
   const today = within(screen.getByTestId('reports-hero'));
   await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
   const [order] = await app.orders.find().exec();
   expect(order.cashierRef).toBe('2');
   await act(async () => { await order.incrementalPatch({ cashierRef: '7' }); });
-  expect(screen.queryByTestId('hero-cashier-7')).toBeNull();
   await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+  fireEvent.click(screen.getByTestId('hero-chip-cashier'));
+  await screen.findByTestId('hero-cashier-menu');
+  expect(screen.queryByTestId('hero-cashier-7')).toBeNull();
   fireEvent.click(screen.getByTestId('hero-cashier-2'));
+  expect(text('hero-chip-cashier')).toBe('Paul▾');
   await waitFor(() => expect(text('hero-total')).toBe('$0.00'));
   expect(today.getByText('No sales yet today.')).not.toBeNull();
   expect(text('card-payments-empty')).toBe('No payments in this period.');
@@ -711,6 +781,9 @@ test('the cashier chip narrows every period figure to one cashier', async () => 
   await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
   await act(async () => { await order.incrementalPatch({ cashierRef: '2' }); });
   await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
-  fireEvent.click(screen.getByTestId('hero-cashier-all'));
-  expect(screen.getByTestId('hero-cashier-all').getAttribute('aria-selected')).toBe('true');
+  fireEvent.click(screen.getByTestId('hero-chip-cashier-clear'));
+  expect(text('hero-chip-cashier')).toBe('Everyone▾');
+  expect(screen.queryByTestId('hero-chip-cashier-clear')).toBeNull();
+  expect(screen.queryByTestId('hero-cashier-menu')).toBeNull();
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
 }, 20_000);
