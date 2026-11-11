@@ -29,11 +29,21 @@ const SCRIM_STOPS: readonly (readonly [number, number])[] = [
   [0, 0], [0.018, 0.002], [0.048, 0.008], [0.09, 0.021], [0.139, 0.042], [0.198, 0.075], [0.27, 0.126],
   [0.35, 0.194], [0.435, 0.278], [0.53, 0.382], [0.66, 0.541], [0.81, 0.738], [1, 1],
 ];
+// v2's scrim-stops.ts SCRIM_BLUR_PX: the picture under the words is blurred by 6 px, masked by the fade so it has no edge.
+const SCRIM_BLUR_PX = 6;
 const scrimCard = (of: number) => `color-mix(in srgb, var(--color-card) ${(of * SCRIM_STRENGTH * 100).toFixed(2)}%, transparent)`;
+// v2's scrim.tsx MASK: the fade's stops as alpha, so the blur fades in exactly with the tint.
+const SCRIM_MASK = `linear-gradient(to bottom, ${[...SCRIM_STOPS.map(([at, of]) => `rgb(0 0 0 / ${of}) ${at * SCRIM_REACH}px`), '#000 100%'].join(', ')})`;
+const SCRIM_BLUR = `blur(${SCRIM_BLUR_PX}px)`;
 // v2's scrim.tsx web gradient; native has no CSS gradient, so it takes a flat card band instead.
 const SCRIM_STYLE = Platform.OS === 'web'
   ? { paddingTop: SCRIM_REACH, backgroundImage: `linear-gradient(to bottom, ${[...SCRIM_STOPS.map(([at, of]) => `${scrimCard(of)} ${at * SCRIM_REACH}px`), `${scrimCard(1)} 100%`].join(', ')})` } as ViewStyle
   : { paddingTop: 8 } as ViewStyle;
+// v2's scrim.tsx BLUR (`poster-scrim-blur`): its own layer, so the mask shapes the blur and never the fade. Web only.
+const SCRIM_BLUR_STYLE = {
+  position: 'absolute', top: 0, right: 0, bottom: 0, left: 0,
+  backdropFilter: SCRIM_BLUR, WebkitBackdropFilter: SCRIM_BLUR, maskImage: SCRIM_MASK, WebkitMaskImage: SCRIM_MASK,
+} as ViewStyle;
 export const WORDS = 'absolute bottom-0 left-0 right-0 max-h-full gap-0.5 overflow-hidden px-2.5 pb-2.5';
 
 export function ProductTile({ doc, fields, onPress, tax, inCart = 0 }: ProductTileProps): JSX.Element {
@@ -76,7 +86,11 @@ export function ProductTile({ doc, fields, onPress, tax, inCart = 0 }: ProductTi
       </View>
       <View style={BAND} />
       {lines.length > 0 && (tint === null
-        ? <View testID={`tile-scrim-${id}`} className={Platform.OS === 'web' ? WORDS : `${WORDS} bg-card/90`} style={SCRIM_STYLE}>{lines}</View>
+        ? <View testID={`tile-scrim-${id}`} className={Platform.OS === 'web' ? WORDS : `${WORDS} bg-card/90`} style={SCRIM_STYLE}>
+          {/* First in the tree, as v2's, so the words paint above it. */}
+          {Platform.OS === 'web' && <View testID={`tile-scrim-blur-${id}`} pointerEvents="none" style={SCRIM_BLUR_STYLE} />}
+          {lines}
+        </View>
         : <View className={`${WORDS} pt-2`}>{lines}</View>)}
       {mark && <Text testID={`tile-stock-${id}`} className="absolute left-2 top-2 rounded-md bg-card/90 px-1.5 py-0.5 text-xs font-semibold">{mark.label}</Text>}
       <InCartBadge count={inCart} testID={`in-cart-tile-${id}`} className="absolute right-2 top-2 z-10" />

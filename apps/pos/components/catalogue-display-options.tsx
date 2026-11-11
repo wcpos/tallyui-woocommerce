@@ -11,6 +11,11 @@ import { termOptions } from './catalogue-filter-chips';
 import { Segmented } from './segmented';
 
 const CheckIcon = createSvgIcon('CheckIcon', () => <Path d="M20 6 9 17l-5-5" />);
+// lucide `chevron-down`: the end of v2's select face (components select/index.tsx, SelectTrigger).
+const ChevronDownIcon = createSvgIcon('ChevronDownIcon', () => <Path d="m6 9 6 6 6-6" />);
+// v2's field box, default theme (components field-box/index.tsx; apps/main/global.css): h-ctl 44 px,
+// rounded-field 1 x --radius 8 px, bg-chip = card, chip-border = border (Tally's input token is the same colour).
+const SELECT_FACE = 'h-11 gap-2 rounded-lg bg-card';
 // lucide `sliders-horizontal`, v2's Product settings trigger.
 const SlidersIcon = createSvgIcon('SlidersIcon', () => <>
   <Path d="M21 4h-7" /><Path d="M10 4H3" /><Path d="M21 12h-9" /><Path d="M8 12H3" /><Path d="M21 20h-5" /><Path d="M12 20H3" />
@@ -29,7 +34,8 @@ const SORT_LABELS: Record<(typeof QUICK_FILTER_SORT_FIELDS)[number], string> = {
 
 function countLabel(count: number, one: string, many: string): string { return `${count} ${count === 1 ? one : many}`; }
 
-function FieldLabel({ children }: { children: string }): JSX.Element { return <Text className="text-sm font-medium text-foreground">{children}</Text>; }
+// v2's FormLabel (components form/common.tsx: py-1) over its Label text (label/index.web.tsx).
+function FieldLabel({ children }: { children: string }): JSX.Element { return <Text className="py-1 text-sm font-medium leading-none text-muted-foreground">{children}</Text>; }
 
 /** v2's FormSwitch: the switch first, then a label that fills the row and toggles the switch when pressed. */
 function SwitchRow({ label, testID, accessibilityLabel, checked, disabled, onCheckedChange }: {
@@ -80,13 +86,14 @@ export function CatalogueDisplayOptions({ state, onChange, products, quickFilter
           <DialogTitle>Product settings</DialogTitle>
           <IconButton variant="ghost" size="sm" testID="catalogue-settings-x" accessibilityLabel="Close" onPress={() => setOpen(false)}><XIcon size={16} /></IconButton>
         </View>
-        <ScrollView className="flex-1" contentContainerClassName="gap-4 px-4 py-1">
-          <View className="gap-1">
+        {/* v2's spacing: VStack's gap-2 between fields (components vstack/index.tsx), FormItem's gap-1.5 inside one (form/common.tsx). */}
+        <ScrollView className="flex-1" contentContainerClassName="gap-2 px-4 py-1">
+          <View className="gap-1.5">
             <FieldLabel>View Mode</FieldLabel>
             <Segmented testID="view-mode" label="View Mode" value={state.view} segments={[{ value: 'grid', label: 'Grid' }, { value: 'table', label: 'Table' }]}
               onChange={value => onChange({ ...state, view: value as AppCatalogueViewState['view'] })} />
           </View>
-          {state.view === 'grid' && <View className="gap-1">
+          {state.view === 'grid' && <View className="gap-1.5">
             <View className="flex-row items-center justify-between">
               <FieldLabel>Tile Size</FieldLabel>
               <Text testID="tile-size-value" className="text-muted-foreground">{String(tileSize)}</Text>
@@ -94,7 +101,7 @@ export function CatalogueDisplayOptions({ state, onChange, products, quickFilter
             <Slider testID="tile-size" aria-label="Tile Size" min={2} max={8} step={1} value={tileSize}
               onValueChange={n => onChange({ ...state, gridColumns: n as AppCatalogueViewState['gridColumns'] })} />
           </View>}
-          <View className="gap-1">
+          <View className="gap-1.5">
             <FieldLabel>Browse by</FieldLabel>
             {/* v2's BrowseByField. All products and Categories work (the browse stage in catalogue-view.tsx);
                 Tags, Brands and Shortcuts wait for their own slices. */}
@@ -115,26 +122,29 @@ export function CatalogueDisplayOptions({ state, onChange, products, quickFilter
           </View>
           <SwitchRow label="Show out-of-stock products" testID="show-out-of-stock" accessibilityLabel="Show out-of-stock products"
             checked={state.showOutOfStock} onCheckedChange={next => onChange({ ...state, showOutOfStock: next })} />
-          <View className="flex-row items-end gap-2">
-            <View className="flex-1 gap-1">
+          <View className="flex-row items-end gap-2 px-1">
+            <View className="flex-1 gap-1.5">
               <FieldLabel>Sort By</FieldLabel>
               <Select value={sortField === undefined ? undefined : { value: sortField, label: SORT_LABELS[sortField] }}
                 onValueChange={option => { if (option) onChange({ ...state, sort: { field: option.value, dir: state.sort?.dir ?? 'asc' } }); }}>
-                <SelectTrigger testID="sort-by"><SelectValue placeholder="Sort By" /></SelectTrigger>
+                <SelectTrigger testID="sort-by" className={SELECT_FACE}>
+                  <SelectValue placeholder="Sort By" />
+                  <ChevronDownIcon testID="sort-by-chevron" size={16} className="text-muted-foreground" />
+                </SelectTrigger>
                 <SelectContent><SelectGroup>
                   {QUICK_FILTER_SORT_FIELDS.map(field => <SelectItem key={field} value={field} label={SORT_LABELS[field]}
                     testID={`sort-by-option-${field}`}><Text>{SORT_LABELS[field]}</Text></SelectItem>)}
                 </SelectGroup></SelectContent>
               </Select>
             </View>
-            <View className="gap-1">
+            <View className="gap-1.5">
               <FieldLabel>Sort Direction</FieldLabel>
               <Segmented testID="sort-direction" label="Sort Direction" value={state.sort?.dir ?? ''}
                 segments={[{ value: 'asc', label: 'Ascending' }, { value: 'desc', label: 'Descending' }]}
                 onChange={value => onChange({ ...state, sort: { field: state.sort?.field ?? 'name', dir: value as ProductSort['dir'] } })} />
             </View>
           </View>
-          <View className="gap-1">
+          <View className="gap-1.5">
             <FieldLabel>Variations</FieldLabel>
             {/* v2's variationsStyle. The app only opens variations in place (VariantChooser); inline is a Follow-up. */}
             <Segmented testID="products-variations-style" label="Variations" value="drill" onChange={() => {}}
