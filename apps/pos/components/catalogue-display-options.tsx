@@ -63,23 +63,30 @@ export function CatalogueDisplayOptions({ state, onChange, products, quickFilter
   return <>
     {open && <Dialog open onOpenChange={next => { if (!next) setOpen(false); }}>
       <DialogContent testID="catalogue-settings" className={settingsSheetClassName(state.position)}>
-        <View className="flex-row items-center justify-between px-4">
-          <DialogTitle>Product settings</DialogTitle>
-          <IconButton variant="ghost" size="sm" testID="catalogue-settings-x" accessibilityLabel="Close" onPress={() => setOpen(false)}><XIcon size={16} /></IconButton>
+        {/* v2's DialogHeader (dialog/index.tsx: pl-4 pr-ctl) holds only the title, its dialog rank 16 px leading-none;
+            the close is an absolute h-ctl square at top-1 right-1, so the header row is the title's height. */}
+        <View testID="catalogue-settings-header" className="pl-4 pr-11">
+          <DialogTitle className="text-base">Product settings</DialogTitle>
         </View>
-        {/* v2's spacing: VStack's gap-2 between fields (components vstack/index.tsx), FormItem's gap-1.5 inside one (form/common.tsx). */}
-        <ScrollView className="flex-1" contentContainerClassName="gap-2 px-4 py-1">
+        <View className="absolute right-1 top-1">
+          <IconButton variant="ghost" className="h-11 w-11" testID="catalogue-settings-x" accessibilityLabel="Close" onPress={() => setOpen(false)}><XIcon size={18} /></IconButton>
+        </View>
+        {/* v2's DialogBody: VStack's gap-2 between fields (components vstack/index.tsx), FormItem's gap-1.5 inside one (form/common.tsx). */}
+        <ScrollView testID="catalogue-settings-list" className="flex-1" contentContainerClassName="gap-2 px-4 py-1">
           <View className="gap-1.5">
             <FieldLabel>View Mode</FieldLabel>
             <Segmented testID="view-mode" label="View Mode" value={state.view} segments={[{ value: 'grid', label: 'Grid' }, { value: 'table', label: 'Table' }]}
               onChange={value => onChange({ ...state, view: value as AppCatalogueViewState['view'] })} />
           </View>
-          {state.view === 'grid' && <View className="gap-1.5">
+          {state.view === 'grid' && <View testID="tile-size-field" className="gap-1.5">
             <View className="flex-row items-center justify-between">
               <FieldLabel>Tile Size</FieldLabel>
-              <Text testID="tile-size-value" className="text-muted-foreground">{String(tileSize)}</Text>
+              <Text testID="tile-size-value" className="leading-none text-muted-foreground">{String(tileSize)}</Text>
             </View>
-            <Slider testID="tile-size" aria-label="Tile Size" min={2} max={8} step={1} value={tileSize}
+            {/* v2's Slider (slider/index.tsx) is a flex-row whose h-2 track sets its height and whose thumb overhangs.
+                TallyUI's root is h-5 in a column, so its track grows to 20 px: a row keeps the track h-2, and
+                -my-1.5 gives the 20 px root v2's 8 px of layout. */}
+            <Slider testID="tile-size" aria-label="Tile Size" className="-my-1.5 flex-row" min={2} max={8} step={1} value={tileSize}
               onValueChange={n => onChange({ ...state, gridColumns: n as AppCatalogueViewState['gridColumns'] })} />
           </View>}
           <View className="gap-1.5">
@@ -131,8 +138,9 @@ export function CatalogueDisplayOptions({ state, onChange, products, quickFilter
             <Segmented testID="products-variations-style" label="Variations" value="drill" onChange={() => {}}
               segments={[{ value: 'drill', label: 'Open in place' }, { value: 'inline', label: state.view === 'grid' ? 'Popover' : 'Expanded rows', disabled: true }]} />
           </View>
-          {state.view === 'grid' ? <View className="gap-2 px-1 pt-2">
-            <Text className="text-sm font-semibold">Tile Fields</Text>
+          {/* v2: a `gap-2 px-1 pt-2` View, its SectionHeading, then one FormSwitch per field. */}
+          {state.view === 'grid' ? <View testID="tile-fields" className="gap-2 px-1 pt-2">
+            <Text role="heading" aria-level={2} className="text-sm font-semibold">Tile Fields</Text>
             {CATALOGUE_TILE_FIELDS.map(({ id, label }) => <SwitchRow key={id} label={label}
               testID={`tile-field-toggle-${id}`} accessibilityLabel={`Show ${label} on tiles`}
               checked={state.tileFields[id]}

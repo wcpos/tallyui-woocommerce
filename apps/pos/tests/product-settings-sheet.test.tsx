@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { PortalHost } from '@tallyui/primitives';
 import { settingsSheetClassName } from '../components/catalogue-display-options';
+import { classesOf } from './classes-of';
 import { CatalogueView } from '../components/catalogue-view';
 import type { CatalogueViewProps } from '../components/catalogue-view';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
@@ -212,4 +213,72 @@ test('a tile field label toggles its field, and the name column label does nothi
   fireEvent.click(screen.getByTestId('column-toggle-name-label'));
   expect(screen.getByTestId('column-toggle-name').getAttribute('aria-checked')).toBe('true');
   expect(stored().columns.find((column: { id: string }) => column.id === 'name').visible).toBe(true);
+});
+
+// react-native-web drops a ScrollView's contentContainerClassName from the DOM, so read it off the component that took the testID.
+function contentClassesOf(testID: string): string[] {
+  const node = screen.getByTestId(testID) as unknown as Record<string, unknown>;
+  type Fiber = { memoizedProps?: { testID?: string; contentContainerClassName?: unknown }; return?: Fiber };
+  for (let fiber = node[Object.keys(node).find(name => name.startsWith('__reactFiber$'))!] as Fiber | undefined; fiber; fiber = fiber.return) {
+    const { contentContainerClassName: classes, testID: id } = fiber.memoizedProps ?? {};
+    if (id === testID && typeof classes === 'string') return classes.split(/\s+/);
+  }
+  return [];
+}
+
+// The classes every component between a label's text node and its Pressable took (the Text has no testID of its own).
+function labelTextClassesOf(pressableTestID: string): string[] {
+  const text = screen.getByTestId(pressableTestID).firstElementChild as unknown as Record<string, unknown>;
+  type Fiber = { memoizedProps?: { testID?: string; className?: unknown }; return?: Fiber };
+  const found: string[] = [];
+  for (let fiber = text[Object.keys(text).find(name => name.startsWith('__reactFiber$'))!] as Fiber | undefined; fiber; fiber = fiber.return) {
+    const { className, testID } = fiber.memoizedProps ?? {};
+    if (testID === pressableTestID) break;
+    if (typeof className === 'string') found.push(...className.split(/\s+/));
+  }
+  return found;
+}
+
+test('a Tile Fields switch label takes v2\'s FormLabel style: muted, medium, leading-none, py-1', () => {
+  openSheet();
+  const classes = labelTextClassesOf('tile-field-toggle-price-label');
+  expect(classes).toEqual(expect.arrayContaining(['text-muted-foreground', 'font-medium', 'leading-none', 'py-1', 'text-sm']));
+  expect(classes).not.toContain('text-foreground');
+});
+
+test('the fields sit in v2\'s DialogBody list: gap-2 between them, px-4 py-1 round them', () => {
+  openSheet();
+  expect(contentClassesOf('catalogue-settings-list')).toEqual(['gap-2', 'px-4', 'py-1']);
+});
+
+test('a field is a plain FormItem row in that list, with no settings group round it', () => {
+  openSheet();
+  const list = screen.getByTestId('tile-size-field').parentElement!;
+  expect(classesOf('tile-size-field')).toEqual(['gap-1.5']);
+  expect(screen.getByTestId('show-out-of-stock-row').parentElement).toBe(list);
+  expect(screen.getByTestId('tile-fields').parentElement).toBe(list);
+  expect(classesOf('tile-fields')).toEqual(['gap-2', 'px-1', 'pt-2']);
+  expect(screen.getByRole('heading', { name: 'Tile Fields' })).not.toBeNull();
+});
+
+test('the header holds only the title; the close sits over it, as v2\'s DialogContent places it', () => {
+  openSheet();
+  expect(classesOf('catalogue-settings-header')).toEqual(['pl-4', 'pr-11']);
+  expect(screen.getByTestId('catalogue-settings-header').contains(screen.getByTestId('catalogue-settings-x'))).toBe(false);
+  expect(screen.getByTestId('catalogue-settings-x').parentElement!.parentElement).toBe(screen.getByTestId('catalogue-settings'));
+});
+
+test('Tile Size\'s slider lays its track in a row and takes v2\'s 8 px track height in the list', () => {
+  openSheet();
+  expect(classesOf('tile-size')).toEqual(expect.arrayContaining(['flex-row', '-my-1.5']));
+});
+
+test('each Tile Fields switch is v2\'s FormSwitch row, and pressing its label toggles it off and on', () => {
+  openSheet();
+  expect(classesOf('tile-field-toggle-name-row')).toEqual(['w-full', 'flex-row', 'items-center', 'gap-3']);
+  fireEvent.click(screen.getByTestId('tile-field-toggle-name-label'));
+  expect(screen.getByTestId('tile-field-toggle-name').getAttribute('aria-checked')).toBe('false');
+  expect(stored().tileFields.name).toBe(false);
+  fireEvent.click(screen.getByTestId('tile-field-toggle-name-label'));
+  expect(screen.getByTestId('tile-field-toggle-name').getAttribute('aria-checked')).toBe('true');
 });
