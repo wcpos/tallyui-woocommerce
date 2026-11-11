@@ -17,7 +17,7 @@ import type { TileTax } from '../lib/catalogue/tile-words';
 import { needsAnyPick, variantMatchesStock } from '../lib/catalogue/variation-match';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { categoriesLabel, categoryTerms, filtersAtBaseline, productsInCategory, productsLabel } from '../lib/catalogue/browse-terms';
-import { BrowseCrumb, BrowseRootGrid, BrowseRootTable } from './browse-terms-view';
+import { BrowseCrumb, BrowseRootGrid, BrowseRootTable, ParentTermTile } from './browse-terms-view';
 import type { BrowsePlace } from './browse-terms-view';
 import { CatalogueDisplayOptions, CatalogueSettingsButton } from './catalogue-display-options';
 import { CatalogueFilterChips } from './catalogue-filter-chips';
@@ -32,6 +32,9 @@ import { ViewModeToggle } from './view-mode-toggle';
 
 const SyncIcon = createSvgIcon('SyncIcon', () => <><Path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><Path d="M21 3v5h-5" />
   <Path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><Path d="M8 16H3v5" /></>);
+
+// Slot 0 of a level's grid, the opened place's own tile: an id no product carries, for the grid's key.
+const PARENT_SLOT_ID = 'browse-parent';
 
 export interface CatalogueViewProps {
   connector: TallyConnector;
@@ -223,9 +226,15 @@ export function CatalogueView({
     : syncing ? 'Syncing products…' : drilled ? optionsLabel(drillEntries.length) ?? '0 options' : atRoot ? `${categoriesLabel(terms.length)} · ${productsLabel(baselineProducts.length)}`
     : shown < total ? `Showing ${shown.toLocaleString()} of ${total.toLocaleString()}`
     : total === 1 ? '1 product' : `${total.toLocaleString()} products`;
+  // One level back from a level: the crumb's previous step and the parent tile's. The browse is flat, so that is the root.
+  const backToRoot = () => setPlace(null);
   const crumb = drilled ? <BrowseCrumb place={level} onRoot={() => { setDrill(null); setPlace(null); }}
       product={{ name: traits.getName(drilled), onBack: () => setDrill(null) }} />
-    : level === null ? undefined : <BrowseCrumb place={level} onRoot={() => setPlace(null)} />;
+    : level === null ? undefined : <BrowseCrumb place={level} onRoot={backToRoot} />;
+  const productTile = (doc: any) => <ProductTile doc={doc} fields={viewState.tileFields} tax={tax}
+    inCart={inCartCounts?.get(traits.getId(doc)) ?? 0} onPress={onSelect || onAddEntry ? () => tap(doc) : undefined} />;
+  // As ProductGrid counts it: a level is empty when nothing in it is sellable.
+  const levelEmpty = !items.some(doc => traits.isSellable(doc));
   const [syncPending, setSyncPending] = useState(false);
   function sync() {
     if (!onSync || syncing || syncPending) return;
@@ -256,14 +265,30 @@ export function CatalogueView({
         : atRoot ? viewState.view === 'grid'
           ? <BrowseRootGrid terms={terms} numColumns={numColumns} searchSlot={searchSlot} onOpen={setPlace} />
           : <BrowseRootTable terms={terms} searchSlot={searchSlot} onOpen={setPlace} />
-        : viewState.view === 'grid' ? <ProductGrid
+        : viewState.view === 'grid' ? level === null ? <ProductGrid
           items={items}
           numColumns={numColumns}
-          renderItem={doc => <ProductTile doc={doc} fields={viewState.tileFields} tax={tax} inCart={inCartCounts?.get(connector.traits.product.getId(doc)) ?? 0} onPress={onSelect || onAddEntry ? () => tap(doc) : undefined} />}
+          renderItem={productTile}
           searchSlot={searchSlot}
           filterSlot={crumb}
           emptyState={emptyState}
-        /> : <ProductTable
+        />
+        // v2's TermLevelGrid (term-grid.tsx): the opened place's own tile in slot 0 is the way back, then its
+        // products. A level with no products keeps slot 0 and shows the empty state under it.
+        : <View className="flex-1">
+          <ProductGrid
+            testID="browse-level"
+            className={levelEmpty ? 'flex-none' : undefined}
+            items={[{ id: PARENT_SLOT_ID }, ...items]}
+            numColumns={numColumns}
+            renderItem={(doc, index) => index === 0
+              ? <ParentTermTile place={level} count={level.kind === 'term' ? terms.find(term => term.id === level.id)?.count : undefined} onBack={backToRoot} />
+              : productTile(doc)}
+            searchSlot={searchSlot}
+            filterSlot={crumb}
+          />
+          {levelEmpty && <View testID="browse-level-empty" className="items-center justify-center p-4">{emptyState}</View>}
+        </View> : <ProductTable
           items={items}
           sortItems={false}
           columns={columns}
