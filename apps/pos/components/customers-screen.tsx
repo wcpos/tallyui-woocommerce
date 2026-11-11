@@ -12,7 +12,8 @@ import { AddCustomerDialog } from './add-customer-dialog';
 
 // v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
 const SEARCH_DEBOUNCE_MS = 250;
-// The customer picker's floor (components/customer-picker.tsx:46); the store search is online.
+// The customer picker's floor (components/customer-picker.tsx:46); the store search is online. Below it the
+// screen shows the store's default list, search(''), as the picker does and as v2's Customers screen opens.
 const MIN_QUERY_CHARS = 2;
 // v2 packages/core/src/screens/main/customers/initial-settings.json: the sortable columns, in order.
 const SORTABLE: { id: CustomerSortField; label: string }[] = [
@@ -58,23 +59,26 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
     return () => clearTimeout(timer);
   }, [term]);
 
+  // '' is the default list; one typed character keeps it rather than loading it again.
+  const asked = query.length < MIN_QUERY_CHARS ? '' : query;
+
   useEffect(() => {
     const mine = ++request.current;
     setResults([]);
     setError(undefined);
-    if (!source || query.length < MIN_QUERY_CHARS) {
+    if (!source) {
       setSearching(false);
       return;
     }
     setSearching(true);
-    source.search(query).then(found => {
+    source.search(asked).then(found => {
       if (mine === request.current) setResults(found);
     }, cause => {
       if (mine === request.current) setError(searchErrorMessage(cause));
     }).finally(() => {
       if (mine === request.current) setSearching(false);
     });
-  }, [source, query, attempt]);
+  }, [source, asked, attempt]);
 
   function clear() { setTerm(''); setQuery(''); }
   function retry() { setAttempt(n => n + 1); }
@@ -87,15 +91,11 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
     </View>
   ) : searching ? (
     <Text testID="customers-searching" className="p-4 text-muted-foreground">Searching…</Text>
-  ) : query.length < MIN_QUERY_CHARS ? (
-    <View testID="no-data-message" className="flex-1 items-center justify-center gap-2 p-6">
-      <Text testID="no-data-message-title" className="text-center font-medium text-foreground">Search Customers</Text>
-      <Text testID="no-data-message-description" className="text-center text-muted-foreground">Type at least 2 characters of a name, email or phone.</Text>
-    </View>
   ) : results.length === 0 ? (
     <View testID="no-data-message" className="flex-1 items-center justify-center gap-2 p-6">
-      <Text testID="no-data-message-title" className="text-center font-medium text-foreground">No customers match your search</Text>
-      <Button testID="no-data-message-action" variant="ghost" size="sm" onPress={clear}><Text>Clear search</Text></Button>
+      <Text testID="no-data-message-title" className="text-center font-medium text-foreground">
+        {asked ? 'No customers match your search' : 'No customers found'}</Text>
+      {asked ? <Button testID="no-data-message-action" variant="ghost" size="sm" onPress={clear}><Text>Clear search</Text></Button> : null}
     </View>
   ) : (
     <>
@@ -155,7 +155,7 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
         {createBlockedReason !== undefined
           ? <Text testID="customers-add-blocked" className="px-4 pb-2 text-sm text-muted-foreground">{createBlockedReason}</Text> : null}
         {body}
-        {adding ? <AddCustomerDialog source={source} onClose={() => setAdding(false)} /> : null}
+        {adding ? <AddCustomerDialog source={source} onClose={() => { setAdding(false); retry(); }} /> : null}
       </> : <Text testID="customers-unavailable" className="p-4 text-muted-foreground">Customers show once the store is connected.</Text>}
     </View>
   );
