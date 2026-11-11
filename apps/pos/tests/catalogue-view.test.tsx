@@ -49,7 +49,7 @@ test('renders fixture names, store, cashier and prices in the store currency', (
 
 test.each([products[0].sku, products[0].global_unique_id, 'Espres'])('searches by %s', term => {
   render(<CatalogueView {...props} />);
-  fireEvent.change(screen.getByPlaceholderText('Search name, SKU or barcode'), { target: { value: term } });
+  fireEvent.change(screen.getByPlaceholderText('Search products'), { target: { value: term } });
   expect(screen.getByText(products[0].name)).not.toBeNull();
   for (const product of products.slice(1)) expect(screen.queryByText(product.name)).toBeNull();
 });
@@ -109,7 +109,7 @@ const ten = Array.from({ length: 10 }, (_, i) => ({ ...products[0], id: 1000 + i
 test('the footer counts the products, or the shown of the total while a search narrows them', () => {
   render(<CatalogueView {...props} products={ten} />);
   expect(screen.getByTestId('data-table-count').textContent).toBe('10 products');
-  fireEvent.change(screen.getByPlaceholderText('Search name, SKU or barcode'), { target: { value: 'Zebra' } });
+  fireEvent.change(screen.getByPlaceholderText('Search products'), { target: { value: 'Zebra' } });
   expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 2 of 10');
   cleanup();
   render(<CatalogueView {...props} products={[products[0]]} />);
@@ -156,31 +156,31 @@ test('there is no Sync button without onSync, and the footer row comes after the
 test('distinguishes an empty catalogue from an unmatched search', () => {
   render(<CatalogueView {...props} products={[]} />);
   expect(screen.getByText('No products yet')).not.toBeNull();
-  fireEvent.change(screen.getByPlaceholderText('Search name, SKU or barcode'), { target: { value: 'missing' } });
+  fireEvent.change(screen.getByPlaceholderText('Search products'), { target: { value: 'missing' } });
   expect(screen.getByText('No products match')).not.toBeNull();
 });
 
 test('shows the grid by default with names in ascending order', () => {
   render(<CatalogueView {...props} />);
-  expect(screen.getByTestId('view-toggle-grid').getAttribute('aria-checked')).toBe('true');
+  expect(screen.getByTestId('view-mode-toggle').getAttribute('aria-label')).toBe('Switch to table view');
   expect(screen.queryAllByTestId(/^product-row-/)).toHaveLength(0);
   expect(screen.getAllByText(/^(Espresso|Cold Brew|T-Shirt)$/).map(node => node.textContent)).toEqual(['Cold Brew', 'Espresso', 'T-Shirt']);
 });
 
 test('toggles to a name-sorted table and saves the view', () => {
   render(<CatalogueView {...props} />);
-  fireEvent.click(screen.getByTestId('view-toggle-table'));
+  fireEvent.click(screen.getByTestId('view-mode-toggle'));
   expect(screen.getAllByTestId(/^product-row-/).map(node => node.getAttribute('data-testid'))).toEqual(['product-row-84', 'product-row-80', 'product-row-102']);
   expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!).view).toBe('table');
 });
 
 test('the table view survives a remount', () => {
   render(<CatalogueView {...props} />);
-  fireEvent.click(screen.getByTestId('view-toggle-table'));
+  fireEvent.click(screen.getByTestId('view-mode-toggle'));
   cleanup();
   render(<CatalogueView {...props} />);
   expect(screen.getByTestId('product-row-80')).not.toBeNull();
-  expect(screen.getByTestId('view-toggle-table').getAttribute('aria-checked')).toBe('true');
+  expect(screen.getByTestId('view-mode-toggle').getAttribute('aria-label')).toBe('Switch to grid view');
 });
 
 test.each(['{not json', '{"view":"list","gridColumns":99}'])('bad stored value %s falls back to the name-sorted grid', raw => {
@@ -188,14 +188,14 @@ test.each(['{not json', '{"view":"list","gridColumns":99}'])('bad stored value %
   render(<CatalogueView {...props} />);
   // The defaults open on the category tiles; All products shows the grid of every product.
   fireEvent.click(screen.getByTestId('browse-all-products'));
-  expect(screen.getByTestId('view-toggle-grid').getAttribute('aria-checked')).toBe('true');
+  expect(screen.getByTestId('view-mode-toggle').getAttribute('aria-label')).toBe('Switch to table view');
   expect(screen.queryAllByTestId(/^product-row-/)).toHaveLength(0);
   expect(screen.getAllByText(/^(Espresso|Cold Brew|T-Shirt)$/).map(node => node.textContent)).toEqual(['Cold Brew', 'Espresso', 'T-Shirt']);
 });
 
 test('price header cycles through ascending, descending and unsorted and saves each sort', () => {
   render(<CatalogueView {...props} />);
-  fireEvent.click(screen.getByTestId('view-toggle-table'));
+  fireEvent.click(screen.getByTestId('view-mode-toggle'));
   fireEvent.click(screen.getByTestId('product-table-sort-price'));
   expect(screen.getAllByTestId(/^product-row-/).map(node => node.getAttribute('data-testid'))).toEqual(['product-row-80', 'product-row-84', 'product-row-102']);
   expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!).sort).toEqual({ field: 'price', dir: 'asc' });
@@ -216,7 +216,7 @@ test('the grid follows the stored sort', () => {
 test('pressing a table row selects its product once', () => {
   const onSelect = vi.fn();
   render(<CatalogueView {...props} onSelect={onSelect} />);
-  fireEvent.click(screen.getByTestId('view-toggle-table'));
+  fireEvent.click(screen.getByTestId('view-mode-toggle'));
   fireEvent.click(screen.getByTestId('product-row-80'));
   expect(onSelect).toHaveBeenCalledOnce();
   expect(onSelect).toHaveBeenCalledWith(products[0]);
@@ -224,18 +224,62 @@ test('pressing a table row selects its product once', () => {
 
 test('search filters the table', () => {
   render(<CatalogueView {...props} />);
-  fireEvent.click(screen.getByTestId('view-toggle-table'));
-  fireEvent.change(screen.getByPlaceholderText('Search name, SKU or barcode'), { target: { value: 'Espres' } });
+  fireEvent.click(screen.getByTestId('view-mode-toggle'));
+  fireEvent.change(screen.getByPlaceholderText('Search products'), { target: { value: 'Espres' } });
   expect(screen.getAllByTestId(/^product-row-/).map(node => node.getAttribute('data-testid'))).toEqual(['product-row-80']);
 });
 
 test('search text survives toggling views', () => {
   render(<CatalogueView {...props} />);
-  fireEvent.change(screen.getByPlaceholderText('Search name, SKU or barcode'), { target: { value: 'Espres' } });
-  fireEvent.click(screen.getByTestId('view-toggle-table'));
+  fireEvent.change(screen.getByPlaceholderText('Search products'), { target: { value: 'Espres' } });
+  fireEvent.click(screen.getByTestId('view-mode-toggle'));
   expect(screen.getAllByTestId(/^product-row-/).map(node => node.getAttribute('data-testid'))).toEqual(['product-row-80']);
-  fireEvent.click(screen.getByTestId('view-toggle-grid'));
+  fireEvent.click(screen.getByTestId('view-mode-toggle'));
   expect(screen.getAllByText(/^(Espresso|Cold Brew|T-Shirt)$/).map(node => node.textContent)).toEqual(['Espresso']);
+});
+
+test('v2 search row: "Search products" with the view toggle and Product settings beside it, the chips below', () => {
+  render(<CatalogueView {...props} />);
+  const search = screen.getByPlaceholderText('Search products');
+  const toggle = screen.getByTestId('view-mode-toggle');
+  const settings = screen.getByTestId('catalogue-settings-button');
+  const row = toggle.parentElement!;
+  expect(settings.parentElement).toBe(row);
+  expect(row.contains(search)).toBe(true);
+  expect(row.contains(screen.getByTestId('filter-pill-on_sale'))).toBe(false);
+  expect(screen.queryByTestId('view-toggle-grid')).toBeNull();
+  expect(screen.queryByTestId('view-toggle-table')).toBeNull();
+  expect(screen.queryByText('Product settings')).toBeNull();
+});
+
+test('the view toggle switches the grid to the table and back, and the view persists', () => {
+  render(<CatalogueView {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Switch to table view' }));
+  expect(screen.getAllByTestId(/^product-row-/)).toHaveLength(3);
+  expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!).view).toBe('table');
+  fireEvent.click(screen.getByRole('button', { name: 'Switch to grid view' }));
+  expect(screen.queryAllByTestId(/^product-row-/)).toHaveLength(0);
+  expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!).view).toBe('grid');
+  cleanup();
+  render(<CatalogueView {...props} />);
+  expect(screen.getByTestId('view-mode-toggle').getAttribute('aria-label')).toBe('Switch to table view');
+});
+
+test('the Product settings icon carries its label and opens the dialog', () => {
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  const settings = screen.getByTestId('catalogue-settings-button');
+  expect(settings.getAttribute('aria-label')).toBe('Product settings');
+  fireEvent.click(screen.getByRole('button', { name: 'Product settings' }));
+  expect(screen.getByTestId('catalogue-settings')).not.toBeNull();
+});
+
+test('Escape dismisses the Product settings sheet and the trigger opens it again', () => {
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
+  fireEvent.keyDown(screen.getByTestId('catalogue-settings'), { key: 'Escape' });
+  expect(screen.queryByTestId('catalogue-settings')).toBeNull();
+  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
+  expect(screen.getByTestId('catalogue-settings')).not.toBeNull();
 });
 
 function gridCellWidth(): number {
@@ -332,7 +376,7 @@ test('restore resets the whole catalogue and keeps the settings dialog open', ()
   render(<><CatalogueView {...props} /><PortalHost /></>);
   fireEvent.click(screen.getByTestId('catalogue-settings-button'));
   fireEvent.click(screen.getByTestId('catalogue-settings-restore'));
-  expect(screen.getByTestId('view-toggle-grid').getAttribute('aria-checked')).toBe('true');
+  expect(screen.getByTestId('view-mode-toggle').getAttribute('aria-label')).toBe('Switch to table view');
   expect(localStorage.getItem(CATALOGUE_VIEW_KEY)).toBe(JSON.stringify(CATALOGUE_VIEW_DEFAULTS));
   expect(screen.getByTestId('catalogue-settings')).not.toBeNull();
   expect(screen.getByRole('slider').getAttribute('aria-valuenow')).toBe('4');
@@ -346,7 +390,7 @@ test('Product settings has no panel position and its restore keeps the side', ()
   expect(screen.queryByTestId('panel-position-left')).toBeNull();
   fireEvent.click(screen.getByTestId('catalogue-settings-restore'));
   expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!)).toEqual({ ...CATALOGUE_VIEW_DEFAULTS, position: 'right' });
-  expect(screen.getByTestId('view-toggle-grid').getAttribute('aria-checked')).toBe('true');
+  expect(screen.getByTestId('view-mode-toggle').getAttribute('aria-label')).toBe('Switch to table view');
 });
 
 test('default tiles show name and price without optional fields', () => {
@@ -487,7 +531,7 @@ test('tiles show the in-cart count and no badge at zero', () => {
 
 test('table rows show the in-cart count and keep their order', () => {
   render(<><CatalogueView {...props} inCartCounts={new Map([['80', 3]])} /><PortalHost /></>);
-  fireEvent.click(screen.getByTestId('view-toggle-table'));
+  fireEvent.click(screen.getByTestId('view-mode-toggle'));
   expect(screen.getByTestId('in-cart-row-80').textContent).toBe('3');
   expect(screen.queryByTestId('in-cart-row-84')).toBeNull();
   expect(screen.getAllByTestId(/^product-row-/).map(row => row.getAttribute('data-testid'))).toEqual(['product-row-84', 'product-row-80', 'product-row-102']);

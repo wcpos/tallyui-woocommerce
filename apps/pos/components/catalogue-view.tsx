@@ -4,7 +4,7 @@ import { View, useWindowDimensions } from 'react-native';
 import { Path } from 'react-native-svg';
 import { ConnectorProvider } from '@tallyui/core';
 import type { TallyConnector } from '@tallyui/core';
-import { Button, createSvgIcon, defaultProductColumns, IconButton, ProductGrid, ProductTable, SearchInput, Text, ViewToggle } from '@tallyui/components';
+import { Button, createSvgIcon, defaultProductColumns, IconButton, ProductGrid, ProductTable, SearchInput, Text } from '@tallyui/components';
 import type { ProductTableColumn } from '@tallyui/components';
 import { productSortValue, resolveGridColumns, searchProducts, sortProducts } from '@tallyui/pos';
 import type { ProductSort } from '@tallyui/pos';
@@ -17,7 +17,7 @@ import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { categoriesLabel, categoryTerms, filtersAtBaseline, productsInCategory, productsLabel } from '../lib/catalogue/browse-terms';
 import { BrowseCrumb, BrowseRootGrid, BrowseRootTable } from './browse-terms-view';
 import type { BrowsePlace } from './browse-terms-view';
-import { CatalogueDisplayOptions } from './catalogue-display-options';
+import { CatalogueDisplayOptions, CatalogueSettingsButton } from './catalogue-display-options';
 import { CatalogueFilterChips } from './catalogue-filter-chips';
 import { DrawerSheet } from './drawer-content';
 import { FilterBarDialog } from './filter-bar-dialog';
@@ -25,6 +25,7 @@ import { InCartBadge } from './in-cart-badge';
 import { ProductTile } from './product-tile';
 import { QuickFilterBar } from './quick-filter-bar';
 import { RegisterBarShell } from './register-bar-shell';
+import { ViewModeToggle } from './view-mode-toggle';
 
 const SyncIcon = createSvgIcon('SyncIcon', () => <><Path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><Path d="M21 3v5h-5" />
   <Path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><Path d="M8 16H3v5" /></>);
@@ -69,6 +70,7 @@ export function CatalogueView({
   const [quickFilters, setQuickFilters] = useQuickFilters();
   const [sortOverride, setSortOverride] = useState<ProductSort | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   function scan(code: string) {
     const result = onScan?.(code);
     if (result === 'clear') setTerm('');
@@ -143,8 +145,14 @@ export function CatalogueView({
     if (applied && !next.some(qf => qf.id === applied.id && isActive(qf))) { setFilters(baseline); setTerm(''); setSortOverride(null); }
     setQuickFilters(next);
   }
-  const searchSlot = <View className="gap-2"><SearchInput value={term} onChangeText={setTerm} placeholder="Search name, SKU or barcode"
-    onSubmitEditing={() => { const code = term.trim(); if (code && onScan) scan(code); }} />
+  // v2's PageBar: the search fills the row, the view toggle and Product settings sit beside it, the chips below.
+  const searchSlot = <View className="gap-2">
+    <View className="flex-row items-center gap-2">
+      <SearchInput className="flex-1" value={term} onChangeText={setTerm} placeholder="Search products"
+        onSubmitEditing={() => { const code = term.trim(); if (code && onScan) scan(code); }} />
+      <ViewModeToggle view={viewState.view} onChange={view => setViewState({ ...viewState, view })} />
+      <CatalogueSettingsButton onPress={() => setSettingsOpen(true)} />
+    </View>
     <View className="flex-row flex-wrap items-center gap-2">
       <CatalogueFilterChips products={products} filters={filters} onChange={setFilters} />
       <QuickFilterBar quickFilters={quickFilters} isActive={isActive} onPress={pressQuickFilter} />
@@ -183,10 +191,8 @@ export function CatalogueView({
           onOpenOrders={onOpenOrders} onOpenCustomers={onOpenCustomers} onOpenReports={onOpenReports}
           onOpenHealth={onOpenHealth} onOpenLogs={onOpenLogs} onOpenSettings={onOpenSettings} />
         <View className="flex-1 p-4">
-        <View className="flex-row flex-wrap items-center justify-end gap-4">
-          <ViewToggle value={viewState.view} onChange={view => setViewState({ ...viewState, view })} />
-          <CatalogueDisplayOptions state={viewState} onChange={changeViewState} products={products} quickFilterCount={quickFilters.length} />
-        </View>
+        <CatalogueDisplayOptions state={viewState} onChange={changeViewState} products={products} quickFilterCount={quickFilters.length}
+          open={settingsOpen} onOpenChange={setSettingsOpen} />
         {message ? <Text>{message}</Text> : null}
         {atRoot ? viewState.view === 'grid'
           ? <BrowseRootGrid terms={terms} numColumns={numColumns} searchSlot={searchSlot} onOpen={setPlace} />

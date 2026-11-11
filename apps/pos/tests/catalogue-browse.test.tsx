@@ -45,7 +45,7 @@ const termIds = () => screen.getAllByTestId(/^browse-(all-products|term-\d+)$/).
 const productTiles = () => screen.queryAllByTestId(/^product-tile-\d+$/).map(node => node.getAttribute('data-testid'));
 const productRows = () => screen.queryAllByTestId(/^product-row-\d+$/).map(node => node.getAttribute('data-testid'));
 const footer = () => screen.getByTestId('data-table-count').textContent;
-const search = (value: string) => fireEvent.change(screen.getByPlaceholderText('Search name, SKU or barcode'), { target: { value } });
+const search = (value: string) => fireEvent.change(screen.getByPlaceholderText('Search products'), { target: { value } });
 
 test('the default view opens on All products and then a tile per category, by name, with no product tile', () => {
   render(<CatalogueView {...props} />);

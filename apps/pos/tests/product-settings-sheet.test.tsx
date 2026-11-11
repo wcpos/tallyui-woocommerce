@@ -71,7 +71,7 @@ test('View Mode in the sheet switches the catalogue to the table and back', () =
   openSheet();
   fireEvent.click(screen.getByTestId('view-mode-segment-table'));
   expect(screen.getAllByTestId(/^product-row-/).map(node => node.getAttribute('data-testid'))).toEqual(['product-row-84', 'product-row-80', 'product-row-102']);
-  expect(screen.getByTestId('view-toggle-table').getAttribute('aria-checked')).toBe('true');
+  expect(screen.getByTestId('view-mode-toggle').getAttribute('aria-label')).toBe('Switch to grid view');
   expect(stored().view).toBe('table');
   expect(screen.getByTestId('column-toggle-name')).not.toBeNull();
   expect(screen.queryByTestId('tile-size')).toBeNull();

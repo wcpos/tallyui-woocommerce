@@ -1,9 +1,8 @@
 // v2's Product settings side sheet (WCPOS monorepo `packages/core/src/screens/main/pos/products/ui-settings-form.tsx`).
-import { useState } from 'react';
 import type { JSX } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Path } from 'react-native-svg';
-import { Button, createSvgIcon, Dialog, DialogContent, DialogTitle, IconButton, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Slider, Switch, Text, XIcon } from '@tallyui/components';
+import { Button, createSvgIcon, Dialog, DialogContent, DialogTitle, IconButton, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Slider, Switch, Text, Tooltip, TooltipContent, TooltipTrigger, XIcon } from '@tallyui/components';
 import type { ProductSort } from '@tallyui/pos';
 import { BROWSE_BY, CATALOGUE_COLUMNS, CATALOGUE_TILE_FIELDS, CATALOGUE_VIEW_DEFAULTS } from '../lib/catalogue/catalogue-view-state';
 import type { AppCatalogueViewState, PanelPosition } from '../lib/catalogue/catalogue-view-state';
@@ -11,6 +10,11 @@ import { QUICK_FILTER_SORT_FIELDS } from '../lib/catalogue/quick-filters';
 import { termOptions } from './catalogue-filter-chips';
 
 const CheckIcon = createSvgIcon('CheckIcon', () => <Path d="M20 6 9 17l-5-5" />);
+// lucide `sliders-horizontal`, v2's Product settings trigger.
+const SlidersIcon = createSvgIcon('SlidersIcon', () => <>
+  <Path d="M21 4h-7" /><Path d="M10 4H3" /><Path d="M21 12h-9" /><Path d="M8 12H3" /><Path d="M21 20h-5" /><Path d="M12 20H3" />
+  <Path d="M14 2v4" /><Path d="M8 10v4" /><Path d="M16 18v4" />
+</>);
 
 const RIGHT_SHEET = 'left-auto right-0 top-0 h-full w-full max-w-lg translate-x-0 translate-y-0 gap-4 rounded-none border-0 border-l border-border bg-card p-0 py-4';
 const LEFT_SHEET = 'left-0 right-auto top-0 h-full w-full max-w-lg translate-x-0 translate-y-0 gap-4 rounded-none border-0 border-r border-border bg-card p-0 py-4';
@@ -55,10 +59,23 @@ function Segmented({ testID, label, value, segments, onChange }: {
   </View>;
 }
 
-export function CatalogueDisplayOptions({ state, onChange, products, quickFilterCount }: {
+/** v2's Product settings trigger in the search row: a sliders icon with the tooltip "Product settings". */
+export function CatalogueSettingsButton({ onPress }: { onPress(): void }): JSX.Element {
+  return <Tooltip>
+    <TooltipTrigger asChild>
+      <IconButton testID="catalogue-settings-button" variant="ghost" accessibilityLabel="Product settings" onPress={onPress}>
+        <SlidersIcon size={20} className="text-foreground" />
+      </IconButton>
+    </TooltipTrigger>
+    <TooltipContent><Text>Product settings</Text></TooltipContent>
+  </Tooltip>;
+}
+
+/** The sheet itself. Its open state lives with the catalogue, since the search row that holds the trigger remounts with the view. */
+export function CatalogueDisplayOptions({ state, onChange, products, quickFilterCount, open, onOpenChange: setOpen }: {
   state: AppCatalogueViewState; onChange(next: AppCatalogueViewState): void; products: any[]; quickFilterCount: number;
+  open: boolean; onOpenChange(open: boolean): void;
 }): JSX.Element {
-  const [open, setOpen] = useState(false);
   const tileSize = typeof state.gridColumns === 'number' ? state.gridColumns : 4;
   const categoryCount = termOptions(products, 'categories', 'category').length;
   const tagCount = termOptions(products, 'tags', 'tag').length;
@@ -71,7 +88,6 @@ export function CatalogueDisplayOptions({ state, onChange, products, quickFilter
   ];
   const sortField = QUICK_FILTER_SORT_FIELDS.find(field => field === state.sort?.field);
   return <>
-    <Button testID="catalogue-settings-button" variant="outline" onPress={() => setOpen(true)}><Text>Product settings</Text></Button>
     {open && <Dialog open onOpenChange={next => { if (!next) setOpen(false); }}>
       <DialogContent testID="catalogue-settings" className={settingsSheetClassName(state.position)}>
         <View className="flex-row items-center justify-between px-4">
