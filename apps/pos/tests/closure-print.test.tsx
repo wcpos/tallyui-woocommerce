@@ -102,13 +102,15 @@ test('ClosurePrint renders the figures from a real float, paid-out movement and 
   await waitFor(() => expect(app.register.salesCount).toBe(1));
   await closeRegister('83.00');
   const closure = app.register.lastClosure!;
+  const registerName = app.register.registerName;
   app.unmount();
   render(<ClosurePrint closure={closure} storeName={stores[0].name} currency="USD" locale="en_US" />);
   const root = screen.getByTestId('closure-print-document');
   const report = within(root);
   expect(root.textContent).toContain(stores[0].name);
   expect(root.textContent).toContain('Closure #1');
-  expect(report.getByText('Register: This till')).not.toBeNull();
+  expect(registerName).toMatch(/^Register /);
+  expect(report.getByText(`Register: ${registerName}`)).not.toBeNull();
   expect(root.textContent).not.toContain(closure.register_id);
   expect(report.getByText(/^Opened:/).textContent).toMatch(/ Paul$/);
   expect(report.getByText(/^Closed:/).textContent).toMatch(/ Paul$/);

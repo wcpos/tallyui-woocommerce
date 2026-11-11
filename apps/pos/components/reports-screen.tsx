@@ -101,6 +101,8 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const printSummary = () => { setReprint('summary'); setPrintRequest(value => value + 1); };
   const reportCashierRows = reportCashiers([...(user ? [user] : []), ...cashiers.map(entry => entry.tokens.user)]);
   const cashierName = cashierId === null ? 'Everyone' : reportCashierRows.find(row => row.id === cashierId)?.name ?? cashierId;
+  // v2 scope.tsx `registerLabel` names the register on every print scope; Tally's reports are this device's sales, so "This till" with none.
+  const registerName = register.registerName ?? 'This till';
   const room = salesRoom(shown, { now, currency, range, preset, comparison });
   const periodButton = <ReportsPeriod preset={preset} range={range} locale={locale} onPreset={setPreset} />;
   const chips = <ReportChips cashiers={reportCashierRows} cashierId={cashierId} onCashier={setCashierId} />;
@@ -157,7 +159,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
             <ArrowLeftIcon size={20} />
           </IconButton>
           <Text testID="closures-title" numberOfLines={1} className="min-w-0 shrink font-semibold text-foreground">
-            {`${storeName} · ${register.registerName ?? 'This till'}`}
+            {`${storeName} · ${registerName}`}
           </Text>
         </View>
         <ScrollView contentContainerClassName="gap-4 p-4">
@@ -228,17 +230,17 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
           </Pressable>
           {room.today.taxRates.map(row => <Text key={row.ratePpm}>{`${row.label} — Net ${money(row.netMinor)} — Tax ${money(row.taxMinor)} — Gross ${money(row.grossMinor)}`}</Text>)}
         </View>}
-        {openTable && table && <SalesTable table={table} scope={`${periodName} · This till`} onClose={() => setOpenTable(null)}
+        {openTable && table && <SalesTable table={table} scope={`${periodName} · ${registerName}`} onClose={() => setOpenTable(null)}
           onExport={() => downloadCsv(salesTableCsv(table), `sales-${openTable}-${range.from}-${range.to}.csv`)} />}
       </ScrollView>}
       {openClosure && <ClosurePanel closure={openClosure} storeName={storeName} currency={currency} locale={locale} blind={register.blind} resolveCashierName={resolveCashierName} onReprint={reprintClosure} onClose={() => setOpenClosureId(null)} />}
       {reprint && <Portal name="closure-reprint">
         {reprint === 'summary'
-          ? <SalesSummaryPrint storeName={storeName} scope={`${periodName} · This till · ${cashierName}`} period={room.today}
+          ? <SalesSummaryPrint storeName={storeName} scope={`${periodName} · ${registerName} · ${cashierName}`} period={room.today}
               date={range.from === range.to ? printDate(range.from) : `${printDate(range.from)} – ${printDate(range.to)}`} money={minor => money(minor) ?? ''} locale={locale} />
           : reprint === 'x'
-          ? register.session && <ClosurePrint kind="x" closure={register.session} expected={register.expected} storeName={storeName} currency={currency} locale={locale} registerName="This till" resolveCashierName={resolveCashierName} />
-          : <ClosurePrint closure={reprint} storeName={storeName} currency={currency} locale={locale} registerName="This till" resolveCashierName={resolveCashierName} copy />}
+          ? register.session && <ClosurePrint kind="x" closure={register.session} expected={register.expected} storeName={storeName} currency={currency} locale={locale} registerName={registerName} resolveCashierName={resolveCashierName} />
+          : <ClosurePrint closure={reprint} storeName={storeName} currency={currency} locale={locale} registerName={registerName} resolveCashierName={resolveCashierName} copy />}
       </Portal>}
     </View>
   );

@@ -230,7 +230,7 @@ test('the session card shows the open session, its expected cash and sales count
   await waitFor(() => expect(app.register.salesCount).toBe(1));
   await enterClosures();
   const card = within(screen.getByTestId('reports-closures')).getByTestId('reports-session-card');
-  expect(card.textContent).toContain('● Open · This till');
+  expect(card.textContent).toContain(`● Open · ${app.register.registerName}`);
   expect(card.textContent).toMatch(/since \d{2}:\d{2} · Paul · 1 sale/);
   expect(within(card).getByTestId('session-expected').textContent).toBe('$103.00');
   expect(within(card).getByTestId('x-report-print').textContent).toBe('Print X-report');
@@ -383,7 +383,7 @@ test('taxes by rate', async () => {
   expect(within(screen.getByTestId('sales-room-taxes')).getByText('Tax 10% — Net $3.00 — Tax $0.30 — Gross $3.30')).not.toBeNull();
 }, 20_000);
 
-test('Closures lists real counted closures newest first', async () => {
+test('Closures lists real counted closures newest first, each stamped with the register name', async () => {
   const app = await setup();
   await openRegister();
   await payCash();
@@ -393,14 +393,17 @@ test('Closures lists real counted closures newest first', async () => {
   const room = within(screen.getByTestId('reports-closures'));
   await waitFor(() => expect(room.getAllByTestId(/^closure-title-/)).toHaveLength(1));
   const first = app.register.lastClosure!;
-  expect(room.getByTestId(`closure-title-${first.id}`).textContent).toBe('Closure 1 · This till');
+  const name = app.register.registerName;
+  expect(name).toMatch(/^Register /);
+  expect(first.breakdowns.register_name).toBe(name);
+  expect(room.getByTestId(`closure-title-${first.id}`).textContent).toBe(`Closure 1 · ${name}`);
   expect(room.getByTestId(`closure-expected-${first.id}`).textContent).toBe('$103.00');
   expect(room.getByTestId(`closure-counted-${first.id}`).textContent).toBe('$103.00');
   expect(room.getByTestId(`closure-difference-${first.id}`).textContent).toBe('$0.00');
   expect(room.getByTestId(`closure-result-${first.id}`).textContent).toBe('Exact');
   await openRegister(false);
   await closeRegister('100.00');
-  await waitFor(() => expect(room.getAllByTestId(/^closure-title-/).map(row => row.textContent)).toEqual(['Closure 2 · This till', 'Closure 1 · This till']));
+  await waitFor(() => expect(room.getAllByTestId(/^closure-title-/).map(row => row.textContent)).toEqual([`Closure 2 · ${name}`, `Closure 1 · ${name}`]));
 }, 20_000);
 
 test('Reprint prints the mounted Copy document once without changing the closure', async () => {
@@ -492,7 +495,7 @@ test('Print X report prints the mounted open session with its expected cash', as
   expect(printedDocuments[0].dataPrint).toBe('closure');
   expect(printedDocuments[0].todayHidden).toBe(true);
   expect(printedDocuments[0].text).toContain('X report');
-  expect(printedDocuments[0].text).toContain('Register: This till');
+  expect(printedDocuments[0].text).toContain(`Register: ${app.register.registerName}`);
   expect(printedDocuments[0].text).toContain('Expected: $83.00');
   expect(printedDocuments[0].text).not.toContain('Closure #');
   expect(app.register.session).toEqual(before);
@@ -726,7 +729,7 @@ test('the drawer offers Reports only when an onOpenReports handler is supplied',
 }, 20_000);
 
 test('the Payments tile opens a table of methods', async () => {
-  await setup({ multiplePayments: true });
+  const app = await setup({ multiplePayments: true });
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
   fireEvent.click(screen.getByTestId('cart-checkout'));
@@ -750,7 +753,7 @@ test('the Payments tile opens a table of methods', async () => {
   expect(within(table.getByTestId('sales-table-total')).getAllByText(/./).map(cell => cell.textContent)).toEqual([
     'Total', '1', '$6.00',
   ]);
-  expect(table.getByTestId('sales-table-scope').textContent).toBe('Today · This till');
+  expect(table.getByTestId('sales-table-scope').textContent).toBe(`Today · ${app.register.registerName}`);
   expect(table.getByTestId('sales-table-status').textContent).toBe('1 order · $6.00');
   fireEvent.click(table.getByTestId('sales-table-close'));
   await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
@@ -987,7 +990,7 @@ async function printSummary() {
 }
 
 test('Print summary prints the shown sales: scope, total, orders and a row per payment method', async () => {
-  await setup();
+  const app = await setup();
   await payCash();
   await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
   const printed = await printSummary();
@@ -995,7 +998,7 @@ test('Print summary prints the shown sales: scope, total, orders and a row per p
   expect(printed.todayHidden).toBe(true);
   expect(printed.text).toContain('Sales summary');
   expect(printed.text).toContain(stores[0].name);
-  expect(text('sales-summary-scope')).toBe('Today · This till · Everyone');
+  expect(text('sales-summary-scope')).toBe(`Today · ${app.register.registerName} · Everyone`);
   expect(text('sales-summary-total')).toBe('Total sales: $3.00');
   expect(text('sales-summary-orders')).toBe('Orders: 1');
   expect(within(screen.getByTestId('sales-summary-payments')).getAllByTestId(/^sales-summary-payment-/).map(row => row.textContent))
@@ -1015,7 +1018,7 @@ test("with a cashier chosen, the summary counts only that cashier's sales", asyn
   await choose('cashier', '2');
   await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
   await printSummary();
-  expect(text('sales-summary-scope')).toBe('Today · This till · Paul');
+  expect(text('sales-summary-scope')).toBe(`Today · ${app.register.registerName} · Paul`);
   expect(text('sales-summary-total')).toBe('Total sales: $3.00');
   expect(text('sales-summary-orders')).toBe('Orders: 1');
   expect(text('sales-summary-payment-cash')).toBe('Cash — 1 — $3.00');
@@ -1076,7 +1079,7 @@ test('the date menu lists the presets; Yesterday counts only yesterday against t
     fireEvent.click(table.getByTestId('sales-table-close'));
     await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
     await printSummary();
-    expect(text('sales-summary-scope')).toBe('Yesterday · This till · Everyone');
+    expect(text('sales-summary-scope')).toBe(`Yesterday · ${app.register.registerName} · Everyone`);
     expect(text('sales-summary-total')).toBe('Total sales: $6.00');
   } finally {
     vi.useRealTimers();

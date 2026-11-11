@@ -56,6 +56,7 @@ export function RegisterBarShell({ storeName, hidePill, onOpenMenu, avatar }: Re
   // the word keeps the foreground colour.
   return (
     <View testID="register-bar-shell" className="h-12 flex-row items-center gap-2 border-b border-border px-2">
+      {/* v2 register-bar.helpers.ts `place` adds " · Register" only when the store has more than one register; a Tally till has one. */}
       {!railShown && <IconButton testID="pos-drawer-open-button" accessibilityLabel="Menu" onPress={onOpenMenu}><MenuIcon size={20} /></IconButton>}
       <View className="min-w-0 shrink"><Text testID="register-bar-place" className="text-base font-semibold" numberOfLines={1}>{storeName}</Text></View>
       {pill && <View testID="register-bar-pill" className="flex-row items-center gap-1.5">

@@ -6,8 +6,12 @@ import { CashierSheet } from '../components/cashier-sheet';
 import { RegisterBarShell, registerBarPill } from '../components/register-bar-shell';
 import { getInitials } from '../lib/cashier/initials';
 import { OnlineStatusContext } from '../lib/online/online-status';
+import { useRegister } from '../lib/register/register-context';
 
-afterEach(() => { cleanup(); });
+// No provider by default: the shell reads a null register, as outside RegisterProvider.
+vi.mock('../lib/register/register-context', () => ({ useRegister: vi.fn(() => null) }));
+
+afterEach(() => { cleanup(); vi.mocked(useRegister).mockReturnValue(null as unknown as ReturnType<typeof useRegister>); });
 
 const shell = (props: { hidePill?: boolean; onOpenMenu?: () => void } = {}) =>
   <RegisterBarShell storeName="Corner Café" avatar={<Text>Cashier: Paul</Text>} onOpenMenu={props.onOpenMenu ?? (() => {})} hidePill={props.hidePill} />;
@@ -18,6 +22,12 @@ test('shows the menu, the store as the place and the cashier entry, with no pill
   expect(screen.getByRole('button', { name: 'Menu' }).getAttribute('data-testid')).toBe('pos-drawer-open-button');
   expect(screen.getByText('Cashier: Paul')).not.toBeNull();
   expect(screen.queryByTestId('register-bar-pill')).toBeNull();
+});
+
+test('bound to a named register, the place is still the store alone: one register, as v2 register-bar.helpers.ts', () => {
+  vi.mocked(useRegister).mockReturnValue({ enabled: true, boundRegisterId: 'web', registerName: 'Front Counter', session: null, overdue: false, closing: false } as unknown as ReturnType<typeof useRegister>);
+  render(shell());
+  expect(screen.getByTestId('register-bar-place').textContent).toBe('Corner Café');
 });
 
 test.each(['offline', 'online-website-unavailable'] as const)('reads Offline in the pill for %s', status => {

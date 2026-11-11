@@ -12,13 +12,13 @@ afterEach(() => { cleanup(); vi.mocked(useRegister).mockReset(); vi.mocked(React
 
 const closure = {
   id: 'closure-1', number: 1, closed_at: new Date().toISOString(), closed_by: '2',
-  expected: { cash: 10300 }, counted: { cash: 10200 }, variance: { cash: -100 },
+  expected: { cash: 10300 }, counted: { cash: 10200 }, variance: { cash: -100 }, breakdowns: {},
 } as unknown as Closure;
 
-function register(state: { enabled?: boolean; status?: 'open' | 'closed'; lastClosure?: Closure | null; blind?: boolean }) {
-  const { enabled = true, status, lastClosure = null, blind = false } = state;
+function register(state: { enabled?: boolean; status?: 'open' | 'closed'; lastClosure?: Closure | null; blind?: boolean; registerName?: string | null }) {
+  const { enabled = true, status, lastClosure = null, blind = false, registerName = null } = state;
   vi.mocked(useRegister).mockReturnValue({
-    enabled, blind, lastClosure, movements: [], expected: { cash: 10000 },
+    enabled, blind, lastClosure, movements: [], expected: { cash: 10000 }, registerName,
     session: status ? { id: 'session-1', status, opened_at_gmt: new Date().toISOString(), opened_by: '2', counted_float_minor: 10000 } : null,
   } as unknown as ReturnType<typeof useRegister>);
 }
@@ -60,6 +60,22 @@ test('a till with no session and no closure, or no register binding, shows no ac
   strip();
   expect(screen.getByTestId('till-title').textContent).toContain('No register on this device');
   expect(screen.queryByTestId('till-actions')).toBeNull();
+});
+
+test('the title names the bound register, as v2 till-strip.tsx does', () => {
+  register({ status: 'open', registerName: 'Front Counter' });
+  strip();
+  expect(screen.getByTestId('till-name').textContent).toBe('Front Counter');
+});
+
+test('with no register name the title reads the last closure\'s register, then This till', () => {
+  register({ status: 'closed', lastClosure: { ...closure, breakdowns: { register_name: 'Back till' } } as unknown as Closure });
+  strip();
+  expect(screen.getByTestId('till-name').textContent).toBe('Back till');
+  cleanup();
+  register({ status: 'open' });
+  strip();
+  expect(screen.getByTestId('till-name').textContent).toBe('This till');
 });
 
 test('a blind cashier gets no X-report, as on the session card', () => {
