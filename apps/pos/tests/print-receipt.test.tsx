@@ -248,7 +248,8 @@ test('the sale receipt prints from a receipt-only area at paper width', async ()
   expect(area.getAttribute('data-print')).toBe('receipt');
   const receiptArea = area.getAttribute('data-receipt');
   expect(receiptArea).toBeTruthy();
-  expect(document.head.querySelector('style[data-receipt-print="80mm"]')?.textContent).toContain(`[data-receipt="${receiptArea}"]`);
+  // The sheet installs its print style in a passive effect, which can run after the receipt is visible.
+  await vi.waitFor(() => expect(document.head.querySelector('style[data-receipt-print="80mm"]')?.textContent).toContain(`[data-receipt="${receiptArea}"]`));
   expect(within(area).getByTestId('receipt-order')).not.toBeNull();
   expect(document.head.querySelector('style[data-receipt-print="80mm"]')).not.toBeNull();
   let receiptAtPrint = false, styleAtPrint = false;
