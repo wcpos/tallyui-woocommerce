@@ -27,6 +27,14 @@ test('each rail item is an icon button named for its area', () => {
   for (const [label, testID] of items) expect(screen.getByRole('button', { name: label }).getAttribute('data-testid')).toBe(testID);
 });
 
+test('Settings shows v2\'s gear (its tabler settings paths), not the old sliders', () => {
+  render(<AppRail active="pos" onNavigate={() => {}} />);
+  const glyph = screen.getByTestId('drawer-item-settings').querySelector('[data-testid="drawer-glyph-settings"]')!;
+  const paths = Array.from(glyph.querySelectorAll('path')).map(path => path.getAttribute('d')?.slice(0, 14));
+  expect(paths).toEqual(['M10.325 4.317c', 'M9 12a3 3 0 1 ']);
+  expect(glyph.querySelectorAll('line')).toHaveLength(0);
+});
+
 test('the active item is selected and pressing it does nothing; another item navigates to its area', () => {
   const onNavigate = vi.fn();
   render(<AppRail active="orders" onNavigate={onNavigate} />);

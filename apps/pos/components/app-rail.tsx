@@ -25,11 +25,12 @@ const CouponsIcon = createSvgIcon('CouponsIcon', () => <><Circle cx={12} cy={12}
 const CustomersIcon = createSvgIcon('CustomersIcon', () => <><Circle cx={9} cy={8} r={3.5} /><Path d="M2 20c0-3.5 3-6 7-6s7 2.5 7 6" /><Path d="M16 4.5a3.5 3.5 0 0 1 0 7" /><Path d="M18 14c2.5.5 4 3 4 6" /></>);
 const ReportsIcon = createSvgIcon('ReportsIcon', () => <><Line x1={4} y1={20} x2={20} y2={20} /><Rect x={5} y={11} width={3} height={6} /><Rect x={10.5} y={6} width={3} height={11} /><Rect x={16} y={9} width={3} height={8} /></>);
 const HealthIcon = createSvgIcon('HealthIcon', () => <Path d="M22 12h-4l-3 9L9 3l-3 9H2" />);
-const SettingsIcon = createSvgIcon('SettingsIcon', () => <><Line x1={4} y1={21} x2={4} y2={14} /><Line x1={4} y1={10} x2={4} y2={3} /><Line x1={12} y1={21} x2={12} y2={12} /><Line x1={12} y1={8} x2={12} y2={3} /><Line x1={20} y1={21} x2={20} y2={16} /><Line x1={20} y1={12} x2={20} y2={3} /><Line x1={2} y1={14} x2={6} y2={14} /><Line x1={10} y1={8} x2={14} y2={8} /><Line x1={18} y1={16} x2={22} y2={16} /></>);
+// v2's `settings` glyph from its default (tabler) set: packages/components/src/icon/components/tabler/settings.tsx.
+const GearIcon = createSvgIcon('GearIcon', () => <><Path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37 1 .608 2.296.07 2.572-1.065" /><Path d="M9 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0" /></>);
 
 const GLYPH: Record<RailKey, typeof RegisterIcon> = {
   pos: RegisterIcon, products: ProductsIcon, orders: ReceiptIcon, coupons: CouponsIcon, customers: CustomersIcon, reports: ReportsIcon,
-  health: HealthIcon, settings: SettingsIcon,
+  health: HealthIcon, settings: GearIcon,
 };
 
 /** True while AppFrame draws the rail; the register bar then draws no menu button. */
@@ -44,7 +45,8 @@ export function AppRail({ active, onNavigate }: { active: RailKey; onNavigate(to
         accessibilityState={{ selected: key === active }} aria-selected={key === active}
         className={key === active ? 'rounded-lg bg-card text-foreground' : 'rounded-lg text-muted-foreground'}
         onPress={() => { if (key !== active) onNavigate(key); }}>
-        <Glyph size={24} />
+        {/* react-native-svg's web Svg forwards `data-testid` to the DOM as is (it does not map `testID`). */}
+        <Glyph size={24} data-testid={`drawer-glyph-${key}`} />
       </IconButton>
     );
   };

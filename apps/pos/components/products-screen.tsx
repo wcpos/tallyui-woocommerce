@@ -11,7 +11,7 @@ import type { JSX } from 'react';
 import { ScrollView, View, useWindowDimensions } from 'react-native';
 import { ConnectorProvider, formatMoney, moneyFromDecimalString } from '@tallyui/core';
 import type { TallyConnector } from '@tallyui/core';
-import { Badge, Button, ProductImage, ProductTable, SearchInput, Text } from '@tallyui/components';
+import { Button, ProductImage, ProductTable, SearchInput, Text } from '@tallyui/components';
 import type { ProductTableColumn } from '@tallyui/components';
 import { searchProducts, sortProducts } from '@tallyui/pos';
 import type { ProductSort } from '@tallyui/pos';
@@ -21,6 +21,8 @@ import { matchesCatalogueFilters } from '../lib/catalogue/quick-filters';
 import type { CatalogueFilters } from '../lib/catalogue/quick-filters';
 import { AreaHeader } from './area-header';
 import { CatalogueFilterChips } from './catalogue-filter-chips';
+import { StatusDot } from './status-dot';
+import type { StatusTone } from './status-dot';
 
 // v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
 const SEARCH_DEBOUNCE_MS = 250;
@@ -31,7 +33,8 @@ const IMAGE_SIZE = 40;
 // v2's default sort for the products table (initial-settings.json "products").
 const NAME_ASC: ProductSort = { field: 'name', dir: 'asc' };
 
-const STOCK_VARIANT: Record<StockState, 'success' | 'destructive' | 'warning'> = {
+// v2's stockTones (cells/stock-status.tsx): instock ok, outofstock bad, onbackorder warning.
+const STOCK_TONE: Record<StockState, StatusTone> = {
   instock: 'success', outofstock: 'destructive', onbackorder: 'warning',
 };
 
@@ -90,7 +93,7 @@ function countLabel(shown: number, total: number): string {
 
 function StockBadge({ doc }: { doc: ProductDoc }): JSX.Element {
   const state = resolveStock(doc);
-  return <Badge testID={`product-stock-status-${doc.id}`} variant={STOCK_VARIANT[state]} className="self-start rounded-md" label={STOCK_LABEL[state]} />;
+  return <StatusDot testID={`product-stock-status-${doc.id}`} tone={STOCK_TONE[state]} label={STOCK_LABEL[state]} />;
 }
 
 function NameCell({ doc }: { doc: ProductDoc }): JSX.Element {
