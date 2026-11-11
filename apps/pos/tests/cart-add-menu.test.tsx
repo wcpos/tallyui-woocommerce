@@ -1,16 +1,22 @@
 // The cart head's + menu and settings icon (v2 pos/cart/cart-header.tsx, add-cart-items-menu.tsx, add-discount-sheet.tsx).
 import { noTaxSettings } from './fixtures/store-settings';
-import { cleanup, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import type { ComponentProps } from 'react';
+import { act, cleanup, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { createTallyDatabase } from '@tallyui/database';
-import type { OrderCreateEnvelope, ServerCapabilities, StoreSettings } from '@tallyui/core';
+import { CustomerServiceError } from '@tallyui/core';
+import type { Customer, OrderCreateEnvelope, ServerCapabilities, StoreSettings } from '@tallyui/core';
 import type { CommandTransport } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
 import { SaleScreen } from '../components/sale-screen';
+import { Toaster } from '../components/toaster';
+import { CREATE_CUSTOMERS_DENIED, type CashierCapabilities } from '../lib/auth/capabilities';
+import type { CustomerSource } from '../lib/customers/customer-source';
+import { dismissToast } from '../lib/toast/toast';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
@@ -55,13 +61,15 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  act(() => dismissToast());
   cleanup();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   await db.close();
 });
 
-async function renderTill(capabilities: ServerCapabilities = COUPONS) {
+async function renderTill(capabilities: ServerCapabilities = COUPONS,
+  customer: Pick<ComponentProps<typeof SaleScreen>, 'customers' | 'cashier'> = {}) {
   let register!: ReturnType<typeof useRegister>;
   let outbox!: ReturnType<typeof useOutbox>;
   function Probe() { register = useRegister(); outbox = useOutbox(); return null; }
@@ -75,8 +83,9 @@ async function renderTill(capabilities: ServerCapabilities = COUPONS) {
           <Probe />
           <SaleScreen storeSettings={wooSettings} connector={connector} currency={stores[0].currency} products={products}
             storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}}
-            capabilities={capabilities} couponCollections={{ coupons: db.coupons, products: db.products }} />
+            capabilities={capabilities} couponCollections={{ coupons: db.coupons, products: db.products }} {...customer} />
           <PortalHost />
+          <Toaster />
         </RegisterProvider>
       </OutboxProvider>
     </SessionProvider>,
@@ -223,4 +232,88 @@ test('the register sessions switch is in Cart Settings, not under the cart', asy
   expect(app.register.setting).toBe(true);
   expect(await screen.findByTestId('open-register-card')).not.toBeNull();
   expect(screen.queryByRole('switch', { name: 'Use register sessions' })).toBeNull();
+}, 20_000);
+
+// v2 add-cart-items-menu.tsx menu-add-customer and pos/cart/add-customer.tsx: create from the + menu, attach on save.
+const gee: Customer = { id: '7', name: 'Gee Four', email: 'gee@example.invalid', phone: '123' };
+const CAN_CREATE = { known: true, granted: ['create_customers'] } as const;
+function customerSource() {
+  return { search: vi.fn<CustomerSource['search']>().mockResolvedValue([]), create: vi.fn<CustomerSource['create']>().mockResolvedValue(gee) };
+}
+const chip = () => screen.getByTestId('cart-customer-name').getAttribute('aria-label');
+const form = () => within(screen.getByTestId('customer-form'));
+const submit = () => fireEvent.click(form().getByText('Add Customer'));
+
+test('with customers, Add new customer is first, then a separator, then the add items', async () => {
+  await renderTill(COUPONS, { customers: customerSource(), cashier: CAN_CREATE });
+  fireEvent.click(screen.getByTestId('cart-add-menu'));
+  const menu = within(screen.getByRole('menu'));
+  expect(menu.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Add new customer', 'Add charge', 'Add discount']);
+  const item = menu.getByTestId('cart-add-menu-customer');
+  expect(item.getAttribute('aria-disabled')).toBeNull();
+  const separator = menu.getByRole('separator');
+  expect(item.compareDocumentPosition(separator) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(separator.compareDocumentPosition(menu.getByTestId('cart-add-menu-charge')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+}, 20_000);
+
+test('without customers there is no Add new customer item', async () => {
+  await renderTill();
+  fireEvent.click(screen.getByTestId('cart-add-menu'));
+  expect(screen.queryByTestId('cart-add-menu-customer')).toBeNull();
+  expect(screen.queryByText('Add new customer')).toBeNull();
+}, 20_000);
+
+test.each<{ name: string; cashier?: CashierCapabilities; reason: string }>([
+  { name: 'permissions not read', cashier: undefined, reason: 'Your permissions have not been read from the store.' },
+  { name: 'create_customers denied', cashier: { known: true, granted: [] }, reason: CREATE_CUSTOMERS_DENIED },
+])('Add new customer is disabled and says why ($name)', async ({ cashier, reason }) => {
+  const customers = customerSource();
+  await renderTill(COUPONS, { customers, cashier });
+  fireEvent.click(screen.getByTestId('cart-add-menu'));
+  const item = screen.getByTestId('cart-add-menu-customer');
+  expect(item.getAttribute('aria-disabled')).toBe('true');
+  expect(within(item).getByText(reason)).not.toBeNull();
+  fireEvent.click(item);
+  expect(screen.queryByTestId('customer-form')).toBeNull();
+}, 20_000);
+
+test('Add new customer requires an email, omits empty fields, toasts and attaches the created customer', async () => {
+  const customers = customerSource();
+  await renderTill(COUPONS, { customers, cashier: CAN_CREATE });
+  expect(chip()).toBe('Customer: Guest');
+  openAddMenuItem('customer');
+  expect(screen.getByRole('heading', { name: 'Add Customer' })).not.toBeNull();
+  expect(form().queryByPlaceholderText('Street address')).toBeNull();
+  fireEvent.change(form().getByPlaceholderText('email@example.com'), { target: { value: '   ' } });
+  submit();
+  expect(screen.getByTestId('customer-form-error').textContent).toBe('An email is required');
+  expect(customers.create).not.toHaveBeenCalled();
+  fireEvent.change(form().getByPlaceholderText('email@example.com'), { target: { value: ' gee@example.invalid ' } });
+  fireEvent.change(form().getByPlaceholderText('First name'), { target: { value: ' Gee ' } });
+  fireEvent.change(form().getByPlaceholderText('Last name'), { target: { value: '  ' } });
+  submit();
+  await waitFor(() => expect(screen.queryByTestId('customer-form')).toBeNull());
+  expect(customers.create).toHaveBeenCalledExactlyOnceWith({ email: 'gee@example.invalid', firstName: 'Gee' });
+  expect(within(screen.getByTestId('success-toast')).getByText('Gee Four saved')).not.toBeNull();
+  expect(chip()).toBe('Customer: Gee Four');
+}, 20_000);
+
+test.each([
+  { name: 'unreachable', cause: new CustomerServiceError('network', 'Offline'), message: "Could not reach the store's customers: Offline" },
+  { name: 'refused', cause: new CustomerServiceError('invalid', 'An account is already registered with your email address.'),
+    message: 'The store refused: An account is already registered with your email address.' },
+])('a failed create ($name) toasts the message, keeps the form and leaves the customer', async ({ cause, message }) => {
+  const customers = customerSource();
+  customers.create.mockRejectedValueOnce(cause);
+  await renderTill(COUPONS, { customers, cashier: CAN_CREATE });
+  openAddMenuItem('customer');
+  fireEvent.change(form().getByPlaceholderText('email@example.com'), { target: { value: 'gee@example.invalid' } });
+  submit();
+  const toast = await screen.findByTestId('error-toast');
+  expect(within(toast).getByText('Failed to save customer')).not.toBeNull();
+  expect(within(toast).getByText(message)).not.toBeNull();
+  expect(screen.queryByTestId('success-toast')).toBeNull();
+  expect(screen.getByTestId('customer-form')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('customer-form-close'));
+  expect(chip()).toBe('Customer: Guest');
 }, 20_000);

@@ -1,7 +1,7 @@
 import { fireEvent, screen, within } from '@testing-library/react';
 
-/** Open the cart head's + menu and press one of its items (Add charge or Add discount). */
-export function openAddMenuItem(item: 'charge' | 'discount') {
+/** Open the cart head's + menu and press one of its items (Add new customer, Add charge or Add discount). */
+export function openAddMenuItem(item: 'customer' | 'charge' | 'discount') {
   fireEvent.click(screen.getByTestId('cart-add-menu'));
   fireEvent.click(screen.getByTestId(`cart-add-menu-${item}`));
 }

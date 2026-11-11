@@ -1,12 +1,11 @@
-import { useRef, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Platform, Pressable, View } from 'react-native';
 import { ConnectorUnauthorizedError, CustomerServiceError, customerTraits } from '@tallyui/core';
 import type { Customer } from '@tallyui/core';
 import type { CustomerSummary } from '@tallyui/pos';
-import { Button, CustomerForm, CustomerSelect, Text } from '@tallyui/components';
+import { CustomerSelect, Popover, PopoverContent, PopoverTrigger, Text } from '@tallyui/components';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { customerInitials } from '../lib/customers/customer-table';
-import { toast } from '../lib/toast/toast';
 
 function Initials({ text, testID }: { text: string; testID?: string }) {
   return (
@@ -16,21 +15,20 @@ function Initials({ text, testID }: { text: string; testID?: string }) {
   );
 }
 
-export function CustomerPicker({ source, customer, onChange, createBlockedReason }: {
+export function CustomerPicker({ source, customer, onChange }: {
   source: CustomerSource;
   customer: CustomerSummary | null;
   onChange(customer: CustomerSummary | null): void;
-  createBlockedReason?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [results, setResults] = useState<Customer[]>([]);
   const [empty, setEmpty] = useState(false);
   const [error, setError] = useState<string>();
-  const [values, setValues] = useState({ firstName: '', lastName: '', email: '', phone: '', address: '' });
   const request = useRef(0);
   // The default list (search '') for this open, shared by the open and every short query until close.
   const defaults = useRef<Promise<Customer[]> | null>(null);
+  const row = useRef<View>(null);
+  const panel = useRef<View>(null);
 
   function openPanel() {
     setOpen(true);
@@ -41,7 +39,6 @@ export function CustomerPicker({ source, customer, onChange, createBlockedReason
     request.current++;
     defaults.current = null;
     setOpen(false);
-    setCreating(false);
     setResults([]);
     setEmpty(false);
     setError(undefined);
@@ -91,39 +88,36 @@ export function CustomerPicker({ source, customer, onChange, createBlockedReason
     void load(trimmed.length < 2 ? '' : trimmed);
   }
 
-  async function create() {
-    const email = values.email.trim();
-    if (!email) { setError('An email is required'); return; }
-    const current = ++request.current;
-    const firstName = values.firstName.trim(), lastName = values.lastName.trim(), phone = values.phone.trim();
-    setError(undefined);
-    try {
-      const created = await source.create({ email, ...(firstName ? { firstName } : {}),
-        ...(lastName ? { lastName } : {}), ...(phone ? { phone } : {}) });
-      toast({ type: 'success', title: `${created.name || email} saved` });
-      if (current === request.current) pick(created);
-    } catch (cause) {
-      if (current === request.current) showError(cause);
-    }
-  }
+  // Web: a press outside the chip and the panel, or Escape, dismisses it (TallyUI 3.18's PopoverContent has neither).
+  useEffect(() => {
+    if (!open || Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const inside = (target: EventTarget | null) => [row.current, panel.current]
+      .some(node => (node as unknown as Element | null)?.contains(target as Node));
+    const onPointerDown = (event: Event) => { if (!inside(event.target)) close(); };
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
 
-  // v2 cart/customer.tsx: a muted label, then the same chip as the products column's filter pills.
-  if (!open) return (
-    <View className="flex-row items-center gap-2">
-      <Text className="text-muted-foreground">Customer</Text>
-      <Pressable accessibilityRole="button" testID="cart-customer-name"
-        accessibilityLabel={`Customer: ${customer ? customer.name : 'Guest'}`} onPress={openPanel}
-        className="rounded-full border border-border bg-card px-3 min-h-9 flex-row items-center gap-2">
-        <Initials testID="cart-customer-initials" text={customer ? customerInitials(customer) : 'GU'} />
-        <Text numberOfLines={1}>{customer ? customer.name : 'Guest'}</Text>
-      </Pressable>
-    </View>
-  );
+  // v2 cart/customer.tsx: a muted label, then the same chip as the products column's filter pills. v2 cart-header.tsx:
+  // the chip opens a dropdown over the cart (a Combobox of CustomerSearch withGuest), with no create in it.
   return (
-    <View className="gap-2">
-      {creating ? <CustomerForm values={values} onChangeField={(field, value) => setValues(v => ({ ...v, [field]: value }))}
-        onSubmit={create} showAddress={false} submitLabel="Create customer" /> : (
-        <>
+    <View ref={row} className="flex-row items-center gap-2">
+      <Text className="text-muted-foreground">Customer</Text>
+      <Popover open={open} onOpenChange={next => { if (next) openPanel(); else close(); }}>
+        <PopoverTrigger asChild>
+          <Pressable accessibilityRole="button" testID="cart-customer-name"
+            accessibilityLabel={`Customer: ${customer ? customer.name : 'Guest'}`}
+            className="rounded-full border border-border bg-card px-3 min-h-9 flex-row items-center gap-2">
+            <Initials testID="cart-customer-initials" text={customer ? customerInitials(customer) : 'GU'} />
+            <Text numberOfLines={1}>{customer ? customer.name : 'Guest'}</Text>
+          </Pressable>
+        </PopoverTrigger>
+        <PopoverContent ref={panel} testID="customer-select-panel" align="start" className="w-80 gap-2">
           {/* v2 lists Guest first in the customer search, even when the order already is a guest. */}
           <Pressable accessibilityRole="button" testID="customer-option-guest" className="flex-row items-center gap-2"
             onPress={() => { onChange(null); close(); }}>
@@ -134,17 +128,9 @@ export function CustomerPicker({ source, customer, onChange, createBlockedReason
             placeholder="Search Customers" traits={customerTraits} />
           {/* v2 common.no_customers_found */}
           {empty ? <Text>No customers found</Text> : null}
-          <Button disabled={createBlockedReason !== undefined} onPress={() => {
-            request.current++;
-            setError(undefined);
-            setValues({ firstName: '', lastName: '', email: '', phone: '', address: '' });
-            setCreating(true);
-          }}><Text>New customer</Text></Button>
-          {createBlockedReason !== undefined ? <Text>{createBlockedReason}</Text> : null}
-        </>
-      )}
-      {error ? <Text>{error}</Text> : null}
-      <Button onPress={close}><Text>Cancel</Text></Button>
+          {error ? <Text>{error}</Text> : null}
+        </PopoverContent>
+      </Popover>
     </View>
   );
 }

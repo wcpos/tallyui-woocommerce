@@ -55,7 +55,7 @@ export interface DefaultCustomerControl {
 }
 
 // v2 General's default_customer (a customer select with Guest) and default_customer_is_cashier, which disables it.
-function DefaultCustomerRows({ setting, customer, source, createBlockedReason, onChange }: DefaultCustomerControl) {
+function DefaultCustomerRows({ setting, customer, source, onChange }: DefaultCustomerControl) {
   const [chosen, setChosen] = useState<CustomerSummary | null>();
   const shown = chosen !== undefined ? chosen : customer ?? null;
   function choose(next: CustomerSummary | null) {
@@ -67,7 +67,7 @@ function DefaultCustomerRows({ setting, customer, source, createBlockedReason, o
     <>
       <SettingsRow testID="settings-general-default_customer" label="Default Customer"
         description="Pre-selected on every new cart." action={source && !setting.isCashier
-          ? <CustomerPicker source={source} customer={shown} onChange={choose} createBlockedReason={createBlockedReason} />
+          ? <CustomerPicker source={source} customer={shown} onChange={choose} />
           : <Button variant="outline" size="sm" disabled testID="settings-general-default_customer-select">
             <Text>{shown ? shown.name : 'Guest'}</Text></Button>} />
       <SettingsRow testID="settings-general-default_customer_is_cashier" label="Default Customer is cashier" action={
