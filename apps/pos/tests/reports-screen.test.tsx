@@ -323,6 +323,12 @@ test('the hero chart switches between By hour and Running total', async () => {
   // v2 segmented-control/index.tsx:123: the open segment is the --selected tint; a closed one is not.
   expect(classesOf('hero-chart-toggle-segment-run')).toContain('bg-selected');
   expect(classesOf('hero-chart-toggle-segment-hour')).not.toContain('bg-selected');
+  // :123 keeps the open fill on hover; a closed segment takes the accent wash. :132 is the one selected ink.
+  expect(classesOf('hero-chart-toggle-segment-run')).toContain('web:hover:bg-selected');
+  expect(classesOf('hero-chart-toggle-segment-run')).not.toContain('web:hover:bg-accent');
+  expect(classesOf('hero-chart-toggle-segment-hour')).toContain('web:hover:bg-accent');
+  expect(classesOf('hero-chart-toggle-segment-run-label')).toContain('text-selected-foreground');
+  expect(classesOf('hero-chart-toggle-segment-hour-label')).toContain('text-muted-foreground');
 }, 20_000);
 
 test('the hero compares with yesterday up to the same time', async () => {
@@ -396,6 +402,8 @@ test('taxes by rate', async () => {
   await payCash();
   await waitFor(() => expect(text('hero-total')).toBe('$3.30'));
   expect(within(screen.getByTestId('sales-room-taxes')).getByText('Tax 10% — Net $3.00 — Tax $0.30 — Gross $3.30')).not.toBeNull();
+  // v2 cards/taxes.tsx:20 is a ReportCard: v2's Card surface, as the other cards.
+  expect(classesOf('sales-room-taxes')).toEqual(expect.arrayContaining(['rounded-lg', 'border', 'border-border', 'bg-card']));
 }, 20_000);
 
 test('Closures lists real counted closures newest first, each stamped with the register name', async () => {

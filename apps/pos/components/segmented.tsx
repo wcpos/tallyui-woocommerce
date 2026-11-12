@@ -16,7 +16,7 @@ export function Segmented({ testID, label, value, segments, onChange }: {
           + (index > 0 ? ' border-l border-border' : '') + (selected ? ' bg-selected web:hover:bg-selected' : ' web:hover:bg-accent')
           + (segment.disabled ? ' opacity-45' : '')}
         onPress={() => { if (!selected && !segment.disabled) onChange(segment.value); }}>
-        <Text className={'text-base font-medium ' + (selected ? 'text-selected-foreground' : 'text-muted-foreground')}>{segment.label}</Text>
+        <Text testID={`${testID}-segment-${segment.value}-label`} className={'text-base font-medium ' + (selected ? 'text-selected-foreground' : 'text-muted-foreground')}>{segment.label}</Text>
       </Pressable>;
     })}
   </View>;
