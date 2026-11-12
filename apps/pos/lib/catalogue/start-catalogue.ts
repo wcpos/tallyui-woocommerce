@@ -1,7 +1,14 @@
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import type { ServerCapabilities, SyncContext, TallyConnector } from '@tallyui/core';
-import { createTallyDatabase, startCatalogueReconcile, startReplication } from '@tallyui/database';
-import type { TallyDatabase, TallyReplicationState } from '@tallyui/database';
+import {
+  createRequestMetrics, createTallyDatabase, meteredFetch, persistRequestMetrics, readSyncCadence,
+  REQUEST_METRICS_COLLECTION, requestMetricsCollection, startCatalogueReconcile, startReplication,
+  startSyncCadence, SYNC_CADENCE_COLLECTION, syncCadence$, syncCadenceCollection,
+} from '@tallyui/database';
+import type {
+  RequestMetrics, RequestMetricsCollection, SyncCadenceCollection, SyncCadenceRunner, TallyDatabase,
+  TallyReplicationState,
+} from '@tallyui/database';
 import type { RxCollection } from 'rxdb';
 import { addPrinterProfileCollection, type PrinterProfileCollection } from '@tallyui/pos';
 import { appStorage } from '../app-storage';
@@ -28,6 +35,12 @@ export interface Catalogue {
   cashier: CashierCapabilities;
   capabilities?: ServerCapabilities;
   replication: TallyReplicationState<any>;
+  // Hourly request buckets of this device.
+  requestMetrics: RequestMetrics;
+  // The sync_cadence collection; D10c writes it.
+  syncCadence: SyncCadenceCollection;
+  // The polling runner; D10c reads nextDueAtMs$.
+  cadence: SyncCadenceRunner;
   setAccessToken(token: string): void;
   stop(): Promise<void>;
 }
@@ -44,10 +57,13 @@ export async function startCatalogue(
   session: Session, options: { storage?: unknown; fetchImpl?: typeof fetch } = {},
 ): Promise<Catalogue> {
   const connector = createWooCommerceConnector();
+  const requestMetrics = createRequestMetrics();
   const context: SyncContext = {
     connectorId: connector.id,
     baseUrl: session.site.wcposApiUrl,
     headers: { ...connector.auth.getHeaders({ token: session.tokens.accessToken }) },
+    // WCPOS sends the load as X-Server-Load (v2 engine-fetcher.ts:386). The arrow looks fetch up per request.
+    fetch: meteredFetch((input, init) => globalThis.fetch(input, init), requestMetrics, { serverLoadHeader: 'X-Server-Load' }),
   };
   const store = await fetchStoreInfo(session, context.headers, options.fetchImpl);
   const cashier = await fetchCashierCapabilities(session, context.headers, options.fetchImpl);
@@ -58,18 +74,29 @@ export async function startCatalogue(
     storage: options.storage ?? appStorage(),
   });
   // House rule: local-only collections, never replicated.
-  const { parked_carts: parkedCarts, receipt_emails: receiptEmails, logs } = await db.addCollections<{
+  const {
+    parked_carts: parkedCarts, receipt_emails: receiptEmails, logs, sync_cadence: syncCadence, request_metrics,
+  } = await db.addCollections<{
     parked_carts: ParkedCartCollection; receipt_emails: ReceiptEmailCollection; logs: LogCollection;
+    sync_cadence: SyncCadenceCollection; request_metrics: RequestMetricsCollection;
   }>({
     parked_carts: { schema: parkedCartSchema, migrationStrategies: parkedCartMigrationStrategies },
     receipt_emails: { schema: receiptEmailSchema, migrationStrategies: receiptEmailMigrationStrategies },
     logs: { schema: logRecordSchema, migrationStrategies: logRecordMigrationStrategies },
+    [SYNC_CADENCE_COLLECTION]: syncCadenceCollection(),
+    [REQUEST_METRICS_COLLECTION]: requestMetricsCollection(),
   });
+  const metricsStore = persistRequestMetrics(requestMetrics, request_metrics);
+  const cadenceProfile = await readSyncCadence(syncCadence);
   // Also local only (v2 device-local schema); the Print Dialog stays in memory, never stored.
   const printerProfiles = await addPrinterProfileCollection(db);
   const logStore = attachLogStore(logs);
-  const replication = startReplication({ collection: db.products, adapter: connector.replication!.products!, context });
-  const couponReplication = startReplication({ collection: db.coupons, adapter: connector.replication!.coupons!, context });
+  // RxDB fixes the page size at start, so a change on the Performance page applies from the next start.
+  const { pullBatchSize } = cadenceProfile;
+  const replication = startReplication({ collection: db.products, adapter: connector.replication!.products!, context, pullBatchSize });
+  const couponReplication = startReplication({
+    collection: db.coupons, adapter: connector.replication!.coupons!, context, pullBatchSize,
+  });
   const reconcile = startCatalogueReconcile({
     collection: db.products, adapter: connector.reconcile!.catalogue!, context,
     reSync: () => replication.reSync(),
@@ -79,9 +106,12 @@ export async function startCatalogue(
     reSync: () => couponReplication.reSync(), stateId: 'coupons-reconcile',
     startDelayMs: 0, intervalMs: COUPON_RECONCILE_INTERVAL_MS,
   });
+  // Products only, one check per tick, so the page's "~60 requests per hour" holds; coupons keep their
+  // 15-minute reconcile. No connectivity tracker: the app passes none to startReplication either.
+  const cadence = startSyncCadence({ targets: [replication], cadence$: syncCadence$(syncCadence) });
   return {
     db, coupons: db.coupons, parkedCarts, receiptEmails, logs, printerProfiles,
-    connector, store, cashier, capabilities, replication,
+    connector, store, cashier, capabilities, replication, requestMetrics, syncCadence, cadence,
     setAccessToken(token) {
       Object.assign(context.headers, connector.auth.getHeaders({ token }));
       void replication.resume();
@@ -89,10 +119,12 @@ export async function startCatalogue(
     },
     async stop() {
       await logStore.detach();
+      cadence.stop();
       reconcile.stop();
       couponReconcile.stop();
       await replication.cancel();
       await couponReplication.cancel();
+      await metricsStore.stop();
       await db.close();
     },
   };
