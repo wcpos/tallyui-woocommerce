@@ -6,7 +6,7 @@ import { ORDER_NOTE_MAX } from '@tallyui/core';
 import { Dialog as DialogPrimitive } from '@tallyui/primitives';
 import type { PanelPosition } from '../lib/catalogue/catalogue-view-state';
 import { AppRailShown, BESIDE_RAIL } from './app-rail';
-import { CART_SHEET, SCRIM } from './cart-settings';
+import { CART_SHEET } from './cart-settings';
 import { SHEET_TITLE } from './catalogue-display-options';
 import { FieldLabel } from './select-chevron';
 
@@ -22,7 +22,7 @@ export function OrderDetailsSheet({ open, onOpenChange, side, note, onNoteChange
   const railShown = useContext(AppRailShown);
   if (!open) return null;
   return <Dialog open onOpenChange={onOpenChange}><DialogPortal>
-    <DialogOverlay testID="order-details-overlay" className={SCRIM + (railShown && side === 'left' ? ' ' + BESIDE_RAIL : '')} />
+    <DialogOverlay testID="order-details-overlay" className={railShown && side === 'left' ? BESIDE_RAIL : undefined} />
     <DialogPrimitive.Content testID="order-details" dataSet={{ side }} className={CART_SHEET[side](railShown)}>
       <View className="pl-4 pr-11">
         <DialogTitle testID="order-details-title" className={SHEET_TITLE}>Order details</DialogTitle>

@@ -34,6 +34,8 @@
     --color-border: oklch(0.34 0.035 225);
     --color-input: oklch(0.34 0.035 225);
     --color-ring: oklch(0.72 0.15 195);
+    /* Scrim (modal backdrops) */
+    --color-scrim: oklch(0.05 0.03 230 / .5);
     --color-price: oklch(0.72 0.15 155);
     --color-sale: oklch(0.67 0.2 25);
     --color-tile-tint-0: oklch(0.32 0.05 250);
@@ -79,6 +81,8 @@
     --color-border: oklch(0.35 0.045 322);
     --color-input: oklch(0.35 0.045 322);
     --color-ring: oklch(0.72 0.18 45);
+    /* Scrim (modal backdrops) */
+    --color-scrim: oklch(0.05 0.03 318 / .5);
     --color-price: oklch(0.72 0.15 155);
     --color-sale: oklch(0.68 0.2 20);
     --color-tile-tint-0: oklch(0.32 0.05 250);
@@ -124,6 +128,8 @@
     --color-border: oklch(0.36 0 0);
     --color-input: oklch(0.36 0 0);
     --color-ring: oklch(0.92 0 0);
+    /* Scrim (modal backdrops) */
+    --color-scrim: oklch(0 0 0 / .55);
     --color-price: oklch(0.72 0.15 155);
     --color-sale: oklch(0.66 0.2 25);
     --color-tile-tint-0: oklch(0.32 0.05 250);
@@ -169,6 +175,8 @@
     --color-border: oklch(0.852 0.031 84);
     --color-input: oklch(0.852 0.031 84);
     --color-ring: oklch(0.227 0.016 71);
+    /* Scrim (modal backdrops) */
+    --color-scrim: oklch(0.25 0.02 70 / .3);
     --color-price: oklch(0.50 0.16 155);
     --color-sale: oklch(0.50 0.15 34);
     --color-tile-tint-0: oklch(0.90 0.05 85);
@@ -214,6 +222,8 @@
     --color-border: oklch(0.895 0.017 76);
     --color-input: oklch(0.895 0.017 76);
     --color-ring: oklch(0.484 0.092 41);
+    /* Scrim (modal backdrops) */
+    --color-scrim: oklch(0.25 0.02 50 / .3);
     --color-price: oklch(0.50 0.16 155);
     --color-sale: oklch(0.52 0.135 35);
     --color-tile-tint-0: oklch(0.88 0.07 47);
@@ -259,6 +269,8 @@
     --color-border: oklch(0.925 0 0);
     --color-input: oklch(0.925 0 0);
     --color-ring: oklch(0.145 0 0);
+    /* Scrim (modal backdrops) */
+    --color-scrim: oklch(0 0 0 / .35);
     --color-price: oklch(0.52 0.16 155);
     --color-sale: oklch(0.52 0.22 11);
     --color-tile-tint-0: oklch(0.92 0.14 123);
@@ -304,6 +316,8 @@
     --color-border: oklch(0.926 0.017 85);
     --color-input: oklch(0.926 0.017 85);
     --color-ring: oklch(0.232 0.038 290);
+    /* Scrim (modal backdrops) */
+    --color-scrim: oklch(0.23 0.04 290 / .35);
     --color-price: oklch(0.52 0.16 155);
     --color-sale: oklch(0.52 0.21 5);
     --color-tile-tint-0: oklch(0.90 0.09 61);
