@@ -202,7 +202,7 @@ export function CatalogueView({
   // In a window v2's bar row sits the page gutter under the column's top (page-bar/index.tsx:86 `ground.pt`) and
   // its ChipRow pads the gutter all round (chip-row/index.tsx:29 `useGround().p`, ground.ts:46-58): 12 px over the
   // search, between it and the chips, and under the chips. TallyUI's slot pads 8 above and below (`py-2`), so this
-  // adds 4 to each. A phone keeps its own spacing (v2's 16 there, ground.ts:60-72, is a change of its own).
+  // adds 4 to each. A phone keeps its own spacing (the phone head below).
   const wide = useIsWide();
   const searchSlot = <View testID="catalogue-search-slot" className={wide ? 'gap-3 pt-1 pb-1' : 'gap-2'}>
     <View className="flex-row items-center gap-2">
@@ -241,6 +241,13 @@ export function CatalogueView({
   const crumb = drilled ? <BrowseCrumb place={level} onRoot={() => { setDrill(null); setPlace(null); }}
       product={{ name: traits.getName(drilled), onBack: () => setDrill(null) }} />
     : level === null ? undefined : <BrowseCrumb place={level} onRoot={backToRoot} />;
+  // v2's phone ground (packages/components/src/lib/ground.ts:60-72, `PHONE`): 16 from the screen's edge for the bar,
+  // the chip row and the crumb (page-bar/index.tsx:86 `pl-4`, chip-row/index.tsx:29) and the tiles (data-table/
+  // surface.tsx:49-55 `TileGround`). TallyUI's slots inset the search 12 and its ProductGrid the tiles 8 (FlatList
+  // `p-1` plus the cell's `p-1`), 4 apart, so on a phone the search and the crumb stand above the grid in the app's
+  // own `px-4` head and the grid takes `px-2` (8 + 8). A window keeps them in TallyUI's slots, unchanged.
+  const slots = (filterSlot?: ReactNode) => wide ? { searchSlot, filterSlot } : {};
+  const gridGutter = wide ? '' : 'px-2';
   const productTile = (doc: any) => <ProductTile doc={doc} fields={viewState.tileFields} tax={tax}
     inCart={inCartCounts?.get(traits.getId(doc)) ?? 0} onPress={onSelect || onAddEntry ? () => tap(doc) : undefined} />;
   // As ProductGrid counts it: a level is empty when nothing in it is sellable.
@@ -265,24 +272,27 @@ export function CatalogueView({
         <CatalogueDisplayOptions state={viewState} onChange={changeViewState} products={products} quickFilterCount={quickFilters.length}
           open={settingsOpen} onOpenChange={setSettingsOpen} onCustomiseFilterBar={() => setFilterBarOpen(true)} />
         {message ? <Text>{message}</Text> : null}
+        {/* TallyUI's slot spacing (`py-2` over the search, `pb-2` under the crumb) at v2's phone gutter. */}
+        {wide ? null : <View testID="catalogue-phone-head" className="gap-2 px-4 py-2">{searchSlot}{crumb}</View>}
         {drilled ? <ProductGrid
+          className={gridGutter}
           items={[drilled, ...drillEntries.map(entry => ({ id: `variation-${entry.variant.id}`, entry }))]}
           numColumns={numColumns}
           renderItem={(item, index) => index === 0
             ? <ParentTile doc={drilled} fields={viewState.tileFields} tax={tax} onBack={() => setDrill(null)} />
             : <VariationTile entry={item.entry} onPress={() => onAddEntry?.(item.entry)} />}
-          searchSlot={searchSlot}
-          filterSlot={crumb}
+          {...slots(crumb)}
         />
         : atRoot ? viewState.view === 'grid'
-          ? <BrowseRootGrid terms={terms} numColumns={numColumns} searchSlot={searchSlot} onOpen={setPlace} />
-          : <BrowseRootTable terms={terms} searchSlot={searchSlot} onOpen={setPlace} />
+          ? <BrowseRootGrid terms={terms} numColumns={numColumns} {...slots()} onOpen={setPlace} />
+          : <BrowseRootTable terms={terms} {...slots()} onOpen={setPlace} />
         : viewState.view === 'grid' ? level === null ? <ProductGrid
+          testID="catalogue-grid"
+          className={gridGutter}
           items={items}
           numColumns={numColumns}
           renderItem={productTile}
-          searchSlot={searchSlot}
-          filterSlot={crumb}
+          {...slots(crumb)}
           emptyState={emptyState}
         />
         // v2's TermLevelGrid (term-grid.tsx): the opened place's own tile in slot 0 is the way back, then its
@@ -290,14 +300,13 @@ export function CatalogueView({
         : <View className="flex-1">
           <ProductGrid
             testID="browse-level"
-            className={levelEmpty ? 'flex-none' : undefined}
+            className={`${levelEmpty ? 'flex-none' : ''} ${gridGutter}`.trim()}
             items={[{ id: PARENT_SLOT_ID }, ...items]}
             numColumns={numColumns}
             renderItem={(doc, index) => index === 0
               ? <ParentTermTile place={level} count={level.kind === 'term' ? terms.find(term => term.id === level.id)?.count : undefined} onBack={backToRoot} />
               : productTile(doc)}
-            searchSlot={searchSlot}
-            filterSlot={crumb}
+            {...slots(crumb)}
           />
           {levelEmpty && <View testID="browse-level-empty" className="items-center justify-center p-4">{emptyState}</View>}
         </View> : <ProductTable
@@ -307,8 +316,7 @@ export function CatalogueView({
           sort={sort}
           onSortChange={next => { setSortOverride(null); setViewState({ ...viewState, sort: next }); }}
           onSelect={onSelect}
-          searchSlot={searchSlot}
-          filterSlot={crumb}
+          {...slots(crumb)}
           emptyState={emptyState}
         />}
         <View testID="data-table-caption-row" className="flex-row items-center gap-2 px-3 py-2">

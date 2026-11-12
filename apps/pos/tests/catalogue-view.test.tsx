@@ -629,3 +629,36 @@ test('the stock mark stays on the tile when Stock is on', () => {
   openTileFields('Stock');
   expect(within(screen.getByTestId('product-tile-80')).getByTestId('tile-stock-80').textContent).toBe('100 left');
 });
+
+// P13-S6: v2's phone ground (lib/ground.ts:60-72): the search, the chips and the tiles 16 from the screen's edge. The
+// search stands in the app's px-4 head above the grid, the grid takes px-2 over TallyUI's 8; a window keeps both.
+test.each([[390, true], [1280, false]])('at %ipx the phone gutter is %s', (width, phone) => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width, height: 844, scale: 1, fontScale: 1 });
+  render(<CatalogueView {...props} />);
+  const search = screen.getByTestId('catalogue-search');
+  if (phone) {
+    expect(classesOf('catalogue-phone-head')).toEqual(expect.arrayContaining(['px-4', 'py-2']));
+    expect(screen.getByTestId('catalogue-phone-head').contains(search)).toBe(true);
+    expect(classesOf('catalogue-grid')).toContain('px-2');
+  } else {
+    expect(screen.queryByTestId('catalogue-phone-head')).toBeNull();
+    expect(classesOf('catalogue-grid')).not.toContain('px-2');
+  }
+  expect(screen.getByTestId('catalogue-grid').contains(search)).toBe(!phone);
+});
+
+test.each([[390, 'px-3 py-1'], [1280, 'p-1']])('at %ipx the category tiles sit on %s', (width, tiles) => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width, height: 844, scale: 1, fontScale: 1 });
+  localStorage.removeItem(CATALOGUE_VIEW_KEY);
+  render(<CatalogueView {...props} />);
+  // A FlatList's contentContainerClassName, read off the fibers that took its testID (as classesOf reads className).
+  type Fiber = { memoizedProps?: { testID?: string; contentContainerClassName?: string }; return?: Fiber };
+  const node = screen.getByTestId('browse-root-tiles') as unknown as Record<string, unknown>;
+  const found: string[] = [];
+  for (let fiber = node[Object.keys(node).find(name => name.startsWith('__reactFiber$'))!] as Fiber | undefined; fiber; fiber = fiber.return) {
+    const { testID, contentContainerClassName } = fiber.memoizedProps ?? {};
+    if (testID === 'browse-root-tiles' && contentContainerClassName) found.push(contentContainerClassName);
+  }
+  expect(found).toContain(tiles);
+  expect(screen.getByTestId('browse-root').contains(screen.getByTestId('catalogue-search'))).toBe(width > 768);
+});

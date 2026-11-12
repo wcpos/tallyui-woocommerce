@@ -142,9 +142,12 @@ export function BrowseRootGrid({ terms, numColumns, searchSlot, onOpen }: {
   terms: readonly BrowseTerm[]; numColumns: number; searchSlot?: ReactNode; onOpen(place: BrowsePlace): void;
 }): JSX.Element {
   const compact = useCompactTiles();
+  // v2's phone tile ground (lib/ground.ts:60-72 `tiles: 'px-4'`, data-table/surface.tsx:49-55): the tiles 16 from the
+  // screen's edge, 12 here plus the cell's 4; a window keeps 8 (`p-1` plus the cell's 4).
+  const tiles = useIsWide() ? 'p-1' : 'px-3 py-1';
   return <VStack space="none" className="flex-1" testID="browse-root">
     {searchSlot && <View className="px-3 py-2">{searchSlot}</View>}
-    <FlatList key={numColumns} data={entriesOf(terms)} numColumns={numColumns} keyExtractor={keyOf} contentContainerClassName="p-1"
+    <FlatList key={numColumns} testID="browse-root-tiles" data={entriesOf(terms)} numColumns={numColumns} keyExtractor={keyOf} contentContainerClassName={tiles}
       renderItem={({ item }) => <View style={{ width: `${100 / numColumns}%` }} className="p-1">
         <TermTile entry={item} compact={compact} onPress={() => onOpen(placeOf(item))} />
       </View>} />
