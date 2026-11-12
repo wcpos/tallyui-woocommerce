@@ -18,12 +18,13 @@ function renderSurface() {
   render(<><TableSurface testID="surface" /><CaptionRowInset><Text>Showing 1</Text></CaptionRowInset></>);
 }
 
-test("in a window the table sits on v2's card: rounded, bordered, inset like the search above it", () => {
+test("in a window the table sits on v2's card: rounded, bordered, inset by v2's 12 px page gutter", () => {
   setWidth(1280);
   renderSurface();
-  expect(classesOf('surface')).toEqual(expect.arrayContaining(['rounded-lg', 'border', 'bg-card', 'mx-4', 'min-h-0', 'flex-1']));
+  expect(classesOf('surface')).toEqual(expect.arrayContaining(['rounded-lg', 'border', 'bg-card', 'mx-3', 'min-h-0', 'flex-1']));
+  expect(classesOf('surface')).not.toContain('mx-4');
   expect(classesOf('surface')).not.toContain('border-t');
-  expect(classesOf('data-table-caption-inset')).toEqual(expect.arrayContaining(['px-4', 'pb-4']));
+  expect(classesOf('data-table-caption-inset')).toEqual(expect.arrayContaining(['px-3', 'pb-4']));
 });
 
 test('on a phone the table runs edge to edge under a hairline: no side inset, no radius', () => {
@@ -33,6 +34,6 @@ test('on a phone the table runs edge to edge under a hairline: no side inset, no
   expect(classes).toEqual(expect.arrayContaining(['border-t', 'bg-card', 'min-h-0', 'flex-1']));
   expect(classes).not.toContain('rounded-lg');
   expect(classes).not.toContain('border');
-  expect(classes).not.toContain('mx-4');
+  expect(classes).not.toContain('mx-3');
   expect(classesOf('data-table-caption-inset')).toEqual(expect.arrayContaining(['px-1', 'pb-4']));
 });

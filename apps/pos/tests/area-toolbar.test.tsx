@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
+import type { StoreOrder } from '@tallyui/core';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { createTallyDatabase } from '@tallyui/database';
 import { PortalHost } from '@tallyui/primitives';
@@ -106,4 +107,30 @@ test("seven coupons with five matching the search read v2's Showing 5 of 7, besi
   await waitFor(() => expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 5 of 7'));
   expect(screen.getByTestId('data-table-caption-row').contains(screen.getByTestId('data-table-sync'))).toBe(true);
   expect(screen.getByTestId('data-table-sync').getAttribute('aria-label')).toBe('Sync');
+});
+
+// v2's page gutter (ground.ts:46-72): 12 px in a window, 16 on a phone, on every area's bar, card and own rows.
+const order = { id: '901', reference: '901', status: 'completed', placedAt: new Date().toISOString(), currency: 'USD',
+  pricesIncludeTax: false, customer: null, lines: [], fees: [], shipping: [], coupons: [], taxLines: [], refunds: [],
+  payments: [], discountMinor: 0, discountTaxMinor: 0, taxMinor: 0, totalMinor: 600 } as unknown as StoreOrder;
+const gutterAreas: [string, () => ReactNode, string | null][] = [
+  ['orders', () => <OrdersScreen onBack={vi.fn()} history={{ list: async () => ({ orders: [order], hasMore: false }) }} storeName="Shop" cashierName="Paul" />, null],
+  ['customers', () => <CustomersScreen source={{ search: async () => [], create: vi.fn() }} onBack={vi.fn()} createBlockedReason="No" />, 'customers-add-blocked'],
+  ['products', areas[2][1], 'products-filter-row'],
+  ['coupons', areas[3][1], 'coupons-filter-row'],
+];
+test.each(gutterAreas)("the %s bar, card and rows sit on v2's 12 px gutter in a window and 16 on a phone", async (area, make, row) => {
+  renderArea(make());
+  await screen.findByTestId(`${area}-table-surface`);
+  expect(classesOf(`${area}-bar`)).toContain('px-3');
+  expect(classesOf(`${area}-bar`)).not.toContain('px-4');
+  expect(classesOf(`${area}-table-surface`)).toContain('mx-3');
+  if (row) expect(classesOf(row)).toContain('px-3');
+  cleanup();
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  renderArea(make(), false);
+  await screen.findByTestId(`${area}-table-surface`);
+  expect(classesOf(`${area}-bar-search-row`)).toContain('px-4');
+  expect(classesOf(`${area}-table-surface`)).not.toContain('mx-3');
+  if (row) expect(classesOf(row)).toContain('px-4');
 });

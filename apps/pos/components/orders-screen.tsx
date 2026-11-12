@@ -13,7 +13,7 @@ import { OrderDetailSheet } from './order-detail';
 import { ReceiptPrintSheet } from './receipt-print-sheet';
 import { ReceiptZoom } from './receipt-zoom';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
-import { AreaToolbar } from './area-header';
+import { AreaToolbar, useAreaGutter } from './area-header';
 
 // The till id; the bound register is the drawer.
 const REGISTER_ID = 'web';
@@ -35,6 +35,8 @@ export function OrdersScreen({ onBack, history, storeName, cashierName }: {
   const [term, setTerm] = useState('');
   const [search, setSearch] = useState('');
   const [columns, setColumns] = useAreaColumns('orders', ORDERS_COLUMNS);
+  // v2's page gutter (ground.ts:46-72): the bar, the table card (OrdersTable) and this page's notes; the receipt keeps 16.
+  const gutter = useAreaGutter();
   const request = useRef(0);
   // The count is in memory only, for each order opened in this screen.
   const counts = useRef(new Map<string, number>());
@@ -119,7 +121,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName }: {
               visible={columns.filter(column => column.visible).map(column => column.id)}
               onSync={history ? () => { void loadPage(1, search); } : undefined}
               onOpen={row => { if (row.kind === 'store') setViewing(row.order); else open(row.order); }} />
-        : <View className="p-4"><Text>Orders show once the store is connected.</Text></View>}
+        : <View testID="orders-unavailable" className={`py-4 ${gutter}`}><Text>Orders show once the store is connected.</Text></View>}
       {outbox.enabled && viewing && !opened && <OrderDetailSheet order={viewing} onReceipt={() => open(toHistoryRow(viewing))} onClose={() => setViewing(null)} />}
     </View>
   );

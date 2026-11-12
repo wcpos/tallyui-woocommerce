@@ -122,3 +122,13 @@ test("v2's 32 px customer chip, a centred order number and Date Created's down c
   expect(sorted.contains(chevron)).toBe(true);
   expect(chevron.querySelector('path')?.getAttribute('d')).toBe('m6 9 6 6 6-6');
 });
+
+test("a body row is v2's 57 px order row with every cell centred on it; the day band keeps its 28 px", () => {
+  render(<OrdersTable local={[]} store={[storeOrder]} onOpen={vi.fn()} now={() => now} />);
+  expect(classesOf('history-row-901')).toContain('min-h-[57px]');
+  for (const cell of ['status', 'number', 'date', 'payment', 'total']) {
+    expect(classesOf(`history-901-${cell}`)).toEqual(expect.arrayContaining(['justify-center', 'py-1.5']));
+    expect(classesOf(`history-901-${cell}`)).not.toContain('py-4');
+  }
+  expect(classesOf('orders-day-heading-2026-11-10')).toContain('h-7');
+});
