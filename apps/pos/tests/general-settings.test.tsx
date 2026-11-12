@@ -3,7 +3,9 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { PortalHost } from '@tallyui/primitives';
 import { GeneralSettings, countryLabel, type DefaultCustomerControl } from '../components/settings/general-settings';
+import { TaxSettings } from '../components/settings/tax-settings';
 import type { DefaultCustomerSetting } from '../lib/customers/default-customer';
+import { classesOf } from './classes-of';
 
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
@@ -128,6 +130,47 @@ test('an empty thousand separator reads as a dash, and 0 decimals as 0', () => {
   expect(value('price_thousand_sep')).toBe('—');
   expect(value('price_num_decimals')).toBe('0');
   expect(value('currency_pos')).toBe('—');
+});
+
+// The classes on every component between a row and its section, the section's own excluded (classes-of.ts' fiber walk).
+type Fiber = { memoizedProps?: { testID?: string; className?: unknown }; return?: Fiber };
+function classesBetween(rowID: string, sectionID: string): string[] {
+  const node = screen.getByTestId(rowID) as unknown as Record<string, Fiber>;
+  const found: string[] = [];
+  let fiber: Fiber | undefined = node[Object.keys(node).find(name => name.startsWith('__reactFiber$'))!];
+  for (; fiber && fiber.memoizedProps?.testID !== sectionID; fiber = fiber.return) {
+    const { className } = fiber.memoizedProps ?? {};
+    if (typeof className === 'string') found.push(...className.split(/\s+/));
+  }
+  expect(fiber).toBeDefined();
+  return found;
+}
+
+test("a row's key is v2's muted key rank in its 256 / 288 column, not a bold label", () => {
+  render(<GeneralSettings store={store} siteHome={siteHome} />);
+  const label = classesOf('settings-general-locked-name-label');
+  expect(label).toEqual(expect.arrayContaining(['text-muted-foreground', 'text-sm']));
+  expect(label).not.toContain('font-bold');
+  expect(label).not.toContain('font-medium');
+  expect(classesOf('settings-general-locked-name-key')).toEqual(expect.arrayContaining(['w-64', 'lg:w-72']));
+});
+
+test('no section boxes its rows: they sit flat on the page card, later sections under a rule', () => {
+  renderDefaultCustomer({ customerId: 0, isCashier: false });
+  for (const [row, section] of [
+    ['settings-general-locked-name', 'settings-general-store'],
+    ['settings-general-default_customer', 'settings-general-localization'],
+    ['settings-general-locked-currency', 'settings-general-currency'],
+  ]) {
+    expect(classesBetween(row, section)).not.toContain('border');
+    expect(classesBetween(row, section)).not.toContain('rounded-lg');
+  }
+  expect(classesOf('settings-general-store')).not.toContain('border-t');
+  expect(classesOf('settings-general-localization')).toEqual(expect.arrayContaining(['border-t', 'pt-4']));
+  cleanup();
+  render(<TaxSettings settings={{ pricesIncludeTax: true }} siteHome={siteHome} />);
+  expect(classesBetween('settings-tax-locked-calc_taxes', 'settings-tax-calculation')).not.toContain('border');
+  expect(classesOf('settings-tax-locked-calc_taxes-label')).toContain('text-muted-foreground');
 });
 
 test('countryLabel names the region, and falls back for a code Intl cannot name', () => {

@@ -1,6 +1,6 @@
 import { useState, type JSX } from 'react';
 import { Linking, View } from 'react-native';
-import { Button, SettingsGroup, SettingsRow, Switch, Text } from '@tallyui/components';
+import { Button, Switch, Text } from '@tallyui/components';
 import type { CustomerSummary } from '@tallyui/pos';
 import type { CurrencyPosition, StoreInfo } from '../../lib/catalogue/store-info';
 import type { CustomerSource } from '../../lib/customers/customer-source';
@@ -8,6 +8,7 @@ import type { DefaultCustomerSetting } from '../../lib/customers/default-custome
 import { useRegister } from '../../lib/register/register-context';
 import { CustomerPicker } from '../customer-picker';
 import { RegisterSwitch } from '../register-controls';
+import { SETTINGS_KEY_CLASS, SettingsField, SettingsSection } from './settings-form';
 
 export function wooSettingsUrl(siteHome: string): string {
   return `${siteHome.replace(/\/+$/, '')}/wp-admin/admin.php?page=wc-settings`;
@@ -16,18 +17,18 @@ export function wooSettingsUrl(siteHome: string): string {
 export function LockedRow({ testID, label, value, href }: {
   testID: string; label: string; value: string | boolean | undefined; href: string;
 }) {
+  // v2 property-row/index.tsx:114-118: the trailing slot is where it is set, in the key rank, then Open.
   return (
-    <SettingsRow testID={testID} label={label} action={
-      <View className="flex-row items-center gap-3">
-        {/* v2 PropertyRow: a locked boolean is a disabled switch, an empty locked value a dash. */}
-        {typeof value === 'boolean'
-          ? <Switch testID={`${testID}-switch`} accessibilityLabel={label} checked={value} onCheckedChange={() => {}} disabled />
-          : <Text testID={`${testID}-value`}>{value || '—'}</Text>}
-        <Text className="text-xs text-muted-foreground">Set in WooCommerce</Text>
-        <Button variant="link" size="sm" accessibilityRole="link" testID={`${testID}-open`}
-          onPress={() => { void Linking.openURL(href); }}><Text>Open</Text></Button>
-      </View>
-    } />
+    <SettingsField testID={testID} label={label} trailing={<>
+      <Text className={SETTINGS_KEY_CLASS}>Set in WooCommerce</Text>
+      <Button variant="link" size="sm" accessibilityRole="link" testID={`${testID}-open`}
+        onPress={() => { void Linking.openURL(href); }}><Text>Open</Text></Button>
+    </>}>
+      {/* v2 PropertyRow (l.125-135): a locked boolean is a disabled switch, an empty locked value a dash. */}
+      {typeof value === 'boolean'
+        ? <Switch testID={`${testID}-switch`} accessibilityLabel={label} checked={value} onCheckedChange={() => {}} disabled />
+        : <Text testID={`${testID}-value`}>{value || '—'}</Text>}
+    </SettingsField>
   );
 }
 
@@ -67,15 +68,19 @@ function DefaultCustomerRows({ setting, customer, source, onChange }: DefaultCus
   }
   return (
     <>
-      <SettingsRow testID="settings-general-default_customer" label="Default Customer"
-        description="Pre-selected on every new cart." action={source && !setting.isCashier
+      {/* v2 general.tsx:302-316: the help line under the key, the select in the value column. */}
+      <SettingsField testID="settings-general-default_customer" label="Default Customer"
+        help="Pre-selected on every new cart.">
+        {source && !setting.isCashier
           ? <CustomerPicker source={source} customer={shown} onChange={choose} />
           : <Button variant="outline" size="sm" disabled testID="settings-general-default_customer-select">
-            <Text>{shown ? shown.name : 'Guest'}</Text></Button>} />
-      <SettingsRow testID="settings-general-default_customer_is_cashier" label="Default Customer is cashier" action={
+            <Text>{shown ? shown.name : 'Guest'}</Text></Button>}
+      </SettingsField>
+      {/* v2 general.tsx:324-328: a control with no value is the value (property-row/index.tsx:143). */}
+      <SettingsField testID="settings-general-default_customer_is_cashier" label="Default Customer is cashier">
         <Switch testID="settings-general-default_customer_is_cashier-switch" accessibilityLabel="Default Customer is cashier"
           checked={setting.isCashier} onCheckedChange={isCashier => onChange({ ...setting, isCashier })} />
-      } />
+      </SettingsField>
     </>
   );
 }
@@ -88,22 +93,23 @@ export function GeneralSettings(props: {
   const format = props.store.numberFormat;
   const register = useRegister();
   return (
+    // v2 general.tsx:235-237: the sections stack in a gap-5 VStack, the first with no rule above it.
     <View testID="screen-settings-general" className="gap-5">
-      <SettingsGroup title="Store" testID="settings-general-store">
+      <SettingsSection first title="Store" testID="settings-general-store">
         <LockedRow testID="settings-general-locked-name" label="Store Name" value={props.store.name} href={href} />
         <LockedRow testID="settings-general-locked-store_country" label="Store Base Country" value={countryLabel(address?.country)} href={href} />
         {/* v2 names the state; the app shows WooCommerce's code as sent. */}
         <LockedRow testID="settings-general-locked-store_state" label="Store Base State" value={address?.state} href={href} />
         <LockedRow testID="settings-general-locked-store_city" label="Store Base City" value={address?.city} href={href} />
         <LockedRow testID="settings-general-locked-store_postcode" label="Store Base Postcode" value={address?.postcode} href={href} />
-      </SettingsGroup>
-      <SettingsGroup title="Localization" testID="settings-general-localization">
+      </SettingsSection>
+      <SettingsSection title="Localization" testID="settings-general-localization">
         <LockedRow testID="settings-general-locked-locale" label="Language" value={props.store.locale} href={href} />
         {props.defaultCustomer ? <DefaultCustomerRows {...props.defaultCustomer} /> : null}
-      </SettingsGroup>
+      </SettingsSection>
       {/* Locked: @tallyui/components formats cart money from the locale only, so an edited format would not reach
           the cart. v2's order; an empty thousand separator (no grouping) reads as a dash. */}
-      <SettingsGroup title="Currency & numbers" testID="settings-general-currency">
+      <SettingsSection title="Currency & numbers" testID="settings-general-currency">
         <LockedRow testID="settings-general-locked-currency" label="Currency" value={props.store.currency} href={href} />
         <LockedRow testID="settings-general-locked-currency_pos" label="Currency Position"
           value={format?.position && POSITION_LABELS[format.position]} href={href} />
@@ -111,10 +117,10 @@ export function GeneralSettings(props: {
         <LockedRow testID="settings-general-locked-price_num_decimals" label="Number of Decimals"
           value={format?.decimals === undefined ? undefined : String(format.decimals)} href={href} />
         <LockedRow testID="settings-general-locked-price_thousand_sep" label="Thousand Separator" value={format?.thousandSeparator} href={href} />
-      </SettingsGroup>
+      </SettingsSection>
       {/* The same switch as Cart Settings, read from the one RegisterProvider at the root layout, so the two agree. It
           is here because a closed register replaces the cart, and Cart Settings with it. Open or closed, it shows. */}
-      {register && <SettingsGroup title="Register sessions" testID="settings-general-register"><RegisterSwitch /></SettingsGroup>}
+      {register && <SettingsSection title="Register sessions" testID="settings-general-register"><RegisterSwitch inset={false} /></SettingsSection>}
     </View>
   );
 }
