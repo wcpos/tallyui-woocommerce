@@ -69,6 +69,35 @@ test('each extra theme maps input to border, price to success and sale to destru
   }
 });
 
+/** The top-level blocks of `css` as [prelude, body] pairs, comments stripped. */
+function blocks(css: string): [string, string][] {
+  const body = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const found: [string, string][] = [];
+  let depth = 0;
+  let start = 0;
+  let open = 0;
+  for (let index = 0; index < body.length; index++) {
+    if (body[index] === '{' && depth++ === 0) open = index;
+    if (body[index] === '}' && --depth === 0) {
+      found.push([body.slice(start, open).trim(), body.slice(open + 1, index)]);
+      start = index + 1;
+    }
+  }
+  return found;
+}
+
+// On web, uniwind 1.4.0 rewrites a theme's first `&:where(.x, .x *)` rule to `.x` (css-visitor/rule-visitor.ts),
+// dropping only the `&`: under a `:root` parent that is `:root .x`, which misses the class uniwind sets on <html>.
+test('each extra theme is a @variant directly in @layer theme, never nested in :root', () => {
+  const [layer, ...rest] = blocks(themesCss);
+  expect(rest).toEqual([]);
+  expect(layer[0]).toBe('@layer theme');
+  const children = blocks(layer[1]);
+  expect(children.map(([prelude]) => prelude)).toEqual(EXTRA_THEMES.map(theme => `@variant ${theme}`));
+  for (const [prelude, body] of children) expect(body, prelude).not.toMatch(/[{}]/);
+  expect(themesCss.replace(/\/\*[\s\S]*?\*\//g, '')).not.toContain(':root');
+});
+
 test('global.css imports themes.css right after the TallyUI tokens', () => {
   expect(globalCss).toContain("@import '@tallyui/theme/tokens.css';\n@import './themes.css';");
 });
