@@ -66,7 +66,7 @@ export function drawerVerbs(
     session: { status: string; opened_at_gmt: string; opened_by?: string | null; counting_started_at_gmt?: string | null } | null;
   } | null,
   nameOf?: (id: string) => string | undefined,
-): { verbs: string; opener?: string } {
+): { verbs: string; opener?: string; openerName?: string } {
   const session = register?.session;
   if (session?.status === 'counting') {
     const since = session.counting_started_at_gmt ? localHourMinute(session.counting_started_at_gmt) : '—';
@@ -75,7 +75,9 @@ export function drawerVerbs(
   if (session?.status === 'open') {
     const name = session.opened_by ? nameOf?.(session.opened_by) : undefined;
     const opened = `opened ${localHourMinute(session.opened_at_gmt)}`;
-    return { verbs: 'Pay in · Pay out · Close register', opener: name ? `${opened} by ${name}` : opened };
+    // openerName feeds the opener's initials avatar (v2 user-sheet.tsx:154-158), set only when the opener has a name.
+    return name ? { verbs: 'Pay in · Pay out · Close register', opener: `${opened} by ${name}`, openerName: name }
+      : { verbs: 'Pay in · Pay out · Close register', opener: opened };
   }
   return { verbs: 'Last closure · Open register' };
 }

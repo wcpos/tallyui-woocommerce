@@ -330,3 +330,33 @@ test("the bar's avatar sits on the bar, with no accent fill", () => {
   expect(classesOf('register-bar-avatar')).not.toContain('bg-accent');
   expect(classesOf('register-bar-avatar-initials')).toEqual(expect.arrayContaining(['size-5', 'bg-primary']));
 });
+
+// v2's sheet and drawer door (dialog/index.tsx:199; user-sheet.tsx:143-158,199-218): the sheet on bg-card, the door with
+// no fill of its own but a border, the register glyph, the opener's sm initials avatar, and the verbs in the foreground.
+test('the sheet is on the card surface and the drawer door is drawn as v2 draws it', () => {
+  const onOpenDrawer = vi.fn();
+  openSheet({ drawer: { figure: '$50.00', verbs: 'Pay in · Pay out · Close register', opener: 'opened 09:00 by Sam Lee', openerName: 'Sam Lee' }, onOpenDrawer });
+  expect(classesOf('user-sheet')).toContain('bg-card');
+  expect(classesOf('user-sheet')).not.toContain('bg-background');
+  expect(classesOf('user-sheet-drawer')).toEqual(expect.arrayContaining(['rounded-lg', 'border', 'border-border', 'active:bg-accent']));
+  expect(classesOf('user-sheet-drawer').filter(name => /^bg-/.test(name))).toEqual([]);
+  expect(within(screen.getByTestId('user-sheet-drawer')).getByTestId('user-sheet-drawer-icon')).not.toBeNull();
+  const opener = screen.getByTestId('user-sheet-drawer-opener');
+  expect(opener.textContent).toBe('opened 09:00 by Sam Lee');
+  const avatar = screen.getByTestId('user-sheet-drawer-opener-avatar');
+  expect(avatar.textContent).toBe('SL');
+  expect(avatar.parentElement).toBe(opener.parentElement);
+  expect(classesOf('user-sheet-drawer-opener-avatar')).toEqual(expect.arrayContaining(['size-7', 'rounded-full', 'bg-primary']));
+  expect(screen.getByTestId('user-sheet-drawer-verbs-text').textContent).toBe('Pay in · Pay out · Close register');
+  expect(classesOf('user-sheet-drawer-verbs-text')).toContain('text-foreground');
+  expect(classesOf('user-sheet-drawer-verbs-text')).not.toContain('text-primary');
+  fireEvent.click(screen.getByTestId('user-sheet-drawer'));
+  expect(onOpenDrawer).toHaveBeenCalledTimes(1);
+  expect(screen.queryByTestId('user-sheet')).toBeNull();
+});
+
+test('an opener with no name shows no avatar', () => {
+  openSheet({ drawer: { figure: '$50.00', verbs: 'Pay in · Pay out · Close register', opener: 'opened 09:00' }, onOpenDrawer: () => {} });
+  expect(screen.getByTestId('user-sheet-drawer-opener').textContent).toBe('opened 09:00');
+  expect(screen.queryByTestId('user-sheet-drawer-opener-avatar')).toBeNull();
+});

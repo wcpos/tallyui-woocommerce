@@ -103,9 +103,10 @@ test("drawerVerbs offers v2's drawer verbs for an open session, with who opened 
   const openedAt = new Date(2026, 9, 6, 14, 40).toISOString();
   const nameOf = (id: string) => id === '2' ? 'Ann' : undefined;
   expect(drawerVerbs({ session: { status: 'open', opened_at_gmt: openedAt, opened_by: '2' } }, nameOf))
-    .toEqual({ verbs: 'Pay in · Pay out · Close register', opener: 'opened 14:40 by Ann' });
-  expect(drawerVerbs({ session: { status: 'open', opened_at_gmt: openedAt, opened_by: '9' } }, nameOf))
-    .toEqual({ verbs: 'Pay in · Pay out · Close register', opener: 'opened 14:40' });
+    .toEqual({ verbs: 'Pay in · Pay out · Close register', opener: 'opened 14:40 by Ann', openerName: 'Ann' });
+  const unnamed = drawerVerbs({ session: { status: 'open', opened_at_gmt: openedAt, opened_by: '9' } }, nameOf);
+  expect(unnamed).toEqual({ verbs: 'Pay in · Pay out · Close register', opener: 'opened 14:40' });
+  expect(unnamed.openerName).toBeUndefined();
 });
 
 test('drawerVerbs offers the last closure and opening with no session, and the way back to a count', () => {
