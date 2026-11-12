@@ -1,11 +1,12 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Redirect } from 'expo-router';
 import { Text } from '@tallyui/components';
+import type { PrinterProfileCollection } from '@tallyui/pos';
 import { PrintingSettings } from '../../components/settings/printing-settings';
 import { useSession } from '../../lib/auth/session-context';
 import { useCatalogue } from '../../lib/catalogue/catalogue-context';
-import { SYSTEM_PRINT_DIALOG } from '../../lib/receipts/printer-routing';
+import { deletePrinterProfile, savePrinterProfile, setDefaultPrinterProfile, usePrinterProfiles } from '../../lib/printing/printer-profiles';
 import { useStoreTemplates } from '../../lib/receipts/use-store-templates';
 
 export default function PrintingSettingsRoute() {
@@ -22,6 +23,13 @@ export default function PrintingSettingsRoute() {
   const receipt = useStoreTemplates(connector, context, 'receipt');
   const report = useStoreTemplates(connector, context, 'report');
   const closure = useStoreTemplates(connector, context, 'closure');
+  const profiles = usePrinterProfiles(catalogue?.printerProfiles);
+  const [printersError, setPrintersError] = useState<string>();
+  // A refused command shows its message under the Printers section; the next one clears it.
+  const run = (command: (collection: PrinterProfileCollection) => Promise<void>) => {
+    setPrintersError(undefined);
+    command(catalogue!.printerProfiles).catch((cause: unknown) => setPrintersError((cause as Error).message));
+  };
   if (!ready) return null;
   if (!session) return <Redirect href="/connect" />;
   if (!catalogue) return (
@@ -29,5 +37,8 @@ export default function PrintingSettingsRoute() {
       <Text>{error ?? `Connecting to ${session.site.name}…`}</Text>
     </View>
   );
-  return <PrintingSettings templates={{ receipt, report, closure }} printers={[SYSTEM_PRINT_DIALOG]} />;
+  return <PrintingSettings templates={{ receipt, report, closure }} profiles={profiles} printersError={printersError}
+    onSavePrinter={profile => run(collection => savePrinterProfile(collection, profile))}
+    onSetDefault={id => run(collection => setDefaultPrinterProfile(collection, id))}
+    onDeletePrinter={id => run(collection => deletePrinterProfile(collection, id))} />;
 }

@@ -3,6 +3,7 @@ import type { ServerCapabilities, SyncContext, TallyConnector } from '@tallyui/c
 import { createTallyDatabase, startCatalogueReconcile, startReplication } from '@tallyui/database';
 import type { TallyDatabase, TallyReplicationState } from '@tallyui/database';
 import type { RxCollection } from 'rxdb';
+import { addPrinterProfileCollection, type PrinterProfileCollection } from '@tallyui/pos';
 import { appStorage } from '../app-storage';
 import type { Session } from '../auth/session';
 import { fetchCashierCapabilities, type CashierCapabilities } from '../auth/capabilities';
@@ -21,6 +22,7 @@ export interface Catalogue {
   parkedCarts: ParkedCartCollection;
   receiptEmails: ReceiptEmailCollection;
   logs: LogCollection;
+  printerProfiles: PrinterProfileCollection;
   connector: TallyConnector;
   store: StoreInfo;
   cashier: CashierCapabilities;
@@ -63,6 +65,8 @@ export async function startCatalogue(
     receipt_emails: { schema: receiptEmailSchema, migrationStrategies: receiptEmailMigrationStrategies },
     logs: { schema: logRecordSchema, migrationStrategies: logRecordMigrationStrategies },
   });
+  // Also local only (v2 device-local schema); the Print Dialog stays in memory, never stored.
+  const printerProfiles = await addPrinterProfileCollection(db);
   const logStore = attachLogStore(logs);
   const replication = startReplication({ collection: db.products, adapter: connector.replication!.products!, context });
   const couponReplication = startReplication({ collection: db.coupons, adapter: connector.replication!.coupons!, context });
@@ -76,7 +80,8 @@ export async function startCatalogue(
     startDelayMs: 0, intervalMs: COUPON_RECONCILE_INTERVAL_MS,
   });
   return {
-    db, coupons: db.coupons, parkedCarts, receiptEmails, logs, connector, store, cashier, capabilities, replication,
+    db, coupons: db.coupons, parkedCarts, receiptEmails, logs, printerProfiles,
+    connector, store, cashier, capabilities, replication,
     setAccessToken(token) {
       Object.assign(context.headers, connector.auth.getHeaders({ token }));
       void replication.resume();
