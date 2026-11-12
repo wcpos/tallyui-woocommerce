@@ -23,7 +23,7 @@ import { useAreaColumns } from '../lib/area-columns';
 import type { AreaColumn } from '../lib/area-columns';
 import { AreaDisplayOptions } from './area-display-options';
 import { AreaToolbar, useAreaGutter } from './area-header';
-import { filterChipClassName, filterChipTextClassName } from './catalogue-filter-chips';
+import { chipInkClassName, filterChipClassName, filterChipTextClassName } from './catalogue-filter-chips';
 import { StatusDot } from './status-dot';
 import type { StatusTone } from './status-dot';
 import { CaptionRowInset, TableCount, TableSurface, useCatalogueSync } from './table-surface';
@@ -89,6 +89,16 @@ export const COUPONS_COLUMNS: readonly (AreaColumn<CouponsColumnId> & { classNam
 // v2 coupons/cells/status.tsx: its tones (publish ok, draft muted, pending warning) and core.json's words. An unknown
 // status reads as itself with a muted dot, where v2 uses its `default` tone.
 const STATUS_TONE: Record<string, StatusTone> = { publish: 'success', draft: 'muted', pending: 'warning' };
+
+// v2's body cell (components/src/table/index.tsx:129, `flex-col justify-center px-3 py-1.5`), as orders-table.tsx's
+// CELL: every cell centres its content on the row with v2's padding. The head takes the same px-3
+// (table/index.tsx:112) so each label stays over its column.
+const CELL = 'justify-center px-3 py-1.5';
+const HEAD = 'px-3';
+// v2's coupons aligns (ui-settings/initial-settings.json:511 Amount `right`, :528 Usage `center`), on the head and
+// the cell alike (data-table/column-style.ts:15-22 alignItems, header.tsx:36-47).
+const ALIGN: Partial<Record<CouponsColumnId, string>> = { amount: 'items-end', usage_count: 'items-center' };
+const classes = (...names: (string | undefined)[]) => names.filter(Boolean).join(' ');
 
 interface CouponDoc {
   uuid: string;
@@ -198,7 +208,8 @@ function FilterPill({ field, icon: Icon, label, value, choices, onChoose, onRemo
     <Select value={selected && { value: selected.value, label: selected.label }}
       onValueChange={option => { if (option) onChoose(option.value); }}>
       <SelectTrigger testID={`filter-pill-${field}`} className="h-auto w-auto justify-start gap-1.5 rounded-none border-0 bg-transparent px-0 py-0">
-        <Icon size={16} />
+        {/* An on chip's icon and × take its ink (v2 chip/index.tsx:106), as the catalogue chips' do. */}
+        <Icon size={16} className={active ? chipInkClassName(true) : undefined} />
         <Text className={filterChipTextClassName(active)}>{selected?.label ?? label}</Text>
       </SelectTrigger>
       <SelectContent><SelectGroup>
@@ -208,7 +219,7 @@ function FilterPill({ field, icon: Icon, label, value, choices, onChoose, onRemo
       </SelectGroup></SelectContent>
     </Select>
     {active && <Pressable testID={`filter-pill-remove-${field}`} role="button" accessibilityLabel="Remove" hitSlop={8}
-      onPress={onRemove}><XIcon size={14} /></Pressable>}
+      onPress={onRemove}><XIcon size={14} className={chipInkClassName(true)} /></Pressable>}
   </View>;
 }
 
@@ -218,26 +229,24 @@ function ActiveBadge({ coupon, now }: { coupon: CouponDoc; now: Date }): JSX.Ele
   return <StatusDot testID={`coupon-active-${coupon.code}`} tone={active ? 'success' : 'muted'} label={active ? 'Active' : 'Inactive'} />;
 }
 
-function couponCell(id: CouponsColumnId, className: string | undefined, c: CouponDoc, now: Date, currency: string,
-  locale: string | undefined): JSX.Element {
+/** One body cell's content; the table draws its TableCell. */
+function couponContent(id: CouponsColumnId, c: CouponDoc, now: Date, currency: string, locale: string | undefined): JSX.Element {
   switch (id) {
-    case 'active': return <TableCell key={id} className={className}><ActiveBadge coupon={c} now={now} /></TableCell>;
-    case 'code': return <TableCell key={id} className={className}><Text className="font-medium">{c.code}</Text></TableCell>;
-    case 'amount': return <TableCell key={id} className={className}><Text>{couponAmount(c, currency, locale)}</Text></TableCell>;
-    case 'discount_type': return <TableCell key={id} className={className}><Text>{typeLabel(c)}</Text></TableCell>;
-    case 'description': return <TableCell key={id} className={className}><Text>{c.description ?? ''}</Text></TableCell>;
-    case 'usage_count': return <TableCell key={id} className={className}><Text testID={`coupon-usage-${c.code}`}>{usageText(c)}</Text></TableCell>;
-    case 'date_expires_gmt': return <TableCell key={id} className={className}><Text testID={`coupon-expiry-${c.code}`}>{gmtDayText(c.date_expires_gmt, locale)}</Text></TableCell>;
+    case 'active': return <ActiveBadge coupon={c} now={now} />;
+    case 'code': return <Text className="font-medium">{c.code}</Text>;
+    case 'amount': return <Text>{couponAmount(c, currency, locale)}</Text>;
+    case 'discount_type': return <Text>{typeLabel(c)}</Text>;
+    case 'description': return <Text>{c.description ?? ''}</Text>;
+    case 'usage_count': return <Text testID={`coupon-usage-${c.code}`}>{usageText(c)}</Text>;
+    case 'date_expires_gmt': return <Text testID={`coupon-expiry-${c.code}`}>{gmtDayText(c.date_expires_gmt, locale)}</Text>;
     case 'status': {
       const status = c.status ?? '';
       const label = STATUS_CHOICES.find(choice => choice.value === status)?.label ?? status;
-      return <TableCell key={id} className={className}>
-        <StatusDot testID={`coupon-status-${c.code}`} tone={STATUS_TONE[status] ?? 'muted'} label={label} />
-      </TableCell>;
+      return <StatusDot testID={`coupon-status-${c.code}`} tone={STATUS_TONE[status] ?? 'muted'} label={label} />;
     }
     case 'date_created_gmt':
     case 'date_modified_gmt':
-      return <TableCell key={id} className={className}><Text testID={`coupon-${id}-${c.code}`}>{gmtDayText(c[id], locale)}</Text></TableCell>;
+      return <Text testID={`coupon-${id}-${c.code}`}>{gmtDayText(c[id], locale)}</Text>;
   }
 }
 
@@ -308,12 +317,15 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
         )) : <Table>
           <TableHeader><TableRow>
             {columns.map(({ id, label, className }) => (
-              <TableHead key={id} className={className}><Text testID={`coupons-header-${id}`}>{label}</Text></TableHead>
+              <TableHead key={id} testID={`coupons-head-${id}`} className={classes(HEAD, ALIGN[id], className)}>
+                <Text testID={`coupons-header-${id}`}>{label}</Text>
+              </TableHead>
             ))}
           </TableRow></TableHeader>
           <TableBody>
             {shown.map(c => <TableRow key={c.uuid} testID={`coupons-row-${c.code}`}>
-              {columns.map(({ id, className }) => couponCell(id, className, c, now, currency, locale))}
+              {columns.map(({ id, className }) => <TableCell key={id} testID={`coupons-cell-${id}-${c.code}`}
+                className={classes(CELL, ALIGN[id], className)}>{couponContent(id, c, now, currency, locale)}</TableCell>)}
             </TableRow>)}
           </TableBody>
         </Table>}

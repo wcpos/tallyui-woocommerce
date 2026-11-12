@@ -203,7 +203,8 @@ function renderProducts() {
   render(<ProductsScreen products={[product(1, 'Tea'), product(2, 'Americano')]} connector={connector} currency="USD" locale="en_US" onBack={vi.fn()} />,
     { wrapper: ({ children }) => <>{children}<PortalHost /></> });
 }
-const PRODUCT_DEFAULT_HEADERS = ['Image', 'Product', 'Stock', 'Stock Status', 'Categories', 'Price', 'Regular Price', 'Sale Price'];
+// v2's image column is unlabelled (initial-settings.json `hideLabel`), so `headers()` drops its empty head.
+const PRODUCT_DEFAULT_HEADERS = ['Product', 'Stock', 'Stock Status', 'Categories', 'Price', 'Regular Price', 'Sale Price'];
 
 test('Products: the display options sit before the bell', () => {
   renderProducts();
@@ -240,7 +241,7 @@ test('Products: SKU, Tags and Date Modified switched on draw their headers in pl
   toggle('products', 'sku');
   toggle('products', 'tags');
   toggle('products', 'date_modified_gmt');
-  expect(headers()).toEqual(['Image', 'Product', 'SKU', 'Stock', 'Stock Status', 'Categories', 'Tags', 'Price', 'Regular Price',
+  expect(headers()).toEqual(['Product', 'SKU', 'Stock', 'Stock Status', 'Categories', 'Tags', 'Price', 'Regular Price',
     'Sale Price', 'Date Modified']);
   expect(screen.getByTestId('product-sku-1').textContent).toBe('SKU-1');
   expect(screen.getByTestId('product-sku-2').textContent).toBe('SKU-2');

@@ -4,6 +4,7 @@ import * as ReactNative from 'react-native';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { PortalHost } from '@tallyui/primitives';
 import { ProductsScreen } from '../components/products-screen';
+import { classesOf } from './classes-of';
 import products from './fixtures/products.json';
 import variations from './fixtures/variations.json';
 
@@ -91,7 +92,9 @@ test('"N variations" drills in: the crumb, the product\'s variations on their ow
   expect(text('product-stock-quantity-104')).toBe('10');
   expect(text('product-stock-status-105')).toBe('Out of Stock');
   expect(within(surface).getAllByRole('columnheader').map(header => header.textContent))
-    .toEqual(['Image', 'Product', 'Stock', 'Stock Status', 'Categories', 'Price', 'Regular Price', 'Sale Price']);
+    .toEqual(['', 'Product', 'Stock', 'Stock Status', 'Categories', 'Price', 'Regular Price', 'Sale Price']);
+  // The variation rows centre their cells as the table's rows do.
+  for (const id of ['image', 'name', 'price']) expect(classesOf(`product-cell-${id}-106`)).toEqual(['flex-1', 'justify-center']);
   expect(text('data-table-count')).toBe('Showing 3 of 6');
   fireEvent.click(screen.getByTestId('products-breadcrumb-back'));
   expect(crumb()).toBeNull();
