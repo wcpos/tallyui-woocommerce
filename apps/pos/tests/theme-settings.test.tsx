@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { ThemeSettings, themeColumns } from '../components/settings/theme-settings';
+import { CARD_CLASSES, classesOf } from './classes-of';
 import { applyStoredTheme, isThemeChoice, readThemeChoice, THEME_CHOICES, THEME_SETTING_KEY } from '../lib/theme/theme-setting';
 
 let storage: Storage;
@@ -99,7 +100,7 @@ test('the saved choice is selected and named in the status line', () => {
   expect(screen.getByTestId('theme-option-dark').getAttribute('aria-selected')).toBe('true');
   expect(screen.getByTestId('theme-option-system').getAttribute('aria-selected')).toBe('false');
   expect(screen.getByTestId('theme-option-light').getAttribute('aria-selected')).toBe('false');
-  expect(screen.getByTestId('settings-theme-status').textContent).toBe('Current theme: Dark');
+  expect(screen.getByTestId('settings-theme-status').textContent).toBe('Current Theme: Dark');
 });
 
 test('pressing a tile saves the choice before applying it', () => {
@@ -110,7 +111,7 @@ test('pressing a tile saves the choice before applying it', () => {
   expect(Uniwind.setTheme).toHaveBeenCalledExactlyOnceWith('light');
   expect(setItem.mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(Uniwind.setTheme).mock.invocationCallOrder[0]);
   expect(screen.getByTestId('theme-option-light').getAttribute('aria-selected')).toBe('true');
-  expect(screen.getByTestId('settings-theme-status').textContent).toBe('Current theme: Light');
+  expect(screen.getByTestId('settings-theme-status').textContent).toBe('Current Theme: Light');
 });
 
 test('choosing System again follows the device', () => {
@@ -162,5 +163,46 @@ test('choosing Paper till saves and applies paper and names it in the status lin
   expect(Uniwind.setTheme).toHaveBeenCalledExactlyOnceWith('paper');
   expect(screen.getByTestId('theme-option-paper').getAttribute('aria-selected')).toBe('true');
   expect(screen.getByTestId('theme-option-system').getAttribute('aria-selected')).toBe('false');
-  expect(screen.getByTestId('settings-theme-status').textContent).toBe('Current theme: Paper till');
+  expect(screen.getByTestId('settings-theme-status').textContent).toBe('Current Theme: Paper till');
+});
+
+test('the status line reads v2\'s "Current Theme: <name>" for a chosen theme and "Following system theme" for System', () => {
+  localStorage.setItem('tallywoo.theme', 'ocean');
+  render(<ThemeSettings />);
+  expect(screen.getByTestId('settings-theme-status').textContent).toBe('Current Theme: Ocean');
+  fireEvent.click(screen.getByTestId('theme-option-system'));
+  expect(screen.getByTestId('settings-theme-status').textContent).toBe('Following system theme');
+  fireEvent.click(screen.getByTestId('theme-option-market'));
+  expect(screen.getByTestId('settings-theme-status').textContent).toBe('Current Theme: Market stall');
+});
+
+test('every theme card carries v2\'s icon above its name', () => {
+  render(<ThemeSettings />);
+  for (const name of THEME_CHOICES) {
+    const tile = screen.getByTestId(`theme-option-${name}`);
+    const icon = within(tile).getByTestId(`theme-card-${name}-icon`);
+    expect(tile.firstElementChild, name).toBe(icon);
+    expect(icon.querySelectorAll('path').length, name).toBeGreaterThan(0);
+  }
+  // v2's tabler glyphs (icon/components/tabler/wave.tsx, desktop.tsx).
+  expect(screen.getByTestId('theme-card-ocean-icon').querySelector('path')?.getAttribute('d'))
+    .toBe('M3 7q4.5-3 9 0c4.5 3 6 2 9 0M3 17q4.5-3 9 0c4.5 3 6 2 9 0M3 12q4.5-3 9 0c4.5 3 6 2 9 0');
+  expect(screen.getByTestId('theme-card-system-icon').querySelector('path')?.getAttribute('d'))
+    .toBe('M3 5a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zm4 15h10m-8-4v4m6-4v4');
+});
+
+test('no inner bordered box wraps the cards: only v2\'s flat section and measured grid sit over them', () => {
+  render(<ThemeSettings />);
+  const chain: (string | null)[] = [];
+  let node = screen.getByTestId('settings-theme-options').parentElement;
+  for (; node && chain.at(-1) !== 'screen-settings-theme'; node = node.parentElement) chain.push(node.getAttribute('data-testid'));
+  expect(chain).toEqual(['settings-theme-grid', 'settings-theme-appearance', 'screen-settings-theme']);
+  for (const testID of ['settings-theme-options', ...chain as string[]]) {
+    for (const cls of CARD_CLASSES) expect(classesOf(testID), testID).not.toContain(cls);
+  }
+  expect(classesOf('settings-theme-appearance')).toEqual(['gap-1']);
+  expect(classesOf('settings-theme-grid')).toEqual(['pt-2']);
+  // v2's `section` rank (text/ladder.ts:11): text-base, not text-sm.
+  expect(classesOf('settings-theme-appearance-heading')).toEqual(expect.arrayContaining(['text-base', 'font-semibold']));
+  expect(classesOf('settings-theme-appearance-heading')).not.toContain('text-sm');
 });
