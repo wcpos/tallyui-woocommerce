@@ -39,3 +39,10 @@ test('the All products tile draws its grid glyph at v2\'s 20 px in the primary f
   expect(mark.getAttribute('width')).toBe('20');
   expect(classesOf('browse-all-products-mark')).toContain('text-primary-foreground');
 });
+
+// R12-S2: a category's bare folder mark is v2's Icon `lg` too, 20 px (poster-tile/index.tsx:364, mark.tsx:44), at every width.
+test.each([390, 1280])('at %ipx a category draws its folder mark at v2\'s 20 px', width => {
+  renderAt(width);
+  const mark = document.querySelector('[data-testid="browse-term-25-mark"]')!;
+  expect(mark.getAttribute('width')).toBe('20');
+});

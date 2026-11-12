@@ -67,12 +67,14 @@ export function PanelResizeHandle(props: PanelResizeHandleProps): JSX.Element {
       event.preventDefault();
     },
   };
+  // v2's handle is one page gutter wide over the products column's inner edge (packages/components/src/panels/
+  // index.tsx:30-36, GUTTER_UNITS wide, zIndex 20): `w-3`, 12 px, and above the column the screen bleeds under it.
   return (
     <View {...responder.current.panHandlers} {...webProps as ViewProps}
       testID="pos-resize-handle" role="separator" aria-label="Resize products and cart"
       aria-valuemin={PRODUCTS_WIDTH_MIN} aria-valuemax={PRODUCTS_WIDTH_MAX}
       aria-valuenow={Math.round(props.width)} focusable tabIndex={0}
-      className="w-2 items-center justify-center cursor-ew-resize select-none">
+      className="z-10 w-3 items-center justify-center cursor-ew-resize select-none">
       <View className="h-8 w-1 rounded-full bg-border" />
     </View>
   );
