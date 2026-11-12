@@ -165,6 +165,22 @@ test('the class tabs are v2\'s underline tabs: the count inline, the active one 
   expect(classesOf('tax-rates-tab-standard')).not.toContain('border-primary');
 });
 
+test('the count row carries v2\'s sync icon: a 24 px button by the count, disabled with no refresh to run', () => {
+  openRates();
+  const sync = screen.getByTestId('tax-rates-sync');
+  expect(sync.parentElement).toBe(screen.getByTestId('tax-rates-count').parentElement);
+  expect(classesOf('tax-rates-sync')).toEqual(expect.arrayContaining(['h-6', 'w-6']));
+  expect(sync.getAttribute('aria-disabled')).toBe('true');
+  expect(sync.querySelector('svg')?.getAttribute('width')).toBe('14');
+});
+
+test('the tab rule runs under the tabs only, the strip inset 24 px as v2\'s scrolling list is', () => {
+  openRates();
+  const list = classesOf('tax-rates-tablist');
+  expect(list).toEqual(expect.arrayContaining(['mx-6', 'self-start', 'border-b', 'border-border']));
+  expect(list).not.toContain('mx-4');
+});
+
 test('rateTags and ratePercent follow v2', () => {
   expect(rateTags({ compound: true, shipping: false })).toBe('Compound · Not on shipping');
   expect(rateTags({ compound: false, shipping: true })).toBe('');
