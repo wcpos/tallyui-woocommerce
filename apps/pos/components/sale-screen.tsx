@@ -68,6 +68,8 @@ export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | '
   heldCartKey?: string;
   // The store's wp-admin, linked from the cashier sheet.
   adminUrl?: string;
+  // The store's home URL; picks the demo store's own wording (ADR 0007).
+  siteHome?: string;
   // Put on every new sale (v2's default customer); undefined while the app resolves it.
   defaultCustomer?: CustomerSummary | null;
 }
@@ -446,7 +448,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             orderActions={false} coupons={props.couponCollections?.coupons ?? null} couponsOffered={couponsOffered}
             // B5/B6: v2's cart head row starts with the customer chip; Add new customer is in the + menu.
             customer={props.customers ? <CustomerPicker source={props.customers} customer={sale.order.customer ?? null} onChange={sale.setCustomer} /> : null}
-            customers={props.customers ?? null} createCustomersBlockedReason={createCustomersBlockedReason(effective)}
+            customers={props.customers ?? null} createCustomersBlockedReason={createCustomersBlockedReason(effective, props.siteHome)}
             checkout={checkout}
             position={viewState.position} onPositionChange={position => setViewState({ ...viewState, position })}
             openOrders={<OpenOrderTabs parked={parked} current={sale.order} currency={currency} locale={props.locale} onSelect={onResume} onNew={onPark} onError={setMessage}

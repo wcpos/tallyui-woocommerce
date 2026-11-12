@@ -33,6 +33,6 @@ export default function GeneralSettingsRoute() {
   );
   return <GeneralSettings store={catalogue.store} siteHome={session.site.home} defaultCustomer={{
     setting, customer: chosen, source: customers, onChange: save,
-    createBlockedReason: createCustomersBlockedReason(catalogue.cashier),
+    createBlockedReason: createCustomersBlockedReason(catalogue.cashier, session.site.home),
   }} />;
 }

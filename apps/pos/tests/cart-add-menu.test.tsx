@@ -14,7 +14,7 @@ import type { CommandTransport } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
 import { SaleScreen } from '../components/sale-screen';
 import { Toaster } from '../components/toaster';
-import { CREATE_CUSTOMERS_DENIED, type CashierCapabilities } from '../lib/auth/capabilities';
+import { CREATE_CUSTOMERS_DENIED, CREATE_CUSTOMERS_DENIED_DEMO, DEMO_STORE_HOME, type CashierCapabilities } from '../lib/auth/capabilities';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { dismissToast } from '../lib/toast/toast';
 import { SessionProvider } from '../lib/auth/session-context';
@@ -70,7 +70,7 @@ afterEach(async () => {
 });
 
 async function renderTill(capabilities: ServerCapabilities = COUPONS,
-  customer: Pick<ComponentProps<typeof SaleScreen>, 'customers' | 'cashier'> = {}) {
+  customer: Pick<ComponentProps<typeof SaleScreen>, 'customers' | 'cashier' | 'siteHome'> = {}) {
   let register!: ReturnType<typeof useRegister>;
   let outbox!: ReturnType<typeof useOutbox>;
   function Probe() { register = useRegister(); outbox = useOutbox(); return null; }
@@ -264,12 +264,13 @@ test('without customers there is no Add new customer item', async () => {
   expect(screen.queryByText('Add new customer')).toBeNull();
 }, 20_000);
 
-test.each<{ name: string; cashier?: CashierCapabilities; reason: string }>([
+test.each<{ name: string; cashier?: CashierCapabilities; siteHome?: string; reason: string }>([
   { name: 'permissions not read', cashier: undefined, reason: 'Your permissions have not been read from the store.' },
   { name: 'create_customers denied', cashier: { known: true, granted: [] }, reason: CREATE_CUSTOMERS_DENIED },
-])('Add new customer is disabled and says why ($name)', async ({ cashier, reason }) => {
+  { name: 'create_customers denied on the demo store', cashier: { known: true, granted: [] }, siteHome: DEMO_STORE_HOME, reason: CREATE_CUSTOMERS_DENIED_DEMO },
+])('Add new customer is disabled and says why ($name)', async ({ cashier, siteHome, reason }) => {
   const customers = customerSource();
-  await renderTill(COUPONS, { customers, cashier });
+  await renderTill(COUPONS, { customers, cashier, siteHome });
   fireEvent.click(screen.getByTestId('cart-add-menu'));
   const item = screen.getByTestId('cart-add-menu-customer');
   expect(item.getAttribute('aria-disabled')).toBe('true');

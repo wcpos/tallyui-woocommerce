@@ -19,6 +19,10 @@ export interface UserCapabilities {
 }
 
 export const CREATE_CUSTOMERS_DENIED: string = "You don't have permission to create customers. An administrator can grant it in WP Admin > POS > Settings > Access.";
+// The public demo's store (ADR 0007): its cashier is locked down, so no one on the demo can grant this.
+export const DEMO_STORE_HOME = 'https://tally-woo-demo.wcpos.com';
+// The demo's denied message does not suggest asking an administrator to grant access.
+export const CREATE_CUSTOMERS_DENIED_DEMO: string = 'Creating customers is turned off on this demo store.';
 
 export async function fetchCashierCapabilities(
   session: Session, headers: Record<string, string>, fetchImpl: typeof fetch = fetch,
@@ -66,7 +70,8 @@ export function deriveUserCapabilities(cashier: CashierCapabilities): UserCapabi
   };
 }
 
-export function createCustomersBlockedReason(cashier: CashierCapabilities): string | undefined {
+export function createCustomersBlockedReason(cashier: CashierCapabilities, siteHome?: string): string | undefined {
   if (!cashier.known) return cashier.reason;
-  return deriveUserCapabilities(cashier).canCreateCustomers ? undefined : CREATE_CUSTOMERS_DENIED;
+  if (deriveUserCapabilities(cashier).canCreateCustomers) return undefined;
+  return siteHome === DEMO_STORE_HOME ? CREATE_CUSTOMERS_DENIED_DEMO : CREATE_CUSTOMERS_DENIED;
 }

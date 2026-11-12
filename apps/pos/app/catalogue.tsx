@@ -67,6 +67,7 @@ export default function Catalogue() {
       products={products}
       storeName={catalogue.store.name}
       adminUrl={`${session.site.home}/wp-admin`}
+      siteHome={session.site.home}
       cashierName={session.tokens.user.displayName}
       cashierRef={String(session.tokens.user.id)}
       cashiers={cashiers.map(c => ({ uuid: c.tokens.user.uuid, name: c.tokens.user.displayName }))}

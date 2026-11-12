@@ -268,9 +268,10 @@ deliberately outside it, re-checked against the v2 release tag.
 - **D4: hosting for testers. Decided 2026-10-05 by the front desk:**
   Vercel, team `wcpos`, as `medusapos/app` does
   ([ADR 0002](adr/0002-hosting-on-vercel.md)).
-- **D5: testers' stores. Decided 2026-10-05 by the front desk:** the demo
-  runs against this Mac mini's dev store, exposed read-only through
-  Tailscale Funnel ([ADR 0003](adr/0003-demo-store-through-funnel.md)).
+- **D5: testers' stores. Decided 2026-11-12 by Paul, through the front desk:** the public demo uses
+  `https://tally-woo-demo.wcpos.com`, while the Mac mini dev store's Funnel
+  address is for local development and captures only
+  ([ADR 0007](adr/0007-demo-store-on-the-vps.md)).
   Testers may still bring their own store: HTTPS, the WCPOS Free plugin
   (under D1 (b)), and a host that does not strip the plugin's headers.
 - **D6: WCPOS builds on the dev store (Pro before M4, `next` before
@@ -298,10 +299,11 @@ never created on the Coolify VPS.
   php-fpm (Homebrew's `php@8.3` is keg-only, so the scripts call it by
   path), MariaDB, WP-CLI, and Caddy as the web server, installed with
   Homebrew on 2026-10-05.
-- **HTTPS through Tailscale Funnel.** The store's URL is
-  `https://claudes-mac-mini.tail6a20e3.ts.net:10000`; Funnel terminates
-  TLS and forwards to Caddy's public filter listener, so no local CA is
-  needed ([ADR 0003](adr/0003-demo-store-through-funnel.md)).
+- **HTTPS through Tailscale Funnel.** The dev store's Funnel address,
+  `https://claudes-mac-mini.tail6a20e3.ts.net:10000`, is for local development
+  and captures, with TLS terminated at Funnel and forwarded to Caddy's public
+  filter listener so no local CA is needed; the public demo uses
+  `https://tally-woo-demo.wcpos.com` ([ADR 0007](adr/0007-demo-store-on-the-vps.md)).
 - **Ports and sockets:** Caddy on `127.0.0.1:8480` (full access, local
   only) and `127.0.0.1:8481` (the public filter Funnel points at);
   MariaDB on `127.0.0.1:3306`; php-fpm on a Unix socket, because port
