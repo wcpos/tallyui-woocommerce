@@ -22,7 +22,8 @@ export function DatabaseStats({ counts, storageBytes, waiting }: {
   const ready = typeof products === 'number' && isReadyToSell(products);
   const storage = formatBytes(storageBytes);
   return (
-    <View testID="db-stats" className="flex-row flex-wrap gap-x-8 gap-y-3">
+    // v2's StatHeader (components/src/stat/index.tsx:75): a hairline under the figures, `border-b border-border pb-3`.
+    <View testID="db-stats" className="flex-row flex-wrap gap-x-8 gap-y-3 border-b border-border pb-3">
       <Stat testID="db-stat-ready" value={ready ? '✓ Ready to sell' : 'Preparing…'} tone={ready ? 'text-success' : ''}
         label="catalog & open orders local" />
       <Stat testID="db-stat-records" value={String(totalLocalRecords(counts))} label="records on this device" />

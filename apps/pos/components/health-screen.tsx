@@ -25,7 +25,9 @@ export function HealthScreen({ receiptEmails, collections }: {
   // The Store health area (app/health/_layout.tsx) draws the scroll, the page title and the way back.
   return (
     <View testID="screen-health-database">
-      <Text className="mb-4">Your store, on this device — sales keep working even if your server does not.</Text>
+      {/* v2's AreaPage description (core/src/screens/main/health/database.tsx:637; navigation-area/area-page.tsx:50) is
+          Text `help` (components/src/text/ladder.ts:15): `text-muted-foreground text-xs`. */}
+      <Text testID="db-subtitle" className="mb-4 text-xs text-muted-foreground">Your store, on this device — sales keep working even if your server does not.</Text>
       <View className="gap-4">
         <DatabaseStats counts={counts} storageBytes={storageBytes} waiting={outbox.enabled ? outbox.state.pending : 0} />
         {/* v2 database.tsx: the attention panel follows the stat strip. */}

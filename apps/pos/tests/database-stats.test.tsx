@@ -75,3 +75,8 @@ test('useStorageEstimate is null without navigator.storage', () => {
   const { result } = renderHook(() => useStorageEstimate());
   expect(result.current).toBeNull();
 });
+
+test('v2\'s StatHeader rule: a border under the figures, with its pb-3', () => {
+  render(<DatabaseStats counts={{ products: 1 }} storageBytes={null} waiting={0} />);
+  expect(classesOf('db-stats')).toEqual(expect.arrayContaining(['border-b', 'border-border', 'pb-3']));
+});
