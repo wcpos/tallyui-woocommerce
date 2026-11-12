@@ -96,7 +96,7 @@ test('the Tax Rates section holds only the View all tax rates button', () => {
 
 test('View all opens the dialog: a tab per class with its count, and the standard rates in seven columns', () => {
   const dialog = openRates();
-  expect(dialog.getByText('Tax rates')).not.toBeNull();
+  expect(dialog.getByTestId('tax-rates-title').textContent).toBe('Tax Rates');
   expect(dialog.getByRole('tablist')).not.toBeNull();
   expect(taxClassSlugs.map(slug => screen.getByTestId(`tax-rates-tab-${slug}`).textContent))
     .toEqual(['Standard2', 'Reduced rate1', 'Zero rate0']);
@@ -141,6 +141,28 @@ test('Close closes the dialog', () => {
   expect(classesOf('tax-rates-close')).toContain('h-11');
   fireEvent.click(screen.getByTestId('tax-rates-close'));
   expect(screen.queryByTestId('tax-rates-dialog')).toBeNull();
+});
+
+test('the header × closes the dialog, as v2\'s does', () => {
+  openRates();
+  expect(classesOf('tax-rates-close-x')).toEqual(expect.arrayContaining(['h-11', 'w-11']));
+  fireEvent.click(screen.getByTestId('tax-rates-close-x'));
+  expect(screen.queryByTestId('tax-rates-dialog')).toBeNull();
+});
+
+test('the class tabs are v2\'s underline tabs: the count inline, the active one underlined in primary', () => {
+  const dialog = openRates();
+  expect(classesOf('tax-rates-tab-standard')).toEqual(expect.arrayContaining(['border-b-2', 'border-primary', 'bg-transparent']));
+  expect(classesOf('tax-rates-tab-reduced-rate')).toEqual(expect.arrayContaining(['border-b-2', 'border-transparent']));
+  expect(classesOf('tax-rates-tab-reduced-rate')).not.toContain('border-primary');
+  // The count is a sibling Text on the trigger's row (v2 tabs/index.tsx:343 `flex-row`), not a line under the name.
+  const [name, count] = Array.from(screen.getByTestId('tax-rates-tab-standard').children);
+  expect([name?.textContent, count?.textContent]).toEqual(['Standard', '2']);
+  for (const slug of taxClassSlugs) expect(classesOf(`tax-rates-tab-${slug}`)).toContain('flex-row');
+  expect(dialog.getByRole('tablist')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('tax-rates-tab-reduced-rate'));
+  expect(classesOf('tax-rates-tab-reduced-rate')).toContain('border-primary');
+  expect(classesOf('tax-rates-tab-standard')).not.toContain('border-primary');
 });
 
 test('rateTags and ratePercent follow v2', () => {

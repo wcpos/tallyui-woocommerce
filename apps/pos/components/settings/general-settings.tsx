@@ -1,6 +1,7 @@
 import { useState, type JSX } from 'react';
 import { Linking, View } from 'react-native';
-import { Button, Switch, Text } from '@tallyui/components';
+import { Path } from 'react-native-svg';
+import { Button, createSvgIcon, Switch, Text } from '@tallyui/components';
 import type { CustomerSummary } from '@tallyui/pos';
 import type { CurrencyPosition, StoreInfo } from '../../lib/catalogue/store-info';
 import type { CustomerSource } from '../../lib/customers/customer-source';
@@ -14,6 +15,9 @@ export function wooSettingsUrl(siteHome: string): string {
   return `${siteHome.replace(/\/+$/, '')}/wp-admin/admin.php?page=wc-settings`;
 }
 
+// v2's tabler `openExternal` glyph at its 1.5 stroke (components icon/components/tabler/openExternal.tsx:14).
+const OpenExternalIcon = createSvgIcon('OpenExternalIcon', () => <Path d="M12 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6m-7 1 9-9m-5 0h5v5" />);
+
 export function LockedRow({ testID, label, value, href }: {
   testID: string; label: string; value: string | boolean | undefined; href: string;
 }) {
@@ -22,7 +26,13 @@ export function LockedRow({ testID, label, value, href }: {
     <SettingsField testID={testID} label={label} trailing={<>
       <Text className={SETTINGS_KEY_CLASS}>Set in WooCommerce</Text>
       <Button variant="link" size="sm" accessibilityRole="link" testID={`${testID}-open`}
-        onPress={() => { void Linking.openURL(href); }}><Text>Open</Text></Button>
+        onPress={() => { void Linking.openURL(href); }}>
+        {/* v2 docs-link/index.tsx:38-47: "Open", then the ↗ at Icon size `xs` (icon/index.tsx:28, size-3.5: 14) in an xs (gap-1) HStack. */}
+        <View className="flex-row items-center gap-1">
+          <Text>Open</Text>
+          <OpenExternalIcon testID={`${testID}-open-icon`} size={14} strokeWidth={1.5} className="text-primary" />
+        </View>
+      </Button>
     </>}>
       {/* v2 PropertyRow (l.125-135): a locked boolean is a disabled switch, an empty locked value a dash. */}
       {typeof value === 'boolean'
@@ -40,6 +50,18 @@ export function countryLabel(code: string | undefined): string | undefined {
     return name ? `${name} (${code})` : code;
   } catch {
     return code;
+  }
+}
+
+// v2's Language select (general.tsx:288-293, language-select.tsx:23-30) shows the language's name: "English (US)"
+// for en-US, as the demo reads (`short` + `standard`; the default answers "American English"). The bare code when Intl
+// has no DisplayNames or rejects the tag (a WordPress `en_US`).
+export function languageLabel(locale: string | undefined): string | undefined {
+  if (!locale) return undefined;
+  try {
+    return new Intl.DisplayNames([locale], { type: 'language', style: 'short', languageDisplay: 'standard' }).of(locale) || locale;
+  } catch {
+    return locale;
   }
 }
 
@@ -77,8 +99,9 @@ function DefaultCustomerRows({ setting, customer, source, onChange }: DefaultCus
             <Text>{shown ? shown.name : 'Guest'}</Text></Button>}
       </SettingsField>
       {/* v2 general.tsx:324-328: a control with no value is the value (property-row/index.tsx:143). */}
-      <SettingsField testID="settings-general-default_customer_is_cashier" label="Default Customer is cashier">
-        <Switch testID="settings-general-default_customer_is_cashier-switch" accessibilityLabel="Default Customer is cashier"
+      {/* v2 core.json:1744 reads "Default Customer is cashier"; the demo's "Cashier" wins. */}
+      <SettingsField testID="settings-general-default_customer_is_cashier" label="Default Customer is Cashier">
+        <Switch testID="settings-general-default_customer_is_cashier-switch" accessibilityLabel="Default Customer is Cashier"
           checked={setting.isCashier} onCheckedChange={isCashier => onChange({ ...setting, isCashier })} />
       </SettingsField>
     </>
@@ -104,7 +127,7 @@ export function GeneralSettings(props: {
         <LockedRow testID="settings-general-locked-store_postcode" label="Store Base Postcode" value={address?.postcode} href={href} />
       </SettingsSection>
       <SettingsSection title="Localization" testID="settings-general-localization">
-        <LockedRow testID="settings-general-locked-locale" label="Language" value={props.store.locale} href={href} />
+        <LockedRow testID="settings-general-locked-locale" label="Language" value={languageLabel(props.store.locale)} href={href} />
         {props.defaultCustomer ? <DefaultCustomerRows {...props.defaultCustomer} /> : null}
       </SettingsSection>
       {/* Locked: @tallyui/components formats cart money from the locale only, so an edited format would not reach

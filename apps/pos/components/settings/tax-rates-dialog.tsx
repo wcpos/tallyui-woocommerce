@@ -1,14 +1,14 @@
 import { useState, type JSX } from 'react';
 import { ScrollView, View } from 'react-native';
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Select, SelectContent, SelectGroup, SelectItem,
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, IconButton, Select, SelectContent, SelectGroup, SelectItem,
   SelectTrigger, SelectValue, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Tabs, TabsContent, TabsList,
-  TabsTrigger, Text,
+  TabsTrigger, Text, XIcon,
 } from '@tallyui/components';
 import type { StoreTaxRate } from '@tallyui/core';
 import { useIsWide } from '../../lib/layout/wide';
 import { taxClassOptions } from '../../lib/sale/tax-classes';
-import { SheetCloseButton } from '../catalogue-display-options';
+import { SHEET_TITLE, SheetCloseButton } from '../catalogue-display-options';
 import { ChevronDownIcon, SELECT_FACE } from '../select-chevron';
 import { SETTINGS_HELP_CLASS, SETTINGS_KEY_CLASS } from './settings-form';
 
@@ -99,14 +99,24 @@ export function TaxRatesDialog({ rates, taxClassSlugs, onClose }: {
   return (
     <Dialog open onOpenChange={next => { if (!next) onClose(); }}>
       <DialogContent testID="tax-rates-dialog" className={SHEET}>
-        <DialogHeader className="px-4"><DialogTitle>Tax rates</DialogTitle></DialogHeader>
+        {/* v2 dialog/index.tsx:238-246: DialogHeader `pl-4 pr-ctl`, the title at the dialog rank (SHEET_TITLE). v2's string
+            is "Tax rates" (core.json:1928); the demo's "Tax Rates" wins. */}
+        <DialogHeader className="pl-4 pr-11"><DialogTitle testID="tax-rates-title" className={SHEET_TITLE}>Tax Rates</DialogTitle></DialogHeader>
+        {/* v2 dialog/index.tsx:213-233: the header × is an absolute h-ctl square at top-1 right-1, an 18 px glyph. */}
+        <View className="absolute right-1 top-1">
+          <IconButton variant="ghost" className="h-11 w-11" testID="tax-rates-close-x" accessibilityLabel="Close" onPress={onClose}><XIcon size={18} /></IconButton>
+        </View>
         {/* v2 tax-rates.tsx:145-152: a min-h-0 flex-1 View round the Tabs (TallyUI's Tabs root takes no className). */}
         <View className="min-h-0 flex-1"><Tabs value={value} onValueChange={setValue}>
           {wide ? (
-            <TabsList className="mx-4 flex-row self-start">
-              {/* v2 tax-rates.tsx:122-134: the count is its own Text, outside the class name. */}
+            // v2 tabs/index.tsx:112-116: underline tabs, a bottom rule across the strip; TallyUI's TabsList is a muted
+            // box (no underline variant in 3.18.0), so the classes clear it.
+            <TabsList className="mx-4 h-auto flex-row items-end justify-start gap-1 rounded-none border-b border-border bg-transparent p-0">
+              {/* v2 tax-rates.tsx:122-134: the count is its own Text, inline after the class name. */}
               {groups.map(group => (
-                <TabsTrigger key={group.slug} value={group.slug} testID={`tax-rates-tab-${group.slug}`} className="gap-1">
+                <TabsTrigger key={group.slug} value={group.slug} testID={`tax-rates-tab-${group.slug}`}
+                  // v2 tabs/index.tsx:341-346: h-ctl, -mb-px, a 2 px underline, primary when active and transparent when not.
+                  className={`-mb-px h-11 flex-row gap-1 rounded-none border-b-2 bg-transparent px-3 py-0 shadow-none ${group.slug === value ? 'border-primary' : 'border-transparent'}`}>
                   <Text>{group.name}</Text>
                   <Text className="font-normal tabular-nums text-muted-foreground">{group.rates.length}</Text>
                 </TabsTrigger>
