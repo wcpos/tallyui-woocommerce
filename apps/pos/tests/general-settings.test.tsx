@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { PortalHost } from '@tallyui/primitives';
-import { GeneralSettings, countryLabel, type DefaultCustomerControl } from '../components/settings/general-settings';
+import { GeneralSettings, countryLabel, languageLabel, type DefaultCustomerControl } from '../components/settings/general-settings';
 import { TaxSettings } from '../components/settings/tax-settings';
 import type { DefaultCustomerSetting } from '../lib/customers/default-customer';
 import { classesOf } from './classes-of';
@@ -61,8 +61,10 @@ const defaultRow = () => within(screen.getByTestId('settings-general-default_cus
 test('Default Customer and "is cashier" sit under Localization after Language, with v2\'s help text', () => {
   renderDefaultCustomer({ customerId: 0, isCashier: false });
   const localization = within(screen.getByTestId('settings-general-localization'));
-  expect(localization.getAllByText(/^(Language|Default Customer|Default Customer is cashier)$/).map(node => node.textContent))
-    .toEqual(['Language', 'Default Customer', 'Default Customer is cashier']);
+  // The demo's "Cashier", capitalised (v2's core.json string is lower case).
+  expect(localization.getAllByText(/^(Language|Default Customer|Default Customer is Cashier)$/).map(node => node.textContent))
+    .toEqual(['Language', 'Default Customer', 'Default Customer is Cashier']);
+  expect(screen.getByLabelText('Default Customer is Cashier')).not.toBeNull();
   expect(defaultRow().getByText('Pre-selected on every new cart.')).not.toBeNull();
   expect(localization.getByTestId('settings-general-default_customer_is_cashier')).not.toBeNull();
 });
@@ -171,6 +173,30 @@ test('no section boxes its rows: they sit flat on the page card, later sections 
   render(<TaxSettings settings={{ pricesIncludeTax: true }} siteHome={siteHome} />);
   expect(classesBetween('settings-tax-locked-calc_taxes', 'settings-tax-calculation')).not.toContain('border');
   expect(classesOf('settings-tax-locked-calc_taxes-label')).toContain('text-muted-foreground');
+});
+
+test('Language reads the language name, and the bare code when Intl cannot name it', () => {
+  render(<GeneralSettings store={{ ...store, locale: 'en-US' }} siteHome={siteHome} />);
+  expect(value('locale')).toBe('English (US)');
+  expect(languageLabel('fr-FR')).toBe('français (France)');
+  // A WordPress `en_US` is no BCP 47 tag, and Intl throws; so does a runtime with no DisplayNames.
+  expect(languageLabel('en_US')).toBe('en_US');
+  expect(languageLabel(undefined)).toBeUndefined();
+  cleanup();
+  vi.spyOn(Intl, 'DisplayNames').mockImplementation(() => { throw new TypeError('Intl.DisplayNames is not a constructor'); });
+  render(<GeneralSettings store={{ ...store, locale: 'en-US' }} siteHome={siteHome} />);
+  expect(value('locale')).toBe('en-US');
+});
+
+test('each Open link ends in v2\'s ↗ (tabler openExternal at 14 px), on General and Tax alike', () => {
+  render(<GeneralSettings store={store} siteHome={siteHome} />);
+  const icon = within(screen.getByTestId('settings-general-locked-locale-open')).getByTestId('settings-general-locked-locale-open-icon');
+  expect(icon.querySelector('path')?.getAttribute('d')).toBe('M12 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6m-7 1 9-9m-5 0h5v5');
+  expect(icon.getAttribute('width')).toBe('14');
+  expect(screen.getByTestId('settings-general-locked-locale-open').textContent).toBe('Open');
+  cleanup();
+  render(<TaxSettings settings={{ pricesIncludeTax: true }} siteHome={siteHome} />);
+  expect(screen.getByTestId('settings-tax-locked-calc_taxes-open-icon')).not.toBeNull();
 });
 
 test('countryLabel names the region, and falls back for a code Intl cannot name', () => {

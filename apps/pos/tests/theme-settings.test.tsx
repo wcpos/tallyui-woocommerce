@@ -202,6 +202,10 @@ test('no inner bordered box wraps the cards: only v2\'s flat section and measure
   }
   expect(classesOf('settings-theme-appearance')).toEqual(['gap-1']);
   expect(classesOf('settings-theme-grid')).toEqual(['pt-2']);
+  // v2's stacked status row (property-row/index.tsx:150-166): 44 tall with py-1, the line at its top, not centred in a
+  // min-h-9, so with the section's gap-1 and the grid's pt-2 the cards start where v2's do.
+  expect(classesOf('settings-theme-status-row')).toEqual(['min-h-11', 'py-1']);
+  expect(screen.getByTestId('settings-theme-status-row').nextElementSibling?.getAttribute('data-testid')).toBe('settings-theme-grid');
   // v2's `section` rank (text/ladder.ts:11): text-base, not text-sm.
   expect(classesOf('settings-theme-appearance-heading')).toEqual(expect.arrayContaining(['text-base', 'font-semibold']));
   expect(classesOf('settings-theme-appearance-heading')).not.toContain('text-sm');

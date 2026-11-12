@@ -75,8 +75,11 @@ export function ThemeSettings(): JSX.Element {
           <Text className="text-xs text-muted-foreground">Choose a theme for the app. Custom themes provide different color schemes.</Text>
         </View>
         {/* v2's status line is a stacked PropertyRow key (theme.tsx:131-139). The demo reads "Current Theme: Light";
-            v2 says "Following system theme" while it follows the device and names no resolved theme. */}
-        <View className="min-h-9 justify-center py-1">
+            v2 says "Following system theme" while it follows the device and names no resolved theme.
+            v2's stacked row (property-row/index.tsx:150-166) is py-1 round a min-h-9 key column whose wrapped line packs at
+            its top, then gap-1 and an empty value: 48 tall, the key at its top. Here the row is 44 (`min-h-11 py-1`, the
+            line at the top) and the section's gap-1 makes the 48, so the cards start 44 below the line's middle, not 30. */}
+        <View testID="settings-theme-status-row" className="min-h-11 py-1">
           <Text testID="settings-theme-status" className="text-sm text-muted-foreground">
             {choice === 'system' ? 'Following system theme' : `Current Theme: ${label}`}
           </Text>
