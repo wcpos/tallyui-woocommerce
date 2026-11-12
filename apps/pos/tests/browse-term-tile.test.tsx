@@ -31,3 +31,11 @@ test('at 1280 px the term tile keeps its name size and inset', () => {
   expect(classesOf('browse-all-products-words')).toEqual(expect.arrayContaining(['px-2.5', 'pb-2.5', 'pt-2']));
   expect(classesOf('browse-all-products-words')).not.toContain('px-[8.75px]');
 });
+
+// P13-S2: v2's bare mark on the filled tile is the Icon's `lg`, 20 px, in the tile's ink (mark.tsx:44, icon/index.tsx:30).
+test('the All products tile draws its grid glyph at v2\'s 20 px in the primary foreground', () => {
+  renderAt(1280);
+  const mark = document.querySelector('[data-testid="browse-all-products-mark"]')!;
+  expect(mark.getAttribute('width')).toBe('20');
+  expect(classesOf('browse-all-products-mark')).toContain('text-primary-foreground');
+});

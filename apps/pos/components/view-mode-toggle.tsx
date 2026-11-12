@@ -24,7 +24,10 @@ export function ViewModeToggle({ view, onChange }: { view: CatalogueViewMode; on
       {/* h-11 w-11: v2's IconButton `size-ctl`, 44 px (monorepo packages/components/src/icon-button/index.tsx:26). */}
       <IconButton testID="view-mode-toggle" variant="ghost" className="h-11 w-11" accessibilityLabel={label}
         onPress={() => onChange(view === 'table' ? 'grid' : 'table')}>
-        {view === 'table' ? <GridIcon size={20} className="text-foreground" /> : <ListIcon size={20} className="text-foreground" />}
+        {/* v2's IconButton glyph: the Icon's default size, 18 px (icon/index.tsx:27 `size-4.5`, icon-button/index.tsx:88),
+            muted at rest (icon-button/index.tsx:93). */}
+        {view === 'table' ? <GridIcon testID="view-mode-toggle-icon" size={18} className="text-muted-foreground" />
+          : <ListIcon testID="view-mode-toggle-icon" size={18} className="text-muted-foreground" />}
       </IconButton>
     </TooltipTrigger>
     <TooltipContent><Text>{label}</Text></TooltipContent>
