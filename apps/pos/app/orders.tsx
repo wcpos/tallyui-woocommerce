@@ -7,6 +7,7 @@ import { SessionHoldBanner } from '../components/session-hold-banner';
 import { useSession } from '../lib/auth/session-context';
 import { useCatalogue } from '../lib/catalogue/catalogue-context';
 import { orderHistorySource } from '../lib/orders/order-history';
+import { customerSource } from '../lib/customers/customer-source';
 
 export default function Orders() {
   const { session, ready } = useSession();
@@ -15,11 +16,13 @@ export default function Orders() {
   const latest = useRef(session);
   latest.current = session;
   const connector = catalogue?.connector;
-  const history = useMemo(() => connector ? orderHistorySource(connector, () => ({
-    connectorId: connector.id,
+  const context = useMemo(() => () => ({
+    connectorId: connector!.id,
     baseUrl: latest.current!.site.wcposApiUrl,
-    headers: connector.auth.getHeaders({ token: latest.current!.tokens.accessToken }),
-  })) : null, [connector]);
+    headers: connector!.auth.getHeaders({ token: latest.current!.tokens.accessToken }),
+  }), [connector]);
+  const history = useMemo(() => connector ? orderHistorySource(connector, context) : null, [connector, context]);
+  const customers = useMemo(() => connector ? customerSource(connector, context) : null, [connector, context]);
   if (!ready) return null;
   if (!session) return <Redirect href="/connect" />;
   if (!catalogue) return (
@@ -31,5 +34,6 @@ export default function Orders() {
     </>
   );
   return <><SessionHoldBanner /><OrdersScreen onBack={() => { router.canGoBack() ? router.back() : router.replace('/catalogue'); }}
-    history={history} storeName={catalogue.store.name} cashierName={session.tokens.user.displayName} /></>;
+    history={history} storeName={catalogue.store.name} cashierName={session.tokens.user.displayName} cashierId={String(session.tokens.user.id)}
+    onCustomerSearch={customers ? text => customers.search(text).then(found => found.map(({ id, name }) => ({ id, name }))) : undefined} /></>;
 }
