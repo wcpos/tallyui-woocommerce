@@ -92,6 +92,7 @@ test('the open page description is small and muted inside its heading, above the
   const items = [
     { href: '/described', label: 'Described', testID: 'nav-described', description: 'Page help' },
     { href: '/plain', label: 'Plain', testID: 'nav-plain' },
+    { href: '/empty', label: 'Empty', testID: 'nav-empty', description: '' },
   ];
   const { rerender } = render(
     <SettingsArea wide items={items} currentHref="/described" onNavigate={vi.fn()} onBack={vi.fn()}><Text>body</Text></SettingsArea>
@@ -103,6 +104,9 @@ test('the open page description is small and muted inside its heading, above the
   expect(within(screen.getByTestId('settings-page-body')).queryByTestId('settings-page-description')).toBeNull();
   rerender(<SettingsArea wide items={items} currentHref="/plain" onNavigate={vi.fn()} onBack={vi.fn()}><Text>body</Text></SettingsArea>);
   expect(screen.queryByTestId('settings-page-description')).toBeNull();
+  rerender(<SettingsArea wide items={items} currentHref="/empty" onNavigate={vi.fn()} onBack={vi.fn()}><Text>body</Text></SettingsArea>);
+  expect(screen.queryByTestId('settings-page-description')).toBeNull();
+  expect(screen.getByTestId('settings-page-title').parentElement?.children).toHaveLength(1);
 });
 
 test('pressing a nav item navigates to its page', () => {

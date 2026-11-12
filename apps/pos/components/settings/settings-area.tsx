@@ -47,7 +47,7 @@ export function SettingsArea({ items, currentHref, onNavigate, onBack, wide, tit
           {title !== undefined && (
             <View className="gap-0.5 px-4 pt-4 pb-3">
               <Text testID={`${id}-page-title`} role="heading" aria-level={1} className="text-xl font-semibold">{title}</Text>
-              {description && <Text testID={`${id}-page-description`} className="text-xs text-muted-foreground">{description}</Text>}
+              {!!description && <Text testID={`${id}-page-description`} className="text-xs text-muted-foreground">{description}</Text>}
             </View>
           )}
           <View testID={`${id}-page-body`} className="border-t border-border p-4">{children}</View>
