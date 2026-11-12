@@ -15,6 +15,7 @@ import type { CatalogueFilters, QuickFilter } from '../lib/catalogue/quick-filte
 import { optionsLabel } from '../lib/catalogue/tile-words';
 import type { TileTax } from '../lib/catalogue/tile-words';
 import { needsAnyPick, variantMatchesStock } from '../lib/catalogue/variation-match';
+import { useIsWide } from '../lib/layout/wide';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { categoriesLabel, categoryTerms, filtersAtBaseline, productsInCategory, productsLabel } from '../lib/catalogue/browse-terms';
 import { BrowseCrumb, BrowseRootGrid, BrowseRootTable, ParentTermTile } from './browse-terms-view';
@@ -198,7 +199,12 @@ export function CatalogueView({
     setQuickFilters(next);
   }
   // v2's PageBar: the search fills the row, the view toggle and Product settings sit beside it, the chips below.
-  const searchSlot = <View className="gap-2">
+  // In a window v2's bar row sits the page gutter under the column's top (page-bar/index.tsx:86 `ground.pt`) and
+  // its ChipRow pads the gutter all round (chip-row/index.tsx:29 `useGround().p`, ground.ts:46-58): 12 px over the
+  // search, between it and the chips, and under the chips. TallyUI's slot pads 8 above and below (`py-2`), so this
+  // adds 4 to each. A phone keeps its own spacing (v2's 16 there, ground.ts:60-72, is a change of its own).
+  const wide = useIsWide();
+  const searchSlot = <View testID="catalogue-search-slot" className={wide ? 'gap-3 pt-1 pb-1' : 'gap-2'}>
     <View className="flex-row items-center gap-2">
       {/* h-11: v2's control height `h-ctl`, 44 px (monorepo apps/main/global.css:40), over TallyUI's 40. */}
       <SearchInput testID="catalogue-search" className="h-11 flex-1" value={term} onChangeText={setTerm} placeholder="Search products"

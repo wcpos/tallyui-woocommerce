@@ -267,6 +267,24 @@ test('v2 insets and controls: no column padding, a 44 px search row and 44 px ch
   expect(classesOf('filter-pill-on_sale')).not.toContain('h-9');
 });
 
+// P13-S2: v2's bar row a page gutter under the column's top and its ChipRow's gutter all round (page-bar/index.tsx:86,
+// chip-row/index.tsx:29): 4 over TallyUI's py-2 above and below, 12 between the rows. A phone keeps its own spacing.
+test.each([[1280, ['gap-3', 'pt-1', 'pb-1']], [390, ['gap-2']]])('v2 head rhythm at %ipx: 4 px over TallyUI\'s slot padding and 12 between the rows in a window', (width, classes) => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width, height: 800, scale: 1, fontScale: 1 });
+  render(<CatalogueView {...props} />);
+  expect(classesOf('catalogue-search-slot')).toEqual(classes);
+});
+
+// P13-S2: v2's IconButton glyph, the Icon's default 18 px, muted at rest (icon/index.tsx:27, icon-button/index.tsx:93).
+test('the view toggle and Product settings glyphs are v2\'s 18 px in the muted foreground', () => {
+  render(<CatalogueView {...props} />);
+  for (const id of ['view-mode-toggle-icon', 'catalogue-settings-button-icon']) {
+    expect(screen.getByTestId(id).getAttribute('width')).toBe('18');
+    expect(classesOf(id)).toContain('text-muted-foreground');
+    expect(classesOf(id)).not.toContain('text-foreground');
+  }
+});
+
 test('the view toggle switches the grid to the table and back, and the view persists', () => {
   render(<CatalogueView {...props} />);
   fireEvent.click(screen.getByRole('button', { name: 'Switch to table view' }));

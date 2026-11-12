@@ -45,7 +45,9 @@ export function SettingsTrigger({ testID, label, tooltip, onPress, className }: 
     <TooltipTrigger ref={trigger} asChild onPress={() => trigger.current?.close?.()}>
       <IconButton testID={testID} variant="ghost" className={className} accessibilityLabel={label} onPress={onPress}
         onPointerEnter={() => trigger.current?.open?.()} onPointerLeave={() => trigger.current?.close?.()}>
-        <SlidersIcon size={20} className="text-foreground" />
+        {/* v2's IconButton `name="filters"` (ui-settings/index.tsx:135): the Icon's default 18 px (icon/index.tsx:27
+            `size-4.5`, icon-button/index.tsx:88), muted at rest (icon-button/index.tsx:93). */}
+        <SlidersIcon testID={`${testID}-icon`} size={18} className="text-muted-foreground" />
       </IconButton>
     </TooltipTrigger>
     <TooltipContent><Text>{tooltip}</Text></TooltipContent>

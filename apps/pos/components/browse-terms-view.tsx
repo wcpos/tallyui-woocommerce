@@ -62,7 +62,9 @@ function TermFace({ entry, compact, testID, badge }: { entry: Entry; compact: bo
         {entry.kind === 'term' && entry.count > 0 && <Text className="text-xs text-foreground/70">{productsLabel(entry.count)}</Text>}
       </View>
       <View pointerEvents="none" className="absolute left-2 top-2">
-        {filled ? <GridIcon size={24} className={ink} /> : <FolderIcon size={24} className="text-foreground/70" />}
+        {/* v2's bare mark on the filled tile (poster-tile/index.tsx:364 `bare={tint !== null || filled}`) is the Icon's
+            `lg`, 20 px (mark.tsx:44, icon/index.tsx:30 `size-5`), in the tile's ink. */}
+        {filled ? <GridIcon testID={`${testID}-mark`} size={20} className={ink} /> : <FolderIcon size={24} className="text-foreground/70" />}
       </View>
       {badge}
     </View>
