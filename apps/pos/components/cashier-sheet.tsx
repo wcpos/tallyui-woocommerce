@@ -13,9 +13,15 @@ import { SheetCloseButton } from './catalogue-display-options';
 // openExternal.tsx:14).
 const PlusIcon = createSvgIcon('PlusIcon', () => <Path d="M12 5v14m-7-7h14" />);
 const OpenExternalIcon = createSvgIcon('OpenExternalIcon', () => <Path d="M12 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6m-7 1 9-9m-5 0h5v5" />);
+// v2's `register` glyph, the drawer door's (monorepo packages/components/src/icon/components/tabler/register.tsx:16-17).
+const RegisterIcon = createSvgIcon('RegisterIcon', () => <>
+  <Path d="M21 15h-2.5a1.503 1.503 0 0 0-1.5 1.5 1.503 1.503 0 0 0 1.5 1.5h1a1.503 1.503 0 0 1 1.5 1.5 1.503 1.503 0 0 1-1.5 1.5H17m2 0v1m0-8v1m-6 6H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2m12 3.12V9a2 2 0 0 0-2-2h-2" />
+  <Path d="M16 10V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v6m8 0H8m8 0h1m-9 0H7m1 4v.01M8 17v.01m4-3.02V14m0 3v.01" />
+</>);
 
-// v2's right side sheet: full height, flush right, no rounding, a left border.
-const SIDE_SHEET = 'left-auto right-0 top-0 h-full max-w-lg translate-x-0 translate-y-0 rounded-none border-0 border-l';
+// v2's right side sheet: full height, flush right, no rounding, a left border, on v2's `bg-card` surface
+// (monorepo packages/components/src/dialog/index.tsx:199), white in Light, not the page's bg-background.
+const SIDE_SHEET = 'left-auto right-0 top-0 h-full max-w-lg translate-x-0 translate-y-0 rounded-none border-0 border-l bg-card';
 
 function SalesTodayRow({ orders, cashierRef, currency, locale }: {
   orders: RxCollection<PosOrder>; cashierRef: string; currency: string; locale?: string;
@@ -27,21 +33,38 @@ function SalesTodayRow({ orders, cashierRef, currency, locale }: {
   </View>;
 }
 
-export interface SheetDrawer { figure: string; verbs: string; opener?: string }
+export interface SheetDrawer { figure: string; verbs: string; opener?: string; openerName?: string }
 
 /** v2's DrawerDoor (packages/core/src/screens/main/pos/cart/user-sheet.tsx): the drawer tile over a row of its verbs. */
 function DrawerDoor({ drawer, disabled, onPress }: { drawer: SheetDrawer; disabled: boolean; onPress(): void }) {
+  const { openerName } = drawer;
+  // v2's DrawerDoor (user-sheet.tsx:199-205): a PressableSurface with no fill of its own, so it shows the sheet's bg-card,
+  // with its border, radius and the accent press and hover wash (pressable-surface/index.tsx:28).
   return <Pressable testID="user-sheet-drawer" role="button" accessibilityLabel={`In the drawer, ${drawer.figure}`}
-    disabled={disabled} onPress={onPress} className="rounded-lg border border-border">
+    disabled={disabled} onPress={onPress} className="rounded-lg border border-border active:bg-accent web:hover:bg-accent">
     <View className="flex-row items-center gap-3 px-3 py-2.5">
+      {/* v2's `ToneDisc tone="muted" icon="register" size="sm"` (user-sheet.tsx:207; tone-disc/index.tsx:11,28-30;
+          lib/tone.ts:53,55): a size-11 bg-muted disc, the glyph at the default 18 px (icon/index.tsx:27), muted. */}
+      <View className="size-11 items-center justify-center rounded-full bg-muted">
+        <RegisterIcon testID="user-sheet-drawer-icon" size={18} strokeWidth={1.5} className="text-muted-foreground" />
+      </View>
       <View className="min-w-0 flex-1">
         <Text className="font-medium">In the drawer</Text>
-        {drawer.opener && <Text testID="user-sheet-drawer-opener" className="text-xs text-muted-foreground">{drawer.opener}</Text>}
+        {/* v2's opener line (user-sheet.tsx:143-158): the `key` rank (text/ladder.ts:14), then the opener's Avatar
+            `size="sm"`: size-7, text-2xs initials on bg-primary (avatar/index.tsx:43,53,77). */}
+        {drawer.opener && <View className="flex-row items-center gap-1">
+          <Text testID="user-sheet-drawer-opener" className="text-sm text-muted-foreground">{drawer.opener}</Text>
+          {openerName && <View testID="user-sheet-drawer-opener-avatar" className="size-7 items-center justify-center rounded-full bg-primary">
+            <Text className="text-2xs font-medium text-primary-foreground">{getInitials(openerName)}</Text>
+          </View>}
+        </View>}
       </View>
       <Text className="text-lg font-semibold">{drawer.figure}</Text>
     </View>
     <View testID="user-sheet-drawer-verbs" className="flex-row items-center justify-between border-t border-border px-3 py-2">
-      <Text className="text-sm text-primary">{drawer.verbs}</Text>
+      {/* v2's `Text variant="link"` (user-sheet.tsx:218; text/ladder.ts:24,27): the foreground ink at text-base, regular
+          weight, underlined on hover; only the chevron stays primary. */}
+      <Text testID="user-sheet-drawer-verbs-text" className="text-base text-foreground web:hover:underline">{drawer.verbs}</Text>
       <Text className="text-primary">›</Text>
     </View>
   </Pressable>;
