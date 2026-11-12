@@ -4,13 +4,14 @@ import { useEffect, useState, type ComponentType } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Text, type SvgIconProps } from '@tallyui/components';
 import { Popover } from '@tallyui/primitives';
+import { chipInkClassName, chipToneClassName } from './catalogue-filter-chips';
 
 export type MenuChoice = { value: string; label: string };
 
 /** v2's `Chip` face (packages/components/src/chip/index.tsx): a 44 (`h-ctl`) pill, `px-3`, `gap-1.5`, an 18 icon
- *  (`size-4.5`) and a regular `text-base` label in one ink, and no caret; on, this app's tint (`border-primary bg-primary/10`). */
+ *  (`size-4.5`) and a regular `text-base` label in one ink, and no caret; the shared chip tone (chip/index.tsx:163). */
 export function chipFaceClassName(on: boolean): string {
-  return `h-11 flex-row items-center self-start rounded-full border ${on ? 'border-primary bg-primary/10' : 'border-border bg-card'}`;
+  return `h-11 flex-row items-center self-start rounded-full border ${chipToneClassName(on)}`;
 }
 
 export function MenuChip({ name, icon: Icon, value, defaultValue, choices, onChange, hint }: {
@@ -19,7 +20,8 @@ export function MenuChip({ name, icon: Icon, value, defaultValue, choices, onCha
 }) {
   const [open, setOpen] = useState(false);
   const on = value !== defaultValue;
-  const ink = on ? 'text-primary' : 'text-foreground';
+  // v2's one ink for icon, label and clear (chip/index.tsx:106).
+  const ink = chipInkClassName(on);
   const choose = (next: string) => {
     if (next !== value) onChange(next);
     setOpen(false);
@@ -45,7 +47,7 @@ export function MenuChip({ name, icon: Icon, value, defaultValue, choices, onCha
         </Popover.Trigger>
         {on && <Pressable testID={`hero-chip-${name}-clear`} accessibilityRole="button" accessibilityLabel="Clear"
           onPress={() => choose(defaultValue)} className="h-full justify-center pr-3">
-          <Text className="text-sm text-primary">✕</Text>
+          <Text testID={`hero-chip-${name}-clear-mark`} className={`text-sm ${ink}`}>✕</Text>
         </Pressable>}
       </View>
       <Popover.Portal>

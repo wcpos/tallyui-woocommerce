@@ -8,6 +8,7 @@ import { QUICK_FILTERS_KEY } from '../lib/catalogue/quick-filters';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { classesOf } from './classes-of';
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 
@@ -64,6 +65,19 @@ test('the filter chips show under the search with In Stock on', () => {
   expect(screen.getByTestId('filter-pill-remove-stock_status')).not.toBeNull();
   for (const name of ['Espresso', 'Cold Brew', 'T-Shirt']) expect(visible(name)).toBe(true);
   for (const name of ['Banana Bread', 'Iced Latte']) expect(visible(name)).toBe(false);
+});
+
+test('an on chip is v2\'s borderless selected tint with one selected ink on icon and clear; an off chip stays on the card', () => {
+  renderView();
+  const glyph = (testID: string) => screen.getByTestId(testID).querySelector('svg')?.getAttribute('class') ?? '';
+  expect(glyph('filter-pill-stock_status')).toBe('text-selected-foreground');
+  expect(glyph('filter-pill-remove-stock_status')).toBe('text-selected-foreground');
+  expect(classesOf('filter-pill-on_sale')).toEqual(expect.arrayContaining(['border-border', 'bg-card']));
+  expect(glyph('filter-pill-on_sale')).toBe('');
+  fireEvent.click(screen.getByTestId('filter-pill-on_sale'));
+  expect(classesOf('filter-pill-on_sale')).toEqual(expect.arrayContaining(['border-selected', 'bg-selected']));
+  expect(classesOf('filter-pill-on_sale')).not.toContain('border-primary');
+  expect(glyph('filter-pill-on_sale')).toBe('text-selected-foreground');
 });
 
 test('removing In Stock shows sold-out and backorder products', () => {

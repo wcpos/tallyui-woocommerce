@@ -68,6 +68,10 @@
   --color-rail-border: oklch(0.88 0.014 262);
   --color-rail-selected: var(--color-card);
   --color-rail-selected-foreground: oklch(0.42 0.17 262);
+  /* v2's --selected pair (l.400-401 light, l.543-544 dark; themes.css has the other seven): an on chip's fill and
+     its one ink (packages/components/src/chip/index.tsx:106, :163) */
+  --color-selected: oklch(0.935 0.045 262);
+  --color-selected-foreground: oklch(0.42 0.17 262);
 }
 
 /* v2's destructive (apps/main/global.css l.381-382 light, l.526-527 dark), over @tallyui/theme's #dc2626 and
@@ -128,6 +132,8 @@
       --color-rail-border: oklch(0.88 0.014 262);
       --color-rail-selected: var(--color-card);
       --color-rail-selected-foreground: oklch(0.42 0.17 262);
+      --color-selected: oklch(0.935 0.045 262);
+      --color-selected-foreground: oklch(0.42 0.17 262);
     }
 
     @variant dark {
@@ -169,6 +175,8 @@
       --color-rail-border: oklch(0.25 0.02 250);
       --color-rail-selected: oklch(0.30 0.06 240);
       --color-rail-selected-foreground: oklch(0.82 0.13 240);
+      --color-selected: oklch(0.30 0.06 240);
+      --color-selected-foreground: oklch(0.82 0.13 240);
     }
   }
 }

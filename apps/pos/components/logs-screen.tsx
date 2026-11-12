@@ -6,6 +6,7 @@ import type { LogCollection, LogRecord } from '../lib/logs/log-store';
 import { IDLE_OUTBOX_STATE, buildDebugInfo, formatDurationMs, formatLogTime, logStats, matchesLogFilter, outboxSyncStats,
   type LogPreset, type OutboxSyncStats } from '../lib/logs/log-view';
 import { useVerboseDiagnostics } from '../lib/logs/verbose';
+import { chipInkClassName, chipToneClassName } from './catalogue-filter-chips';
 
 // v2's Stat (packages/components/src/stat): the number above a muted label, pressable as a filter when it has onPress.
 // v2's tones: bad reads destructive, good reads success.
@@ -35,14 +36,15 @@ function matchesSearch(row: LogRecord, search: string): boolean {
   return !search || fold([row.message, row.code, row.scope].filter(Boolean).join(' ')).includes(fold(search));
 }
 
-// v2's Chip at size sm (packages/components/src/chip/index.tsx:156): a rounded pill, tinted when on.
+// v2's Chip at size sm (packages/components/src/chip/index.tsx:156): a rounded pill in the shared chip tone and ink
+// (chip/index.tsx:106, :163), hovered with the accent only when off.
 function Chip({ testID, label, on, pressed, onPress }: {
   testID: string; label: string; on: boolean; pressed?: boolean; onPress(): void;
 }): JSX.Element {
   return <Pressable testID={testID} role="button" aria-pressed={pressed} onPress={onPress}
-    className={`h-8 flex-row items-center self-start rounded-full border px-2.5 ${
-      on ? 'border-primary bg-primary/10' : 'border-border bg-card web:hover:bg-accent'}`}>
-    <Text className={`text-sm font-normal ${on ? 'text-primary' : 'text-foreground'}`}>{label}</Text>
+    className={`h-8 flex-row items-center self-start rounded-full border px-2.5 ${chipToneClassName(on)}${
+      on ? '' : ' web:hover:bg-accent'}`}>
+    <Text testID={`${testID}-label`} className={`text-sm font-normal ${chipInkClassName(on)}`}>{label}</Text>
   </Pressable>;
 }
 

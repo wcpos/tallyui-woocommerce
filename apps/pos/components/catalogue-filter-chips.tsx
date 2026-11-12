@@ -29,16 +29,30 @@ const FolderIcon = createSvgIcon('FolderIcon', () => <>
 
 const STOCK_LABELS: Record<QuickFilterStockStatus, string> = { instock: 'In Stock', outofstock: 'Out of Stock', onbackorder: 'On Backorder' };
 
-/** v2's chip: fully rounded, primary ink and a light primary fill when on; v2's Chip `dimmed` is `opacity-45`.
+/** v2's Chip tone, the one source for every chip here (monorepo packages/components/src/chip/index.tsx:163): on, the
+ *  selected tint as fill and border, so the border keeps its width but is not seen; off, the card with a border. */
+export function chipToneClassName(on: boolean): string {
+  return on ? 'border-selected bg-selected' : 'border-border bg-card';
+}
+
+/** v2's one ink for a chip's icon, label and clear (chip/index.tsx:106, through TextClassContext). */
+export function chipInkClassName(on: boolean): string {
+  return on ? 'text-selected-foreground' : 'text-foreground';
+}
+
+/** v2's chip: fully rounded, the tone above; v2's Chip `dimmed` is `opacity-45`.
  *  `h-11` is the default Chip's `h-ctl px-3`, 44 px (monorepo packages/components/src/chip/index.tsx:158). */
 export function filterChipClassName(active: boolean, dimmed = false): string {
-  return 'h-11 flex-row items-center gap-1.5 self-start rounded-full border px-3 ' + (active ? 'border-primary bg-primary/10' : 'border-border bg-card')
+  return 'h-11 flex-row items-center gap-1.5 self-start rounded-full border px-3 ' + chipToneClassName(active)
     + (dimmed ? ' opacity-45' : '');
 }
 
 export function filterChipTextClassName(active: boolean): string {
-  return 'text-base ' + (active ? 'text-primary' : 'text-foreground');
+  return 'text-base ' + chipInkClassName(active);
 }
+
+/** An on chip's icon and clear take its ink (chip/index.tsx:106); an off chip's icon keeps its own. */
+const chipGlyphClassName = (on: boolean) => (on ? chipInkClassName(true) : undefined);
 
 /** v2's tooltip on a dimmed chip (core en.json `pos_products.product_filter_not_in_variations`). */
 const DIMMED_CHIP_TOOLTIP = 'A product filter; not used inside a product’s variations.';
@@ -93,7 +107,7 @@ function SelectChip({ field, icon: Icon, active, dimmed = false, label, extra, s
   // v2's DimmedChip: a dimmed chip is a plain chip with its label and no menu, the tooltip's trigger itself.
   if (dimmed) return <DimmedChipTooltip>
     <Pressable testID={`filter-pill-${field}`} role="button" disabled className={filterChipClassName(active, true)}>
-      <Icon size={16} />
+      <Icon size={16} className={chipGlyphClassName(active)} />
       <Text className={filterChipTextClassName(active)}>{label}</Text>
       {extra > 0 && <Text className={filterChipTextClassName(active)}>{`+${extra}`}</Text>}
     </Pressable>
@@ -101,7 +115,7 @@ function SelectChip({ field, icon: Icon, active, dimmed = false, label, extra, s
   return <View className={filterChipClassName(active)}>
     <Select value={selected} onValueChange={option => { if (option) onChoose(option.value); }}>
       <SelectTrigger testID={`filter-pill-${field}`} className="h-auto w-auto justify-start gap-1.5 rounded-none border-0 bg-transparent px-0 py-0">
-        <Icon size={16} />
+        <Icon size={16} className={chipGlyphClassName(active)} />
         <Text className={filterChipTextClassName(active)}>{label}</Text>
         {extra > 0 && <Text className={filterChipTextClassName(active)}>{`+${extra}`}</Text>}
       </SelectTrigger>
@@ -111,7 +125,7 @@ function SelectChip({ field, icon: Icon, active, dimmed = false, label, extra, s
       </SelectGroup></SelectContent>
     </Select>
     {active && <Pressable testID={`filter-pill-remove-${field}`} role="button" accessibilityLabel="Remove" hitSlop={8}
-      onPress={onRemove}><XIcon size={14} /></Pressable>}
+      onPress={onRemove}><XIcon size={14} className={chipGlyphClassName(true)} /></Pressable>}
   </View>;
 }
 
@@ -144,7 +158,7 @@ export function CatalogueFilterChips({ products, filters, onChange, dimmed = fal
   const onSaleChip = <Pressable testID="filter-pill-on_sale" role="button" aria-pressed={onSale} disabled={dimmed}
     className={filterChipClassName(onSale, dimmed)}
     onPress={() => onChange(onSale ? without(filters, 'on_sale') : { ...filters, on_sale: true })}>
-    <CurrencyIcon size={16} />
+    <CurrencyIcon size={16} className={chipGlyphClassName(onSale)} />
     <Text className={filterChipTextClassName(onSale)}>On Sale</Text>
   </Pressable>;
   return <View testID="filter-chips" className="flex-row flex-wrap items-center gap-2">
