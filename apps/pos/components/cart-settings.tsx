@@ -108,7 +108,7 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
               <FieldLabel>Sort items</FieldLabel>
               <Select value={{ value: settings.sortLines, label: LINE_SORTS.find(sort => sort.id === settings.sortLines)!.label }}
                 onValueChange={option => { if (option) onSettingsChange({ ...settings, sortLines: normalizeLineSort(option.value) }); }}>
-                <SelectTrigger testID="cart-sort-items" className={SELECT_FACE}>
+                <SelectTrigger testID="cart-sort-items" className={SELECT_FACE} chevron={false}>
                   <SelectValue />
                   <ChevronDownIcon testID="cart-sort-items-chevron" size={16} className="text-muted-foreground" />
                 </SelectTrigger>

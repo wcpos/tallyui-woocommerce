@@ -210,7 +210,8 @@ function FilterPill({ field, icon: Icon, label, value, choices, onChoose, onRemo
   return <View className={filterChipClassName(active)}>
     <Select value={selected && { value: selected.value, label: selected.label }}
       onValueChange={option => { if (option) onChoose(option.value); }}>
-      <SelectTrigger testID={`filter-pill-${field}`} className="h-auto w-auto justify-start gap-1.5 rounded-none border-0 bg-transparent px-0 py-0">
+      {/* v2's filter chips draw no chevron (filter-bar). */}
+      <SelectTrigger testID={`filter-pill-${field}`} chevron={false} className="h-auto w-auto justify-start gap-1.5 rounded-none border-0 bg-transparent px-0 py-0">
         {/* An on chip's icon and × take its ink (v2 chip/index.tsx:106), as the catalogue chips' do. */}
         <Icon size={16} className={active ? chipInkClassName(true) : undefined} />
         <Text className={filterChipTextClassName(active)}>{selected?.label ?? label}</Text>

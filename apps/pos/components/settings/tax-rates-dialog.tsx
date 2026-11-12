@@ -136,7 +136,7 @@ export function TaxRatesDialog({ rates, taxClassSlugs, onClose }: {
             <View className="mx-4">
               <Select value={{ value: current.slug, label: `${current.name} ${current.rates.length}` }}
                 onValueChange={option => { if (option) setValue(option.value); }}>
-                <SelectTrigger testID="tax-rates-class-select" className={SELECT_FACE}>
+                <SelectTrigger testID="tax-rates-class-select" className={SELECT_FACE} chevron={false}>
                   <SelectValue placeholder="" />
                   <ChevronDownIcon size={16} className="text-muted-foreground" />
                 </SelectTrigger>

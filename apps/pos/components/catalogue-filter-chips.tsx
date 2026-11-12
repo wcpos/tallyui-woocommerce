@@ -120,7 +120,8 @@ function SelectChip({ field, icon: Icon, active, dimmed = false, label, extra, s
   </DimmedChipTooltip>;
   return <View className={filterChipClassName(active)}>
     <Select value={selected} onValueChange={option => { if (option) onChoose(option.value); }}>
-      <SelectTrigger testID={`filter-pill-${field}`} className="h-auto w-auto justify-start gap-1.5 rounded-none border-0 bg-transparent px-0 py-0">
+      {/* v2's filter chips draw no chevron (filter-bar). */}
+      <SelectTrigger testID={`filter-pill-${field}`} chevron={false} className="h-auto w-auto justify-start gap-1.5 rounded-none border-0 bg-transparent px-0 py-0">
         <Icon size={16} className={chipGlyphClassName(active)} />
         <Text className={filterChipTextClassName(active)}>{label}</Text>
         {extra > 0 && <Text className={filterChipTextClassName(active)}>{`+${extra}`}</Text>}

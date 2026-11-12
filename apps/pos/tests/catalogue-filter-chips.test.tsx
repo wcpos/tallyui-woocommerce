@@ -71,6 +71,7 @@ test('an on chip is v2\'s borderless selected tint with one selected ink on icon
   renderView();
   const glyph = (testID: string) => screen.getByTestId(testID).querySelector('svg')?.getAttribute('class') ?? '';
   expect(glyph('filter-pill-stock_status')).toBe('text-selected-foreground');
+  expect(screen.getByTestId('filter-pill-stock_status').querySelectorAll('svg')).toHaveLength(1);
   expect(glyph('filter-pill-remove-stock_status')).toBe('text-selected-foreground');
   expect(classesOf('filter-pill-on_sale')).toEqual(expect.arrayContaining(['border-border', 'bg-card']));
   expect(glyph('filter-pill-on_sale')).toBe('');

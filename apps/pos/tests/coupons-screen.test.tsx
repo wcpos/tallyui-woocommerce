@@ -292,6 +292,7 @@ test("an on chip's icon and × take the selected ink, as the catalogue chips'; a
   await withCoupons();
   const glyph = (testID: string) => screen.getByTestId(testID).querySelector('svg')?.getAttribute('class') ?? '';
   expect(glyph('filter-pill-status')).toBe('');
+  expect(screen.getByTestId('filter-pill-status').querySelectorAll('svg')).toHaveLength(1);
   choose('status', 'coupon-filter-status-publish');
   await waitFor(() => expect(glyph('filter-pill-status')).toBe('text-selected-foreground'));
   expect(glyph('filter-pill-remove-status')).toBe('text-selected-foreground');
