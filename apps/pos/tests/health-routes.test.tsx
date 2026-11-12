@@ -39,11 +39,11 @@ test('the old /logs link lands on /health/logs', () => {
   expect(screen.getByTestId('redirect').getAttribute('data-href')).toBe('/health/logs');
 });
 
-test('the sub-nav lists Database then Logs, selects the open page, and titles the page by it', () => {
+test('the sub-nav lists Database, Performance then Logs, selects the open page, and titles the page by it', () => {
   mocks.pathname = '/health/logs';
   render(<HealthLayoutRoute />);
   expect(screen.getAllByTestId(/^health-nav-/).map(el => [el.getAttribute('data-testid'), el.textContent]))
-    .toEqual([['health-nav-database', 'Database'], ['health-nav-logs', 'Logs']]);
+    .toEqual([['health-nav-database', 'Database'], ['health-nav-performance', 'Performance'], ['health-nav-logs', 'Logs']]);
   expect(screen.getByTestId('health-nav-logs').getAttribute('aria-selected')).toBe('true');
   expect(screen.getByTestId('health-nav-database').getAttribute('aria-selected')).not.toBe('true');
   expect(screen.getByTestId('health-page-title').textContent).toBe('Logs');
@@ -57,6 +57,13 @@ test('Database has its page description and Logs has none', () => {
   expect(screen.getByTestId('health-page-description').textContent).toBe('Your store, on this device — sales keep working even if your server does not.');
   mocks.pathname = '/health/logs';
   rerender(<HealthLayoutRoute />);
+  expect(screen.queryByTestId('health-page-description')).toBeNull();
+});
+
+test('Performance has no page description', () => {
+  mocks.pathname = '/health/performance';
+  render(<HealthLayoutRoute />);
+  expect(screen.getByTestId('health-page-title').textContent).toBe('Performance');
   expect(screen.queryByTestId('health-page-description')).toBeNull();
 });
 
