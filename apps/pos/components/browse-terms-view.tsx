@@ -150,7 +150,7 @@ export function BrowseRootGrid({ terms, numColumns, searchSlot, onOpen }: {
   return <VStack space="none" className="flex-1" testID="browse-root">
     {searchSlot && <View className="px-3 py-2">{searchSlot}</View>}
     <FlatList key={numColumns} testID="browse-root-tiles" data={entriesOf(terms)} numColumns={numColumns} keyExtractor={keyOf} contentContainerClassName={tiles}
-      renderItem={({ item }) => <View style={{ width: `${100 / numColumns}%` }} className={wide ? 'px-1 pb-2' : 'p-1'}>
+      renderItem={({ item }) => <View style={{ width: `${100 / numColumns}%` }} testID={`browse-root-cell-${keyOf(item)}`} className={wide ? 'px-1 pb-2' : 'p-1'}>
         <TermTile entry={item} compact={compact} onPress={() => onOpen(placeOf(item))} />
       </View>} />
   </VStack>;

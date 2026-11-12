@@ -46,3 +46,10 @@ test.each([390, 1280])('at %ipx a category draws its folder mark at v2\'s 20 px'
   const mark = document.querySelector('[data-testid="browse-term-25-mark"]')!;
   expect(mark.getAttribute('width')).toBe('20');
 });
+
+// R12-S2: in a window the root's cells pad only below (TileGround's `-mt-1` over v2's `p-1` cells, data-table/surface.tsx:49-56),
+// so the first row stands right under the chip row; a phone keeps `p-1`.
+test.each([[1280, ['px-1', 'pb-2']], [390, ['p-1']]])('at %ipx a root category cell carries %j', (width, cell) => {
+  renderAt(width);
+  expect(classesOf('browse-root-cell-term-25')).toEqual(cell);
+});
