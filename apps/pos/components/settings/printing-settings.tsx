@@ -9,6 +9,7 @@ import type { ReceiptTemplate } from '@tallyui/core';
 import type { PrinterProfile } from '@tallyui/pos';
 import { AUTO_PRINTER_VALUE, autoPrinterLabel, SYSTEM_PRINT_DIALOG, templateTypeLabel } from '../../lib/receipts/printer-routing';
 import type { StoreTemplatesState, TemplateKind } from '../../lib/receipts/use-store-templates';
+import { DocsLink, PRINTER_DOCS_URL } from '../docs-link';
 import { PrinterDialog } from './printer-dialog';
 import { SETTINGS_HELP_CLASS, SETTINGS_KEY_CLASS, SettingsSection } from './settings-form';
 
@@ -106,14 +107,18 @@ export function PrintingSettings(props: {
             <Text testID="printers-empty-state-description" className="text-center text-muted-foreground">
               Add a printer to send receipts straight to your hardware. You can always use the Print Dialog without one.
             </Text>
+            {/* v2 printing/index.tsx:260-271: the EmptyState `docs` slot, centred under the description. */}
+            <DocsLink testID="printing-printer-guide-link" href={PRINTER_DOCS_URL} className="self-center">Open the printer guide</DocsLink>
           </View>
         )}
-        {/* v2 printing/index.tsx:278-290: primary until a printer exists, then outline. */}
-        <Button testID="printing-add-printer-button" size="sm" className="self-start mt-2"
+        {/* v2 printing/index.tsx:278-290: primary until a printer exists, then outline; no top margin (v2 PropertyList is gap-0). */}
+        <Button testID="printing-add-printer-button" size="sm" className="self-start"
           variant={props.profiles.length === 0 ? 'default' : 'outline'} onPress={() => setEditing(null)}>
           <PlusIcon size={16} className={props.profiles.length === 0 ? 'text-primary-foreground' : 'text-foreground'} />
           <Text>Add printer</Text>
         </Button>
+        {/* v2 printing/index.tsx:290-292: `<DocsLink testID="printing-having-trouble">`, always shown. */}
+        <DocsLink testID="printing-having-trouble" href={PRINTER_DOCS_URL}>Having trouble?</DocsLink>
         {props.printersError && <Text testID="settings-printing-printers-error"
           className={`${SETTINGS_HELP_CLASS} text-destructive`}>{props.printersError}</Text>}
       </SettingsSection>

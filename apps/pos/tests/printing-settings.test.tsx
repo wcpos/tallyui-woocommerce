@@ -172,3 +172,29 @@ test('Delete asks first', () => {
   fireEvent.click(screen.getByTestId('printer-row-p1-delete-confirm'));
   expect(onDeletePrinter).toHaveBeenCalledExactlyOnceWith('p1');
 });
+
+const PRINTER_DOCS = 'https://docs.wcpos.com/hardware/printers';
+
+test("the empty state's printer guide link opens the printer docs", () => {
+  const open = vi.spyOn(ReactNative.Linking, 'openURL').mockResolvedValue(true);
+  renderPrinting();
+  const link = screen.getByTestId('printing-printer-guide-link');
+  expect(link.textContent).toBe('Open the printer guide');
+  fireEvent.click(link);
+  expect(open).toHaveBeenCalledExactlyOnceWith(PRINTER_DOCS);
+});
+
+test('Having trouble? opens the printer docs', () => {
+  const open = vi.spyOn(ReactNative.Linking, 'openURL').mockResolvedValue(true);
+  renderPrinting();
+  const link = screen.getByTestId('printing-having-trouble');
+  expect(link.textContent).toBe('Having trouble?');
+  fireEvent.click(link);
+  expect(open).toHaveBeenCalledExactlyOnceWith(PRINTER_DOCS);
+});
+
+test('a saved printer hides the printer guide link but keeps Having trouble?', () => {
+  renderPrinting([frontCounter]);
+  expect(screen.queryByTestId('printing-printer-guide-link')).toBeNull();
+  expect(screen.getByTestId('printing-having-trouble')).not.toBeNull();
+});
