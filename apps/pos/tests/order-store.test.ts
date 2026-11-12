@@ -1,5 +1,7 @@
 import { expect, test } from 'vitest';
 import { createRxDatabase, type RxJsonSchema } from 'rxdb';
+import { addRxPlugin } from 'rxdb';
+import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import type { PosOrder } from '@tallyui/pos';
 import type { Session } from '../lib/auth/session';
@@ -7,6 +9,9 @@ import { databaseName } from '../lib/catalogue/start-catalogue';
 import { openOrderStore, ordersDatabaseName } from '../lib/sale/order-store';
 import schemaV9 from './fixtures/pos-orders-schema-v9.json';
 import schemaV11 from './fixtures/pos-orders-schema-v11.json';
+
+// Upgrade tests build an old-schema store before openOrderStore runs, so they register the plugin themselves rather than relying on test order.
+addRxPlugin(RxDBMigrationSchemaPlugin);
 
 const session: Session = {
   site: { name: 'Store', home: 'hello', wpApiUrl: '', wcposApiUrl: '', authUrl: '' },
