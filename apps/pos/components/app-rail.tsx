@@ -8,7 +8,9 @@
 // between Orders and Customers as in v2, with v2's `discount` glyph (a circle with a percent sign).
 // Logs is a Store health page (/health/logs), as in v2, not a rail item.
 // Deviations: no Support item (this app has no such area); no hover tooltip; the version does not open an About dialog.
-// TallyUI has no sidebar or rail-selected token, so the rail is `bg-muted` and the selected item `bg-card`.
+// Colours are the app's rail tokens (global.css / themes.css, v2's --rail* in apps/main/global.css l.104-109):
+// the rail and its border, `rail-foreground` items, and the selected item on `rail-selected` (nav-item/index.tsx:54-71),
+// the version in `rail-foreground` at half opacity as v2's version.tsx draws it. No rail-accent hover wash yet.
 import { createContext } from 'react';
 import type { JSX, ReactNode } from 'react';
 import { View } from 'react-native';
@@ -50,7 +52,7 @@ export function AppRail({ active, onNavigate }: { active: RailKey; onNavigate(to
       <IconButton key={key} size="lg" testID={`drawer-item-${key}`} accessibilityLabel={RAIL_LABEL[key]}
         // react-native-web reads aria-selected, not accessibilityState (as coupon-entry.tsx).
         accessibilityState={{ selected: key === active }} aria-selected={key === active}
-        className={key === active ? 'rounded-lg bg-card text-foreground' : 'rounded-lg text-muted-foreground'}
+        className={key === active ? 'rounded-lg bg-rail-selected text-rail-selected-foreground' : 'rounded-lg text-rail-foreground'}
         onPress={() => { if (key !== active) onNavigate(key); }}>
         {/* react-native-svg's web Svg forwards `data-testid` to the DOM as is (it does not map `testID`). */}
         <Glyph size={24} data-testid={`drawer-glyph-${key}`} />
@@ -58,10 +60,10 @@ export function AppRail({ active, onNavigate }: { active: RailKey; onNavigate(to
     );
   };
   return (
-    <View testID="drawer-panel-permanent" className={`${RAIL_WIDTH} items-center border-r border-border bg-muted px-2 py-2`}>
+    <View testID="drawer-panel-permanent" className={`${RAIL_WIDTH} items-center border-r border-rail-border bg-rail px-2 py-2`}>
       <View testID="drawer-top-group" className="items-center gap-2">{RAIL_TOP.map(item)}</View>
       <View testID="drawer-bottom-group" className="mt-auto items-center gap-2">{RAIL_FOOT.map(item)}</View>
-      <Text testID="drawer-version" className="py-2 text-center text-xs text-muted-foreground opacity-50">{`v ${SOFTWARE_VERSION}`}</Text>
+      <Text testID="drawer-version" className="py-2 text-center text-xs text-rail-foreground opacity-50">{`v ${SOFTWARE_VERSION}`}</Text>
     </View>
   );
 }

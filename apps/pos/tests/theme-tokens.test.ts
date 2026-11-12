@@ -34,7 +34,7 @@ const value = (theme: string, name: string): string | undefined =>
 const lightNames = [...new Set([...names(variantBlock(tokensCss, 'light')), ...names(variantBlock(globalCss, 'light'))])].sort();
 
 test('every extra theme defines exactly the variables light defines, once each', () => {
-  expect(lightNames).toHaveLength(33);
+  expect(lightNames).toHaveLength(38);
   expect(lightNames).toContain('--color-tile-tint-5');
   for (const theme of EXTRA_THEMES) {
     const declared = names(variantBlock(themesCss, theme));
@@ -165,6 +165,20 @@ test("the light and dark themes take v2's destructive, over @tallyui/theme's #dc
   // The theme default (no variant) is the light one, so a utility outside a theme scope gets it too.
   expect(themeTokens(globalCss).get('--color-destructive')).toBe(LIGHT_DESTRUCTIVE);
   expect(themeTokens(globalCss).get('--color-destructive-foreground')).toBe(LIGHT_DESTRUCTIVE_FG);
+});
+
+const RAIL_TOKENS = ['--color-rail', '--color-rail-foreground', '--color-rail-border', '--color-rail-selected', '--color-rail-selected-foreground'];
+
+test("light, dark and the seven extra themes all define v2's five rail tokens, and the default is light's", () => {
+  const sources: [string, string][] = [['light', globalCss], ['dark', globalCss], ...EXTRA_THEMES.map(theme => [theme, themesCss] as [string, string])];
+  for (const [theme, css] of sources) {
+    const declared = Object.fromEntries(declarations(variantBlock(css, theme)));
+    for (const name of RAIL_TOKENS) expect(declared[name], `${theme} ${name}`).toMatch(/^(oklch\(|var\(--color-card\)$)/);
+  }
+  // v2 apps/main/global.css l.427 (light rail), l.431 (light rail-selected: var(--card)), l.708 (ocean rail).
+  expect(themeTokens(globalCss).get('--color-rail')).toBe('oklch(0.935 0.016 262)');
+  expect(themeTokens(globalCss).get('--color-rail-selected')).toBe('var(--color-card)');
+  expect(value('ocean', '--color-rail')).toBe('oklch(0.14 0.045 235)');
 });
 
 test('light, dark and the seven extra themes all define the destructive pair', () => {

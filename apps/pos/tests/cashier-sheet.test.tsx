@@ -323,3 +323,10 @@ test('the WordPress Admin link carries its open-external glyph, and is hidden wi
   expect(screen.queryByTestId('user-sheet-wp-admin')).toBeNull();
   expect(screen.queryByTestId('user-sheet-foot')).toBeNull();
 });
+
+// v2's CashierEntry (cashier-entry/index.tsx:91-101): `wash="accent"` is a press and hover wash, never a fill.
+test("the bar's avatar sits on the bar, with no accent fill", () => {
+  render(<CashierSheet name="Bob Ross" cashiers={[]} onSwitch={() => {}} onAddAnother={() => {}} onSignOut={() => {}} />);
+  expect(classesOf('register-bar-avatar')).not.toContain('bg-accent');
+  expect(classesOf('register-bar-avatar-initials')).toEqual(expect.arrayContaining(['size-5', 'bg-primary']));
+});

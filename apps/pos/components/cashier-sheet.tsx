@@ -66,8 +66,10 @@ export function CashierSheet(props: {
   const [open, setOpen] = useState(false);
   const [removing, setRemoving] = useState<CashierOption | null>(null);
   return <>
-    {/* v2's CashierEntry (packages/core/src/screens/main/pos/cart/register-bar.tsx): the initials avatar on the accent wash. */}
-    <IconButton testID="register-bar-avatar" accessibilityLabel={props.name} disabled={Boolean(props.blockedReason)} className="rounded-lg bg-accent" onPress={() => setOpen(true)}>
+    {/* v2's CashierEntry (packages/core/src/screens/main/components/cashier-entry/index.tsx:91-101): the initials avatar
+        on the bar itself; v2's `wash="accent"` is a press and hover wash only (pressable-surface/index.tsx:28), not a fill.
+        The ghost IconButton gives the press wash (active:bg-accent); it has no hover wash. */}
+    <IconButton testID="register-bar-avatar" accessibilityLabel={props.name} disabled={Boolean(props.blockedReason)} className="rounded-lg" onPress={() => setOpen(true)}>
       {/* v2's Avatar default `xs`: `size-5`, 20 px, with `text-2xs` initials (monorepo packages/components/src/avatar/index.tsx:42,58,76). */}
       <View testID="register-bar-avatar-initials" className="size-5 items-center justify-center rounded-full bg-primary">
         <Text className="text-2xs font-medium text-primary-foreground">{getInitials(props.name)}</Text>
