@@ -1,3 +1,4 @@
+import { EMPTY_CART_TEXT } from './cart-line-helpers';
 import { noTaxSettings } from './fixtures/store-settings';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
@@ -162,7 +163,7 @@ test('sale screen: + parks the sale into a tab and the tab brings it back', asyn
   expect(screen.getByTestId('new-order-tab').getAttribute('aria-selected')).toBe('false');
 
   await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
-  expect(screen.getByText('Scan or tap a product to start a sale.')).not.toBeNull();
+  expect(screen.getByText(EMPTY_CART_TEXT)).not.toBeNull();
   expect(tabIds()).toHaveLength(2);
   expect(screen.getByTestId('new-order-tab').getAttribute('aria-selected')).toBe('true');
   expect(parkedTabs()).toHaveLength(1);
@@ -170,8 +171,8 @@ test('sale screen: + parks the sale into a tab and the tab brings it back', asyn
   fireEvent.click(screen.getByText('Cold Brew'));
   expect(tabIds()).toHaveLength(3);
   await act(async () => { fireEvent.click(strip()[0]); });
-  await screen.findByRole('button', { name: 'Remove Espresso' });
-  expect(screen.queryByRole('button', { name: 'Remove Cold Brew' })).toBeNull();
+  await screen.findByLabelText('Edit quantity of Espresso');
+  expect(screen.queryByLabelText('Edit quantity of Cold Brew')).toBeNull();
   expect(tabIds()).toHaveLength(3);
   expect(strip()[0].textContent).toBe('Guest$4.00');
   expect(parkedTabs()).toHaveLength(1);

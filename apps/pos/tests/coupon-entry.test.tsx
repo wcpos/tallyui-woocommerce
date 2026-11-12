@@ -104,7 +104,7 @@ async function renderTill(capabilities: ServerCapabilities = COUPONS, parkedCart
 
 async function addEspresso() {
   fireEvent.click(await screen.findByText('Espresso'));
-  await screen.findByRole('button', { name: 'Increase Espresso' });
+  await screen.findByLabelText('Edit quantity of Espresso');
 }
 
 // v2's cart + menu: Add discount, then its Coupon side.
@@ -263,7 +263,7 @@ test('a parked sale keeps its coupon', async () => {
     openParkedList();
     fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' }));
     expect(await screen.findByText('Coupon save10 was removed: Coupon save10 does not exist.')).not.toBeNull();
-    await screen.findByRole('button', { name: 'Remove Espresso' });
+    await screen.findByLabelText('Edit quantity of Espresso');
     expect(screen.queryByTestId('coupon-chip-save10')).toBeNull();
     expect(total().getByText('$3.00')).not.toBeNull();
   } finally {

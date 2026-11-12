@@ -11,7 +11,7 @@ export function RegisterSwitch({ inset = true }: { inset?: boolean }) {
   if (!register) return null;
   return (
     <View testID="register-switch-row" className={inset ? 'flex-row items-center gap-3 p-4' : 'flex-row items-center gap-3'}>
-      <Switch checked={register.setting} onCheckedChange={register.setSetting} accessibilityLabel="Use register sessions" />
+      <Switch size="sm" checked={register.setting} onCheckedChange={register.setSetting} accessibilityLabel="Use register sessions" />
       <View className="flex-1 gap-1">
         <Text>Use register sessions</Text>
         <Text className="text-muted-foreground text-sm">A session starts with a counted float, records cash paid in and out, and closes with a count that shows any difference.</Text>

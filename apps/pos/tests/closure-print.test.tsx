@@ -76,7 +76,7 @@ async function openRegister() {
   toggleRegisterSessions();
   fireEvent.change(await screen.findByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
-  await screen.findByTestId('cart-checkout');
+  await screen.findByTestId('cart-empty');
 }
 
 /** v2's one door to the register panel: the bar's avatar opens the cashier sheet, whose drawer figure opens the panel. */

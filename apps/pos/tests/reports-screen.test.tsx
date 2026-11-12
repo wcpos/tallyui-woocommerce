@@ -1,3 +1,4 @@
+import { setLineQuantity, EMPTY_CART_TEXT } from './cart-line-helpers';
 // Uniwind's runtime does not load under Vitest; the report cards' donut reads fixed colours.
 vi.mock('uniwind', () => ({ Uniwind: { setTheme: vi.fn() }, useCSSVariable: (names: string[]) => names.map(() => '#000000') }));
 import { noTaxSettings } from './fixtures/store-settings';
@@ -92,14 +93,14 @@ async function payCash() {
   await takeCash(1000);
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'New sale' }));
-  await screen.findByText('Scan or tap a product to start a sale.');
+  await screen.findByText(EMPTY_CART_TEXT);
 }
 
 async function openRegister(enable = true) {
   if (enable) toggleRegisterSessions();
   fireEvent.change(await screen.findByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
-  await screen.findByTestId('cart-checkout');
+  await screen.findByTestId('cart-empty');
 }
 
 /** v2's one door to the register panel: the bar's avatar opens the cashier sheet, whose drawer figure opens the panel.
@@ -378,13 +379,13 @@ test("yesterday's sales after this time are not compared", async () => {
 test('a split tender counts once per method', async () => {
   await setup({ multiplePayments: true });
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  setLineQuantity('Espresso', 2);
   fireEvent.click(screen.getByTestId('cart-checkout'));
   takeLeg(200);
   takeLeg(400, 'pos_card');
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'New sale' }));
-  await screen.findByText('Scan or tap a product to start a sale.');
+  await screen.findByText(EMPTY_CART_TEXT);
   await waitFor(() => expect(text('hero-total')).toBe('$6.00'));
   expect(text('hero-orders')).toBe('1');
   expect(text('hero-items')).toBe('2');
@@ -829,13 +830,13 @@ test('the drawer offers Reports only when an onOpenReports handler is supplied',
 test('the Payments tile opens a table of methods', async () => {
   const app = await setup({ multiplePayments: true });
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  setLineQuantity('Espresso', 2);
   fireEvent.click(screen.getByTestId('cart-checkout'));
   takeLeg(200);
   takeLeg(400, 'pos_card');
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'New sale' }));
-  await screen.findByText('Scan or tap a product to start a sale.');
+  await screen.findByText(EMPTY_CART_TEXT);
   await waitFor(() => expect(text('hero-total')).toBe('$6.00'));
   fireEvent.click(screen.getByTestId('card-payments-open'));
   const table = within(await screen.findByTestId('sales-table'));

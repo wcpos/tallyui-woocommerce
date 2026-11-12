@@ -359,7 +359,7 @@ test('the Cart Settings title takes v2\'s dialog title rank, text-lg', () => {
   fireEvent.click(screen.getByTestId('cart-settings-button'));
   expect(screen.getByTestId('cart-settings-title').textContent).toBe('Cart Settings');
   expect(classesOf('cart-settings-title')).toContain('text-lg');
-  // v2's 16 px leading-none: without it TallyUI's merge leaves text-lg's 1.35 line and the rows start low.
+  // TallyUI 3.19.0 keeps v2's 16 px leading-none beside the app's text-lg.
   expect(classesOf('cart-settings-title')).toContain('leading-none');
   expect(classesOf('cart-settings-title')).not.toContain('text-base');
 });
@@ -513,6 +513,8 @@ test('Sort items is a plain labelled row, as v2 draws it, and its trigger ends i
   // Nothing wraps the row: it sits in the sheet's list beside Panel position's row.
   expect(row.parentElement).toBe(screen.getByTestId('cart-setting-panel-position').parentElement!.parentElement);
   expect(screen.getByTestId('cart-sort-items').contains(screen.getByTestId('cart-sort-items-chevron'))).toBe(true);
+  expect(screen.getByTestId('cart-sort-items').querySelector('[aria-hidden="true"][class*="opacity-50"]')).toBeNull();
+  expect(screen.getByTestId('cart-sort-items').querySelectorAll('svg')).toHaveLength(1);
 });
 
 test('pressing a receipt row\'s label toggles its switch, as v2\'s FormSwitch label does', () => {
@@ -547,7 +549,8 @@ test('in the cart sheet the register sessions row is drawn as its other switch r
   // SwitchRow's structure: the row, the switch then its muted FieldLabel, as on the receipt rows.
   expect(item.contains(screen.getByTestId('cart-setting-register-sessions-row'))).toBe(true);
   expect(classesOf('cart-setting-register-sessions-row')).toEqual(['w-full', 'flex-row', 'items-center', 'gap-3']);
-  expect(classesOf('cart-setting-register-sessions')).toContain('-my-0.5');
+  expect(classesOf('cart-setting-register-sessions')).toEqual(expect.arrayContaining(['h-5', 'w-9']));
+  expect(classesOf('cart-setting-register-sessions')).not.toContain('-my-0.5');
   expect(screen.getByTestId('cart-setting-register-sessions-label').textContent).toBe('Register sessions');
   expect(labelTextClassesOf('cart-setting-register-sessions-label'))
     .toEqual(expect.arrayContaining(['text-sm', 'font-medium', 'leading-none', 'text-muted-foreground']));

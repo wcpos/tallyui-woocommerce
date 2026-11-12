@@ -1,3 +1,4 @@
+import { EMPTY_CART_TEXT } from './cart-line-helpers';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { addRxPlugin, createRxDatabase } from 'rxdb';
@@ -22,11 +23,11 @@ function SaleScreen(props: SaleScreenProps) {
 }
 
 // The Cart sets no testID on a line. Each line sits in its own wrapper: the CartLine row first
-// (Qty, Item, Price when the cart is wide enough, Total cells), then the line's actions, Increase <name> among them.
+// (Qty, Item, Price when the cart is wide enough, Total cells), with an Edit quantity of <name> trigger in Qty.
 // unitPrice is undefined when the Price column folds away.
 function cartLine(name: string) {
   // By its aria-label, not getByRole: a role query re-reads every button's name and is slow inside waitFor.
-  let node: HTMLElement | null = screen.getByLabelText(`Increase ${name}`);
+  let node: HTMLElement | null = screen.getByLabelText(`Edit quantity of ${name}`);
   while (node && !(node.firstElementChild && within(node.firstElementChild as HTMLElement).queryByText(name))) node = node.parentElement;
   if (!node) throw new Error(`No cart line for ${name}`);
   const cells = Array.from(node.firstElementChild!.children);
@@ -160,8 +161,8 @@ test('switching with a cart parks it under the held-cart key before switching', 
     fireEvent.click(screen.getByTestId('user-sheet-user-b'));
     await waitFor(() => expect(onSwitchCashier).toHaveBeenCalledWith('b'));
     await onSwitchCashier.mock.results[0].value;
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Remove Espresso' })).toBeNull());
-    expect(screen.getByText('Scan or tap a product to start a sale.')).not.toBeNull();
+    await waitFor(() => expect(screen.queryByLabelText('Edit quantity of Espresso')).toBeNull());
+    expect(screen.getByText(EMPTY_CART_TEXT)).not.toBeNull();
   });
 });
 
@@ -175,7 +176,7 @@ test('a failed switch shows the message and puts the cart back', async () => {
     fireEvent.click(screen.getByTestId('user-sheet-user-b'));
     await waitFor(() => expect(onSwitchCashier).toHaveBeenCalledWith('b'));
     await screen.findByText(error);
-    await screen.findByRole('button', { name: 'Remove Espresso' });
+    await screen.findByLabelText('Edit quantity of Espresso');
     await waitFor(async () => expect(await parkedCarts.find().exec()).toEqual([]));
     expect(localStorage.getItem('held-test')).toBeNull();
     expect(screen.getByText(error)).not.toBeNull();
@@ -191,7 +192,7 @@ test('a held cart comes back when its cashier\'s screen mounts once the catalogu
     localStorage.setItem('held-test', cart.id);
     const view = render(<SaleScreen {...props} parkedCarts={parkedCarts} status="syncing" />);
     await waitFor(() => expect(parkedTabs()).toHaveLength(1));
-    expect(screen.queryByRole('button', { name: 'Remove Espresso' })).toBeNull();
+    expect(screen.queryByLabelText('Edit quantity of Espresso')).toBeNull();
     expect(localStorage.getItem('held-test')).toBe(cart.id);
     expect(await parkedCarts.find().exec()).toHaveLength(1);
     view.rerender(<SaleScreen {...props} parkedCarts={parkedCarts} status="ready" />);
@@ -266,7 +267,7 @@ test('a cart held for a switch that is still pending stays parked on the same sc
     expect(docs).toHaveLength(1);
     expect(docs[0].toJSON()).toMatchObject({ lines: [{ name: 'Espresso', quantity: 1 }] });
     expect(localStorage.getItem('held-test')).toBe(docs[0].id);
-    expect(screen.queryByRole('button', { name: 'Remove Espresso' })).toBeNull();
+    expect(screen.queryByLabelText('Edit quantity of Espresso')).toBeNull();
     expect(onSwitchCashier).toHaveBeenCalledWith('b');
     await act(async () => { resolveSwitch(null); await pending; });
   });

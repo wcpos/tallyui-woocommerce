@@ -131,6 +131,8 @@ test('Sort By lists the fields the catalogue can sort in v2\'s order and copy', 
 test('Sort By is v2\'s select: its trigger ends in a chevron', () => {
   openSheet();
   expect(screen.getByTestId('sort-by').contains(screen.getByTestId('sort-by-chevron'))).toBe(true);
+  expect(screen.getByTestId('sort-by').querySelector('[aria-hidden="true"][class*="opacity-50"]')).toBeNull();
+  expect(screen.getByTestId('sort-by').querySelectorAll('svg')).toHaveLength(1);
 });
 
 test('Sort By and Sort Direction reorder the grid and save the sort', () => {
@@ -278,10 +280,12 @@ test('the title keeps leading-none beside text-lg, so the header row is v2\'s 16
   expect(screen.getByTestId('catalogue-settings-header').contains(screen.getByTestId('catalogue-settings-title'))).toBe(true);
 });
 
-test('a switch row takes v2\'s 20 px switch layout: TallyUI\'s 24 px switch overhangs by -my-0.5', () => {
+test('a switch row takes v2\'s 20 px switch via TallyUI\'s size="sm"', () => {
   openSheet();
-  expect(classesOf('show-out-of-stock')).toContain('-my-0.5');
-  expect(classesOf('tile-field-toggle-price')).toContain('-my-0.5');
+  expect(classesOf('show-out-of-stock')).toEqual(expect.arrayContaining(['h-5', 'w-9']));
+  expect(classesOf('show-out-of-stock')).not.toContain('-my-0.5');
+  expect(classesOf('tile-field-toggle-price')).toEqual(expect.arrayContaining(['h-5', 'w-9']));
+  expect(classesOf('tile-field-toggle-price')).not.toContain('-my-0.5');
 });
 
 test('the Sort By select takes v2\'s field box border, the light grey border token, not TallyUI\'s dark input border', () => {

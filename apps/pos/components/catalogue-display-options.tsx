@@ -59,24 +59,23 @@ export function SettingsTrigger({ testID, label, tooltip, onPress, className }: 
  *  takes the outline's `text-foreground`. The catalogue, area and cart settings sheets all draw this one.
  *  `h-11` is v2's Button `size.default` `h-ctl` (button/index.tsx; `--spacing-ctl: 44px`), over TallyUI's h-10. */
 export function RestoreDefaultsButton({ testID, onPress }: { testID: string; onPress(): void }): JSX.Element {
-  return <Button testID={testID} variant="outline" className="h-11 border-destructive bg-card" onPress={onPress}>
+  return <Button testID={testID} variant="outline" className="h-11 border-destructive" onPress={onPress}>
     <Text testID={`${testID}-label`}>Restore Default Settings</Text>
   </Button>;
 }
 
 /** v2's DialogFooter dismiss (dialog/index.tsx: a Button `variant="outline"`), whose outline is `border-border bg-card`
- *  with an accent hover (button/index.tsx). TallyUI's outline is `border-input bg-background`, a dark border on the
- *  grey page fill in Tally's tokens, so the class takes v2's tones. The catalogue, area and cart settings sheets all draw this one.
+ *  with an accent hover (button/index.tsx). TallyUI's outline is `border-input bg-card`, so only v2's border-border
+ *  needs overriding. The catalogue, area and cart settings sheets all draw this one.
  *  `h-11` is v2's `h-ctl`, 44 px, as on Restore. */
 export function SheetCloseButton({ testID, onPress }: { testID: string; onPress(): void }): JSX.Element {
-  return <Button testID={testID} variant="outline" className="h-11 border-border bg-card web:hover:bg-accent" onPress={onPress}><Text>Close</Text></Button>;
+  return <Button testID={testID} variant="outline" className="h-11 border-border web:hover:bg-accent" onPress={onPress}><Text>Close</Text></Button>;
 }
 
 /** v2's DialogTitle (dialog/index.tsx) is the dialog rank (text/ladder.ts `dialog: 'text-lg font-strong'`), 16 px on
  *  v2's 14 px ramp, `leading-none`, so the header row is 16 px tall. global.css takes that ramp, so `text-lg` is 16 px
- *  here too. TallyUI's DialogTitle gives `text-lg … leading-none` and merges ours after it; the size and the leading
- *  travel together, since tailwind-merge clears the line height with a font size. */
-export const SHEET_TITLE = 'text-lg leading-none';
+ *  here too. TallyUI 3.19.0's DialogTitle keeps leading-none beside a caller's text size, so the app need not add it. */
+export const SHEET_TITLE = 'text-lg';
 
 /** v2's Product settings trigger in the search row: a sliders icon with the tooltip "Product settings". `h-11 w-11` is
  *  v2's IconButton `size-ctl`, 44 px (monorepo packages/components/src/icon-button/index.tsx:26), over TallyUI's 40. */
@@ -162,7 +161,7 @@ export function CatalogueDisplayOptions({ state, onChange, products, quickFilter
               <FieldLabel>Sort By</FieldLabel>
               <Select value={sortField === undefined ? undefined : { value: sortField, label: SORT_LABELS[sortField] }}
                 onValueChange={option => { if (option) onChange({ ...state, sort: { field: option.value, dir: state.sort?.dir ?? 'asc' } }); }}>
-                <SelectTrigger testID="sort-by" className={SELECT_FACE}>
+                <SelectTrigger testID="sort-by" className={SELECT_FACE} chevron={false}>
                   <SelectValue placeholder="Sort By" />
                   <ChevronDownIcon testID="sort-by-chevron" size={16} className="text-muted-foreground" />
                 </SelectTrigger>

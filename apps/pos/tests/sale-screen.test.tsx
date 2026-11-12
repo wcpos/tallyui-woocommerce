@@ -1,3 +1,4 @@
+import { openLineQuantity, setLineQuantity, removeLine, EMPTY_CART_TEXT } from './cart-line-helpers';
 import { noTaxSettings } from './fixtures/store-settings';
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
@@ -32,10 +33,10 @@ function SaleScreen(props: SaleScreenProps) {
 }
 
 // The Cart sets no testID on a line. Each line sits in its own wrapper: the CartLine row first
-// (Qty, Item, Price when the cart is wide enough, Total cells), then the line's actions, Increase <name> among them.
+// (Qty, Item, Price when the cart is wide enough, Total cells), with an Edit quantity of <name> trigger in Qty.
 function queryCartItem(name: string): HTMLElement | null {
   // By its aria-label, not getByRole: a role query re-reads every button's name and is slow inside waitFor.
-  let node: HTMLElement | null = screen.queryByLabelText(`Increase ${name}`);
+  let node: HTMLElement | null = screen.queryByLabelText(`Edit quantity of ${name}`);
   while (node && !(node.firstElementChild && within(node.firstElementChild as HTMLElement).queryByText(name))) node = node.parentElement;
   return node;
 }
@@ -67,13 +68,14 @@ function cartLine(name: string) {
   return line;
 }
 
-// The line's Price action has no role or label, only its text, and the Price column head reads the same.
+// A narrow cart offers the line's Price action in its quantity popover.
 function priceActions(): HTMLElement[] {
-  return screen.queryAllByText('Price', { exact: true }).filter(node => !node.closest('[role="columnheader"]'));
+  return screen.queryAllByTestId('quantity-popover-action-price');
 }
 
 function priceAction(name: string): HTMLElement {
-  return within(cartItem(name)).getByText('Price', { exact: true });
+  openLineQuantity(name);
+  return screen.getByTestId('quantity-popover-action-price');
 }
 
 // "Total" is also a cart column head; the summary row's label is the one outside the heads.
@@ -252,12 +254,12 @@ test('narrow: adds, opens, changes quantity, removes and returns to products', (
   openCartTab();
   expect(cartPane().getByText('Espresso')).not.toBeNull();
   expect(paneShown('products')).toBe(false);
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  setLineQuantity('Espresso', 2);
   expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: undefined, total: '$6.00' });
   expect(within(screen.getByText('Subtotal').parentElement!).getByText('$6.00')).not.toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Remove Espresso' }));
+  removeLine('Espresso');
   expect(cartPane().queryByText('Espresso')).toBeNull();
-  expect(screen.getByText('Scan or tap a product to start a sale.')).not.toBeNull();
+  expect(screen.getByText(EMPTY_CART_TEXT)).not.toBeNull();
   openProductsTab();
   expect(paneShown('products')).toBe(true);
   expect(screen.getByPlaceholderText('Search products')).not.toBeNull();
@@ -316,7 +318,7 @@ test('editing Espresso ×2 changes the unit price and subtotal exactly', () => {
   render(<SaleScreen {...props} />);
   fireEvent.click(screen.getByText('Espresso'));
   openCartTab();
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  setLineQuantity('Espresso', 2);
   // Narrow: no Price column, so no price popover; the line's Price action opens the inline form.
   expect(screen.queryByLabelText('Edit price of Espresso')).toBeNull();
   fireEvent.click(priceAction('Espresso'));
@@ -332,7 +334,7 @@ test('invalid prices leave the form open and Cancel preserves the original price
   render(<SaleScreen {...props} />);
   fireEvent.click(screen.getByText('Espresso'));
   openCartTab();
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  setLineQuantity('Espresso', 2);
   fireEvent.click(priceAction('Espresso'));
   for (const [value, message] of [
     ['', 'Enter a price.'], ['abc', 'Enter a number.'], ['-1', 'Enter a price of 0 or more.'],
@@ -371,7 +373,7 @@ test('parks through the sheet, shows the parked customer and restores them to th
   await act(async () => { fireEvent.click(sheet.getByRole('button', { name: 'Resume parked sale' })); });
   expect(screen.queryByTestId('parked-sales')).toBeNull();
   expect(await screen.findByRole('button', { name: 'Customer: Gee Four' })).not.toBeNull();
-  expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
+  expect(screen.getByLabelText('Edit quantity of Espresso')).not.toBeNull();
 }, 20_000);
 
 // D2: v2's default customer (use-default-customer-id.ts) is on every new cart, never on a resumed one.
@@ -402,14 +404,14 @@ test('a new sale starts with the default customer; a resumed one keeps its own, 
   const resumeOnly = async (line: string) => {
     openParkedList();
     await act(async () => { fireEvent.click(within(screen.getByTestId('parked-sales')).getByRole('button', { name: 'Resume parked sale' })); });
-    await waitFor(() => expect(screen.queryByRole('button', { name: `Remove ${line}` })).not.toBeNull());
+    await waitFor(() => expect(screen.queryByLabelText(`Edit quantity of ${line}`)).not.toBeNull());
   };
   // Resuming the Guest sale parks Anna's and restores Guest, not the default; resuming Anna's restores Anna.
   await resumeOnly('Espresso');
   expect(chip()).toBe('Customer: Guest');
   await resumeOnly('Cold Brew');
   expect(chip()).toBe('Customer: Anna Bell');
-  expect(screen.queryByRole('button', { name: 'Remove Espresso' })).toBeNull();
+  expect(screen.queryByLabelText('Edit quantity of Espresso')).toBeNull();
 }, 20_000);
 
 test('with a Guest default every new sale is Guest, and a default resolved later reaches only an idle cart', async () => {
@@ -448,15 +450,19 @@ test('wide: each line offers a price popover instead of the Price action, and ke
     const item = within(cartItem(name));
     expect(item.getAllByLabelText(`Edit price of ${name}`)).toHaveLength(1);
     expect(item.getAllByLabelText(`Edit quantity of ${name}`)).toHaveLength(1);
-    expect(item.getAllByText('Discount', { exact: true })).toHaveLength(1);
-    expect(item.queryByText('Price', { exact: true })).toBeNull();
+    openLineQuantity(name);
+    expect(screen.queryByTestId('quantity-popover-action-price')).toBeNull();
+    fireEvent.click(screen.getByTestId('quantity-popover-cancel'));
+    fireEvent.click(item.getByLabelText(`Edit price of ${name}`));
+    expect(screen.getAllByTestId('price-popover-action-discount')).toHaveLength(1);
+    fireEvent.click(screen.getByTestId('price-popover-cancel'));
   }
   fireEvent.click(screen.getByLabelText('Edit price of Cold Brew'));
   expect(within(screen.getByTestId('price-popover')).getByText('Price for Cold Brew')).not.toBeNull();
   fireEvent.click(screen.getByTestId('price-popover-cancel'));
-  fireEvent.click(screen.getByRole('button', { name: 'Remove Cold Brew' }));
+  removeLine('Cold Brew');
   expect(screen.getAllByTestId('price-popover-trigger')).toHaveLength(1);
-  fireEvent.click(screen.getByRole('button', { name: 'Remove Espresso' }));
+  removeLine('Espresso');
   expect(screen.queryAllByTestId('price-popover-trigger')).toEqual([]);
 });
 
@@ -464,7 +470,7 @@ test('wide: the price popover shows the price and the −5%, −10% and −15% k
   vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
   render(<SaleScreen {...props} />);
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  setLineQuantity('Espresso', 2);
   fireEvent.click(screen.getByLabelText('Edit price of Espresso'));
   const popover = within(screen.getByTestId('price-popover'));
   expect(popoverValue('price')).toBe('$3.00');
@@ -516,23 +522,31 @@ test('wide: a price the library refuses stays in the open popover and changes no
   expect(within(summaryRow('Total')).getByText('$3.00')).not.toBeNull();
 });
 
-test('narrow: Price actions appear once per line and none appear with an empty cart', () => {
+test('narrow: each quantity popover offers one Price action and an empty cart offers none', () => {
   render(<SaleScreen {...props} />);
   expect(priceActions()).toEqual([]);
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByText('Cold Brew'));
   openCartTab();
   expect(screen.queryAllByTestId('price-popover-trigger')).toEqual([]);
-  expect(priceActions()).toHaveLength(2);
-  expect(within(cartItem('Espresso')).getAllByText('Price', { exact: true })).toHaveLength(1);
-  expect(within(cartItem('Cold Brew')).getAllByText('Price', { exact: true })).toHaveLength(1);
+  const actions: HTMLElement[] = [];
+  for (const name of ['Espresso', 'Cold Brew']) {
+    openLineQuantity(name);
+    expect(priceActions()).toHaveLength(1);
+    actions.push(...priceActions());
+    fireEvent.click(screen.getByTestId('quantity-popover-cancel'));
+  }
+  expect(actions).toHaveLength(2);
   // Cart Settings sorts newest at top by default (v2), so Cold Brew, added last, is the first line.
+  fireEvent.click(screen.getAllByTestId('quantity-popover-trigger')[0]);
   fireEvent.click(priceActions()[0]);
   expect(screen.getByRole('group', { name: 'Price for Cold Brew' })).not.toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Remove Cold Brew' }));
-  expect(priceActions()).toEqual([priceAction('Espresso')]);
-  fireEvent.click(screen.getByRole('button', { name: 'Remove Espresso' }));
+  removeLine('Cold Brew');
+  openLineQuantity('Espresso');
+  expect(priceActions()).toEqual([screen.getByRole('button', { name: 'Price Espresso' })]);
+  fireEvent.click(screen.getByTestId('quantity-popover-cancel'));
+  removeLine('Espresso');
   expect(priceActions()).toEqual([]);
 });
 
@@ -569,7 +583,7 @@ test.each([
     vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
     render(<SaleScreen {...props} currency={currency} />);
     fireEvent.click(screen.getByText('Espresso'));
-    fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+    setLineQuantity('Espresso', 2);
     fireEvent.click(screen.getByLabelText('Edit price of Espresso'));
     typeOnKeypad('price', value);
     fireEvent.click(screen.getByTestId('price-popover-apply'));
@@ -609,12 +623,12 @@ test('wide: the grid and cart render together at 900px and Cold Brew costs $4.00
   vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
   render(<SaleScreen {...props} />);
   expect(screen.getByPlaceholderText('Search products')).not.toBeNull();
-  expect(screen.getByText('Scan or tap a product to start a sale.')).not.toBeNull();
+  expect(screen.getByText(EMPTY_CART_TEXT)).not.toBeNull();
   // The phone tab bar is the narrow layout's alone.
   expect(screen.queryByTestId('pos-tab-bar')).toBeNull();
   fireEvent.click(screen.getByText('Cold Brew'));
   expect(screen.getAllByText('Cold Brew')).toHaveLength(2);
-  expect(screen.getByRole('button', { name: 'Remove Cold Brew' })).not.toBeNull();
+  expect(screen.getByLabelText('Edit quantity of Cold Brew')).not.toBeNull();
   expect(within(screen.getByText('Subtotal').parentElement!).getByText('$4.00')).not.toBeNull();
 });
 
@@ -625,7 +639,7 @@ test('wide: a tile counts its quantity in the cart and loses the badge when the 
   fireEvent.click(screen.getByTestId('product-tile-80'));
   fireEvent.click(screen.getByTestId('product-tile-80'));
   expect(screen.getByTestId('in-cart-tile-80').textContent).toBe('2');
-  fireEvent.click(screen.getByRole('button', { name: 'Remove Espresso' }));
+  removeLine('Espresso');
   expect(screen.queryByTestId('in-cart-tile-80')).toBeNull();
 });
 
@@ -659,10 +673,10 @@ test('wide: parks, resumes while parking the current cart, and discards with con
   render(<SaleScreen {...props} />);
   expect(screen.getByTestId('new-order-tab').getAttribute('aria-selected')).toBe('true');
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  setLineQuantity('Espresso', 2);
   await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
-  expect(screen.getByText('Scan or tap a product to start a sale.')).not.toBeNull();
-  expect(screen.queryByRole('button', { name: 'Remove Espresso' })).toBeNull();
+  expect(screen.getByText(EMPTY_CART_TEXT)).not.toBeNull();
+  expect(screen.queryByLabelText('Edit quantity of Espresso')).toBeNull();
   openParkedList();
   expect(screen.getByText('Parked sales')).not.toBeNull();
   expect(within(screen.getByTestId('parked-sales')).getByText('2 items')).not.toBeNull();
@@ -674,7 +688,7 @@ test('wide: parks, resumes while parking the current cart, and discards with con
   expect(screen.queryByTestId('parked-sales')).toBeNull();
   expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: '$3.00', total: '$6.00' });
   expect(within(screen.getByText('Subtotal').parentElement!).getByText('$6.00')).not.toBeNull();
-  expect(screen.queryByRole('button', { name: 'Remove Cold Brew' })).toBeNull();
+  expect(screen.queryByLabelText('Edit quantity of Cold Brew')).toBeNull();
   openParkedList();
   const sheet = within(screen.getByTestId('parked-sales'));
   expect(sheet.getByText('1 item')).not.toBeNull();
@@ -731,10 +745,9 @@ test('onResume resolves after restoration, and the sheet closes with the restore
   });
   render(<SaleScreen {...props} />);
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  setLineQuantity('Espresso', 2);
   fireEvent.click(screen.getByText('Cold Brew'));
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Cold Brew' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Cold Brew' }));
+  setLineQuantity('Cold Brew', 3);
   await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
   openParkedList();
   await act(async () => {
@@ -765,7 +778,7 @@ test('resuming reports a missing product in the phone cart message line', async 
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' })); });
   expect(screen.queryByTestId('parked-sales')).toBeNull();
   expect(cartPane().getByText('Espresso is no longer in the catalogue.')).not.toBeNull();
-  expect(screen.getByText('Scan or tap a product to start a sale.')).not.toBeNull();
+  expect(screen.getByText(EMPTY_CART_TEXT)).not.toBeNull();
 }, 20_000);
 
 test('a failed park from + shows the error and keeps the cart line', async () => {
@@ -783,7 +796,7 @@ test('a failed park from + shows the error and keeps the cart line', async () =>
     openCartTab();
     await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
     expect(await cartPane().findByText('disk full')).not.toBeNull();
-    expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
+    expect(screen.getByLabelText('Edit quantity of Espresso')).not.toBeNull();
     expect(cartLine('Espresso')).toEqual({ quantity: '1', unitPrice: undefined, total: '$3.00' });
   } finally {
     cleanup();
@@ -813,14 +826,14 @@ test('a parked cart stays parked while syncing and resumes once the catalogue is
       'The catalogue is still syncing. Try again in a moment.',
     )).not.toBeNull();
     expect((await parkedCarts.find().exec()).map(doc => doc.toJSON())).toEqual([cart.toJSON()]);
-    expect(screen.getByText('Scan or tap a product to start a sale.')).not.toBeNull();
+    expect(screen.getByText(EMPTY_CART_TEXT)).not.toBeNull();
 
     view.rerender(<SaleScreen {...props} parkedCarts={parkedCarts} status="ready" />);
     fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' }));
     await waitFor(() => expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: undefined, total: '$6.00' }));
     await waitFor(() => expect(screen.queryByTestId('parked-sales')).toBeNull());
     expect(await parkedCarts.find().exec()).toEqual([]);
-    expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
+    expect(screen.getByLabelText('Edit quantity of Espresso')).not.toBeNull();
   } finally {
     cleanup();
     await db.remove();
@@ -839,7 +852,7 @@ test('persisted carts survive a new screen, restore, swap and discard', async ()
     });
     const view = render(<SaleScreen {...props} parkedCarts={parkedCarts} />);
     fireEvent.click(screen.getByText('Espresso'));
-    fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+    setLineQuantity('Espresso', 2);
     await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
     await waitFor(() => expect(parkedTabs()).toHaveLength(1));
     const docs = await parkedCarts.find().exec();
@@ -857,11 +870,11 @@ test('persisted carts survive a new screen, restore, swap and discard', async ()
     await waitFor(() => expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: '$3.00', total: '$6.00' }));
     await waitFor(() => expect(screen.queryByTestId('parked-sales')).toBeNull());
     expect(await parkedCarts.find().exec()).toEqual([]);
-    expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
+    expect(screen.getByLabelText('Edit quantity of Espresso')).not.toBeNull();
 
     await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
     await waitFor(() => expect(parkedTabs()).toHaveLength(1));
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Remove Espresso' })).toBeNull());
+    await waitFor(() => expect(screen.queryByLabelText('Edit quantity of Espresso')).toBeNull());
     fireEvent.click(screen.getByText('Cold Brew'));
     openParkedList();
     fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' }));

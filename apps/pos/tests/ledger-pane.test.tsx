@@ -1,3 +1,4 @@
+import { setLineQuantity } from './cart-line-helpers';
 import { noTaxSettings } from './fixtures/store-settings';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
@@ -104,7 +105,7 @@ async function renderSale(button: 'Cash' | 'Card terminal' = 'Cash', width = 900
   await screen.findByText('Order store ready');
   fireEvent.click(screen.getByText('Espresso'));
   if (width < 900) openCartTab();
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  setLineQuantity('Espresso', 2);
   // v2's foot: Checkout opens the tender on Cash; Card is picked on the tender pane's tiles.
   fireEvent.click(screen.getByTestId('cart-checkout'));
   if (button === 'Card terminal') fireEvent.click(await screen.findByTestId('checkout-method-pos_card'));

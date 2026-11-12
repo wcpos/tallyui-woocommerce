@@ -1,3 +1,4 @@
+import { setLineQuantity } from './cart-line-helpers';
 import { noTaxSettings } from './fixtures/store-settings';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
@@ -50,7 +51,7 @@ beforeEach(async () => {
   );
   await screen.findByText('Order store ready');
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  setLineQuantity('Espresso', 2);
   fireEvent.click(screen.getByTestId('cart-checkout'));
 });
 

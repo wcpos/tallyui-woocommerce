@@ -1,3 +1,4 @@
+import { setLineQuantity } from './cart-line-helpers';
 import { noTaxSettings } from './fixtures/store-settings';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
@@ -66,7 +67,7 @@ test.each([true, false, undefined])('uses the advertised tender UI with multiple
   );
   await screen.findByText('Order store ready');
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  setLineQuantity('Espresso', 2);
   fireEvent.click(screen.getByTestId('cart-checkout'));
   if (multiplePayments === true) {
     expect(screen.getByTestId('checkout-ledger')).not.toBeNull();
@@ -115,7 +116,7 @@ test('the existing outbox transport sees a catalogue capability that arrives lat
     products, status: 'ready' });
   rerender(view(true));
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  setLineQuantity('Espresso', 2);
   fireEvent.click(screen.getByTestId('cart-checkout'));
   takeLeg(200);
   takeLeg(400, 'pos_card');

@@ -1,3 +1,4 @@
+import { setLineQuantity, EMPTY_CART_TEXT } from './cart-line-helpers';
 import { noTaxSettings } from './fixtures/store-settings';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
@@ -73,7 +74,7 @@ async function paySplit(transport: { send: CommandTransport<OrderCreateEnvelope>
   );
   await screen.findByText('Order store ready');
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  setLineQuantity('Espresso', 2);
   fireEvent.click(screen.getByTestId('cart-checkout'));
   takeLeg(200);
   expect(screen.getByTestId('checkout-ledger-remaining').textContent).toBe('$4.00');
@@ -97,7 +98,7 @@ test('with auto print on, a split sale prints once, waits on the store, and Clos
   });
   expect(print).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByTestId('receipt-close'));
-  expect(await screen.findByText('Scan or tap a product to start a sale.')).not.toBeNull();
+  expect(await screen.findByText(EMPTY_CART_TEXT)).not.toBeNull();
   expect(screen.queryByTestId('receipt-order')).toBeNull();
 }, 20_000);
 
@@ -117,7 +118,7 @@ test('with auto show and auto print off, a sale goes straight back to an empty t
   const { transport, release } = gatedTransport();
   release();
   await paySplit(transport, false);
-  expect(await screen.findByText('Scan or tap a product to start a sale.')).not.toBeNull();
+  expect(await screen.findByText(EMPTY_CART_TEXT)).not.toBeNull();
   await waitFor(() => expect(transport.send).toHaveBeenCalled());
   expect(screen.queryByTestId('receipt-order')).toBeNull();
   expect(screen.queryByTestId('receipt-print-area')).toBeNull();
@@ -130,7 +131,7 @@ test('with auto show off and auto print on, a sale prints once and the till retu
   const { transport, release } = gatedTransport();
   release();
   await paySplit(transport, false);
-  expect(await screen.findByText('Scan or tap a product to start a sale.')).not.toBeNull();
+  expect(await screen.findByText(EMPTY_CART_TEXT)).not.toBeNull();
   expect(print).toHaveBeenCalledTimes(1);
   expect(screen.queryByTestId('receipt-order')).toBeNull();
   expect(screen.queryByTestId('receipt-print-area')).toBeNull();
@@ -146,5 +147,5 @@ test('with auto show off and auto print on, a failed print keeps the receipt wit
   expect(print).toHaveBeenCalledTimes(1);
   expect(screen.getByTestId('receipt-order')).not.toBeNull();
   expect(screen.getByTestId('receipt-print-again')).not.toBeNull();
-  expect(screen.queryByText('Scan or tap a product to start a sale.')).toBeNull();
+  expect(screen.queryByText(EMPTY_CART_TEXT)).toBeNull();
 }, 20_000);

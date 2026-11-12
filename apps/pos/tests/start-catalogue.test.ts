@@ -127,7 +127,7 @@ test.each([
   { advertised: ['order_create_v5'], site: 'none', orderCreate: 5, multiplePayments: false, coupons: false },
   { advertised: ['order_payments_list'], site: 'none', orderCreate: 3, multiplePayments: true, coupons: false },
   { advertised: ['order_create_v5', 'order_payments_list'], site: 'none', orderCreate: 5, multiplePayments: true, coupons: false },
-  { advertised: ['order_create_v5'], site: '1.10.20', siteResponse: Response.json({ wcpos_version: '1.10.20' }), orderCreate: 6, multiplePayments: false, coupons: true },
+  { advertised: ['order_create_v5'], site: '1.10.20', siteResponse: Response.json({ wcpos_version: '1.10.20' }), orderCreate: 8, multiplePayments: false, coupons: true },
   { advertised: ['order_create_v5'], site: '1.8.9', siteResponse: Response.json({ wcpos_version: '1.8.9' }), orderCreate: 5, multiplePayments: false, coupons: false },
 ])('reads order.create $orderCreate and coupons $coupons from status $advertised and site $site', async ({ advertised, siteResponse, orderCreate, multiplePayments, coupons }) => {
   vi.stubGlobal('fetch', fakeStore({ advertised, site: siteResponse }));

@@ -97,7 +97,7 @@ async function renderTill(capabilities: ServerCapabilities = COUPONS,
 
 async function addEspresso() {
   fireEvent.click(await screen.findByText('Espresso'));
-  await screen.findByRole('button', { name: 'Increase Espresso' });
+  await screen.findByLabelText('Edit quantity of Espresso');
 }
 
 function total() {
@@ -146,7 +146,7 @@ test('a fee, a shipping charge and a custom item each reach the order through th
   const shippingRow = within(screen.getByTestId('cart-shipping-0'));
   expect(shippingRow.getByText('Delivery')).not.toBeNull();
   expect(shippingRow.getByText('$5.00')).not.toBeNull();
-  expect(screen.getByRole('button', { name: 'Remove Gift wrap' })).not.toBeNull();
+  expect(screen.getByLabelText('Edit quantity of Gift wrap')).not.toBeNull();
   expect(total().getByText('$11.20')).not.toBeNull();
 }, 20_000);
 

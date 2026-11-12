@@ -78,7 +78,7 @@ export function ReceiptEmail({ collection, orderId, defaultEmail, localOnly = fa
               accessibilityLabel="Email Address" keyboardType="email-address" autoCapitalize="none" /></Input>
           </View>
           <View className="flex-row items-center gap-2">
-            <Switch testID="receipt-email-save-to-billing" accessibilityLabel="Save email to Billing Address"
+            <Switch size="sm" testID="receipt-email-save-to-billing" accessibilityLabel="Save email to Billing Address"
               checked={saveToBilling} onCheckedChange={setSaveToBilling} />
             <Text>Save email to Billing Address</Text>
           </View>

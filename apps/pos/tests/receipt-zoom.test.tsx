@@ -1,3 +1,4 @@
+import { setLineQuantity } from './cart-line-helpers';
 import { noTaxSettings } from './fixtures/store-settings';
 import type { ComponentProps } from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
@@ -219,7 +220,7 @@ test('the sale receipt stage shows its print area inside the zoom preview', asyn
     results: batch.map(e => ({ id: e.id, status: 'applied' as const, serverRefs: { orderId: '115', totalMinor: 600 } })) });
   await setup(send);
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  setLineQuantity('Espresso', 2);
   fireEvent.click(screen.getByTestId('cart-checkout'));
   takeLeg(200);
   takeLeg(400, 'pos_card');

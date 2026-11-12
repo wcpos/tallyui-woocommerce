@@ -36,7 +36,7 @@ export function LockedRow({ testID, label, value, href }: {
     </>}>
       {/* v2 PropertyRow (l.125-135): a locked boolean is a disabled switch, an empty locked value a dash. */}
       {typeof value === 'boolean'
-        ? <Switch testID={`${testID}-switch`} accessibilityLabel={label} checked={value} onCheckedChange={() => {}} disabled />
+        ? <Switch size="sm" testID={`${testID}-switch`} accessibilityLabel={label} checked={value} onCheckedChange={() => {}} disabled />
         : <Text testID={`${testID}-value`}>{value || '—'}</Text>}
     </SettingsField>
   );
@@ -101,7 +101,7 @@ function DefaultCustomerRows({ setting, customer, source, onChange }: DefaultCus
       {/* v2 general.tsx:324-328: a control with no value is the value (property-row/index.tsx:143). */}
       {/* v2 core.json:1744 reads "Default Customer is cashier"; the demo's "Cashier" wins. */}
       <SettingsField testID="settings-general-default_customer_is_cashier" label="Default Customer is Cashier">
-        <Switch testID="settings-general-default_customer_is_cashier-switch" accessibilityLabel="Default Customer is Cashier"
+        <Switch size="sm" testID="settings-general-default_customer_is_cashier-switch" accessibilityLabel="Default Customer is Cashier"
           checked={setting.isCashier} onCheckedChange={isCashier => onChange({ ...setting, isCashier })} />
       </SettingsField>
     </>

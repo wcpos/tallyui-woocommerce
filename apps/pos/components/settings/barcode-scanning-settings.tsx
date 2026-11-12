@@ -82,7 +82,7 @@ function SoundSettings(): JSX.Element {
   return (
     <SettingsGroup title="Sound" testID="settings-barcode-sound-group">
       <SettingsRow label="Play a sound on scan" action={
-        <Switch testID="settings-barcode-sound" accessibilityLabel="Play a sound on scan" checked={sound.enabled}
+        <Switch size="sm" testID="settings-barcode-sound" accessibilityLabel="Play a sound on scan" checked={sound.enabled}
           onCheckedChange={enabled => update({ enabled })} />
       } />
       {sound.enabled && (
@@ -115,11 +115,11 @@ function SoundSettings(): JSX.Element {
               onPress={() => preview('success', sound.theme)} />
           </View>
           <SettingsRow label="Success sound" action={
-            <Switch testID="settings-barcode-sound-success" accessibilityLabel="Success sound" checked={sound.success}
+            <Switch size="sm" testID="settings-barcode-sound-success" accessibilityLabel="Success sound" checked={sound.success}
               onCheckedChange={success => update({ success })} />
           } />
           <SettingsRow label="Failure sound" action={
-            <Switch testID="settings-barcode-sound-failure" accessibilityLabel="Failure sound" checked={sound.failure}
+            <Switch size="sm" testID="settings-barcode-sound-failure" accessibilityLabel="Failure sound" checked={sound.failure}
               onCheckedChange={failure => update({ failure })} />
           } />
         </View>
