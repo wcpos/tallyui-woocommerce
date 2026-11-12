@@ -1,6 +1,7 @@
 /* v2's seven extra themes (monorepo main, apps/main/global.css), mapped to
    TallyUI's token names: input takes v2's border, price v2's success and sale
-   v2's destructive. Uniwind requires every theme to define the same
+   v2's destructive. The rail tokens are v2's --rail* (v2's var(--card) is var(--color-card); v2's --selected
+   pair, which the app lacks, is written out). Uniwind requires every theme to define the same
    variables as light and dark; register each name in metro.config.js.
    Each `@variant` sits directly in `@layer theme`, as @tallyui/theme's tokens.css does, never inside `:root`:
    on web uniwind 1.4.0's CSS visitor rewrites a theme's first `&:where(.x, .x *)` rule to plain `.x`
@@ -41,6 +42,12 @@
     --color-tile-tint-3: oklch(0.32 0.05 300);
     --color-tile-tint-4: oklch(0.34 0.05 90);
     --color-tile-tint-5: oklch(0.31 0.03 200);
+    /* v2 l.708-713; selected pair is v2's --selected, l.681-682 */
+    --color-rail: oklch(0.14 0.045 235);
+    --color-rail-foreground: oklch(0.75 0.04 200);
+    --color-rail-border: oklch(0.24 0.04 230);
+    --color-rail-selected: oklch(0.30 0.06 200);
+    --color-rail-selected-foreground: oklch(0.84 0.12 195);
   }
 
   @variant sunset {
@@ -77,6 +84,12 @@
     --color-tile-tint-3: oklch(0.32 0.05 300);
     --color-tile-tint-4: oklch(0.34 0.05 90);
     --color-tile-tint-5: oklch(0.31 0.03 200);
+    /* v2 l.846-851; selected pair is v2's --selected, l.819-820 */
+    --color-rail: oklch(0.15 0.05 320);
+    --color-rail-foreground: oklch(0.78 0.05 40);
+    --color-rail-border: oklch(0.25 0.05 318);
+    --color-rail-selected: oklch(0.32 0.07 45);
+    --color-rail-selected-foreground: oklch(0.84 0.14 45);
   }
 
   @variant monochrome {
@@ -113,6 +126,12 @@
     --color-tile-tint-3: oklch(0.32 0.05 300);
     --color-tile-tint-4: oklch(0.34 0.05 90);
     --color-tile-tint-5: oklch(0.31 0.03 200);
+    /* v2 l.982-987; selected pair is v2's --selected, l.955-956 */
+    --color-rail: oklch(0.08 0 0);
+    --color-rail-foreground: oklch(0.78 0 0);
+    --color-rail-border: oklch(0.22 0 0);
+    --color-rail-selected: oklch(0.32 0 0);
+    --color-rail-selected-foreground: oklch(0.95 0 0);
   }
 
   @variant paper {
@@ -149,6 +168,12 @@
     --color-tile-tint-3: oklch(0.89 0.04 300);
     --color-tile-tint-4: oklch(0.90 0.06 40);
     --color-tile-tint-5: oklch(0.90 0.04 200);
+    /* v2 l.1089-1094; selected-foreground is v2's --selected-foreground, l.1075 */
+    --color-rail: oklch(0.912 0.023 85);
+    --color-rail-foreground: oklch(0.437 0.027 78);
+    --color-rail-border: oklch(0.852 0.031 84);
+    --color-rail-selected: var(--color-card);
+    --color-rail-selected-foreground: oklch(0.227 0.016 71);
   }
 
   @variant warm {
@@ -185,6 +210,12 @@
     --color-tile-tint-3: oklch(0.87 0.06 330);
     --color-tile-tint-4: oklch(0.90 0.09 85);
     --color-tile-tint-5: oklch(0.88 0.05 200);
+    /* v2 l.1192-1197; selected-foreground is v2's --selected-foreground, l.1178 */
+    --color-rail: oklch(0.925 0.015 77);
+    --color-rail-foreground: oklch(0.456 0.021 67);
+    --color-rail-border: oklch(0.895 0.017 76);
+    --color-rail-selected: var(--color-card);
+    --color-rail-selected-foreground: oklch(0.42 0.10 41);
   }
 
   @variant bold {
@@ -221,6 +252,12 @@
     --color-tile-tint-3: oklch(0.90 0 0);
     --color-tile-tint-4: oklch(0.94 0.10 123);
     --color-tile-tint-5: oklch(0.87 0 0);
+    /* v2 l.1295-1300 */
+    --color-rail: oklch(0.145 0 0);
+    --color-rail-foreground: oklch(0.836 0 0);
+    --color-rail-border: oklch(0.252 0 0);
+    --color-rail-selected: oklch(0.908 0.201 123);
+    --color-rail-selected-foreground: oklch(0.145 0 0);
   }
 
   @variant market {
@@ -257,5 +294,11 @@
     --color-tile-tint-3: oklch(0.89 0.09 301);
     --color-tile-tint-4: oklch(0.90 0.10 34);
     --color-tile-tint-5: oklch(0.90 0.08 220);
+    /* v2 l.1402-1407 */
+    --color-rail: oklch(0.232 0.038 290);
+    --color-rail-foreground: oklch(0.881 0.023 297);
+    --color-rail-border: oklch(0.298 0.040 290);
+    --color-rail-selected: oklch(0.686 0.205 34);
+    --color-rail-selected-foreground: oklch(0.232 0.038 290);
   }
 }

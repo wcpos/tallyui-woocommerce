@@ -3,6 +3,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { View } from 'react-native';
 import { AppFrame, AppRail } from '../components/app-rail';
 import { RegisterBarShell } from '../components/register-bar-shell';
+import { classesOf } from './classes-of';
 
 afterEach(() => { cleanup(); });
 
@@ -68,4 +69,13 @@ test('AppFrame hands onNavigate the current area and the pressed one', () => {
   fireEvent.click(screen.getByTestId('drawer-item-orders'));
   expect(onNavigate).toHaveBeenCalledOnce();
   expect(onNavigate).toHaveBeenCalledWith('settings', 'orders');
+});
+
+test("the rail draws v2's rail tokens: the rail and its border, rail-foreground items, the selected item on rail-selected", () => {
+  render(<AppRail active="orders" onNavigate={() => {}} />);
+  expect(classesOf('drawer-panel-permanent')).toEqual(expect.arrayContaining(['bg-rail', 'border-rail-border']));
+  expect(classesOf('drawer-panel-permanent')).not.toContain('bg-muted');
+  expect(classesOf('drawer-item-orders')).toEqual(expect.arrayContaining(['bg-rail-selected', 'text-rail-selected-foreground']));
+  expect(classesOf('drawer-item-pos')).toContain('text-rail-foreground');
+  expect(classesOf('drawer-item-pos')).not.toContain('bg-rail-selected');
 });

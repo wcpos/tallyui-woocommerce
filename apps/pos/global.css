@@ -35,7 +35,9 @@
    mapped to TallyUI's token names as themes.css maps the seven extra themes: popover takes v2's card, secondary
    v2's muted-foreground on card, success and price v2's --ok (l.436 light, l.576 dark), warning v2's --warning
    (l.438, l.578) and sale v2's destructive (l.381, l.526). --color-input is left to @tallyui/theme (TallyUI #760).
-   TallyUI has no rail token: the rail draws bg-muted, so it takes v2's muted, not v2's --rail (l.427, l.570). */
+   The rail tokens are the app's own (TallyUI has none), v2's --rail* (l.427-435 light, l.570-575 dark, mapped at
+   l.104-109): v2's var(--card) is var(--color-card), and v2's --selected / --selected-foreground, which the app
+   lacks, are written out (l.400-401 light, l.543-544 dark). */
 @theme {
   --color-background: oklch(0.97 0.005 262);
   --color-foreground: oklch(0.16 0.005 262);
@@ -61,6 +63,11 @@
   --color-ring: oklch(0.42 0.24 262);
   --color-price: oklch(0.52 0.16 155);
   --color-sale: oklch(0.52 0.22 25);
+  --color-rail: oklch(0.935 0.016 262);
+  --color-rail-foreground: oklch(0.34 0.01 262);
+  --color-rail-border: oklch(0.88 0.014 262);
+  --color-rail-selected: var(--color-card);
+  --color-rail-selected-foreground: oklch(0.42 0.17 262);
 }
 
 /* v2's destructive (apps/main/global.css l.381-382 light, l.526-527 dark), over @tallyui/theme's #dc2626 and
@@ -115,6 +122,12 @@
       --color-ring: oklch(0.42 0.24 262);
       --color-price: oklch(0.52 0.16 155);
       --color-sale: oklch(0.52 0.22 25);
+      /* v2 l.427-435; selected-foreground is v2's --selected-foreground, l.401 */
+      --color-rail: oklch(0.935 0.016 262);
+      --color-rail-foreground: oklch(0.34 0.01 262);
+      --color-rail-border: oklch(0.88 0.014 262);
+      --color-rail-selected: var(--color-card);
+      --color-rail-selected-foreground: oklch(0.42 0.17 262);
     }
 
     @variant dark {
@@ -150,6 +163,12 @@
       --color-ring: oklch(0.70 0.17 240);
       --color-price: oklch(0.72 0.15 155);
       --color-sale: oklch(0.67 0.2 25);
+      /* v2 l.570-575; selected and its foreground are v2's --selected pair, l.543-544 */
+      --color-rail: oklch(0.16 0.025 250);
+      --color-rail-foreground: oklch(0.72 0.02 250);
+      --color-rail-border: oklch(0.25 0.02 250);
+      --color-rail-selected: oklch(0.30 0.06 240);
+      --color-rail-selected-foreground: oklch(0.82 0.13 240);
     }
   }
 }
