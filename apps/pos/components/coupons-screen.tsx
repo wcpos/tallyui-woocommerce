@@ -23,7 +23,9 @@ import { useAreaColumns } from '../lib/area-columns';
 import type { AreaColumn } from '../lib/area-columns';
 import { AreaDisplayOptions } from './area-display-options';
 import { AreaToolbar, useAreaGutter } from './area-header';
-import { chipInkClassName, filterChipClassName, filterChipTextClassName } from './catalogue-filter-chips';
+import {
+  CHIP_CLEAR_CELL_CLASS, CHIP_CLEAR_GLYPH_SIZE, chipInkClassName, filterChipClassName, filterChipTextClassName,
+} from './catalogue-filter-chips';
 import { StatusDot } from './status-dot';
 import type { StatusTone } from './status-dot';
 import { CaptionRowInset, TableCount, TableSurface, useCatalogueSync } from './table-surface';
@@ -92,9 +94,10 @@ const STATUS_TONE: Record<string, StatusTone> = { publish: 'success', draft: 'mu
 
 // v2's body cell (components/src/table/index.tsx:129, `flex-col justify-center px-3 py-1.5`), as orders-table.tsx's
 // CELL: every cell centres its content on the row with v2's padding. The head takes the same px-3
-// (table/index.tsx:112) so each label stays over its column.
+// (table/index.tsx:112) so each label stays over its column. Its height is v2's ResizeHead `min-h-row`, 44 px
+// (core data-table/resize.tsx:40 over table/index.tsx:112 `h-9 justify-center`; global.css:41 `--spacing-row`).
 const CELL = 'justify-center px-3 py-1.5';
-const HEAD = 'px-3';
+const HEAD = 'min-h-11 justify-center px-3';
 // v2's coupons aligns (ui-settings/initial-settings.json:511 Amount `right`, :528 Usage `center`), on the head and
 // the cell alike (data-table/column-style.ts:15-22 alignItems, header.tsx:36-47).
 const ALIGN: Partial<Record<CouponsColumnId, string>> = { amount: 'items-end', usage_count: 'items-center' };
@@ -218,8 +221,11 @@ function FilterPill({ field, icon: Icon, label, value, choices, onChoose, onRemo
         </SelectItem>)}
       </SelectGroup></SelectContent>
     </Select>
-    {active && <Pressable testID={`filter-pill-remove-${field}`} role="button" accessibilityLabel="Remove" hitSlop={8}
-      onPress={onRemove}><XIcon size={14} className={chipInkClassName(true)} /></Pressable>}
+    {/* v2's clear cell and mark (chip/index.tsx:211-222, :239), shared with the catalogue chips. */}
+    {active && <Pressable testID={`filter-pill-remove-${field}`} role="button" accessibilityLabel="Remove"
+      className={CHIP_CLEAR_CELL_CLASS} onPress={onRemove}>
+      <XIcon size={CHIP_CLEAR_GLYPH_SIZE} className={chipInkClassName(true)} />
+    </Pressable>}
   </View>;
 }
 

@@ -80,6 +80,14 @@ test('an on chip is v2\'s borderless selected tint with one selected ink on icon
   expect(glyph('filter-pill-on_sale')).toBe('text-selected-foreground');
 });
 
+test("the clear is v2's trailing cell, the chip's height square over its end padding, with v2's 16 mark", () => {
+  renderView();
+  expect(classesOf('filter-pill-remove-stock_status'))
+    .toEqual(expect.arrayContaining(['min-w-11', '-mr-3', 'items-center', 'justify-center', 'self-stretch']));
+  const mark = screen.getByTestId('filter-pill-remove-stock_status').querySelector('svg')!;
+  expect([mark.getAttribute('width'), mark.getAttribute('height')]).toEqual(['16', '16']);
+});
+
 test('removing In Stock shows sold-out and backorder products', () => {
   renderView();
   fireEvent.click(screen.getByTestId('filter-pill-remove-stock_status'));

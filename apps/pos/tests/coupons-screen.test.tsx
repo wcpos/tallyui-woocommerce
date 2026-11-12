@@ -295,4 +295,18 @@ test("an on chip's icon and × take the selected ink, as the catalogue chips'; a
   choose('status', 'coupon-filter-status-publish');
   await waitFor(() => expect(glyph('filter-pill-status')).toBe('text-selected-foreground'));
   expect(glyph('filter-pill-remove-status')).toBe('text-selected-foreground');
+  // v2's clear cell and mark (chip/index.tsx:211-222, :239), as the catalogue chips'.
+  expect(classesOf('filter-pill-remove-status'))
+    .toEqual(expect.arrayContaining(['min-w-11', '-mr-3', 'items-center', 'justify-center', 'self-stretch']));
+  const mark = screen.getByTestId('filter-pill-remove-status').querySelector('svg')!;
+  expect([mark.getAttribute('width'), mark.getAttribute('height')]).toEqual(['16', '16']);
+});
+
+test("each head is v2's 44 px (ResizeHead's min-h-row), its label centred", async () => {
+  await withCoupons();
+  const heads = screen.getAllByTestId(/^coupons-head-/);
+  expect(heads.length).toBeGreaterThan(0);
+  for (const head of heads) {
+    expect(classesOf(head.getAttribute('data-testid')!)).toEqual(expect.arrayContaining(['min-h-11', 'justify-center']));
+  }
 });

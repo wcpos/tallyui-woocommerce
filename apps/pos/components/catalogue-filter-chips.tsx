@@ -54,6 +54,12 @@ export function filterChipTextClassName(active: boolean): string {
 /** An on chip's icon and clear take its ink (chip/index.tsx:106); an off chip's icon keeps its own. */
 const chipGlyphClassName = (on: boolean) => (on ? chipInkClassName(true) : undefined);
 
+/** v2's clear cell (chip/index.tsx:211-222): the chip's height square (`min-w-ctl`, 44 px = `h-11`), spanning its
+ *  height, and `-mr-3` cancels the chip's `px-3` end padding. Shared by every filter chip with a clear. */
+export const CHIP_CLEAR_CELL_CLASS = 'min-w-11 -mr-3 items-center justify-center self-stretch';
+/** v2's clear mark, `<Icon name="close" size="sm" />` (chip/index.tsx:239; icon/index.tsx:29 `sm` is `size-4`). */
+export const CHIP_CLEAR_GLYPH_SIZE = 16;
+
 /** v2's tooltip on a dimmed chip (core en.json `pos_products.product_filter_not_in_variations`). */
 const DIMMED_CHIP_TOOLTIP = 'A product filter; not used inside a product’s variations.';
 
@@ -124,8 +130,11 @@ function SelectChip({ field, icon: Icon, active, dimmed = false, label, extra, s
           <SelectItem key={option.value} value={option.value} label={option.label} testID={option.testID}><Text>{option.label}</Text></SelectItem>)}
       </SelectGroup></SelectContent>
     </Select>
-    {active && <Pressable testID={`filter-pill-remove-${field}`} role="button" accessibilityLabel="Remove" hitSlop={8}
-      onPress={onRemove}><XIcon size={14} className={chipGlyphClassName(true)} /></Pressable>}
+    {/* The clear sits beside the Select's trigger, not in it, so its press never opens the menu. */}
+    {active && <Pressable testID={`filter-pill-remove-${field}`} role="button" accessibilityLabel="Remove"
+      className={CHIP_CLEAR_CELL_CLASS} onPress={onRemove}>
+      <XIcon size={CHIP_CLEAR_GLYPH_SIZE} className={chipGlyphClassName(true)} />
+    </Pressable>}
   </View>;
 }
 
