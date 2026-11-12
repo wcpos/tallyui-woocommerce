@@ -30,6 +30,9 @@ const SHEET = 'fixed top-0 z-50 h-full w-[512px] max-w-full gap-4 border-border 
 // v2 opens the panel in its screen's own overlay host, beside the rail (apps/main/app/(app)/(drawer)/_layout.tsx
 // `Scene`), so the rail stays undimmed and usable and a left panel starts at its right edge; with no rail (a phone)
 // the overlay and panel start at the window's.
+// v2's scrim is `bg-scrim` (components lib/overlay/index.tsx:562), Light's `--scrim: oklch(0.2 0.01 262 / .28)`
+// (apps/main/global.css:444): a near black at 28%, over TallyUI's `bg-black/80`. This app has no scrim token.
+const SCRIM = 'bg-black/30';
 const CART_SHEET: Record<PanelPosition, (railShown: boolean) => string> = {
   left: railShown => `${railShown ? BESIDE_RAIL : 'left-0'} right-auto border-r ${SHEET}`,
   right: () => `left-auto right-0 border-l ${SHEET}`,
@@ -75,7 +78,7 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
     {/* DialogContent's overlay is a fixed inset-0 with no class option, which would dim the rail. Back to
         DialogContent if TallyUI adds an overlay className. */}
     {open && <Dialog open onOpenChange={next => { if (!next) setOpen(false); }}><DialogPortal>
-      <DialogOverlay testID="cart-settings-overlay" className={railShown && side === 'left' ? BESIDE_RAIL : undefined} />
+      <DialogOverlay testID="cart-settings-overlay" className={`${SCRIM}${railShown && side === 'left' ? ` ${BESIDE_RAIL}` : ''}`} />
       <DialogPrimitive.Content testID="cart-settings" dataSet={{ side }} className={CART_SHEET[side](railShown)}>
         {/* v2's DialogHeader (dialog/index.tsx: pl-4 pr-ctl) holds only the title, its dialog rank 16 px leading-none;
             the close is an absolute h-ctl square at top-1 right-1, as on the product settings sheet. */}
@@ -115,6 +118,8 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
                 </SelectGroup></SelectContent>
               </Select>
             </View>
+            {/* v2's `Text variant="key"` (pos/cart/ui-settings-form.tsx:129), the `key` rank text-sm, 13 px
+                (text/ladder.ts:14), not the 12 px `help` rank the Quick Discounts hint takes. */}
             <Text testID="cart-sort-items-hint" className="text-sm text-muted-foreground">Fees and shipping always stay last</Text>
           </View>
           {/* Remount on any key change, so the slots re-read the stored keys and a refusal clears. */}
@@ -189,12 +194,15 @@ function QuickDiscountsSetting({ keys, onChange }: { keys: readonly number[]; on
             onFocus={() => { if (refused !== i) setDrafts(prev => prev.map((d, j) => j === i ? stored(i) : d)); setEditing(i); }}
             onChangeText={text => { setEditing(i); setDrafts(prev => prev.map((d, j) => j === i ? text : d)); }}
             onBlur={() => { setEditing(null); commit(i); }} onSubmitEditing={() => commit(i)}
-            className={'h-full min-w-0 px-3 text-center ' + (typing ? 'text-foreground' : 'font-medium text-primary placeholder:text-muted-foreground')} />
+            // v2's quick key text: `font-semibold`, `text-sm` (13 px) for a quick key and a blank slot alike
+            // (components keypad/index.tsx:53-56, price-keypad/index.tsx:196).
+            className={'h-full min-w-0 px-3 text-center text-sm font-semibold ' + (typing ? 'text-foreground' : 'text-primary placeholder:text-muted-foreground')} />
         </View>;
       })}
     </View>
+    {/* v2's FormDescription, the `help` rank: text-xs, 12 px (quick-discount-keys.tsx:80, text/ladder.ts:15). */}
     <Text testID="cart-setting-quick-discounts-hint" role={refused !== null ? 'alert' : undefined}
-      className={`text-sm ${refused !== null ? 'text-destructive' : 'text-muted-foreground'}`}>{description}</Text>
+      className={`text-xs ${refused !== null ? 'text-destructive' : 'text-muted-foreground'}`}>{description}</Text>
   </View>;
 }
 

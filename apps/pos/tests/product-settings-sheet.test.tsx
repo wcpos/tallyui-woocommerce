@@ -363,3 +363,18 @@ test('Restore and Close are v2\'s h-ctl footer buttons, 44 px: h-11 over TallyUI
     expect(classesOf(testID), testID).not.toContain('h-10');
   }
 });
+
+test('the chosen Browse by row takes v2\'s current-row mark, a muted tint and a primary bar at its left; the others neither', () => {
+  openSheet();
+  expect(classesOf('ui-settings-browse-by-all')).toContain('bg-muted');
+  expect(classesOf('ui-settings-browse-by-all-bar')).toEqual(expect.arrayContaining(['bg-primary', 'w-0.5', 'left-0']));
+  for (const value of ['categories', 'tags', 'brands', 'shortcuts']) {
+    expect(classesOf(`ui-settings-browse-by-${value}`)).not.toContain('bg-muted');
+    expect(screen.queryByTestId(`ui-settings-browse-by-${value}-bar`)).toBeNull();
+  }
+  fireEvent.click(screen.getByTestId('ui-settings-browse-by-categories'));
+  expect(classesOf('ui-settings-browse-by-categories')).toContain('bg-muted');
+  expect(screen.queryByTestId('ui-settings-browse-by-categories-bar')).not.toBeNull();
+  expect(classesOf('ui-settings-browse-by-all')).not.toContain('bg-muted');
+  expect(screen.queryByTestId('ui-settings-browse-by-all-bar')).toBeNull();
+});
