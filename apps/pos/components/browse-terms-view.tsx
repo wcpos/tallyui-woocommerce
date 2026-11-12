@@ -10,6 +10,7 @@ import { productsLabel } from '../lib/catalogue/browse-terms';
 import type { BrowseTerm } from '../lib/catalogue/browse-terms';
 import { tileNameSize, tileWords, useCompactTiles } from '../lib/catalogue/tile-scale';
 import { tintOf } from '../lib/catalogue/tile-words';
+import { useIsWide } from '../lib/layout/wide';
 import { BAND, FAR, NEAR, STACK_CARD, TILE_TINTS } from './product-tile';
 
 const FolderIcon = createSvgIcon('FolderIcon', () => <>
@@ -93,20 +94,44 @@ export function ParentTermTile({ place, count, onBack }: { place: BrowsePlace; c
   </Pressable>;
 }
 
-/** v2's TermRow: a tinted folder thumb, the name and its count, a chevron at the end. */
+// v2's term-row.tsx:17,19: the products table's image and actions column widths.
+const IMAGE_CELL = { width: 68 };
+const ACTIONS_CELL = { width: 60 };
+// v2's PosterThumb `stacked` (poster-tile/thumb.tsx:36): the box keeps room for the far card it draws past.
+const STACK_ROOM = { marginRight: FAR.top, marginBottom: FAR.top };
+
+/**
+ * v2's TermRow on a fine pointer (term-row.tsx:54-112 over list-row/index.tsx:55): a 44 row with its hairline
+ * and no padding of its own, as the cells carry it (term-row.tsx:60-61): the 68 image cell's `px-3 py-1.5` round
+ * a stacked 40 thumb (`size="sm"`, thumb.tsx:33) with a 20 bare mark (mark.tsx:44), the body's `px-3 py-1.5`,
+ * the chevron centred in the 60 actions cell. 6 + 40 + 6 + 6 + 1 = 59 px, as v2's.
+ */
 function TermRow({ entry, onPress }: { entry: Entry; onPress(): void }): JSX.Element {
   const filled = entry.kind === 'all';
   const label = labelOf(entry);
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} testID={testIdOf(entry)} onPress={onPress}
-    className="flex-row items-center gap-3 border-b border-border px-4 py-2 web:hover:bg-muted/50">
-    <View className={`h-10 w-10 items-center justify-center rounded-md ${filled ? 'bg-primary' : TILE_TINTS[tintOf(entry.id)]}`}>
-      {filled ? <GridIcon size={18} className="text-primary-foreground" /> : <FolderIcon size={18} className="text-foreground/70" />}
+  const testID = testIdOf(entry);
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} testID={testID} onPress={onPress}
+    className="min-h-11 flex-row items-center border-b border-border px-0 py-0 active:bg-accent web:hover:bg-accent">
+    <View style={IMAGE_CELL} className="px-3 py-1.5">
+      <View className="relative h-10 w-10" style={STACK_ROOM}>
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <View className={STACK_CARD} style={FAR} />
+          <View className={STACK_CARD} style={NEAR} />
+        </View>
+        <View className={`h-full w-full items-center justify-center overflow-hidden rounded-lg border border-transparent ${filled ? 'bg-primary' : TILE_TINTS[tintOf(entry.id)]}`}>
+          {filled ? <GridIcon size={20} className="text-primary-foreground" /> : <FolderIcon size={20} className="text-muted-foreground" />}
+        </View>
+      </View>
     </View>
-    <View className="flex-1 gap-0.5">
+    <View className="min-w-0 flex-1 gap-0.5 px-3 py-1.5">
       <Text className="font-bold" numberOfLines={1}>{label}</Text>
-      {entry.kind === 'term' && <Text className="text-sm text-muted-foreground" numberOfLines={1}>{productsLabel(entry.count)}</Text>}
+      {/* v2's `variant="help"` (text/ladder.ts:15), and no count for a count of 0 (term-row.tsx:45-49). */}
+      {entry.kind === 'term' && entry.count > 0 && <Text className="text-xs text-muted-foreground" numberOfLines={1}>{productsLabel(entry.count)}</Text>}
     </View>
-    <ChevronRightIcon size={16} className="text-muted-foreground" />
+    {/* v2's chevron at the Icon's default 18 (icon/index.tsx:27) in a row-sized target (term-row.tsx:66-76). */}
+    <View style={ACTIONS_CELL} className="items-center">
+      <View className="min-w-11 items-center"><ChevronRightIcon size={18} className="text-muted-foreground" /></View>
+    </View>
   </Pressable>;
 }
 
@@ -124,13 +149,20 @@ export function BrowseRootGrid({ terms, numColumns, searchSlot, onOpen }: {
   </VStack>;
 }
 
-/** The term set at the root as rows of the products table: All products first, then the terms. */
+/**
+ * The term set at the root as rows of the products table: All products first, then the terms, on v2's table
+ * card (term-table.tsx:58-72, data-table/surface.tsx:31-36): white, a hairline border, rounded, inset by the
+ * page gutter (`mx-gutter`, the search slot's `px-3` here) in a window; edge to edge under a hairline on a phone.
+ */
 export function BrowseRootTable({ terms, searchSlot, onOpen }: {
   terms: readonly BrowseTerm[]; searchSlot?: ReactNode; onOpen(place: BrowsePlace): void;
 }): JSX.Element {
+  const card = useIsWide() ? 'mx-3 mb-2 overflow-hidden rounded-lg border' : 'mb-2 border-t';
   return <VStack space="none" className="flex-1" testID="browse-root">
     {searchSlot && <View className="px-3 py-2">{searchSlot}</View>}
-    <FlatList data={entriesOf(terms)} keyExtractor={keyOf} renderItem={({ item }) => <TermRow entry={item} onPress={() => onOpen(placeOf(item))} />} />
+    <View testID="browse-root-card" className={`min-h-0 flex-1 border-border bg-card ${card}`}>
+      <FlatList data={entriesOf(terms)} keyExtractor={keyOf} renderItem={({ item }) => <TermRow entry={item} onPress={() => onOpen(placeOf(item))} />} />
+    </View>
   </VStack>;
 }
 
