@@ -564,3 +564,18 @@ test('in the cart sheet the register sessions row is drawn as its other switch r
   fireEvent.click(screen.getByTestId('cart-setting-register-sessions-label'));
   expect(setSetting).toHaveBeenCalledWith(true);
 });
+
+test('the sheet takes v2\'s light scrim, the keys v2\'s 13 px semibold, the Quick Discounts hint v2\'s 12 px help rank', () => {
+  renderInFrame(true, 'left');
+  // v2's `bg-scrim` (Light: a near black at 28%), not TallyUI's near-black `bg-black/80`.
+  expect(classesOf('cart-settings-overlay')).toContain('bg-black/30');
+  expect(classesOf('cart-settings-overlay')).not.toContain('bg-black/80');
+  for (const i of [0, 1, 2]) {
+    expect(classesOf(`cart-setting-quick-discount-${i}`)).toEqual(expect.arrayContaining(['text-sm', 'font-semibold', 'text-primary']));
+    expect(classesOf(`cart-setting-quick-discount-${i}`)).not.toContain('font-medium');
+  }
+  expect(classesOf('cart-setting-quick-discounts-hint')).toContain('text-xs');
+  expect(classesOf('cart-setting-quick-discounts-hint')).not.toContain('text-sm');
+  // The Sort items hint is v2's `key` rank (ui-settings-form.tsx:129), 13 px.
+  expect(classesOf('cart-sort-items-hint')).toContain('text-sm');
+});

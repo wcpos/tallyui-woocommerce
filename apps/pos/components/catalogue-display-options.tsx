@@ -141,7 +141,11 @@ export function CatalogueDisplayOptions({ state, onChange, products, quickFilter
                 const checked = row.value === state.browseBy;
                 return <Pressable key={row.value} role="radio" aria-checked={checked} aria-disabled={disabled} disabled={disabled} testID={`ui-settings-browse-by-${row.value}`}
                   onPress={() => { if (live !== undefined && !checked) onChange({ ...state, browseBy: live }); }}
-                  className={'min-h-11 flex-row items-center gap-2 px-3 py-2' + (index < browseRows.length - 1 ? ' border-b border-border' : '') + (disabled ? ' opacity-45' : ' web:hover:bg-accent active:opacity-70')}>
+                  className={'min-h-11 flex-row items-center gap-2 px-3 py-2' + (index < browseRows.length - 1 ? ' border-b border-border' : '') + (disabled ? ' opacity-45' : ' web:hover:bg-accent active:opacity-70')
+                    + (checked ? ' bg-muted' : '')}>
+                  {/* v2's ListRow `selected` current-row mark: `bg-muted` and a 2 px `border-l-primary` bar (components
+                      lib/current-row.ts:12, list-row/index.tsx:57). Drawn as an overlaid bar so the content keeps px-3. */}
+                  {checked && <View testID={`ui-settings-browse-by-${row.value}-bar`} className="absolute bottom-0 left-0 top-0 w-0.5 bg-primary" />}
                   <CheckIcon size={16} className={checked ? 'text-primary' : 'opacity-0'} />
                   <Text className="flex-1">{row.label}</Text>
                   {row.help !== undefined && <Text className="text-sm text-muted-foreground">{row.help}</Text>}
