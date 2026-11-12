@@ -3,8 +3,8 @@ import type { JSX } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
-  AlertDialogTitle, Button, ParkedSales, Receipt, SyncStatus, Text } from '@tallyui/components';
-import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
+  AlertDialogTitle, Button, ParkedSales, Receipt, SyncStatus, TaxBasedOn, Text } from '@tallyui/components';
+import { catalogueEntries, RegisterSessionRequiredError, saleTaxContexts, TAX_ADDRESS_ORDER_CREATE_VERSION, taxDerivation, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
 import { formatMoney } from '@tallyui/core';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
 import type { CatalogueEntry, CustomerSummary, OutboxState, ParkedOrderSummary, Payment, TenderVoid } from '@tallyui/pos';
@@ -73,6 +73,8 @@ export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | '
   siteHome?: string;
   // Put on every new sale (v2's default customer); undefined while the app resolves it.
   defaultCustomer?: CustomerSummary | null;
+  /** v2's "Change in Settings › Tax" in the Tax based on panel; without it the link is hidden. */
+  onOpenTaxSettings?(): void;
 }
 
 /**
@@ -105,6 +107,11 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const discountCodes = useMemo(() => props.couponCollections && outboxOrders
     ? saleDiscountCodes({ ...props.couponCollections, orders: outboxOrders }) : undefined, [props.couponCollections, outboxOrders]);
   const capabilities: ServerCapabilities = props.capabilities ?? DEFAULT_CAPABILITIES;
+  const orderCreate = capabilities.orderCreate ?? 0;
+  // #722: each sale is taxed for its customer's address as WooCommerce's tax_based_on picks it; saleTaxContexts
+  // re-matches only at order.create 8, below which the server taxes on the shop base (every customer gets the store's rates).
+  const taxContextFor = useMemo(() => saleTaxContexts(props.storeSettings, { orderCreateVersion: orderCreate }),
+    [props.storeSettings, orderCreate]);
   const tax = useTax();
   const { rounding } = tax;
   // useSale's own coupon gate (codesFor): the UI shows only when applyCoupon can succeed.
@@ -113,12 +120,19 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const sale = useSale({ currency, calcDiscountsSequentially: props.storeSettings.calcDiscountsSequentially }, {
     registerId: REGISTER_ID, cashierRef: props.cashierRef,
     capabilities,
+    taxContextFor,
     session: register?.saleSession,
     onSaleCompleted: outbox.enabled ? outbox.record : undefined,
     isStored: outbox.enabled ? outbox.isStored : undefined,
     discountCodes,
     defaultCustomer: props.defaultCustomer,
   });
+  const readsAddress = orderCreate >= TAX_ADDRESS_ORDER_CREATE_VERSION;
+  const derivation = useMemo(() => props.storeSettings.taxBasedOn !== undefined && sale.taxLocation
+    // Below order.create 8 the sale is taxed on the shop base whoever the customer is, so the panel shows the shop
+    // address, not "this order has no billing address".
+    ? taxDerivation(props.storeSettings, readsAddress ? sale.taxLocation : { ...sale.taxLocation, hasCustomer: false })
+    : undefined, [props.storeSettings, sale.taxLocation, readsAddress]);
   const inCart = useMemo(() => inCartCounts(sale.order.lineItems), [sale.order.lineItems]);
   const receiptOrderId = sale.stage.kind === 'receipt' ? sale.stage.posOrder.id : null;
   const printCount = useReceiptPrintCount(receiptOrderId);
@@ -431,7 +445,9 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const browse = variants ? (
     <VariantChooser entries={variants} currency={currency} traits={connector.traits.product} onSelect={onAdd} onClose={() => setVariants(undefined)} />
   ) : <CatalogueView {...props} onSelect={onSelect} onAddEntry={onAdd} onScan={onScan} message={message}
-    tax={tax} inCartCounts={inCart} hideBar
+    tax={tax}
+    captionStart={derivation ? <TaxBasedOn derivation={derivation} onChangeSetting={props.onOpenTaxSettings} /> : undefined}
+    inCartCounts={inCart} hideBar
     viewState={viewState} onViewStateChange={setViewState} cashierControl={cashierControl} />;
   // v2's cart column paints its own surface, white in Light (pos/cart/index.tsx:75 `isColumn ? 'bg-cart'`, :187), and
   // its rows sit 8 px in (cart/foot.tsx:35 `gap-2 p-2`; cart-header.tsx:119 `px-2 py-2`).
