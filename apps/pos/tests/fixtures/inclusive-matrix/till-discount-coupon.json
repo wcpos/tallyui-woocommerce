@@ -1,0 +1,114 @@
+{
+  "row": "till-discount-coupon",
+  "cart": [
+    {
+      "product_id": 312,
+      "sku": "COF-FLW",
+      "quantity": 3
+    },
+    {
+      "product_id": 318,
+      "sku": "BAK-MUF",
+      "quantity": 1
+    }
+  ],
+  "tillDiscount": {
+    "type": "fixed",
+    "amount": "1.37",
+    "scope": "order"
+  },
+  "coupon": "fiveoff",
+  "chargedMinor": 1088,
+  "posted": {
+    "payload": {
+      "status": "completed",
+      "set_paid": true,
+      "currency": "USD",
+      "payment_method": "pos_cash",
+      "payment_method_title": "Cash",
+      "line_items": [
+        {
+          "product_id": 312,
+          "quantity": 3,
+          "subtotal": "11.218665",
+          "total": "11.218665",
+          "meta_data": [
+            {
+              "key": "_woocommerce_pos_data",
+              "value": "{\"price\":\"4.143333\",\"regular_price\":\"4.50\"}"
+            }
+          ]
+        },
+        {
+          "product_id": 318,
+          "quantity": 1,
+          "subtotal": "3.113788",
+          "total": "3.113788",
+          "meta_data": [
+            {
+              "key": "_woocommerce_pos_data",
+              "value": "{\"price\":\"3.45\",\"regular_price\":\"3.75\"}"
+            }
+          ]
+        }
+      ],
+      "coupon_lines": [
+        {
+          "code": "fiveoff"
+        }
+      ],
+      "meta_data": []
+    }
+  },
+  "response": {
+    "status": 201,
+    "json": {
+      "document": {
+        "id": 413,
+        "number": "413",
+        "status": "completed",
+        "currency": "USD",
+        "prices_include_tax": true,
+        "total": "10.880000",
+        "total_tax": "1.060000",
+        "discount_total": "4.510000",
+        "discount_tax": "0.490000"
+      }
+    }
+  },
+  "woo": {
+    "total": "10.88",
+    "total_tax": "1.06",
+    "tax_lines": [
+      {
+        "label": "CA State",
+        "rate_id": 1,
+        "tax_total": "0.71"
+      },
+      {
+        "label": "SF District",
+        "rate_id": 2,
+        "tax_total": "0.14"
+      },
+      {
+        "label": "Compound Test",
+        "rate_id": 4,
+        "tax_total": "0.21"
+      }
+    ],
+    "line_items": [
+      {
+        "product_id": 312,
+        "quantity": 3,
+        "subtotal": "11.22",
+        "total": "7.83"
+      },
+      {
+        "product_id": 318,
+        "quantity": 1,
+        "subtotal": "3.11",
+        "total": "1.99"
+      }
+    ]
+  }
+}
