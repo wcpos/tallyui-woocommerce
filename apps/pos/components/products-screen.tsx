@@ -177,7 +177,9 @@ function productColumns(currency: string, locale: string | undefined, onDrill: O
     sortValue: (doc: ProductDoc) => doc[id],
   });
   return [
-    { id: 'image', header: LABEL.image, flex: 0.6, render: doc => <ProductImage doc={doc} size={IMAGE_SIZE} /> },
+    // v2's image column is unlabelled (initial-settings.json:252 `hideLabel`, data-table/index.tsx:493 header ''); the
+    // display options keep its name. TallyUI's head has no accessible name to give it.
+    { id: 'image', header: '', flex: 0.6, render: doc => <ProductImage doc={doc} size={IMAGE_SIZE} /> },
     { id: 'id', header: LABEL.id, flex: 0.6, render: doc => <Text testID={`product-id-${doc.id}`}>{String(doc.id)}</Text>, sortValue: doc => doc.id },
     { id: 'name', header: LABEL.name, flex: 3, render: doc => <NameCell doc={doc} onDrill={onDrill} />, sortValue: doc => doc.name },
     textColumn('type', 1),
@@ -196,6 +198,17 @@ function productColumns(currency: string, locale: string | undefined, onDrill: O
     { id: 'date_modified_gmt', header: LABEL.date_modified_gmt, flex: 1.2,
       render: doc => <Text testID={`product-date_modified_gmt-${doc.id}`}>{gmtDayText(doc.date_modified_gmt, locale)}</Text> },
   ];
+}
+
+/** v2's body cell centres its content on the row (components/src/table/index.tsx:129 `flex-col justify-center`).
+ *  ProductTableColumn takes no cell class, so each column's own content fills the cell and centres itself. */
+function centred<Doc extends { id: number }>(columns: ProductTableColumn<Doc>[]): ProductTableColumn<Doc>[] {
+  return columns.map(column => ({
+    ...column,
+    render: (doc: Doc) => <View testID={`product-cell-${column.id}-${doc.id}`} className="flex-1 justify-center">
+      {column.render(doc)}
+    </View>,
+  }));
 }
 
 /** v2's variationCells over the products table's shown columns, under plain labels (DrillPane's PaneHeadRow): the
@@ -250,7 +263,8 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   const listed = useMemo(() => narrow ? sortProducts([...shown], NAME_ASC,
     (doc, field) => columns.find(column => column.id === field)?.sortValue?.(doc)) as ProductDoc[] : [], [narrow, shown, columns]);
   const variations = useMemo(() => drilled ? drilledVariations(drilled, filters, drill?.match) : [], [drilled, filters, drill?.match]);
-  const paneColumns = useMemo(() => drilled ? variationColumns(tableColumns, drilled) : [], [drilled, tableColumns]);
+  const bodyColumns = useMemo(() => centred(tableColumns), [tableColumns]);
+  const paneColumns = useMemo(() => drilled ? centred(variationColumns(tableColumns, drilled)) : [], [drilled, tableColumns]);
 
   const noVariations = (
     <View testID="no-data-message" className="flex-1 items-center justify-center gap-2 p-6">
@@ -315,7 +329,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
           ))}
         </ScrollView>
       ) : (
-        <ProductTable testID="products-body" items={shown} columns={tableColumns} defaultSort={NAME_ASC} showUnsellable />
+        <ProductTable testID="products-body" items={shown} columns={bodyColumns} defaultSort={NAME_ASC} showUnsellable />
       );
 
   return (

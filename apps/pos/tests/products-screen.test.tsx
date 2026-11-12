@@ -44,8 +44,17 @@ test('the table shows v2 headers in order, and rows come name asc whatever the i
   expect(screen.getByTestId('screen-products')).not.toBeNull();
   expect(screen.getByRole('heading', { name: 'Products' })).not.toBeNull();
   const headers = screen.getAllByRole('columnheader').map(header => header.textContent?.replace(/ [▲▼]$/, ''));
-  expect(headers).toEqual(['Image', 'Product', 'Stock', 'Stock Status', 'Categories', 'Price', 'Regular Price', 'Sale Price']);
+  expect(headers).toEqual(['', 'Product', 'Stock', 'Stock Status', 'Categories', 'Price', 'Regular Price', 'Sale Price']);
   expect(rowIds()).toEqual(['product-row-2', 'product-row-3', 'product-row-1']);
+});
+
+test("v2's image column has no label, and every cell's content centres on the row", () => {
+  renderScreen([product(1, 'Tea')]);
+  expect(screen.getAllByRole('columnheader')[0].textContent).toBe('');
+  expect(screen.queryByText(/^image$/i)).toBeNull();
+  for (const id of ['image', 'name', 'stock_status', 'price']) {
+    expect(classesOf(`product-cell-${id}-1`)).toEqual(['flex-1', 'justify-center']);
+  }
 });
 
 test('a variable product shows its variation count under the name, singular for one; a simple product shows none', () => {

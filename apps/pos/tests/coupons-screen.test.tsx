@@ -273,3 +273,26 @@ test("at 1280 the table sits on v2's card, with the count under it", async () =>
   expect(surface.contains(screen.getByTestId('coupons-body'))).toBe(true);
   expect(surface.contains(screen.getByTestId('data-table-count'))).toBe(false);
 });
+
+test("v2's cells: centred on the row with its padding, Amount right on head and cell, Usage centred", async () => {
+  await withCoupons();
+  for (const id of ['code', 'description', 'date_expires_gmt']) {
+    expect(classesOf(`coupons-cell-${id}-10off`)).toEqual(expect.arrayContaining(['justify-center', 'px-3', 'py-1.5']));
+  }
+  expect(classesOf('coupons-cell-amount-10off')).toContain('items-end');
+  expect(classesOf('coupons-head-amount')).toContain('items-end');
+  expect(classesOf('coupons-cell-usage_count-10off')).toContain('items-center');
+  expect(classesOf('coupons-head-usage_count')).toContain('items-center');
+  expect(classesOf('coupons-head-code')).toContain('px-3');
+  expect(classesOf('coupons-head-code')).not.toContain('px-4');
+  expect(classesOf('coupons-head-code')).not.toContain('items-end');
+});
+
+test("an on chip's icon and × take the selected ink, as the catalogue chips'; an off chip's icon keeps its own", async () => {
+  await withCoupons();
+  const glyph = (testID: string) => screen.getByTestId(testID).querySelector('svg')?.getAttribute('class') ?? '';
+  expect(glyph('filter-pill-status')).toBe('');
+  choose('status', 'coupon-filter-status-publish');
+  await waitFor(() => expect(glyph('filter-pill-status')).toBe('text-selected-foreground'));
+  expect(glyph('filter-pill-remove-status')).toBe('text-selected-foreground');
+});
