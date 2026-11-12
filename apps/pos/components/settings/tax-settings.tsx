@@ -1,10 +1,11 @@
-import type { JSX } from 'react';
+import { useState, type JSX } from 'react';
 import { View } from 'react-native';
-import { Text } from '@tallyui/components';
+import { Button, Text } from '@tallyui/components';
 import type { StoreSettings } from '@tallyui/core';
 import type { StoreInfo, TaxBasedOn } from '../../lib/catalogue/store-info';
 import { LockedRow, wooSettingsUrl } from './general-settings';
-import { SETTINGS_HELP_CLASS, SettingsField, SettingsSection } from './settings-form';
+import { SettingsSection } from './settings-form';
+import { TaxRatesDialog } from './tax-rates-dialog';
 
 export function wooTaxSettingsUrl(siteHome: string): string {
   return `${wooSettingsUrl(siteHome)}&tab=tax`;
@@ -23,50 +24,23 @@ const TAX_BASED_ON_LABELS: Record<TaxBasedOn, string> = {
   base: 'Shop base address', billing: 'Customer billing address', shipping: 'Customer shipping address',
 };
 
-type TaxRate = NonNullable<StoreSettings['taxRates']>[string][number];
-
-// WooCommerce sends rates as 4-decimal strings: "10.0000" reads 10%, "8.2500" 8.25%.
-export function ratePercent(rate: string): string {
-  const trimmed = rate.includes('.') ? rate.replace(/0+$/, '').replace(/\.$/, '') : rate;
-  return `${trimmed}%`;
-}
-
-// v2 tax-rates/rate-rows.ts rateTags, then phoneTags' priority when it is not WooCommerce's default 1.
-export function rateTags(rate: Pick<TaxRate, 'compound' | 'shipping' | 'priority'>): string {
-  return [
-    rate.compound ? 'Compound' : null,
-    rate.shipping === false ? 'Not on shipping' : null,
-    rate.priority !== 1 ? `Priority ${rate.priority}` : null,
-  ].filter(Boolean).join(' · ');
-}
-
-function TaxRates({ taxRates }: { taxRates: StoreSettings['taxRates'] }) {
-  const classes = Object.entries(taxRates ?? {}).filter(([, rates]) => rates.length > 0);
-  // Flat on the page card now (v2 settings-section.tsx:36-37), so the notes lose the old box's inset.
-  const note = `py-3 ${SETTINGS_HELP_CLASS}`;
+// v2 settings/tax.tsx:227-236: the section holds only the button; the rates are in the dialog it opens.
+function TaxRates({ settings }: { settings: Pick<StoreSettings, 'allTaxRates' | 'taxClassSlugs'> }) {
+  const [open, setOpen] = useState(false);
   return (
     <SettingsSection title="Tax Rates" testID="settings-tax-rates">
-      {classes.length === 0
-        ? <Text className={note} testID="settings-tax-rates-empty">No tax rates apply at the store's address.</Text>
-        : <>
-          {classes.map(([taxClass, rates]) => (
-            <View key={taxClass} testID={`settings-tax-rates-class-${taxClass || 'standard'}`}>
-              <Text className="pt-3 text-xs font-semibold text-muted-foreground">{shippingTaxClassLabel(taxClass)}</Text>
-              {rates.map(rate => (
-                <SettingsField key={rate.id} testID={`settings-tax-rate-${rate.id}`} label={rate.label} help={rateTags(rate) || undefined}>
-                  <Text testID={`settings-tax-rate-${rate.id}-rate`}>{ratePercent(rate.rate)}</Text>
-                </SettingsField>
-              ))}
-            </View>
-          ))}
-          <Text className={note} testID="settings-tax-rates-note">The rates that apply at the store's address.</Text>
-        </>}
+      <View className="flex-row py-2">
+        <Button testID="settings-tax-view-all-rates" variant="outline" size="sm" onPress={() => setOpen(true)}>
+          <Text>View all tax rates</Text>
+        </Button>
+      </View>
+      {open && <TaxRatesDialog rates={settings.allTaxRates} taxClassSlugs={settings.taxClassSlugs} onClose={() => setOpen(false)} />}
     </SettingsSection>
   );
 }
 
 export function TaxSettings(props: {
-  settings: Pick<StoreSettings, 'pricesIncludeTax' | 'taxRoundAtSubtotal' | 'shippingTaxClass' | 'taxRates'>;
+  settings: Pick<StoreSettings, 'pricesIncludeTax' | 'taxRoundAtSubtotal' | 'shippingTaxClass' | 'allTaxRates' | 'taxClassSlugs'>;
   store?: Pick<StoreInfo, 'taxBasedOn' | 'calcTaxes'>;
   siteHome: string;
 }): JSX.Element {
@@ -83,7 +57,7 @@ export function TaxSettings(props: {
         <LockedRow testID="settings-tax-locked-shipping_tax_class" label="Shipping Tax Class" value={shippingTaxClassLabel(props.settings.shippingTaxClass)} href={href} />
         <LockedRow testID="settings-tax-locked-tax_round_at_subtotal" label="Round Tax at Subtotal Level" value={props.settings.taxRoundAtSubtotal === true} href={href} />
       </SettingsSection>
-      <TaxRates taxRates={props.settings.taxRates} />
+      <TaxRates settings={props.settings} />
     </View>
   );
 }

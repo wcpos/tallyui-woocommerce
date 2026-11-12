@@ -1,8 +1,11 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
-import type { StoreSettings } from '@tallyui/core';
-import { TaxSettings, ratePercent, rateTags, shippingTaxClassLabel, wooTaxSettingsUrl } from '../components/settings/tax-settings';
+import type { StoreSettings, StoreTaxRate } from '@tallyui/core';
+import { PortalHost } from '@tallyui/primitives';
+import { TaxSettings, shippingTaxClassLabel, wooTaxSettingsUrl } from '../components/settings/tax-settings';
+import { ratePercent, rateTags } from '../components/settings/tax-rates-dialog';
+import { classesOf } from './classes-of';
 import { GeneralSettings } from '../components/settings/general-settings';
 
 beforeEach(() => {
@@ -35,7 +38,6 @@ test('Tax shows the calculation rows read-only, each set in WooCommerce', () => 
   // Without the catalogue's store, the basis and Enable Taxes read the dash, not an off switch.
   expect(screen.getByTestId('settings-tax-locked-tax_based_on-value').textContent).toBe('—');
   expect(screen.getByTestId('settings-tax-locked-calc_taxes-value').textContent).toBe('—');
-  expect(screen.queryByText('View all tax rates')).toBeNull();
 });
 
 test('the Calculation rows read in the demo order and labels', () => {
@@ -63,54 +65,90 @@ test.each([[true, 'true'], [false, 'false']] as const)('Enable Taxes %s is a loc
   expect(toggle.getAttribute('aria-disabled')).toBe('true');
 });
 
-const rate = (fields: Partial<TaxRateRow> & Pick<TaxRateRow, 'id' | 'label' | 'rate'>): TaxRateRow =>
-  ({ code: `US-${fields.label}`, priority: 1, compound: false, shipping: true, ...fields });
-type TaxRateRow = NonNullable<StoreSettings['taxRates']>[string][number];
+// Two standard rates (one with an empty state and cities, one compound with no class) and one reduced rate.
+const allTaxRates: StoreTaxRate[] = [
+  { id: '1', name: 'State Tax', rate: '6.0000', taxClass: 'standard', priority: 1,
+    location: { country: 'US', region: '', postcodes: ['73301'], cities: ['Austin', 'Dallas'] } },
+  { id: '2', name: 'County', rate: '2.2500', taxClass: '', priority: 2, compound: true, location: { country: 'US', region: 'TX' } },
+  { id: '3', name: 'Reduced', rate: '5.0000', taxClass: 'reduced-rate', priority: 1, location: { country: 'GB' } },
+];
+const taxClassSlugs = ['standard', 'reduced-rate', 'zero-rate'];
+// The page's settings also carry the address-filtered `taxRates`, which the page must not list inline.
+const inline = { standard: [{ id: 1, code: 'US-TX', label: 'State Tax', rate: '6.0000', priority: 1, compound: false, shipping: true }] };
 
-test('Tax Rates lists each class with its rates, percents and tags', () => {
-  render(<TaxSettings siteHome={siteHome} settings={{ ...settings, taxRates: {
-    standard: [rate({ id: 1, label: 'Sales Tax', rate: '10.0000' })],
-    'reduced-rate': [rate({ id: 2, label: 'Reduced', rate: '5.0000', compound: true, priority: 2 })],
-  } }} />);
-  const group = within(screen.getByTestId('settings-tax-rates'));
-  expect(group.getByText('Tax Rates')).not.toBeNull();
-  const standard = within(screen.getByTestId('settings-tax-rates-class-standard'));
-  expect(standard.getByText('Standard rate')).not.toBeNull();
-  expect(standard.getByText('Sales Tax')).not.toBeNull();
-  expect(screen.getByTestId('settings-tax-rate-1-rate').textContent).toBe('10%');
-  expect(within(screen.getByTestId('settings-tax-rate-1')).queryByText(/Compound|Priority|shipping/)).toBeNull();
-  const reduced = within(screen.getByTestId('settings-tax-rates-class-reduced-rate'));
-  expect(reduced.getByText('Reduced rate')).not.toBeNull();
-  expect(screen.getByTestId('settings-tax-rate-2-rate').textContent).toBe('5%');
-  expect(within(screen.getByTestId('settings-tax-rate-2')).getByText('Compound · Priority 2')).not.toBeNull();
-  expect(screen.getByTestId('settings-tax-rates-note').textContent).toBe("The rates that apply at the store's address.");
-  expect(screen.queryByTestId('settings-tax-rates-empty')).toBeNull();
+function openRates(more: Partial<StoreSettings> = { allTaxRates, taxClassSlugs }) {
+  render(<><TaxSettings siteHome={siteHome} settings={{ ...settings, taxRates: inline, ...more }} /><PortalHost /></>);
+  fireEvent.click(screen.getByText('View all tax rates'));
+  return within(screen.getByTestId('tax-rates-dialog'));
+}
+const cells = (id: string) => within(screen.getByTestId(`tax-rates-row-${id}`)).getAllByRole('cell').map(cell => cell.textContent);
+
+test('the Tax Rates section holds only the View all tax rates button', () => {
+  const page = { ...settings, taxRates: inline, allTaxRates, taxClassSlugs };
+  render(<TaxSettings siteHome={siteHome} settings={page} />);
+  const section = within(screen.getByTestId('settings-tax-rates'));
+  expect(section.getByText('Tax Rates')).not.toBeNull();
+  expect(section.getByText('View all tax rates')).not.toBeNull();
+  expect(screen.queryAllByTestId(/^settings-tax-rate-/)).toHaveLength(0);
+  expect(screen.queryByText('State Tax')).toBeNull();
+  expect(screen.queryByTestId('tax-rates-dialog')).toBeNull();
 });
 
-test('a rate not charged on shipping says so, and a fractional rate keeps its decimals', () => {
-  render(<TaxSettings siteHome={siteHome} settings={{ ...settings, taxRates: {
-    standard: [rate({ id: 7, label: 'County', rate: '8.2500', shipping: false })],
-  } }} />);
-  expect(within(screen.getByTestId('settings-tax-rate-7')).getByText('Not on shipping')).not.toBeNull();
-  expect(screen.getByTestId('settings-tax-rate-7-rate').textContent).toBe('8.25%');
+test('View all opens the dialog: a tab per class with its count, and the standard rates in seven columns', () => {
+  const dialog = openRates();
+  expect(dialog.getByText('Tax rates')).not.toBeNull();
+  expect(dialog.getByRole('tablist')).not.toBeNull();
+  expect(taxClassSlugs.map(slug => screen.getByTestId(`tax-rates-tab-${slug}`).textContent))
+    .toEqual(['Standard2', 'Reduced rate1', 'Zero rate0']);
+  expect(dialog.getAllByRole('columnheader').map(head => head.textContent))
+    .toEqual(['Country', 'State', 'Postcode', 'City', 'Rate', 'Name', 'Priority']);
+  expect(cells('1')).toEqual(['US', 'Any', '73301', 'Austin, Dallas', '6%', 'State Tax', '1']);
+  expect(cells('2')).toEqual(['US', 'TX', 'Any', 'Any', '2.25%', 'CountyCompound', '2']);
+  expect(screen.queryByTestId('tax-rates-row-3')).toBeNull();
+  expect(screen.getByTestId('tax-rates-count').textContent).toBe('3 tax rates');
+});
+
+test('the Reduced rate tab shows its rate and hides the standard ones', () => {
+  openRates();
+  fireEvent.click(screen.getByTestId('tax-rates-tab-reduced-rate'));
+  expect(cells('3')).toEqual(['GB', 'Any', 'Any', 'Any', '5%', 'Reduced', '1']);
+  expect(screen.queryByTestId('tax-rates-row-1')).toBeNull();
+  expect(screen.queryByTestId('tax-rates-row-2')).toBeNull();
+});
+
+test('a class with no rates shows the empty state, as does every class when the connector read no list', () => {
+  openRates();
+  fireEvent.click(screen.getByTestId('tax-rates-tab-zero-rate'));
+  expect(screen.getByTestId('tax-rates-empty').textContent).toBe('No rates in this class');
+  cleanup();
+  openRates({ allTaxRates: undefined, taxClassSlugs });
+  expect(screen.getByTestId('tax-rates-tab-standard').textContent).toBe('Standard0');
+  expect(screen.getByTestId('tax-rates-empty').textContent).toBe('No rates in this class');
+  expect(screen.getByTestId('tax-rates-count').textContent).toBe('0 tax rates');
+});
+
+test('a phone folds the tab strip into a Select', () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  openRates();
+  expect(screen.getByTestId('tax-rates-class-select').textContent).toContain('Standard 2');
+  expect(screen.queryByRole('tablist')).toBeNull();
+  expect(cells('1')[5]).toBe('State Tax');
+});
+
+test('Close closes the dialog', () => {
+  openRates();
+  // The app's sheet Close: v2's 44 px `h-ctl` footer button (#237).
+  expect(classesOf('tax-rates-close')).toContain('h-11');
+  fireEvent.click(screen.getByTestId('tax-rates-close'));
+  expect(screen.queryByTestId('tax-rates-dialog')).toBeNull();
 });
 
 test('rateTags and ratePercent follow v2', () => {
-  expect(rateTags({ compound: true, shipping: false, priority: 3 })).toBe('Compound · Not on shipping · Priority 3');
-  expect(rateTags({ compound: false, shipping: true, priority: 1 })).toBe('');
+  expect(rateTags({ compound: true, shipping: false })).toBe('Compound · Not on shipping');
+  expect(rateTags({ compound: false, shipping: true })).toBe('');
   expect(ratePercent('10.0000')).toBe('10%');
   expect(ratePercent('8.2500')).toBe('8.25%');
   expect(ratePercent('20')).toBe('20%');
-});
-
-test.each([
-  ['undefined', undefined],
-  ['empty', {}],
-  ['an empty class', { standard: [] }],
-])('Tax Rates with %s rates reads the empty line', (_name, taxRates) => {
-  render(<TaxSettings siteHome={siteHome} settings={{ ...settings, taxRates }} />);
-  expect(screen.getByTestId('settings-tax-rates-empty').textContent).toBe("No tax rates apply at the store's address.");
-  expect(screen.queryByTestId('settings-tax-rates-note')).toBeNull();
 });
 
 test('a locked switch does not change when pressed', () => {
