@@ -22,7 +22,9 @@ const RegisterIcon = createSvgIcon('RegisterIcon', () => <>
 // v2's right side sheet: full height, flush right, no rounding, a left border, on v2's `bg-card` surface
 // (monorepo packages/components/src/dialog/index.tsx:199), white in Light, not the page's bg-background. `px-4`: v2's panel
 // pads no side of its own; its header, body, foot and footer each sit 16 px in (dialog/index.tsx:243,277,384), not p-6's 24.
-const SIDE_SHEET = 'left-auto right-0 top-0 h-full max-w-lg translate-x-0 translate-y-0 rounded-none border-0 border-l bg-card px-4';
+// `py-4`: v2's DialogContent pads 16 px top and bottom (dialog/index.tsx:199), which the user sheet keeps (user-sheet.tsx:632)
+// and the right side adds nothing to (dialog/index.tsx:64), not p-6's 24. Last, so it wins over the dialog's p-6.
+const SIDE_SHEET = 'left-auto right-0 top-0 h-full max-w-lg translate-x-0 translate-y-0 rounded-none border-0 border-l bg-card px-4 py-4';
 // v2's labels are the `key` rank (user-sheet.tsx:209,685; text/ladder.ts:14), its figures `AmountFigure size="tile"`
 // (user-sheet.tsx:163,686; amount-figure/index.tsx:18-20).
 const KEY_LABEL = 'text-sm text-muted-foreground';
