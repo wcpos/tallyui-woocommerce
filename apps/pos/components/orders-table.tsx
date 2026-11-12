@@ -1,6 +1,6 @@
 import type { JSX, ReactNode } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import { Polyline } from 'react-native-svg';
+import { Path, Polyline } from 'react-native-svg';
 import { createSvgIcon, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Text } from '@tallyui/components';
 import type { StoreOrder } from '@tallyui/core';
 import type { PosOrder } from '@tallyui/pos';
@@ -9,6 +9,12 @@ import { orderRowCells, orderTableItems, type OrderTableRow, type OrderTone } fr
 import { CaptionRowInset, TableCount, TableSurface } from './table-surface';
 
 const ChevronRightIcon = createSvgIcon('ChevronRightIcon', () => <Polyline points="9 18 15 12 9 6" />);
+// v2's SortIcon for a descending sort (components sort-icon/index.tsx:19, `chevronDown`): the tabler glyph,
+// icon/components/tabler/chevronDown.tsx.
+const SortDownIcon = createSvgIcon('SortDownIcon', () => <Path d="m6 9 6 6 6-6" />);
+// v2's orders column aligns (ui-settings/initial-settings.json:388): the number is centred, header and cell
+// (data-table/header.tsx:37, column-style.ts:22); the total stays right.
+const ALIGN: Partial<Record<OrdersColumnId, string>> = { number: 'items-center', total: 'items-end' };
 // v2's status dots (packages/components/src/lib/tone.ts) in this theme's tokens.
 const TONE_DOT: Record<OrderTone, string> = {
   ok: 'bg-success', info: 'bg-info', warning: 'bg-warning', bad: 'bg-destructive', muted: 'bg-muted-foreground', default: 'bg-primary',
@@ -27,7 +33,7 @@ export const ORDERS_COLUMNS: readonly AreaColumn<OrdersColumnId>[] = [
 ];
 const ALL_COLUMNS = ORDERS_COLUMNS.map(column => column.id);
 
-function orderCell(id: OrdersColumnId, cells: ReturnType<typeof orderRowCells>): JSX.Element {
+function orderCell(id: OrdersColumnId, cells: ReturnType<typeof orderRowCells>, rowId: string): JSX.Element {
   switch (id) {
     case 'status': return <TableCell key={id}>
       <View className="flex-row items-center gap-1.5">
@@ -35,16 +41,31 @@ function orderCell(id: OrdersColumnId, cells: ReturnType<typeof orderRowCells>):
         <Text className="text-sm text-foreground">{cells.statusLabel}</Text>
       </View>
     </TableCell>;
-    case 'number': return <TableCell key={id}><Text>{cells.number}</Text></TableCell>;
+    case 'number': return <TableCell key={id} testID={`${rowId}-number`} className={ALIGN.number}><Text>{cells.number}</Text></TableCell>;
+    // v2's Customer cell (components/order/customer.tsx:32) is a `size="sm"` Chip with no avatar: h-8 (32 px), px-2.5,
+    // and a one-line text-sm (13 px) label (components chip/index.tsx:125, 158).
     case 'customer_id': return <TableCell key={id}>
-      <View className="self-start rounded-full border border-border px-2 py-0.5">
-        <Text className="text-xs text-foreground">{cells.customer}</Text>
+      <View testID={`${rowId}-customer-chip`} className="h-8 max-w-full flex-row items-center self-start rounded-full border border-border px-2.5">
+        <Text testID={`${rowId}-customer`} numberOfLines={1} className="shrink text-sm font-normal text-foreground">{cells.customer}</Text>
       </View>
     </TableCell>;
     case 'date_created_gmt': return <TableCell key={id}><Text>{cells.date}</Text></TableCell>;
     case 'payment_method': return <TableCell key={id}><Text>{cells.payment}</Text></TableCell>;
-    case 'total': return <TableCell key={id} className="items-end"><Text className="tabular-nums">{cells.total}</Text></TableCell>;
+    case 'total': return <TableCell key={id} className={ALIGN.total}><Text className="tabular-nums">{cells.total}</Text></TableCell>;
   }
+}
+
+/** v2's DataTableHeader (data-table/header.tsx:62-79): the sorted column shows its SortIcon after the label. The list
+ *  is always newest first (v2's default, initial-settings.json:376-377) and offers no other sort, so the chevron on
+ *  Date Created is a static down. */
+function headCell({ id, label }: AreaColumn<OrdersColumnId>): JSX.Element {
+  if (id !== 'date_created_gmt') return <TableHead key={id} className={ALIGN[id]}><Text>{label}</Text></TableHead>;
+  return <TableHead key={id}>
+    <View testID={`data-table-sort-${id}-desc`} className="max-w-full flex-row items-center gap-1">
+      <Text numberOfLines={1} className="shrink">{label}</Text>
+      <SortDownIcon testID="orders-sort-chevron" size={14} strokeWidth={1.5} className="text-foreground" />
+    </View>
+  </TableHead>;
 }
 
 /** v2's orders table (screens/main/orders/index.tsx): grouped by day, newest first; the chevron opens the order. */
@@ -71,7 +92,7 @@ export function OrdersTable({ local, store, onOpen, footer, active = false, onSy
           <Table testID="orders-table">
             <TableHeader>
               <TableRow>
-                {columns.map(({ id, label }) => <TableHead key={id} className={id === 'total' ? 'items-end' : undefined}><Text>{label}</Text></TableHead>)}
+                {columns.map(headCell)}
                 <TableHead className="w-14 flex-none" />
               </TableRow>
             </TableHeader>
@@ -88,7 +109,7 @@ export function OrdersTable({ local, store, onOpen, footer, active = false, onSy
                 const prefix = item.kind === 'store' ? 'history' : 'order';
                 return (
                   <TableRow key={item.id} testID={`${prefix}-row-${item.order.id}`}>
-                    {columns.map(({ id }) => orderCell(id, cells))}
+                    {columns.map(({ id }) => orderCell(id, cells, `${prefix}-${item.order.id}`))}
                     <TableCell className="w-14 flex-none items-center justify-center px-0 py-0">
                       <Pressable accessibilityRole="button" accessibilityLabel="Open order" testID={`${prefix}-open-${item.order.id}`}
                         onPress={() => onOpen(item)} className="size-9 items-center justify-center rounded-md web:hover:bg-muted">
