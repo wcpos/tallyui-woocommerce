@@ -18,6 +18,7 @@ import { sessionsOff } from './cart-head-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import { REGISTER_SESSIONS_KEY } from '../lib/register/register-setting';
 import { cartPane, openCartTab, openProductsTab, paneShown, productsPane } from './phone-tabs-helpers';
+import { classesOf } from './classes-of';
 
 // DEMO-PARITY A3. v2 draws its RegisterBar as the cart column's first row (packages/core/src/screens/main/pos/cart/
 // index.tsx:189), with no register button: the avatar's sheet is the one door to the register panel (cart/
@@ -94,6 +95,22 @@ test('wide: the bar is the cart column\'s first row, and the catalogue column st
   expect(cartPanel.firstElementChild).toBe(shell());
   expect(follows(shell(), within(cartPanel).getByTestId('cart-settings-button'))).toBe(true);
   expect(within(productsPanel).getByText('Espresso')).not.toBeNull();
+}, 20_000);
+
+// P11-S2: v2's cart column paints its own white surface (cart/index.tsx:75,187) with its rows 8 px in (cart/foot.tsx:35),
+// a 20 px cashier avatar (avatar/index.tsx:42,58) and 44 px cart controls (icon-button/index.tsx:26).
+test('wide: the cart column is a card-coloured pane 8 px in, with a 20 px avatar and 44 px controls', async () => {
+  await setup();
+  expect(classesOf('pos-cart-panel')).toContain('bg-card');
+  const pane = classesOf('cart-pane');
+  expect(pane).toEqual(expect.arrayContaining(['bg-card', 'p-2']));
+  expect(pane).not.toContain('p-4');
+  expect(pane).not.toContain('bg-background');
+  expect(classesOf('register-bar-avatar-initials')).toContain('size-5');
+  expect(classesOf('register-bar-avatar-initials')).not.toContain('size-7');
+  for (const id of ['cart-add-menu', 'cart-settings-button']) {
+    expect(classesOf(id)).toEqual(expect.arrayContaining(['h-11', 'w-11']));
+  }
 }, 20_000);
 
 test('wide, with the cart on the left: the bar still heads the cart column', async () => {

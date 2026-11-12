@@ -17,7 +17,11 @@ const SIDE_SHEET = 'left-auto right-0 top-0 h-full max-w-lg translate-x-0 transl
 export function NotificationBell({ testID = 'register-bar-bell' }: { testID?: string }): JSX.Element {
   const [open, setOpen] = useState(false);
   return <>
-    <IconButton testID={testID} accessibilityLabel="Notifications" onPress={() => setOpen(true)}><BellIcon size={20} /></IconButton>
+    {/* v2's bell is a default IconButton (notification-bell.tsx:40): its 18 px glyph (`size-4.5`, icon/index.tsx:27) in
+        text-muted-foreground (icon-button/index.tsx:93). */}
+    <IconButton testID={testID} accessibilityLabel="Notifications" onPress={() => setOpen(true)}>
+      <BellIcon testID={`${testID}-icon`} size={18} className="text-muted-foreground" />
+    </IconButton>
     {open && <Dialog open onOpenChange={setOpen}>
       <DialogContent testID="notifications-sheet" className={SIDE_SHEET}>
         <DialogHeader><DialogTitle>Notifications</DialogTitle></DialogHeader>

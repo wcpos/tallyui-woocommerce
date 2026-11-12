@@ -33,7 +33,11 @@ export function CartAddMenu({ sale, taxClasses, coupons, couponsOffered, custome
   return <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <IconButton testID="cart-add-menu" accessibilityLabel="Add to cart"><PlusIcon size={20} /></IconButton>
+        {/* v2's IconButton `plus` (pos/cart/add-cart-items-menu.tsx:47): `size-ctl` 44 px with the default glyph, 18 px
+            (`size-4.5`) in text-muted-foreground (monorepo packages/components/src/icon-button/index.tsx:26,93; icon/index.tsx:27). */}
+        <IconButton testID="cart-add-menu" accessibilityLabel="Add to cart" className="h-11 w-11">
+          <PlusIcon testID="cart-add-menu-icon" size={18} className="text-muted-foreground" />
+        </IconButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {/* v2 menu-add-customer: first, then a separator; disabled with the reason when the cashier cannot create. */}
