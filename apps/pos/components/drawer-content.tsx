@@ -10,8 +10,13 @@ import { View } from 'react-native';
 import { Button, Dialog, DialogContent, Text } from '@tallyui/components';
 import { SOFTWARE_VERSION } from '../lib/software';
 
-// v2's phone front drawer is 200 wide and flush left: full height, no rounding, a right border.
-const FRONT_DRAWER = 'left-0 right-auto top-0 h-full w-[200px] max-w-[200px] translate-x-0 translate-y-0 gap-1 rounded-none border-0 border-r p-2';
+// v2's phone front drawer is 200 wide and flush left: full height, no rounding, a right border, on the window rail's
+// surface (apps/main/app/(app)/(drawer)/_layout.tsx:84-107 `--color-sidebar` / `--color-sidebar-border`, aliases of
+// --rail / --rail-border at apps/main/global.css:407-409). Rail tokens only, so every theme follows.
+const FRONT_DRAWER = 'left-0 right-auto top-0 h-full w-[200px] max-w-[200px] translate-x-0 translate-y-0 gap-1 rounded-none border-0 border-r border-rail-border bg-rail p-2';
+// v2's NavItem at size `drawer` (packages/components/src/nav-item/index.tsx:31-34, 54-71): 48 tall, `rounded-lg px-3 gap-3`,
+// the label in the rail's ink; the selected item on `bg-rail-selected` in `text-rail-selected-foreground`.
+const ITEM = 'h-12 justify-start gap-3 rounded-lg px-3';
 
 export interface DrawerAreaHandlers {
   onOpenOrders?(): void;
@@ -25,14 +30,14 @@ export interface DrawerAreaHandlers {
 export function DrawerContent(props: DrawerAreaHandlers & { onClose(): void }): JSX.Element {
   const { onClose } = props;
   const item = (key: string, label: string, open?: () => void) => open && (
-    <Button key={key} variant="ghost" testID={`drawer-item-${key}`} className="justify-start" onPress={() => { onClose(); open(); }}>
-      <Text>{label}</Text>
+    <Button key={key} variant="ghost" testID={`drawer-item-${key}`} className={ITEM} onPress={() => { onClose(); open(); }}>
+      <Text testID={`drawer-label-${key}`} className="text-rail-foreground">{label}</Text>
     </Button>
   );
   return <>
     <View testID="drawer-top-group">
-      <Button variant="ghost" testID="drawer-item-pos" className="justify-start bg-accent" accessibilityState={{ selected: true }} onPress={onClose}>
-        <Text>POS</Text>
+      <Button variant="ghost" testID="drawer-item-pos" className={`${ITEM} bg-rail-selected`} accessibilityState={{ selected: true }} onPress={onClose}>
+        <Text testID="drawer-label-pos" className="text-rail-selected-foreground">POS</Text>
       </Button>
       {item('orders', 'Orders', props.onOpenOrders)}
       {item('customers', 'Customers', props.onOpenCustomers)}
@@ -42,7 +47,8 @@ export function DrawerContent(props: DrawerAreaHandlers & { onClose(): void }): 
       {item('health', 'Store health', props.onOpenHealth)}
       {item('settings', 'Settings', props.onOpenSettings)}
     </View>
-    <Text testID="drawer-version" className="px-3 py-2 text-xs text-muted-foreground">{`Version ${SOFTWARE_VERSION}`}</Text>
+    {/* v2's drawer-content/version.tsx:118-121: `text-sidebar-foreground` (the rail's ink) at half opacity. */}
+    <Text testID="drawer-version" className="px-3 py-2 text-xs text-rail-foreground opacity-50">{`Version ${SOFTWARE_VERSION}`}</Text>
   </>;
 }
 
