@@ -106,7 +106,7 @@ test('the open page description is small and muted inside its heading, above the
   expect(screen.queryByTestId('settings-page-description')).toBeNull();
   rerender(<SettingsArea wide items={items} currentHref="/empty" onNavigate={vi.fn()} onBack={vi.fn()}><Text>body</Text></SettingsArea>);
   expect(screen.queryByTestId('settings-page-description')).toBeNull();
-  expect(screen.getByTestId('settings-page-title').parentElement?.children).toHaveLength(1);
+  // React DOM drops an empty-string child, so the !!description guard (v2 area-page.tsx:50) is for React Native, where a bare '' outside <Text> throws, and cannot be observed here.
 });
 
 test('pressing a nav item navigates to its page', () => {
