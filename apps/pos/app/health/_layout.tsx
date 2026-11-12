@@ -4,7 +4,7 @@ import { useIsWide } from '../../lib/layout/wide';
 
 // v2 apps/main/components/area-navigation/health.tsx, without Performance (not built yet).
 const HEALTH_NAV_ITEMS: SettingsNavItem[] = [
-  { href: '/health/database', label: 'Database', testID: 'health-nav-database' },
+  { href: '/health/database', label: 'Database', testID: 'health-nav-database', description: 'Your store, on this device — sales keep working even if your server does not.' },
   { href: '/health/logs', label: 'Logs', testID: 'health-nav-logs' },
 ];
 
