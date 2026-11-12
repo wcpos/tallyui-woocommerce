@@ -39,17 +39,17 @@ test('opens pos_orders and register collections in its own memory database and c
   expect(db.closed).toBe(true);
 });
 
-test('opens pos_orders at schema version 11 (one-way from TallyUI 3.13.0, identity from v10)', async () => {
+test('opens pos_orders at schema version 12 (the identity step from 11 added by TallyUI 3.19.0)', async () => {
   const name = `tallywoo_orders_${crypto.randomUUID()}`;
   const store = await openOrderStore(name, getRxStorageMemory());
   try {
-    expect(store.orders.schema.version).toBe(11);
+    expect(store.orders.schema.version).toBe(12);
   } finally {
     await store.close();
   }
 });
 
-test("keeps a till's version-9 orders byte for byte when the store opens at version 11", async () => {
+test("keeps a till's version-9 orders byte for byte when the store opens at version 12", async () => {
   const name = `tallywoo_orders_${crypto.randomUUID()}`;
   const storage = getRxStorageMemory();
   const syncedLineId = crypto.randomUUID();
@@ -108,7 +108,7 @@ test("keeps a till's version-9 orders byte for byte when the store opens at vers
   let before;
   try {
     const { pos_orders: orders } = await db.addCollections({
-      pos_orders: { schema: schemaV9 as RxJsonSchema<PosOrder> },
+      pos_orders: { schema: schemaV9 as unknown as RxJsonSchema<PosOrder> },
     });
     await orders.insert(pending);
     await orders.insert(synced);
@@ -119,7 +119,7 @@ test("keeps a till's version-9 orders byte for byte when the store opens at vers
 
   const store = await openOrderStore(name, storage);
   try {
-    expect(store.orders.schema.version).toBe(11);
+    expect(store.orders.schema.version).toBe(12);
     const after = (await store.orders.find({ sort: [{ id: 'asc' }] }).exec()).map(order => order.toJSON());
     expect(after).toEqual(before);
     expect(after.find(order => order.id === pending.id)?.syncStatus).toBe(pending.syncStatus);

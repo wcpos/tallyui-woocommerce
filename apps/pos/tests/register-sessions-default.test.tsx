@@ -90,7 +90,8 @@ test('turning sessions off in Settings › General returns the sale screen to th
   expect(app.register.setting).toBe(false);
   expect(localStorage.getItem(REGISTER_SESSIONS_KEY)).toBe('false');
   await waitFor(() => expect(screen.queryByTestId('open-register-card')).toBeNull());
-  expect(screen.getByTestId('cart-checkout')).not.toBeNull();
+  expect(screen.getByTestId('cart-empty')).not.toBeNull();
+  expect(screen.queryByTestId('cart-checkout')).toBeNull();
   expect(screen.queryByTestId('register-bar-pill')).toBeNull();
   expect(settingsSwitch().getAttribute('aria-checked')).toBe('false');
 });
@@ -99,7 +100,7 @@ test('the Settings switch stays while a session is open', async () => {
   const app = await setup({ withSettings: true });
   fireEvent.change(await screen.findByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
-  await screen.findByTestId('cart-checkout');
+  await screen.findByTestId('cart-empty');
   await waitFor(() => expect(app.register.session?.status).toBe('open'));
   expect(settingsSwitch().getAttribute('aria-checked')).toBe('true');
 });

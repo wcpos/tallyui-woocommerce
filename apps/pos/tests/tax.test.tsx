@@ -1,3 +1,4 @@
+import { setLineQuantity } from './cart-line-helpers';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
@@ -56,8 +57,8 @@ function renderTill(capabilities?: ServerCapabilities) {
 // the cheaper label query, then check the line's control is a button.
 async function addToCart(name: string) {
   fireEvent.click(await screen.findByText(name));
-  await screen.findByLabelText(`Increase ${name}`);
-  screen.getByRole('button', { name: `Increase ${name}` });
+  await screen.findByLabelText(`Edit quantity of ${name}`);
+  screen.getByRole('button', { name: `Edit quantity of ${name}` });
 }
 
 beforeEach(() => {
@@ -101,8 +102,7 @@ afterEach(() => {
 test('matches WooCommerce order #136: tax 1.16 and total 32.91', async () => {
   renderTill();
   await addToCart('Espresso');
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  setLineQuantity('Espresso', 3);
   for (const name of ['Croissant', 'Tote Bag', 'Banana Bread']) fireEvent.click(screen.getByText(name));
   const footer = within(screen.getByTestId('cart-footer'));
   const taxMinor = footer.getAllByText(/^Tax /).reduce((sum, label) => {
@@ -181,9 +181,12 @@ test.each(['Order discount', 'Discount'])('inclusive stores take a sale with %s 
   renderTill();
   await addToCart('Espresso');
   await screen.findByText('Order store ready');
-  // The order discount is the + menu's Add discount; a line's Discount is its own line action.
+  // The order discount is the + menu's Add discount; a wide line's Discount is in its price popover.
   if (control === 'Order discount') openAddMenuItem('discount');
-  else fireEvent.click(screen.getByText(control, { exact: true }));
+  else {
+    fireEvent.click(screen.getByLabelText('Edit price of Espresso'));
+    fireEvent.click(screen.getByTestId('price-popover-action-discount'));
+  }
   fireEvent.change(screen.getByLabelText('Discount value'), { target: { value: '10' } });
   fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
   fireEvent.click(screen.getByTestId('cart-checkout'));

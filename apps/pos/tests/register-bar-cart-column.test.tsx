@@ -77,7 +77,7 @@ const follows = (first: Node, second: Node) => Boolean(first.compareDocumentPosi
 async function openSessionThroughCard() {
   fireEvent.change(await screen.findByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
-  await screen.findByTestId('cart-checkout');
+  await screen.findByTestId('cart-empty');
 }
 
 test('wide: the bar is the cart column\'s first row, and the catalogue column starts with its search row', async () => {

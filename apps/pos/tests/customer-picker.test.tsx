@@ -97,13 +97,13 @@ test.each(['Escape', 'an outside press'] as const)('the panel drops over the car
   const panel = within(screen.getByTestId('customer-select-panel'));
   await panel.findByLabelText(annaLabel);
   // A popover: the cart lines are still there under it, not pushed out by an inline list.
-  expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
+  expect(screen.getByLabelText('Edit quantity of Espresso')).not.toBeNull();
   expect(screen.getByTestId('cart-footer')).not.toBeNull();
   if (how === 'Escape') dismissals.Escape();
   else fireEvent.pointerDown(screen.getByTestId('cart-footer'));
   expect(screen.queryByTestId('customer-select-panel')).toBeNull();
   expect(screen.getByRole('button', { name: 'Customer: Guest' })).not.toBeNull();
-  expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
+  expect(screen.getByLabelText('Edit quantity of Espresso')).not.toBeNull();
 });
 
 test('a press inside the panel keeps it open', async () => {

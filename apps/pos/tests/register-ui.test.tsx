@@ -139,7 +139,7 @@ test('open, pay out, sell, count and close, then reuse the counted float', async
   toggleRegisterSessions();
   fireEvent.change(await screen.findByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
-  await screen.findByTestId('cart-checkout');
+  await screen.findByTestId('cart-empty');
   await openRegisterPanel();
   fireEvent.click(await screen.findByTestId('register-panel-paid-out'));
   fireEvent.change(await screen.findByTestId('movement-amount'), { target: { value: '20.00' } });
@@ -175,7 +175,7 @@ test('switching sessions off removes the register UI and allows a sale without a
   expect(screen.queryByTestId('cart-settings-button')).toBeNull();
   fireEvent.change(screen.getByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
-  await screen.findByTestId('cart-checkout');
+  await screen.findByTestId('cart-empty');
   toggleRegisterSessions();
   expect(app.register.setting).toBe(false);
   await waitFor(() => expect(app.register.session).toBeNull());
@@ -196,7 +196,7 @@ test('phone (B12): with sessions on and the register open, the Cart tab has one 
   openCartTab();
   fireEvent.change(await screen.findByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
-  await screen.findByTestId('cart-checkout');
+  await screen.findByTestId('cart-empty');
   expect(screen.getAllByTestId('pos-drawer-open-button')).toHaveLength(1);
   expect(screen.getAllByTestId('register-bar-shell')).toHaveLength(1);
   expect(cartPane().queryByTestId('register-bar')).toBeNull();

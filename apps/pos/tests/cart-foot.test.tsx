@@ -1,3 +1,4 @@
+import { setLineQuantity } from './cart-line-helpers';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { addRxPlugin, createRxDatabase } from 'rxdb';
@@ -122,11 +123,11 @@ function chooseVoid() {
   fireEvent.click(within(screen.getByTestId('cart-foot-menu')).getByRole('menuitem', { name: 'Void' }));
 }
 
-test('(a) the foot reads Checkout with the cart total, is disabled while empty, and has no Cash or Card terminal buttons', () => {
+test('(a) the foot reads Checkout with the cart total, is absent while empty, and has no Cash or Card terminal buttons', () => {
   render(<><SaleScreen {...props} /><PortalHost /></>);
-  expect(checkoutButton().getAttribute('aria-disabled')).toBe('true');
+  expect(screen.queryByTestId('cart-checkout')).toBeNull();
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  setLineQuantity('Espresso', 2);
   fireEvent.click(screen.getByText('Cold Brew'));
   const footer = within(screen.getByTestId('cart-footer'));
   const total = within(footer.getByText('Total').parentElement!).getByText('$10.00').textContent;
@@ -158,7 +159,7 @@ test('(c) with the register on and no session open, Checkout asks to open the re
   fireEvent.click(checkoutButton());
   expect(await screen.findByText('Open the register to take payment.')).not.toBeNull();
   expect(checkoutButton()).not.toBeNull();
-  expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
+  expect(screen.getByLabelText('Edit quantity of Espresso')).not.toBeNull();
   expect(screen.queryByTestId('checkout-keypad')).toBeNull();
   expect(app.send).not.toHaveBeenCalled();
 }, 20_000);
@@ -166,7 +167,7 @@ test('(c) with the register on and no session open, Checkout asks to open the re
 test('(d) multi-payment: Checkout opens with nothing taken, then a Cash leg and a Card leg pay it off', async () => {
   const { send } = await renderTill(true);
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  setLineQuantity('Espresso', 2);
   fireEvent.click(checkoutButton());
   expect(await screen.findByTestId('checkout-ledger')).not.toBeNull();
   expect(text('checkout-ledger-empty')).toBe('No payments yet');
@@ -186,16 +187,16 @@ test('(d) multi-payment: Checkout opens with nothing taken, then a Cash leg and 
 test('(e) Void asks first: Keep sale keeps every line', () => {
   render(<><SaleScreen {...props} /><PortalHost /></>);
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  setLineQuantity('Espresso', 2);
   fireEvent.click(screen.getByText('Cold Brew'));
   chooseVoid();
   expect(screen.getByText('Void this sale?')).not.toBeNull();
   expect(screen.getByText("Its items are removed. This can't be undone.")).not.toBeNull();
-  expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
+  expect(screen.getByLabelText('Edit quantity of Espresso')).not.toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Keep sale' }));
   expect(screen.queryByText('Void this sale?')).toBeNull();
-  expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
-  expect(screen.getByRole('button', { name: 'Remove Cold Brew' })).not.toBeNull();
+  expect(screen.getByLabelText('Edit quantity of Espresso')).not.toBeNull();
+  expect(screen.getByLabelText('Edit quantity of Cold Brew')).not.toBeNull();
   expect(checkoutButton().textContent).toBe('Checkout $10.00');
 }, 20_000);
 
@@ -207,9 +208,9 @@ test('(e) Void sale empties the cart, and it stays empty through the persisted-c
     chooseVoid();
     fireEvent.click(screen.getByRole('button', { name: 'Void sale' }));
     await waitFor(() => expect(screen.queryByText('Void this sale?')).toBeNull());
-    expect(screen.queryByRole('button', { name: 'Remove Espresso' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Remove Cold Brew' })).toBeNull();
-    expect(checkoutButton().getAttribute('aria-disabled')).toBe('true');
+    expect(screen.queryByLabelText('Edit quantity of Espresso')).toBeNull();
+    expect(screen.queryByLabelText('Edit quantity of Cold Brew')).toBeNull();
+    expect(screen.queryByTestId('cart-checkout')).toBeNull();
     // Leaving the page parks an open cart under the held-cart key; a voided one leaves nothing to restore.
     await act(async () => { expect(await runBeforeLeave()).toBeNull(); });
     expect(await parkedCarts.find().exec()).toEqual([]);
@@ -218,15 +219,15 @@ test('(e) Void sale empties the cart, and it stays empty through the persisted-c
     render(<><SaleScreen {...props} parkedCarts={parkedCarts} heldCartKey="held-test" /><PortalHost /></>);
     expect(await screen.findByTestId('new-order-tab')).not.toBeNull();
     expect(parkedTabs()).toHaveLength(0);
-    expect(screen.queryByRole('button', { name: 'Remove Espresso' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Remove Cold Brew' })).toBeNull();
-    expect(checkoutButton().getAttribute('aria-disabled')).toBe('true');
+    expect(screen.queryByLabelText('Edit quantity of Espresso')).toBeNull();
+    expect(screen.queryByLabelText('Edit quantity of Cold Brew')).toBeNull();
+    expect(screen.queryByTestId('cart-checkout')).toBeNull();
   });
 }, 20_000);
 
 test('(f) an empty cart has no ⋮', () => {
   render(<><SaleScreen {...props} /><PortalHost /></>);
-  expect(checkoutButton()).not.toBeNull();
+  expect(screen.queryByTestId('cart-checkout')).toBeNull();
   expect(screen.queryByTestId('cart-foot-more')).toBeNull();
   fireEvent.click(screen.getByText('Espresso'));
   expect(screen.getByTestId('cart-foot-more')).not.toBeNull();

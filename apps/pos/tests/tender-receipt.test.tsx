@@ -1,3 +1,4 @@
+import { setLineQuantity, EMPTY_CART_TEXT } from './cart-line-helpers';
 import { noTaxSettings } from './fixtures/store-settings';
 import type { ComponentProps } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -70,7 +71,7 @@ test('cash tender records and sends one sale, prints a final receipt, and starts
   expect(screen.queryByText('Sales are up to date.')).toBeNull();
   expect(screen.queryByTestId('sync-status')).toBeNull();
   fireEvent.click(screen.getByText('Espresso'));
-  fireEvent.click(screen.getByRole('button', { name: 'Increase Espresso' }));
+  setLineQuantity('Espresso', 2);
   fireEvent.click(screen.getByTestId('cart-checkout'));
   expect(screen.getByTestId('checkout-keypad')).not.toBeNull();
   expect(screen.queryByText('Taking payment arrives in the next update')).toBeNull();
@@ -97,10 +98,10 @@ test('cash tender records and sends one sale, prints a final receipt, and starts
   await waitFor(() => expect(screen.queryByTestId('sync-status')).toBeNull());
   expect(screen.queryByText('Sales are up to date.')).toBeNull();
   fireEvent.click(receipt.getByRole('button', { name: 'New sale' }));
-  expect(screen.getByText('Scan or tap a product to start a sale.')).not.toBeNull();
+  expect(screen.getByText(EMPTY_CART_TEXT)).not.toBeNull();
   expect(screen.queryByTestId('receipt-order')).toBeNull();
   expect(screen.queryByTestId('receipt-identity')).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Remove Espresso' })).toBeNull();
+  expect(screen.queryByLabelText('Edit quantity of Espresso')).toBeNull();
   expect(send).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByTestId('cart-checkout'));

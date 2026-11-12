@@ -98,7 +98,7 @@ test('sessions on: Cash refuses without an open session and stays in the cart', 
   fireEvent.click(screen.getByTestId('cart-checkout'));
   expect(await screen.findByText('Open the register to take payment.')).not.toBeNull();
   expect(screen.getByTestId('cart-checkout')).not.toBeNull();
-  expect(screen.getByRole('button', { name: 'Remove Espresso' })).not.toBeNull();
+  expect(screen.getByLabelText('Edit quantity of Espresso')).not.toBeNull();
   expect(screen.queryByTestId('checkout-keypad')).toBeNull();
   expect(await app.orders.find().exec()).toEqual([]);
   expect(app.send).not.toHaveBeenCalled();
