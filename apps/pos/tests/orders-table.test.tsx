@@ -105,3 +105,20 @@ test("at 1280 the orders table sits on the areas' shared card, with the count un
   expect(surface.contains(screen.getByTestId('orders-table'))).toBe(true);
   expect(surface.contains(screen.getByTestId('data-table-count'))).toBe(false);
 });
+
+test("v2's 32 px customer chip, a centred order number and Date Created's down chevron for newest first", () => {
+  render(<OrdersTable local={[]} store={[storeOrder]} onOpen={vi.fn()} now={() => now} />);
+  // v2's Chip size="sm" (components chip/index.tsx:125, 158): h-8, px-2.5, a text-sm (13 px) label.
+  expect(classesOf('history-901-customer-chip')).toEqual(expect.arrayContaining(['h-8', 'px-2.5']));
+  expect(classesOf('history-901-customer-chip')).not.toContain('py-0.5');
+  expect(screen.getByTestId('history-901-customer').textContent).toBe('Guest');
+  expect(classesOf('history-901-customer')).toContain('text-sm');
+  expect(classesOf('history-901-customer')).not.toContain('text-xs');
+  expect(screen.getByTestId('history-901-number').textContent).toBe('901');
+  expect(classesOf('history-901-number')).toContain('items-center');
+  const sorted = screen.getByTestId('data-table-sort-date_created_gmt-desc');
+  expect(sorted.textContent).toBe('Date Created');
+  const chevron = screen.getByTestId('orders-sort-chevron');
+  expect(sorted.contains(chevron)).toBe(true);
+  expect(chevron.querySelector('path')?.getAttribute('d')).toBe('m6 9 6 6 6-6');
+});
