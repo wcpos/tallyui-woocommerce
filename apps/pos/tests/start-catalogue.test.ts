@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { RxCollection } from 'rxdb';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
+import { firstValueFrom, filter } from 'rxjs';
+import { setSyncCadence } from '@tallyui/database';
 import { taxLogger } from '@tallyui/pos';
 import type { Session } from '../lib/auth/session';
 import { databaseName, startCatalogue } from '../lib/catalogue/start-catalogue';
@@ -196,6 +198,65 @@ test('keeps a local logs collection that the TallyUI loggers write to until stop
     expect(insert).not.toHaveBeenCalled();
   } finally {
     if (!stopped) await catalogue.stop();
+  }
+});
+
+function productRequests(fetchImpl: ReturnType<typeof fakeStore>) {
+  return fetchImpl.mock.calls.map(([input]) => new URL(String(input))).filter(url => url.pathname.endsWith('/products'));
+}
+
+test('meters the sync requests into hourly buckets', async () => {
+  const fetchImpl = fakeStore({});
+  vi.stubGlobal('fetch', fetchImpl);
+  const catalogue = await startCatalogue(session, { storage: getRxStorageMemory() });
+  try {
+    await catalogue.replication.awaitInitialReplication();
+    const productCalls = productRequests(fetchImpl).length;
+    expect(productCalls).toBeGreaterThan(0);
+    const metered = catalogue.requestMetrics.buckets().reduce((sum, bucket) => sum + bucket.requests, 0);
+    expect(metered).toBeGreaterThanOrEqual(productCalls);
+    expect(catalogue.db.collections.request_metrics).toBeDefined();
+    expect(catalogue.db.collections.sync_cadence).toBeDefined();
+  } finally {
+    await catalogue.stop();
+  }
+});
+
+test('pulls pages of the stored cadence size, Balanced by default', async () => {
+  const fetchImpl = fakeStore({});
+  vi.stubGlobal('fetch', fetchImpl);
+  const catalogue = await startCatalogue(session, { storage: getRxStorageMemory() });
+  try {
+    await catalogue.replication.awaitInitialReplication();
+    // Pages carry `offset`; the connector's pass-mark probe (per_page 1, orderby modified) is a fixed size.
+    const pages = productRequests(fetchImpl).filter(url => url.searchParams.has('offset'))
+      .map(url => url.searchParams.get('per_page'));
+    expect(pages.length).toBeGreaterThan(0);
+    expect(pages).toEqual(pages.map(() => '50'));
+  } finally {
+    await catalogue.stop();
+  }
+});
+
+test('checks for product changes on the cadence timer', async () => {
+  const fetchImpl = fakeStore({});
+  vi.stubGlobal('fetch', fetchImpl);
+  const catalogue = await startCatalogue(session, { storage: getRxStorageMemory() });
+  let latest: number | undefined;
+  const subscription = catalogue.cadence.nextDueAtMs$.subscribe(value => { latest = value; });
+  try {
+    const due = await firstValueFrom(catalogue.cadence.nextDueAtMs$.pipe(filter(value => value !== undefined)));
+    expect(due - Date.now()).toBeGreaterThanOrEqual(47_000);
+    expect(due - Date.now()).toBeLessThanOrEqual(73_000);
+    await catalogue.replication.awaitInSync();
+    const before = productRequests(fetchImpl).length;
+    catalogue.cadence.tickNow();
+    await vi.waitFor(() => expect(productRequests(fetchImpl).length).toBeGreaterThan(before));
+    await setSyncCadence(catalogue.syncCadence, 'realtime');
+    await vi.waitFor(() => expect(latest! - Date.now()).toBeLessThanOrEqual(12_500));
+  } finally {
+    subscription.unsubscribe();
+    await catalogue.stop();
   }
 });
 
