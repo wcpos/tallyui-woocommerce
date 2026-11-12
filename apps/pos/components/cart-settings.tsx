@@ -30,9 +30,6 @@ const SHEET = 'fixed top-0 z-50 h-full w-[512px] max-w-full gap-4 border-border 
 // v2 opens the panel in its screen's own overlay host, beside the rail (apps/main/app/(app)/(drawer)/_layout.tsx
 // `Scene`), so the rail stays undimmed and usable and a left panel starts at its right edge; with no rail (a phone)
 // the overlay and panel start at the window's.
-// v2's scrim is `bg-scrim` (components lib/overlay/index.tsx:562), Light's `--scrim: oklch(0.2 0.01 262 / .28)`
-// (apps/main/global.css:444): a near black at 28%, over TallyUI's `bg-black/80`. This app has no scrim token.
-export const SCRIM = 'bg-black/30';
 export const CART_SHEET: Record<PanelPosition, (railShown: boolean) => string> = {
   left: railShown => `${railShown ? BESIDE_RAIL : 'left-0'} right-auto border-r ${SHEET}`,
   right: () => `left-auto right-0 border-l ${SHEET}`,
@@ -70,6 +67,7 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
   useEffect(() => { setOpen(false); }, [area]);
   // v2's usePanelSide('cart') docks the cart's panels opposite the cart, so on the products side: `position`.
   const side = position;
+  // The overlay keeps TallyUI's bg-scrim (3.20.0), v2's --scrim (components lib/overlay/index.tsx:562).
   return <>
     {/* v2's IconButton: `size-ctl` 44 px, its default 18 px glyph muted (monorepo packages/components/src/icon-button/index.tsx:26,93). */}
     <IconButton testID="cart-settings-button" accessibilityLabel="Cart settings" className="h-11 w-11" onPress={() => setOpen(true)}>
@@ -78,7 +76,7 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
     {/* DialogContent's overlay is a fixed inset-0 with no class option, which would dim the rail. Back to
         DialogContent if TallyUI adds an overlay className. */}
     {open && <Dialog open onOpenChange={next => { if (!next) setOpen(false); }}><DialogPortal>
-      <DialogOverlay testID="cart-settings-overlay" className={`${SCRIM}${railShown && side === 'left' ? ` ${BESIDE_RAIL}` : ''}`} />
+      <DialogOverlay testID="cart-settings-overlay" className={railShown && side === 'left' ? BESIDE_RAIL : undefined} />
       <DialogPrimitive.Content testID="cart-settings" dataSet={{ side }} className={CART_SHEET[side](railShown)}>
         {/* v2's DialogHeader (dialog/index.tsx: pl-4 pr-ctl) holds only the title, its dialog rank 16 px leading-none;
             the close is an absolute h-ctl square at top-1 right-1, as on the product settings sheet. */}

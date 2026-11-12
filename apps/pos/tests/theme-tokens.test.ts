@@ -34,7 +34,7 @@ const value = (theme: string, name: string): string | undefined =>
 const lightNames = [...new Set([...names(variantBlock(tokensCss, 'light')), ...names(variantBlock(globalCss, 'light'))])].sort();
 
 test('every extra theme defines exactly the variables light defines, once each', () => {
-  expect(lightNames).toHaveLength(40); // 38 plus v2's --selected pair (apps/main/global.css l.400-401)
+  expect(lightNames).toHaveLength(41); // 38 plus v2's --selected pair (apps/main/global.css l.400-401), plus TallyUI 3.20.0's --color-scrim
   expect(lightNames).toContain('--color-tile-tint-5');
   for (const theme of EXTRA_THEMES) {
     const declared = names(variantBlock(themesCss, theme));
@@ -56,6 +56,17 @@ test('the extra themes carry the v2 colour values', () => {
   for (const [theme, background, primary] of expected) {
     expect(value(theme, '--color-background'), theme).toBe(background);
     expect(value(theme, '--color-primary'), theme).toBe(primary);
+  }
+  for (const [theme, scrim] of [
+    ['ocean', 'oklch(0.05 0.03 230 / .5)'],
+    ['sunset', 'oklch(0.05 0.03 318 / .5)'],
+    ['monochrome', 'oklch(0 0 0 / .55)'],
+    ['paper', 'oklch(0.25 0.02 70 / .3)'],
+    ['warm', 'oklch(0.25 0.02 50 / .3)'],
+    ['bold', 'oklch(0 0 0 / .35)'],
+    ['market', 'oklch(0.23 0.04 290 / .35)'],
+  ]) {
+    expect(value(theme, '--color-scrim'), theme).toBe(scrim);
   }
   expect(value('bold', '--color-accent')).toBe('oklch(0.97 0.07 123)');
   expect(value('market', '--color-tile-tint-0')).toBe('oklch(0.90 0.09 61)');
