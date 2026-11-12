@@ -5,6 +5,7 @@ import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { addPosOrderCollection, type PosOrder } from '@tallyui/pos';
 import { DatabaseCounts, type DatabaseCountRow } from '../components/database-counts';
+import { classesOf } from './classes-of';
 
 let db: RxDatabase;
 let orders: RxCollection<PosOrder>;
@@ -67,4 +68,17 @@ test('a failed sync says so until the next try', async () => {
   await waitFor(() => expect(screen.getByTestId('db-sync-failed-products').textContent).toBe('Couldn’t sync with the server.'));
   fireEvent.click(screen.getByTestId('db-row-sync-now-products'));
   await waitFor(() => expect(screen.queryByTestId('db-sync-failed-products')).toBeNull());
+});
+
+test('v2\'s flat table: caption-rank heads, ruled rows at 61 px, no inner box', async () => {
+  render(<DatabaseCounts rows={rows} />);
+  for (const head of ['db-head-collection', 'db-head-local']) {
+    expect(classesOf(head)).toEqual(expect.arrayContaining(['uppercase', 'text-muted-foreground', 'text-xs', 'tracking-wide']));
+  }
+  expect(classesOf('db-table-head')).toContain('border-b');
+  expect(classesOf('db-row-products')).toEqual(expect.arrayContaining(['border-b', 'border-border', 'min-h-[61px]']));
+  expect(classesOf('db-table')).not.toContain('border');
+  expect(classesOf('db-table')).not.toContain('rounded-lg');
+  expect(screen.queryByText('On server')).toBeNull();
+  await waitFor(() => expect(screen.getByTestId('db-row-count-products').textContent).toBe('0'));
 });
