@@ -44,6 +44,7 @@ import { CouponRows } from './coupon-entry';
 import { OpenOrderTabs } from './open-order-tabs';
 import { PanelResizeHandle } from './panel-resize-handle';
 import { CartWithSettings } from './cart-settings';
+import { OrderDetailsSheet } from './order-details-sheet';
 import { TenderPane } from './tender-pane';
 import { LedgerPane } from './ledger-pane';
 import { PosPhoneTabBar } from './pos-phone-tab-bar';
@@ -338,13 +339,14 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   }
 
   // v2's cart foot (cart/foot.tsx, buttons/pay.tsx): one "Checkout {total}" opens the tender on Cash, where the cashier
-  // picks the method, and a ⋮ menu holds Void. v2 voids at once and offers Undo; the open sale here has no server copy
-  // to restore, so Void asks first.
+  // picks the method, and the ⋮'s one item opens the Order details sheet, which holds Void (cart/order-sheet.tsx).
+  // v2 voids at once and offers Undo; the open sale here has no server copy to restore, so Void asks first.
   const [voidOpen, setVoidOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const voidOffered = sale.order.lineItems.length > 0 && sale.order.payments.length === 0;
   const checkout = {
     onCheckout: () => { void gatedStartTender('cash'); },
-    actions: voidOffered ? [{ label: 'Void', destructive: true, onPress: () => setVoidOpen(true) }] : [],
+    actions: [{ label: 'Order details', onPress: () => setDetailsOpen(true) }],
   };
 
   function onSelect(doc: any) {
@@ -453,6 +455,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             position={viewState.position} onPositionChange={position => setViewState({ ...viewState, position })}
             openOrders={<OpenOrderTabs parked={parked} current={sale.order} currency={currency} locale={props.locale} onSelect={onResume} onNew={onPark} onError={setMessage}
               onOpenList={() => setParkedOpen(true)} listOpen={parkedOpen} compact={phoneLayout} />} />
+          <OrderDetailsSheet open={detailsOpen} onOpenChange={setDetailsOpen} side={viewState.position}
+            note={sale.order.note} onNoteChange={sale.setNote} onVoid={voidOffered ? () => setVoidOpen(true) : undefined} />
           {voidOpen && <AlertDialog open onOpenChange={next => { if (!next) setVoidOpen(false); }}>
             <AlertDialogContent testID="cart-void-dialog">
               <AlertDialogHeader>
