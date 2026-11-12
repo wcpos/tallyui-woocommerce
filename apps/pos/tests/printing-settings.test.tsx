@@ -1,8 +1,9 @@
-import { cleanup, render, renderHook, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import type { ReceiptTemplate, SyncContext, TallyConnector } from '@tallyui/core';
 import type { PrinterProfile } from '@tallyui/pos';
+import { PortalHost } from '@tallyui/primitives';
 import { PrintingSettings } from '../components/settings/printing-settings';
 import { SettingsArea } from '../components/settings/settings-area';
 import { SETTINGS_NAV_ITEMS } from '../components/settings/settings-navigation';
@@ -25,18 +26,19 @@ const templates: Record<TemplateKind, StoreTemplatesState> = {
   closure: { status: 'ready', templates: [] },
 };
 const printers = [SYSTEM_PRINT_DIALOG];
+const printing = { profiles: [] as PrinterProfile[], onSavePrinter: vi.fn(), onSetDefault: vi.fn(), onDeletePrinter: vi.fn() };
 
 test("the Printers section shows v2's empty state with only the Print Dialog", () => {
-  render(<PrintingSettings templates={templates} printers={printers} />);
+  render(<PrintingSettings templates={templates} {...printing} />);
   expect(screen.getByTestId('printers-empty-state-title').textContent).toBe('No printers configured');
   expect(screen.getByTestId('printers-empty-state-description').textContent).toBe(
     'Add a printer to send receipts straight to your hardware. You can always use the Print Dialog without one.');
   expect(screen.getByTestId('settings-printing-printers-description').textContent).toBe('Devices receipts can be sent to.');
-  expect(screen.queryByText('Add printer')).toBeNull();
+  expect(screen.getByTestId('printing-add-printer-button').textContent).toBe('Add printer');
 });
 
 test('each receipt template row shows its title, type tag and the auto printer', () => {
-  render(<PrintingSettings templates={templates} printers={printers} />);
+  render(<PrintingSettings templates={templates} {...printing} />);
   const rows = screen.getAllByTestId(/^template-row-(plugin-core|t80|t58)$/);
   expect(rows.map(row => row.getAttribute('data-testid'))).toEqual(['template-row-plugin-core', 'template-row-t80', 'template-row-t58']);
   fixtures.forEach((template, index) => {
@@ -50,7 +52,7 @@ test('each receipt template row shows its title, type tag and the auto printer',
 
 test("the section headings read v2's words", () => {
   render(<SettingsArea wide items={SETTINGS_NAV_ITEMS} currentHref="/settings/printing" onNavigate={vi.fn()} onBack={vi.fn()}>
-    <PrintingSettings templates={templates} printers={printers} />
+    <PrintingSettings templates={templates} {...printing} />
   </SettingsArea>);
   expect(screen.getByTestId('settings-page-title').textContent).toBe('Printing');
   for (const title of ['Receipt templates', 'Report templates', 'Closure templates']) {
@@ -60,12 +62,12 @@ test("the section headings read v2's words", () => {
 });
 
 test('an empty kind reads No active templates found.', () => {
-  render(<PrintingSettings templates={templates} printers={printers} />);
+  render(<PrintingSettings templates={templates} {...printing} />);
   expect(screen.getByTestId('settings-printing-report-templates-empty').textContent).toBe('No active templates found.');
 });
 
 test('a failed kind shows the error and loading shows nothing', () => {
-  render(<PrintingSettings printers={printers} templates={{ ...templates,
+  render(<PrintingSettings {...printing} templates={{ ...templates,
     receipt: { status: 'error', message: 'HTTP 500' }, closure: { status: 'loading' },
   }} />);
   expect(screen.getByTestId('settings-printing-receipt-templates-error').textContent).toBe('Templates could not be loaded: HTTP 500');
@@ -114,4 +116,59 @@ test('useStoreTemplates reads each kind from the connector', async () => {
   receiptTemplates.mockRejectedValueOnce(new Error('HTTP 500'));
   const failed = renderHook(() => useStoreTemplates(connector, () => context, 'receipt'));
   await waitFor(() => expect(failed.result.current).toEqual({ status: 'error', message: 'HTTP 500' }));
+});
+
+const frontCounter: PrinterProfile = {
+  id: 'p1', name: 'Front counter', connectionType: 'network', address: '192.168.1.50', port: 8008, columns: 42, vendor: 'epson', isDefault: true,
+};
+
+function renderPrinting(profiles: PrinterProfile[] = []) {
+  const handlers = { onSavePrinter: vi.fn(), onSetDefault: vi.fn(), onDeletePrinter: vi.fn() };
+  render(<><PrintingSettings templates={templates} profiles={profiles} {...handlers} /><PortalHost /></>);
+  return handlers;
+}
+
+test('a saved printer replaces the empty state', () => {
+  renderPrinting([frontCounter]);
+  expect(screen.queryByTestId('printers-empty-state')).toBeNull();
+  expect(screen.getByTestId('printer-row-p1-identifier').textContent).toBe('192.168.1.50:8008 · Epson');
+  expect(screen.getByTestId('printer-row-p1-default').textContent).toBe('Default');
+  expect(within(screen.getByTestId('template-row-t80-printer-select')).getByText('Auto — Front counter')).not.toBeNull();
+  expect(within(screen.getByTestId('template-row-plugin-core-printer-select')).getByText('Auto — Print Dialog')).not.toBeNull();
+});
+
+test('Add printer saves a network printer', () => {
+  const { onSavePrinter } = renderPrinting();
+  fireEvent.click(screen.getByTestId('printing-add-printer-button'));
+  fireEvent.change(screen.getByTestId('add-printer-name-input'), { target: { value: 'Front counter' } });
+  fireEvent.change(screen.getByTestId('add-printer-address-input'), { target: { value: '192.168.1.50' } });
+  fireEvent.click(screen.getByTestId('add-printer-save-button'));
+  expect(onSavePrinter).toHaveBeenCalledOnce();
+  expect(onSavePrinter.mock.calls[0][0]).toMatchObject({
+    name: 'Front counter', address: '192.168.1.50', connectionType: 'network', vendor: 'epson', language: 'esc-pos',
+    port: 8008, columns: 42, isDefault: true, autoCut: true, autoOpenDrawer: false,
+  });
+  expect(screen.queryByTestId('add-printer-save-button')).toBeNull();
+});
+
+test('the dialog refuses a missing address', () => {
+  const { onSavePrinter } = renderPrinting([frontCounter]);
+  fireEvent.click(screen.getByTestId('printing-add-printer-button'));
+  expect(screen.getByTestId('add-printer-default-toggle').getAttribute('aria-checked')).toBe('false');
+  fireEvent.change(screen.getByTestId('add-printer-name-input'), { target: { value: 'Kitchen' } });
+  fireEvent.click(screen.getByTestId('add-printer-save-button'));
+  expect(screen.getByTestId('add-printer-address-error').textContent).toBe('A printer address or device is required');
+  expect(screen.queryByTestId('add-printer-name-error')).toBeNull();
+  expect(onSavePrinter).not.toHaveBeenCalled();
+});
+
+test('Delete asks first', () => {
+  const { onDeletePrinter } = renderPrinting([frontCounter]);
+  fireEvent.click(screen.getByTestId('printer-row-p1-menu'));
+  fireEvent.click(screen.getByTestId('printer-row-p1-delete'));
+  expect(onDeletePrinter).not.toHaveBeenCalled();
+  expect(screen.getByText('Delete Front counter?')).not.toBeNull();
+  expect(screen.getByText('Receipts routed to it print with Auto instead.')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('printer-row-p1-delete-confirm'));
+  expect(onDeletePrinter).toHaveBeenCalledExactlyOnceWith('p1');
 });
