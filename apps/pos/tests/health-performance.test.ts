@@ -1,7 +1,7 @@
 // Store health › Performance logic, ported from v2 performance-logic.ts.
 import { expect, test } from 'vitest';
 import { REQUEST_METRICS_HOUR_MS, type RequestMetricsBucket } from '@tallyui/database';
-import { deriveUptimeCells, performanceSummary, summarizeLast24h } from '../lib/health/performance';
+import { deriveUptimeCells, formatCadence, performanceSummary, summarizeLast24h } from '../lib/health/performance';
 
 const HOUR = REQUEST_METRICS_HOUR_MS;
 const nowMs = Date.UTC(2026, 10, 12, 15, 30);
@@ -47,4 +47,14 @@ test('performanceSummary reads v2 copy, drops the typical part when null, and ha
   expect(performanceSummary({ requests: 5, megabytes: 0.01, typicalMs: null })).toBe('— last 24 h: 5 requests · 0.0 MB');
   expect(performanceSummary({ requests: 0, megabytes: 0, typicalMs: null }))
     .toBe('— no history yet. These numbers fill in as this till runs; the controls below work now.');
+});
+
+test('formatCadence: null when not positive, whole seconds under 90 s (never 0), else whole minutes', () => {
+  expect(formatCadence(0)).toBeNull();
+  expect(formatCadence(NaN)).toBeNull();
+  expect(formatCadence(400)).toEqual({ value: 1, unit: 's' });
+  expect(formatCadence(59_600)).toEqual({ value: 60, unit: 's' });
+  expect(formatCadence(75_000)).toEqual({ value: 75, unit: 's' });
+  expect(formatCadence(90_000)).toEqual({ value: 2, unit: 'min' });
+  expect(formatCadence(300_000)).toEqual({ value: 5, unit: 'min' });
 });

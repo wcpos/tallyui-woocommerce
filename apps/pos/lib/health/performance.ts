@@ -41,3 +41,10 @@ export function performanceSummary({ requests, megabytes, typicalMs }: Performan
   const typical = typicalMs !== null ? ` · typical response ${typicalMs} ms` : '';
   return `— last 24 h: ${requests.toLocaleString()} requests · ${megabytes.toFixed(1)} MB${typical}`;
 }
+
+/** A countdown or interval in whole seconds under 90 s, else whole minutes; null when not a positive number (v2 logs-logic formatCadence). */
+export function formatCadence(ms: number): { value: number; unit: 's' | 'min' } | null {
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  if (ms < 90_000) return { value: Math.max(1, Math.round(ms / 1000)), unit: 's' };
+  return { value: Math.max(1, Math.round(ms / 60_000)), unit: 'min' };
+}
