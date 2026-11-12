@@ -242,3 +242,16 @@ test('without the order store the sheet shows no sales today and no drawer', asy
   expect(screen.queryByTestId('user-sheet-foot')).toBeNull();
   expect(screen.getByTestId('user-sheet-user-b')).not.toBeNull();
 }, 20_000);
+
+test("the sheet opens on today's sales already counted, with no $0.00 first", async () => {
+  const app = await setup();
+  const now = new Date().toISOString();
+  await act(async () => { await app.orders.insert({ ...base, createdAt: now, updatedAt: now,
+    id: 'mine', cashierRef: '2', totalMinor: 300, subtotalMinor: 300, syncStatus: 'applied',
+    payments: [{ id: 'p1', method: 'cash', amountMinor: 300 }] }); });
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 300)); });
+  fireEvent.click(screen.getByTestId('register-bar-avatar'));
+  const row = within(screen.getByTestId('user-sheet-sales-today'));
+  expect(row.getByText('$3.00')).not.toBeNull();
+  expect(row.queryByText('$0.00')).toBeNull();
+}, 20_000);

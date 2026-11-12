@@ -404,6 +404,18 @@ the end of the run), with a blank cart open. A cart takes a new local id
 when another tab is chosen, which is also when it moves to the end of the
 strip.
 
+## Found on the live demo
+
+- **"Your sales today $0.00" right after a sale** (A4's sheet, 2026-11-12, on
+  the public demo against `tally-woo-demo.wcpos.com`). The data was right; the
+  figure was read too early. The row counted the sales itself and mounted
+  only when the sheet opened, so every open began at the hook's zero until
+  the first RxDB read came back. On the dev store that took 125 ms after a
+  reload, and longer on the busier demo, where the screenshot caught it. v2
+  counts in `UserSheet` itself (`user-sheet.tsx:496`), so the figure is ready
+  before the sheet opens. `CashierSheet` now does the same. Fixed by the PR
+  that adds this note; it scores no row.
+
 ## Next for this repo
 
 The gaps that can still be built here, in the order a cashier would notice
