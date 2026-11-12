@@ -7,6 +7,7 @@ import { Path } from 'react-native-svg';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, createSvgIcon, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, IconButton, Text, XIcon } from '@tallyui/components';
 import { getInitials } from '../lib/cashier/initials';
 import { sheetMoney, useCashierSalesToday } from '../lib/cashier/sheet-figures';
+import type { SalesTotal } from '../lib/cashier/sheet-figures';
 import { SheetCloseButton } from './catalogue-display-options';
 
 // v2's tabler glyphs at their 1.5 stroke (monorepo packages/components/src/icon/components/tabler/plus.tsx:14,
@@ -30,10 +31,9 @@ const SIDE_SHEET = 'left-auto right-0 top-0 h-full max-w-lg translate-x-0 transl
 const KEY_LABEL = 'text-sm text-muted-foreground';
 const TILE_FIGURE = 'text-xl font-bold tabular-nums';
 
-function SalesTodayRow({ orders, cashierRef, currency, locale }: {
-  orders: RxCollection<PosOrder>; cashierRef: string; currency: string; locale?: string;
+function SalesTodayRow({ total, currency, locale }: {
+  total: SalesTotal; currency: string; locale?: string;
 }) {
-  const total = useCashierSalesToday(orders, cashierRef, currency);
   return <View testID="user-sheet-sales-today" className="flex-row items-center justify-between px-3 py-2.5">
     <Text testID="user-sheet-sales-today-label" className={KEY_LABEL}>Your sales today</Text>
     <Text className={TILE_FIGURE}>{sheetMoney(total.totalMinor, currency, locale)}</Text>
@@ -96,6 +96,8 @@ export function CashierSheet(props: {
 }): JSX.Element {
   const [open, setOpen] = useState(false);
   const [removing, setRemoving] = useState<CashierOption | null>(null);
+  // v2 user-sheet.tsx:496: counted while closed, so opening never flashes $0.00.
+  const salesToday = useCashierSalesToday(props.sales?.orders, props.sales?.cashierRef ?? '', props.sales?.currency ?? '');
   return <>
     {/* v2's CashierEntry (packages/core/src/screens/main/components/cashier-entry/index.tsx:91-101): the initials avatar
         on the bar itself; v2's `wash="accent"` is a press and hover wash only (pressable-surface/index.tsx:28), not a fill.
@@ -127,7 +129,7 @@ export function CashierSheet(props: {
         {/* v2's DialogBody (user-sheet.tsx:679) takes the height, so the links and the footer sit at the sheet's foot;
             its `gap-0` stacks the sections flush, the band's `mt-2` the only space before "Hand the till to". */}
         <View testID="user-sheet-body" className="flex-1 gap-0">
-        {props.sales && <SalesTodayRow {...props.sales} />}
+        {props.sales && <SalesTodayRow total={salesToday} currency={props.sales.currency} locale={props.sales.locale} />}
         {props.drawer && (props.onOpenDrawer ? <DrawerDoor drawer={props.drawer} disabled={Boolean(props.blockedReason)}
           onPress={() => { setOpen(false); props.onOpenDrawer!(); }} />
           : <View testID="user-sheet-drawer" className="flex-row items-center justify-between rounded-lg border border-border px-3 py-2.5">

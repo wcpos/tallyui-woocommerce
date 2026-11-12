@@ -16,16 +16,18 @@ export function cashierSalesTotal(
   return { count: sales.length, totalMinor: sales.reduce((sum, order) => sum + order.totalMinor, 0) };
 }
 
-/** Live total of this cashier's sales today (device-local day, fixed when the hook mounts). */
-export function useCashierSalesToday(orders: RxCollection<PosOrder>, cashierRef: string, currency: string): SalesTotal {
+/** Live total of this cashier's sales today (device-local day, fixed when the hook mounts).
+ * Called at the sheet's top level so sales are counted while closed (v2 user-sheet.tsx:496). */
+export function useCashierSalesToday(orders: RxCollection<PosOrder> | null | undefined, cashierRef: string, currency: string): SalesTotal {
   const [range] = useState(() => dayRange(new Date()));
   const [total, setTotal] = useState<SalesTotal>({ count: 0, totalMinor: 0 });
   useEffect(() => {
+    if (!orders) return;
     const subscription = orders.find({ selector: { createdAt: { $gte: range.startIso, $lt: range.endIso } } }).$
       .subscribe(docs => setTotal(cashierSalesTotal(docs.map(doc => doc.toMutableJSON()), { cashierRef, currency, ...range })));
     return () => subscription.unsubscribe();
   }, [orders, cashierRef, currency, range]);
-  return total;
+  return orders ? total : { count: 0, totalMinor: 0 };
 }
 
 /** Minor units as store money; falls back to the bare number when formatMoney cannot format. */
