@@ -28,7 +28,7 @@ import type { CatalogueFilters } from '../lib/catalogue/quick-filters';
 import { useAreaColumns } from '../lib/area-columns';
 import type { AreaColumn } from '../lib/area-columns';
 import { AreaDisplayOptions } from './area-display-options';
-import { AreaToolbar } from './area-header';
+import { AreaToolbar, useAreaGutter } from './area-header';
 import { BrowseCrumb } from './browse-terms-view';
 import { CatalogueFilterChips } from './catalogue-filter-chips';
 import { ProductAttributes, variationMatches, variationName } from './product-attributes';
@@ -214,6 +214,8 @@ function variationColumns(columns: (ProductTableColumn<ProductDoc> & { id: Produ
 export function ProductsScreen({ products, connector, currency, locale: storeLocale, onBack }: ProductsScreenProps): JSX.Element {
   const [term, setTerm] = useState('');
   const [query, setQuery] = useState('');
+  // v2's page gutter (ground.ts:46-72): the crumb and chip rows sit on the bar's 12 in a window, 16 on a phone.
+  const gutter = useAreaGutter();
   // v2's Products area lists every product, in stock or not: no chip is on at the start.
   const [filters, setFilters] = useState<CatalogueFilters>({});
   const [settings, setSettings] = useAreaColumns('products', PRODUCTS_COLUMNS);
@@ -258,7 +260,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   // v2's DrillIn: the crumb, then the pane on its own card, the variations under the table's labels.
   const pane = drilled ? (
     <>
-      <View className="flex-row flex-wrap items-center gap-2 px-4 pb-2">
+      <View testID="products-crumb-row" className={`flex-row flex-wrap items-center gap-2 pb-2 ${gutter}`}>
         <BrowseCrumb place={null} onRoot={() => setDrill(null)} product={{ name: drilled.name, onBack: () => setDrill(null) }} />
         {drill?.match ? (
           <Button testID="products-variation-match" accessibilityLabel={`Clear ${drill.match.name}: ${drill.match.option}`}
@@ -323,7 +325,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
           search={<SearchInput testID="search-products" value={term} onChangeText={setTerm} placeholder="Search products" />}>
           <AreaDisplayOptions area="products" columns={PRODUCTS_COLUMNS} settings={settings} onChange={setSettings} />
         </AreaToolbar>
-        <View className="px-4 pb-2">
+        <View testID="products-filter-row" className={`pb-2 ${gutter}`}>
           <CatalogueFilterChips products={products} filters={filters} onChange={setFilters} />
         </View>
         {drilled ? pane : <TableSurface testID="products-table-surface">{body}</TableSurface>}

@@ -31,16 +31,16 @@ import { SalesTable } from './sales-table';
 import { Segmented } from './segmented';
 import { SessionCard } from './session-card';
 import { TillStrip } from './till-strip';
-import { AreaToolbar } from './area-header';
+import { AreaToolbar, useAreaGutter } from './area-header';
 
 // lucide `arrow-left`, v2's `arrowLeft` on `reports-back-sales`.
 const ArrowLeftIcon = createSvgIcon('ArrowLeftIcon', () => <><Path d="m12 19-7-7 7-7" /><Path d="M19 12H5" /></>);
 
 // Each room's padding. v2 (reports/index.tsx `ground.p`, page-bar `ground.pt` with no bottom padding) leaves one page
-// gutter between the bar and the first card, the gutter at the sides too (12 px in a window, 16 on a phone). Tally's
-// gutter is 16 (`p-4`), and the AreaToolbar row above ends in `pb-2` in both layouts (the rail's row, or the scope
-// title's row with no rail), so the room's top is `pt-2`: 8 + 8, one gutter, where `p-4` gave 24.
-const ROOM = 'gap-4 px-4 pb-4 pt-2';
+// gutter between the bar and the first card, the gutter at the sides too: 12 px in a window, 16 on a phone
+// (ground.ts:46-72, useAreaGutter). The AreaToolbar row above ends in `pb-2` in both layouts (the rail's row, or the
+// scope title's row with no rail), so the room's top is `pt-2`: 8 + 8, where `p-4` gave 24. Whole literals.
+const ROOM = { 'px-3': 'gap-4 px-3 pb-4 pt-2', 'px-4': 'gap-4 px-4 pb-4 pt-2' } as const;
 
 export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }: {
   storeName: string; currency: string; locale?: string; onBack(): void;
@@ -78,6 +78,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const [closuresCashier, setClosuresCashier] = useState<string | null>(null);
   const [closureFilter, setClosureFilter] = useState<ClosureFilter>('all');
   const wide = useWindowDimensions().width >= 600;
+  const gutter = useAreaGutter();
   locale = locale.replaceAll('_', '-');
   const shown = cashierId === null ? sales : sales.filter(order => order.cashierRef === cashierId);
   const weekday = new Date(bounds.startIso).toLocaleDateString(locale, { weekday: 'long' });
@@ -171,7 +172,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
           </View>
         : <Text testID="reports-title" numberOfLines={1} className="min-w-0 shrink font-semibold text-foreground">{scopeTitle}</Text>} />
       {reportsRoom === 'closures' ? <>
-        <ScrollView testID="reports-closures-room" contentContainerClassName={ROOM}>
+        <ScrollView testID="reports-closures-room" contentContainerClassName={ROOM[gutter]}>
           {/* v2 reports/index.tsx `renderScopeRow`: the date and the cashier chip, then Export CSV at the right. */}
           <View testID="closures-scope-row" className="flex-row flex-wrap items-center gap-2">
             <View className="shrink-0"><ReportsPeriod preset={closuresPreset} range={closuresRange} locale={locale} onPreset={setClosuresPreset} /></View>
@@ -201,7 +202,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
             />
           </View>
         </ScrollView>
-      </> : <ScrollView testID="reports-sales-room" contentContainerClassName={ROOM}>
+      </> : <ScrollView testID="reports-sales-room" contentContainerClassName={ROOM[gutter]}>
         <TillStrip orders={orders} currency={currency} locale={locale} resolveCashierName={resolveCashierName}
           onPrintXReport={printXReport} onReprint={reprintClosure} onOpenClosure={closure => setOpenClosureId(closure.id)}
           onOpenClosures={() => setReportsRoom('closures')} />

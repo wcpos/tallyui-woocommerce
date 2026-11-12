@@ -25,6 +25,7 @@ import stores from './fixtures/stores.json';
 import { takeCash, takeLeg } from './tender-helpers';
 import { sessionsOff, toggleRegisterSessions } from './cart-head-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { classesOf } from './classes-of';
 
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
@@ -658,13 +659,17 @@ function contentClassesOf(testID: string): string[] {
 }
 
 // v2 leaves one page gutter between the bar and the first card (page-bar `ground.pt`, no bottom padding; the room's
-// `ground.p`; the demo's 12 px in a window). Tally's gutter is 16: the bar's row ends in pb-2 in both layouts, so each
-// room starts at pt-2, never the p-4 that made 24.
-test.each([true, false])('under the bar each room starts one gutter down, rail %s', async rail => {
+// `ground.p`), and at the sides: 12 px in a window, 16 on a phone (ground.ts:46-72). The bar's row ends in pb-2 in both
+// layouts, so each room starts at pt-2, never the p-4 that made 24.
+test.each([true, false])('under the bar each room starts one gutter down and one gutter in, rail %s', async rail => {
+  if (!rail) vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  const px = rail ? 'px-3' : 'px-4';
   await setup({ rail });
+  expect(classesOf(rail ? 'reports-bar' : 'reports-bar-slot-row')).toContain(px);
   const room = (testID: string) => {
     const classes = contentClassesOf(testID);
-    expect(classes).toEqual(expect.arrayContaining(['pt-2', 'px-4', 'pb-4', 'gap-4']));
+    expect(classes).toEqual(expect.arrayContaining(['pt-2', px, 'pb-4', 'gap-4']));
+    expect(classes).not.toContain(rail ? 'px-4' : 'px-3');
     expect(classes).not.toContain('p-4');
   };
   room('reports-sales-room');

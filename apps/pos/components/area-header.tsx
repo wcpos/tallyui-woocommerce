@@ -6,6 +6,7 @@ import type { JSX, ReactNode } from 'react';
 import { View } from 'react-native';
 import { Button, Text } from '@tallyui/components';
 import { useSession } from '../lib/auth/session-context';
+import { useIsWide } from '../lib/layout/wide';
 import { runBeforeLeave } from '../lib/sale/before-leave';
 import { toast } from '../lib/toast/toast';
 import { AppRailShown } from './app-rail';
@@ -51,6 +52,13 @@ function AreaAvatar({ testID }: { testID: string }): JSX.Element | null {
   </View>;
 }
 
+// v2's page gutter (WCPOS monorepo packages/components/src/lib/ground.ts:46-72): `px-gutter`, 3 units (12 px), in a
+// window; `px-4` (16 px) on a phone. Whole literals: the class compiler scans the source for them.
+/** An area page's side inset for its bar and its own rows; TableSurface puts its card on the same gutter. */
+export function useAreaGutter(): 'px-3' | 'px-4' {
+  return useIsWide() ? 'px-3' : 'px-4';
+}
+
 /** v2's ManagementBar over PageBar (WCPOS monorepo `components/management-bar/index.tsx`,
  *  `packages/components/src/page-bar/index.tsx`): beside the rail, the search at the row's start up to v2's cap
  *  (`max-w-160`), then the area's own actions, then the bell and the avatar (`BarControls`). With no rail the title
@@ -69,6 +77,7 @@ export function AreaToolbar({ area, title, onBack, titleSlot, search, children }
   children?: ReactNode;
 }): JSX.Element {
   const railShown = useContext(AppRailShown);
+  const px = useAreaGutter();
   const controls = <View testID={`${area}-bar-controls`} className="flex-row items-center gap-1">
     {children}
     <NotificationBell testID={`${area}-bar-bell`} />
@@ -79,11 +88,11 @@ export function AreaToolbar({ area, title, onBack, titleSlot, search, children }
     ? <View testID={`${area}-bar-title-slot`} className="min-w-0 shrink flex-row items-center">{titleSlot}</View> : null;
   if (!railShown) return <View testID={`${area}-bar`}>
     <AreaHeader title={title} backTestID={`${area}-back`} onBack={onBack} controls={controls} />
-    {slot && <View className="flex-row px-4 pb-2">{slot}</View>}
-    {searchBox && <View className="flex-row px-4 pb-2">{searchBox}</View>}
+    {slot && <View testID={`${area}-bar-slot-row`} className={`flex-row pb-2 ${px}`}>{slot}</View>}
+    {searchBox && <View testID={`${area}-bar-search-row`} className={`flex-row pb-2 ${px}`}>{searchBox}</View>}
   </View>;
   return (
-    <View testID={`${area}-bar`} className="flex-row items-center gap-4 px-4 pb-2 pt-4">
+    <View testID={`${area}-bar`} className={`flex-row items-center gap-4 pb-2 pt-4 ${px}`}>
       {slot}
       <View className="min-w-0 flex-1 flex-row">{searchBox}</View>
       {controls}

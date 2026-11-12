@@ -22,7 +22,7 @@ import type { SvgIconProps } from '@tallyui/components';
 import { useAreaColumns } from '../lib/area-columns';
 import type { AreaColumn } from '../lib/area-columns';
 import { AreaDisplayOptions } from './area-display-options';
-import { AreaToolbar } from './area-header';
+import { AreaToolbar, useAreaGutter } from './area-header';
 import { filterChipClassName, filterChipTextClassName } from './catalogue-filter-chips';
 import { StatusDot } from './status-dot';
 import type { StatusTone } from './status-dot';
@@ -243,6 +243,8 @@ function couponCell(id: CouponsColumnId, className: string | undefined, c: Coupo
 
 export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }: CouponsScreenProps): JSX.Element {
   const [all, setAll] = useState<CouponDoc[] | null>(null);
+  // v2's page gutter (ground.ts:46-72): the chip row sits on the bar's 12 in a window, 16 on a phone.
+  const gutter = useAreaGutter();
   const [term, setTerm] = useState('');
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<CouponFilters>({});
@@ -324,7 +326,7 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
         search={<SearchInput testID="search-coupons" value={term} onChangeText={setTerm} placeholder="Search Coupons" />}>
         <AreaDisplayOptions area="coupons" columns={COUPONS_COLUMNS} settings={settings} onChange={setSettings} />
       </AreaToolbar>
-      <View className="px-4 pb-2">
+      <View testID="coupons-filter-row" className={`pb-2 ${gutter}`}>
         <View testID="coupons-filter-chips" className="flex-row flex-wrap items-center gap-2">
           {pill('status', InfoIcon, 'Status', STATUS_CHOICES)}
           {pill('discount_type', PercentIcon, 'Discount Type', TYPE_CHOICES)}

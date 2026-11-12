@@ -12,7 +12,7 @@ import { DEFAULT_CUSTOMER_SORT, billingLines, customerInitials, nextSort, sortCu
 import type { CustomerSort, CustomerSortField } from '../lib/customers/customer-table';
 import { AddCustomerDialog } from './add-customer-dialog';
 import { AreaDisplayOptions } from './area-display-options';
-import { AreaToolbar } from './area-header';
+import { AreaToolbar, useAreaGutter } from './area-header';
 import { CaptionRowInset, TableCount, TableSurface } from './table-surface';
 
 // v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
@@ -86,6 +86,8 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
   const [settings, setSettings] = useAreaColumns('customers', CUSTOMERS_COLUMNS);
   const request = useRef(0);
   const { width } = useWindowDimensions();
+  // v2's page gutter (ground.ts:46-72): the bar, the table card and this page's notes share 12 in a window, 16 on a phone.
+  const gutter = useAreaGutter();
 
   useEffect(() => {
     const timer = setTimeout(() => setQuery(term.trim()), SEARCH_DEBOUNCE_MS);
@@ -125,7 +127,7 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
       <Button testID="customers-retry" variant="outline" onPress={retry}><Text>Try again</Text></Button>
     </View>
   ) : searching ? (
-    <Text testID="customers-searching" className="p-4 text-muted-foreground">Searching…</Text>
+    <Text testID="customers-searching" className={`py-4 text-muted-foreground ${gutter}`}>Searching…</Text>
   ) : results.length === 0 ? (
     <View testID="no-data-message" className="flex-1 items-center justify-center gap-2 p-6">
       <Text testID="no-data-message-title" className="text-center font-medium text-foreground">
@@ -181,12 +183,12 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
       </AreaToolbar>
       {source ? <>
         {createBlockedReason !== undefined
-          ? <Text testID="customers-add-blocked" className="px-4 pb-2 text-sm text-muted-foreground">{createBlockedReason}</Text> : null}
+          ? <Text testID="customers-add-blocked" className={`pb-2 text-sm text-muted-foreground ${gutter}`}>{createBlockedReason}</Text> : null}
         <TableSurface testID="customers-table-surface">{body}</TableSurface>
         {/* The store searches its customers (limit 20) and reports no total, so the count is "Showing N". */}
         {listing ? <CaptionRowInset><TableCount shown={shown.length} total={null} active={searching} onSync={retry} /></CaptionRowInset> : null}
         {adding ? <AddCustomerDialog source={source} onClose={() => { setAdding(false); retry(); }} /> : null}
-      </> : <Text testID="customers-unavailable" className="p-4 text-muted-foreground">Customers show once the store is connected.</Text>}
+      </> : <Text testID="customers-unavailable" className={`py-4 text-muted-foreground ${gutter}`}>Customers show once the store is connected.</Text>}
     </View>
   );
 }

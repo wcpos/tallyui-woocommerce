@@ -15,6 +15,12 @@ const SortDownIcon = createSvgIcon('SortDownIcon', () => <Path d="m6 9 6 6 6-6" 
 // v2's orders column aligns (ui-settings/initial-settings.json:388): the number is centred, header and cell
 // (data-table/header.tsx:37, column-style.ts:22); the total stays right.
 const ALIGN: Partial<Record<OrdersColumnId, string>> = { number: 'items-center', total: 'items-end' };
+// v2's body cell (components/src/table/index.tsx:129, `flex-col justify-center px-3 py-1.5`): every cell centres its
+// content on the row, as the 32 px chip already sat. The row is v2's order row: its list sizes one at 56
+// (orders/index.tsx:203 `estimatedItemSize`) under the row's 1 px rule (data-table/rows.tsx:116 `border-b`), the
+// demo's 57; TallyUI's cell `py-4` made 64.
+const CELL = 'justify-center py-1.5';
+const ROW = 'min-h-[57px]';
 // v2's status dots (packages/components/src/lib/tone.ts) in this theme's tokens.
 const TONE_DOT: Record<OrderTone, string> = {
   ok: 'bg-success', info: 'bg-info', warning: 'bg-warning', bad: 'bg-destructive', muted: 'bg-muted-foreground', default: 'bg-primary',
@@ -35,23 +41,23 @@ const ALL_COLUMNS = ORDERS_COLUMNS.map(column => column.id);
 
 function orderCell(id: OrdersColumnId, cells: ReturnType<typeof orderRowCells>, rowId: string): JSX.Element {
   switch (id) {
-    case 'status': return <TableCell key={id}>
+    case 'status': return <TableCell key={id} testID={`${rowId}-status`} className={CELL}>
       <View className="flex-row items-center gap-1.5">
         <View className={`size-2 rounded-full ${TONE_DOT[cells.tone]}`} />
         <Text className="text-sm text-foreground">{cells.statusLabel}</Text>
       </View>
     </TableCell>;
-    case 'number': return <TableCell key={id} testID={`${rowId}-number`} className={ALIGN.number}><Text>{cells.number}</Text></TableCell>;
+    case 'number': return <TableCell key={id} testID={`${rowId}-number`} className={`${CELL} ${ALIGN.number}`}><Text>{cells.number}</Text></TableCell>;
     // v2's Customer cell (components/order/customer.tsx:32) is a `size="sm"` Chip with no avatar: h-8 (32 px), px-2.5,
     // and a one-line text-sm (13 px) label (components chip/index.tsx:125, 158).
-    case 'customer_id': return <TableCell key={id}>
+    case 'customer_id': return <TableCell key={id} className={CELL}>
       <View testID={`${rowId}-customer-chip`} className="h-8 max-w-full flex-row items-center self-start rounded-full border border-border px-2.5">
         <Text testID={`${rowId}-customer`} numberOfLines={1} className="shrink text-sm font-normal text-foreground">{cells.customer}</Text>
       </View>
     </TableCell>;
-    case 'date_created_gmt': return <TableCell key={id}><Text>{cells.date}</Text></TableCell>;
-    case 'payment_method': return <TableCell key={id}><Text>{cells.payment}</Text></TableCell>;
-    case 'total': return <TableCell key={id} className={ALIGN.total}><Text className="tabular-nums">{cells.total}</Text></TableCell>;
+    case 'date_created_gmt': return <TableCell key={id} testID={`${rowId}-date`} className={CELL}><Text>{cells.date}</Text></TableCell>;
+    case 'payment_method': return <TableCell key={id} testID={`${rowId}-payment`} className={CELL}><Text>{cells.payment}</Text></TableCell>;
+    case 'total': return <TableCell key={id} testID={`${rowId}-total`} className={`${CELL} ${ALIGN.total}`}><Text className="tabular-nums">{cells.total}</Text></TableCell>;
   }
 }
 
@@ -108,7 +114,7 @@ export function OrdersTable({ local, store, onOpen, footer, active = false, onSy
                 const cells = orderRowCells(item, today);
                 const prefix = item.kind === 'store' ? 'history' : 'order';
                 return (
-                  <TableRow key={item.id} testID={`${prefix}-row-${item.order.id}`}>
+                  <TableRow key={item.id} testID={`${prefix}-row-${item.order.id}`} className={ROW}>
                     {columns.map(({ id }) => orderCell(id, cells, `${prefix}-${item.order.id}`))}
                     <TableCell className="w-14 flex-none items-center justify-center px-0 py-0">
                       <Pressable accessibilityRole="button" accessibilityLabel="Open order" testID={`${prefix}-open-${item.order.id}`}
