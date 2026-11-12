@@ -138,6 +138,16 @@ test('searches from two trimmed characters and attaches the selected summary', a
   expect(screen.queryByPlaceholderText('Search Customers')).toBeNull();
 });
 
+test('picking a customer preserves billing and shipping addresses', async () => {
+  const billing = { country: 'GB', city: 'London', postcode: 'N1 1AA' };
+  const shipping = { country: 'US', state: 'CA', city: 'Los Angeles', postcode: '90001' };
+  const customer: Customer = { ...gee, billing, shipping };
+  search.mockResolvedValue([customer]);
+  openPicker();
+  fireEvent.click(await screen.findByLabelText(geeLabel));
+  expect(onChange).toHaveBeenCalledExactlyOnceWith({ ...summary, billing, shipping });
+});
+
 test('opening lists the default customers under Guest, and picking one attaches it', async () => {
   openPicker();
   expect(search).toHaveBeenCalledExactlyOnceWith('');

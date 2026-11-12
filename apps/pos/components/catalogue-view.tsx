@@ -61,6 +61,8 @@ export interface CatalogueViewProps {
   onViewStateChange?(next: AppCatalogueViewState): void;
   /** The till's tax, for the tiles' Tax field; without it the field shows nothing. */
   tax?: TileTax;
+  /** The foot's left slot (v2 `pos/products/footer.tsx:53`, the Tax based on trigger); empty without it. */
+  captionStart?: ReactNode;
   /** In-cart quantity by product id (SaleScreen's lines); without it no badge shows. */
   inCartCounts?: ReadonlyMap<string, number>;
   /** Re-runs the product sync for the footer's Sync button (v2 `sync-button.tsx`); without it no button shows. */
@@ -91,7 +93,7 @@ export function PosBar({ storeName, cashierName, cashierControl, onSignOut,
 export function CatalogueView({
   connector, currency, products, storeName, cashierName, cashierControl, status, notice, onSignOut, onOpenOrders, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings, onSelect, onAddEntry, onScan, message,
   viewState: controlledViewState, onViewStateChange,
-  tax, inCartCounts, onSync, hideBar,
+  tax, captionStart, inCartCounts, onSync, hideBar,
 }: CatalogueViewProps): JSX.Element {
   const [term, setTerm] = useState('');
   const [quickFilters, setQuickFilters] = useQuickFilters();
@@ -325,7 +327,7 @@ export function CatalogueView({
           emptyState={emptyState}
         />}
         <View testID="data-table-caption-row" className="flex-row items-center gap-2 px-3 py-2">
-          <View className="flex-1" />
+          <View testID="data-table-caption-start" className="min-w-0 flex-1 flex-row items-center">{captionStart}</View>
           <Text testID="data-table-count" className="text-sm text-muted-foreground">{countLabel}</Text>
           {onSync ? <IconButton testID="catalogue-sync" accessibilityRole="button" accessibilityLabel="Sync" variant="ghost" size="sm"
             disabled={syncing || syncPending} onPress={sync}><SyncIcon size={16} /></IconButton> : null}
