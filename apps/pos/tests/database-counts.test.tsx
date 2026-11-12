@@ -79,6 +79,9 @@ test('v2\'s flat table: caption-rank heads, ruled rows at 61 px, no inner box', 
   expect(classesOf('db-row-products')).toEqual(expect.arrayContaining(['border-b', 'border-border', 'min-h-[61px]']));
   expect(classesOf('db-table')).not.toContain('border');
   expect(classesOf('db-table')).not.toContain('rounded-lg');
+  // v2's on-device column (database.tsx:267 `w-20 items-end`), the count in tabular figures (:413)
+  expect(classesOf('db-head-local')).toEqual(expect.arrayContaining(['w-20', 'text-right']));
+  expect(classesOf('db-row-count-products')).toEqual(expect.arrayContaining(['w-20', 'text-right', 'tabular-nums']));
   expect(screen.queryByText('On server')).toBeNull();
   await waitFor(() => expect(screen.getByTestId('db-row-count-products').textContent).toBe('0'));
 });
