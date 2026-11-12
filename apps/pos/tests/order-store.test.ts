@@ -6,6 +6,7 @@ import type { Session } from '../lib/auth/session';
 import { databaseName } from '../lib/catalogue/start-catalogue';
 import { openOrderStore, ordersDatabaseName } from '../lib/sale/order-store';
 import schemaV9 from './fixtures/pos-orders-schema-v9.json';
+import schemaV11 from './fixtures/pos-orders-schema-v11.json';
 
 const session: Session = {
   site: { name: 'Store', home: 'hello', wpApiUrl: '', wcposApiUrl: '', authUrl: '' },
@@ -123,6 +124,104 @@ test("keeps a till's version-9 orders byte for byte when the store opens at vers
     const after = (await store.orders.find({ sort: [{ id: 'asc' }] }).exec()).map(order => order.toJSON());
     expect(after).toEqual(before);
     expect(after.find(order => order.id === pending.id)?.syncStatus).toBe(pending.syncStatus);
+  } finally {
+    await store.close();
+  }
+});
+
+test("keeps a till's version-11 orders byte for byte when the store opens at version 12, then takes a version-12 order", async () => {
+  const name = `tallywoo_orders_${crypto.randomUUID()}`;
+  const storage = getRxStorageMemory();
+  const syncedLineId = crypto.randomUUID();
+  const pending: PosOrder = {
+    id: crypto.randomUUID(), saleId: crypto.randomUUID(), commandId: crypto.randomUUID(),
+    createdAt: '2026-10-14T09:30:00.000Z', updatedAt: '2026-10-14T09:30:00.000Z',
+    currency: 'EUR', pricesIncludeTax: false, syncStatus: 'pending',
+    registerId: 'web', sessionId: crypto.randomUUID(), cashierRef: '2',
+    taxRounding: { granularity: 'woocommerce', roundAtSubtotal: false },
+    lines: [
+      {
+        id: crypto.randomUUID(), productId: '101', variantId: '102',
+        name: 'Cotton shirt', sku: 'SHIRT-BLUE-M', quantity: 2,
+        attributes: { Colour: 'Blue', Size: 'M' }, taxStatus: 'taxable',
+        unitPriceMinor: 2000, discountMinor: 0, netMinor: 4000, netMicros: '40000000',
+        taxLines: [{ code: 'VAT', ratePpm: 200000, taxMicros: '8000000' }],
+      },
+      {
+        id: crypto.randomUUID(), productId: '103', name: 'Canvas tote', sku: 'TOTE', quantity: 1,
+        taxStatus: 'taxable', unitPriceMinor: 1000, discountMinor: 0, netMinor: 1000,
+        taxLines: [{ code: 'VAT', ratePpm: 200000, taxMicros: '2000000' }],
+      },
+    ],
+    subtotalMinor: 5000, discountMinor: 0, taxMinor: 1000, totalMinor: 6000,
+    payments: [{ id: crypto.randomUUID(), method: 'cash', amountMinor: 6000,
+      tenderedMinor: 7000, changeMinor: 1000 }],
+    customer: null, note: 'Paid while offline',
+  };
+  const synced: PosOrder = {
+    id: crypto.randomUUID(), saleId: crypto.randomUUID(), commandId: crypto.randomUUID(),
+    createdAt: '2026-10-14T09:00:00.000Z', updatedAt: '2026-10-14T09:00:02.000Z',
+    currency: 'EUR', pricesIncludeTax: false, syncStatus: 'applied',
+    registerId: 'web', sessionId: crypto.randomUUID(), cashierRef: '2', sentVersion: 7, downgradedFrom: 7,
+    serverRefs: { orderId: '5042', displayId: 'WC-5042', totalMinor: 2400 },
+    taxRounding: { granularity: 'woocommerce', roundAtSubtotal: false },
+    lines: [{
+      id: syncedLineId, productId: '104', name: 'Wool scarf', sku: 'SCARF', quantity: 1,
+      taxStatus: 'taxable', unitPriceMinor: 2500, regularUnitPriceMinor: 3000,
+      discountMinor: 500, netMinor: 2000, netMicros: '20000000',
+      taxLines: [{ code: 'VAT', ratePpm: 200000, taxMicros: '4000000' }],
+    }],
+    coupons: [{ code: 'SAVE5', couponId: '301', discountMinor: 500, discountTaxMinor: 100 }],
+    subtotalMinor: 2500, discountMinor: 500, taxMinor: 400, totalMinor: 2400,
+    payments: [{ id: crypto.randomUUID(), method: 'external', amountMinor: 2400,
+      reference: 'CARD-5042' }],
+    customer: { id: '42', name: 'Alex Morgan', email: 'alex@example.com' },
+    display: {
+      currency: 'EUR', exponent: 2, taxInclusive: false,
+      subtotalMinor: 2500, discountMinor: 500, taxMinor: 400, totalMinor: 2400,
+      orderDiscountMinor: 0, coupons: [{ code: 'SAVE5', amountMinor: 500 }],
+      lines: [{ lineId: syncedLineId, amountMinor: 2500, discounts: [] }],
+    },
+  };
+
+  const db = await createRxDatabase({ name, storage, multiInstance: false });
+  let before;
+  try {
+    const { pos_orders: orders } = await db.addCollections({
+      pos_orders: { schema: schemaV11 as unknown as RxJsonSchema<PosOrder> },
+    });
+    await orders.insert(pending);
+    await orders.insert(synced);
+    expect(orders.schema.version).toBe(11);
+    before = (await orders.find({ sort: [{ id: 'asc' }] }).exec()).map(order => order.toJSON());
+  } finally {
+    await db.close();
+  }
+
+  const store = await openOrderStore(name, storage);
+  try {
+    expect(store.orders.schema.version).toBe(12);
+    const after = (await store.orders.find({ sort: [{ id: 'asc' }] }).exec()).map(order => order.toJSON());
+    expect(after).toEqual(before);
+    expect(after.find(order => order.id === synced.id)?.sentVersion).toBe(7);
+
+    const current: PosOrder = {
+      ...pending,
+      id: crypto.randomUUID(), saleId: crypto.randomUUID(), commandId: crypto.randomUUID(),
+      syncStatus: 'pending', taxAddress: 'billing', sentVersion: 8,
+      customer: {
+        id: '43', name: 'Jamie Taylor', email: 'jamie@example.com',
+        billing: {
+          firstName: 'Jamie', lastName: 'Taylor', address1: '10 George Street',
+          city: 'Sydney', postcode: '2000', country: 'AU',
+        },
+      },
+    };
+    await store.orders.insert(current);
+    const inserted = (await store.orders.findOne(current.id).exec())?.toJSON();
+    expect(inserted?.taxAddress).toBe('billing');
+    expect(inserted?.customer?.billing?.country).toBe('AU');
+    expect(inserted?.sentVersion).toBe(8);
   } finally {
     await store.close();
   }
