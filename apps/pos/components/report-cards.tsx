@@ -17,8 +17,9 @@ export function ReportCard({ testID, name, figure, onOpen, children }: {
     <Text testID={`${testID}-figure`} className="font-semibold tabular-nums">{figure}</Text>
     {onOpen && <Text className="text-muted-foreground">›</Text>}
   </>;
+  // v2 cards/card.tsx:25 `<Card padding="body">`: card/index.tsx:18 is `border-border bg-card rounded-lg border`, p-4.
   return (
-    <View testID={testID} className="flex-1 gap-3 rounded-lg border border-border p-4">
+    <View testID={testID} className="flex-1 gap-3 rounded-lg border border-border bg-card p-4">
       {onOpen
         ? <Pressable testID={`${testID}-open`} accessibilityRole="button" accessibilityLabel={name} onPress={onOpen}
           className="min-h-11 flex-row items-center justify-between gap-3 active:opacity-70">{head}</Pressable>

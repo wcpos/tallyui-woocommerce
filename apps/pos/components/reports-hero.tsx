@@ -45,8 +45,9 @@ export function ReportsHero({ today, previous, comparisonLabel, money, onOpenOrd
     { id: 'average', label: 'Average order', value: today.averageMinor, delta: today.averageMinor - previous.averageMinor, format: money },
     { id: 'items', label: 'Items', value: today.items, delta: today.items - previous.items, format: count },
   ];
+  // v2 hero/index.tsx:491 `<Card padding="body">`: card/index.tsx:18 is `border-border bg-card rounded-lg border`, p-4.
   return (
-    <View testID="reports-hero" className="gap-4 rounded-lg border border-border p-4">
+    <View testID="reports-hero" className="gap-4 rounded-lg border border-border bg-card p-4">
       <View className={wide ? 'flex-row items-center justify-between gap-6' : 'gap-5'}>
         <View testID="hero-figure" className="gap-1">
           <Text testID="hero-total" className="text-4xl font-bold tabular-nums">{money(today.totalMinor)}</Text>

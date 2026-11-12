@@ -320,6 +320,9 @@ test('the hero chart switches between By hour and Running total', async () => {
   await waitFor(() => expect(hero.getByTestId('hero-chart-total').textContent).toBe('$3.00 now'));
   expect(hero.queryByTestId('hero-chart-peak')).toBeNull();
   expect(toggle.getByTestId('hero-chart-toggle-segment-run').getAttribute('aria-checked')).toBe('true');
+  // v2 segmented-control/index.tsx:123: the open segment is the --selected tint; a closed one is not.
+  expect(classesOf('hero-chart-toggle-segment-run')).toContain('bg-selected');
+  expect(classesOf('hero-chart-toggle-segment-hour')).not.toContain('bg-selected');
 }, 20_000);
 
 test('the hero compares with yesterday up to the same time', async () => {

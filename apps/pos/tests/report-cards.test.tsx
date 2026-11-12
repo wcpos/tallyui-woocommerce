@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, expect, test, vi } from 'vitest';
 import { Donut, ReportCards, type DonutPart } from '../components/report-cards';
 import type { Period } from '../lib/reports/sales-room';
+import { CARD_CLASSES, classesOf } from './classes-of';
 
 afterEach(cleanup);
 
@@ -172,4 +173,11 @@ test('the grid follows the measured width: three, two or one column', () => {
   expect(rows()).toEqual([['card-orders', 'card-payments'], ['card-where-sold', null]]);
   layout('reports-period-section', 400);
   expect(rows()).toEqual([['card-orders'], ['card-payments'], ['card-where-sold']]);
+});
+
+test('each card is v2\'s Card: the card fill on the page, its border and radius (cards/card.tsx:25)', () => {
+  cards();
+  for (const id of ['card-orders', 'card-payments', 'card-where-sold']) {
+    expect(classesOf(id)).toEqual(expect.arrayContaining([...CARD_CLASSES, 'border-border', 'p-4']));
+  }
 });
