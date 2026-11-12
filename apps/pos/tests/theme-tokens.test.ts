@@ -34,7 +34,7 @@ const value = (theme: string, name: string): string | undefined =>
 const lightNames = [...new Set([...names(variantBlock(tokensCss, 'light')), ...names(variantBlock(globalCss, 'light'))])].sort();
 
 test('every extra theme defines exactly the variables light defines, once each', () => {
-  expect(lightNames).toHaveLength(38);
+  expect(lightNames).toHaveLength(40); // 38 plus v2's --selected pair (apps/main/global.css l.400-401)
   expect(lightNames).toContain('--color-tile-tint-5');
   for (const theme of EXTRA_THEMES) {
     const declared = names(variantBlock(themesCss, theme));

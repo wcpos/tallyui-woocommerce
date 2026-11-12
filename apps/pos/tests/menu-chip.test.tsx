@@ -100,8 +100,11 @@ test('the chip is v2 Chip: a 44 rounded pill with a leading icon, tinted when of
   expect(screen.getByTestId('hero-chip-cashier-icon').getAttribute('class')).toBe('text-foreground');
   cleanup();
   render(<MenuChip name="cashier" icon={Glyph} value="5" defaultValue="all" choices={choices} onChange={vi.fn()} />);
-  expect(classesOf('hero-chip-cashier-face')).toEqual(expect.arrayContaining(['rounded-full', 'border-primary', 'bg-primary/10']));
-  expect(screen.getByTestId('hero-chip-cashier-icon').getAttribute('class')).toBe('text-primary');
+  // On: v2's borderless selected tint, and one selected ink on icon and clear (chip/index.tsx:106, :163).
+  expect(classesOf('hero-chip-cashier-face')).toEqual(expect.arrayContaining(['rounded-full', 'border-selected', 'bg-selected']));
+  expect(classesOf('hero-chip-cashier-face')).not.toContain('border-primary');
+  expect(screen.getByTestId('hero-chip-cashier-icon').getAttribute('class')).toBe('text-selected-foreground');
+  expect(classesOf('hero-chip-cashier-clear-mark')).toContain('text-selected-foreground');
   cleanup();
   setup();
   expect(screen.queryByTestId('hero-chip-cashier-icon')).toBeNull();

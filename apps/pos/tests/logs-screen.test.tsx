@@ -162,19 +162,22 @@ test("each row's chevron opens its detail with the row's fields, and pressing ag
   expect(screen.getByTestId(`logs-detail-${id}`)).not.toBeNull();
 });
 
-test('the chips are rounded, tinted when on, and keep aria-pressed as they are pressed', async () => {
+test('the chips are rounded, in v2\'s borderless selected tint and ink when on, and keep aria-pressed as they are pressed', async () => {
   render(<LogsScreen {...props} collection={collection} />);
   await screen.findByTestId(`logs-row-${rows[0].id}`);
-  expect(classesOf('logs-chip-all')).toEqual(expect.arrayContaining(['rounded-full', 'bg-primary/10']));
+  expect(classesOf('logs-chip-all')).toEqual(expect.arrayContaining(['rounded-full', 'border-selected', 'bg-selected']));
+  expect(classesOf('logs-chip-all')).not.toContain('border-primary');
+  expect(classesOf('logs-chip-all-label')).toContain('text-selected-foreground');
   expect(classesOf('logs-chip-sync')).toEqual(expect.arrayContaining(['rounded-full', 'border-border', 'bg-card']));
+  expect(classesOf('logs-chip-sync-label')).toContain('text-foreground');
   fireEvent.click(screen.getByTestId('logs-chip-sync'));
   expect(screen.getByTestId('logs-chip-sync').getAttribute('aria-pressed')).toBe('true');
   expect(screen.getByTestId('logs-chip-all').getAttribute('aria-pressed')).toBe('false');
-  expect(classesOf('logs-chip-sync')).toContain('bg-primary/10');
-  expect(classesOf('logs-chip-all')).not.toContain('bg-primary/10');
+  expect(classesOf('logs-chip-sync')).toContain('bg-selected');
+  expect(classesOf('logs-chip-all')).not.toContain('bg-selected');
   fireEvent.click(screen.getByTestId('logs-chip-verbose'));
   expect(screen.getByTestId('logs-chip-verbose').getAttribute('aria-pressed')).toBe('true');
-  expect(classesOf('logs-chip-verbose')).toContain('bg-primary/10');
+  expect(classesOf('logs-chip-verbose')).toContain('bg-selected');
 });
 
 test('a level pill filters to that level and the kind chip clears it', async () => {
