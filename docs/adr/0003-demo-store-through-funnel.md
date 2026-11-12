@@ -1,6 +1,6 @@
 # 0003. The demo store is the Mac mini's dev store, read-only through Tailscale Funnel
 
-Status: Accepted
+Status: Superseded by [0007](0007-demo-store-on-the-vps.md) (2026-11-12)
 Date: 2026-10-05
 
 ## Context

@@ -1,5 +1,5 @@
 import { expect, test, vi } from 'vitest';
-import { CREATE_CUSTOMERS_DENIED, createCustomersBlockedReason, deriveUserCapabilities, fetchCashierCapabilities } from '../lib/auth/capabilities';
+import { CREATE_CUSTOMERS_DENIED, CREATE_CUSTOMERS_DENIED_DEMO, DEMO_STORE_HOME, createCustomersBlockedReason, deriveUserCapabilities, fetchCashierCapabilities } from '../lib/auth/capabilities';
 import type { CashierCapabilities } from '../lib/auth/capabilities';
 import type { Session } from '../lib/auth/session';
 
@@ -75,4 +75,14 @@ test('explains unknown and denied creation, and leaves permitted creation unbloc
   expect(CREATE_CUSTOMERS_DENIED).toBe("You don't have permission to create customers. An administrator can grant it in WP Admin > POS > Settings > Access.");
   expect(createCustomersBlockedReason({ known: true, granted: [] })).toBe(CREATE_CUSTOMERS_DENIED);
   expect(createCustomersBlockedReason({ known: true, granted: ['create_customers'] })).toBeUndefined();
+});
+
+test("the demo store says its cashier can't create customers; every other store keeps v2's line", () => {
+  expect(createCustomersBlockedReason({ known: true, granted: [] }, DEMO_STORE_HOME)).toBe(CREATE_CUSTOMERS_DENIED_DEMO);
+  expect(createCustomersBlockedReason({ known: true, granted: [] }, 'https://example.com')).toBe(CREATE_CUSTOMERS_DENIED);
+  expect(createCustomersBlockedReason({ known: true, granted: [] })).toBe(CREATE_CUSTOMERS_DENIED);
+  expect(createCustomersBlockedReason({ known: true, granted: [] }, 'https://tally-woo-demo.wcpos.com.evil.example')).toBe(CREATE_CUSTOMERS_DENIED);
+  expect(createCustomersBlockedReason({ known: true, granted: ['create_customers'] }, DEMO_STORE_HOME)).toBeUndefined();
+  expect(createCustomersBlockedReason({ known: false, reason: 'x' }, DEMO_STORE_HOME)).toBe('x');
+  expect(CREATE_CUSTOMERS_DENIED_DEMO).toBe('Creating customers is turned off on this demo store.');
 });

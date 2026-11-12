@@ -28,5 +28,5 @@ export default function Customers() {
     </View>
   );
   return <CustomersScreen source={customers} onBack={() => { router.canGoBack() ? router.back() : router.replace('/catalogue'); }}
-    createBlockedReason={createCustomersBlockedReason(catalogue.cashier)} />;
+    createBlockedReason={createCustomersBlockedReason(catalogue.cashier, session.site.home)} />;
 }

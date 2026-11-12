@@ -46,7 +46,7 @@ paths, constants, template renderer and logging function.
 
 With the services running, run `dev/woo-store/install.sh` from the repository root.
 It installs WordPress **7.1.2**, WooCommerce **11.1.1**, and WCPOS Free **1.10.20**.
-The public store URL is `https://claudes-mac-mini.tail6a20e3.ts.net:10000`.
+The dev store's Funnel address, `https://claudes-mac-mini.tail6a20e3.ts.net:10000`, is for local development and captures, not the public demo at `https://tally-woo-demo.wcpos.com` ([ADR 0007](../../docs/adr/0007-demo-store-on-the-vps.md)).
 Generated credentials are stored outside the repo in
 `$HOME/.local/share/tallyui-woocommerce/dev-store/credentials.env` (mode 600).
 The cashier account is `cashier`, with the `shop_manager` role and POS access.
@@ -91,7 +91,7 @@ fork changes PHP dependencies or built files (`vendor`, `vendor_prefixed`,
 
 ## Public URL and smoke
 
-Public URL: `https://claudes-mac-mini.tail6a20e3.ts.net:10000` (Funnel to `127.0.0.1:8481`).
+The dev store's Funnel address, `https://claudes-mac-mini.tail6a20e3.ts.net:10000` (forwarded to `127.0.0.1:8481`), is for local development and captures, not the public demo at `https://tally-woo-demo.wcpos.com` ([ADR 0007](../../docs/adr/0007-demo-store-on-the-vps.md)).
 Only `/wp-json/` and `/wp-json/wcpos/*` reads (GET/HEAD/OPTIONS),
 `/wp-json/wcpos/v1/auth/refresh` and `/wp-json/wcpos/v2/auth/refresh` (POST/OPTIONS),
 `/wp-json/wcpos/v2/push/orders` (POST/OPTIONS),
