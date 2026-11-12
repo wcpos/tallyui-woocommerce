@@ -374,6 +374,17 @@ test("the sheet's content, labels and figure take v2's inset, ranks and gaps", (
   expect(classesOf('user-sheet-drawer-figure')).not.toContain('text-lg');
 });
 
+// v2's DialogContent `py-4` (dialog/index.tsx:199), kept by the user sheet (user-sheet.tsx:632): 16 px top and bottom.
+test("the sheet's content pads v2's 16 px top and bottom, not the dialog's 24", () => {
+  openSheet();
+  const classes = classesOf('user-sheet');
+  // The merged list (the dialog's own `fixed … p-6` first, then the sheet's): the last vertical padding class wins.
+  expect(classes).toEqual(expect.arrayContaining(['fixed', 'p-6']));
+  const vertical = classes.filter(name => /^p[ytb]?-/.test(name));
+  expect(vertical.at(-1)).toBe('py-4');
+  expect(classes.filter(name => /^p[ytb]-6$/.test(name))).toEqual([]);
+});
+
 test('an opener with no name shows no avatar', () => {
   openSheet({ drawer: { figure: '$50.00', verbs: 'Pay in · Pay out · Close register', opener: 'opened 09:00' }, onOpenDrawer: () => {} });
   expect(screen.getByTestId('user-sheet-drawer-opener').textContent).toBe('opened 09:00');
