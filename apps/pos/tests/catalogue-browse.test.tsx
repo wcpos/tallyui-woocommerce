@@ -1,11 +1,13 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import * as ReactNative from 'react-native';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { PortalHost } from '@tallyui/primitives';
 import { CatalogueView } from '../components/catalogue-view';
 import type { CatalogueViewProps } from '../components/catalogue-view';
 import { CATALOGUE_VIEW_DEFAULTS, CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import { QUICK_FILTERS_KEY } from '../lib/catalogue/quick-filters';
+import { CARD_CLASSES, classesOf } from './classes-of';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 
@@ -106,6 +108,30 @@ test('the table view shows the term rows at the root, and a row opens the level 
   expect(productRows()).toEqual(['product-row-84', 'product-row-80']);
   expect(productTiles()).toEqual([]);
   expect(screen.getByTestId('products-breadcrumb').textContent).toBe('CategoriesCoffee');
+});
+
+test("the table view's root rows sit in v2's table card, each row laid out as v2's", () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1000, height: 800, scale: 1, fontScale: 1 });
+  render(<CatalogueView {...props} viewState={{ ...CATALOGUE_VIEW_DEFAULTS, view: 'table' }} onViewStateChange={() => {}} />);
+  // v2's TableSurface (data-table/surface.tsx:31-36) round BrowseRootTable's rows (term-table.tsx:59).
+  expect(classesOf('browse-root-card')).toEqual(expect.arrayContaining([...CARD_CLASSES, 'border-border', 'overflow-hidden', 'mx-3']));
+  const inCard = within(screen.getByTestId('browse-root-card')).getAllByTestId(/^browse-(all-products|term-\d+)$/);
+  expect(inCard.map(node => node.getAttribute('data-testid'))).toEqual(['browse-all-products', 'browse-term-25', 'browse-term-27']);
+  // A 44 row with its hairline, whose cells carry the padding (term-row.tsx:60): none on the row itself.
+  expect(classesOf('browse-term-25')).toEqual(expect.arrayContaining(['min-h-11', 'border-b', 'px-0', 'py-0']));
+  expect(classesOf('browse-term-25')).not.toContain('py-2');
+});
+
+test("on a phone the table view's root card runs edge to edge under a hairline, as v2's", () => {
+  render(<CatalogueView {...props} viewState={{ ...CATALOGUE_VIEW_DEFAULTS, view: 'table' }} onViewStateChange={() => {}} />);
+  expect(classesOf('browse-root-card')).toEqual(expect.arrayContaining(['bg-card', 'border-border', 'border-t']));
+  expect(classesOf('browse-root-card')).not.toContain('rounded-lg');
+});
+
+test('the grid view root has no table card', () => {
+  render(<CatalogueView {...props} />);
+  expect(termIds()).toEqual(['browse-all-products', 'browse-term-25', 'browse-term-27']);
+  expect(screen.queryByTestId('browse-root-card')).toBeNull();
 });
 
 test('a search at the root shows the matching products, and clearing it brings the tiles back', () => {
