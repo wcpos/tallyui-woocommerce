@@ -88,6 +88,23 @@ test('each page is one card titled by its nav item, with the body under a hairli
   expect(classesAbove('settings-page')).toContain('max-w-4xl');
 });
 
+test('the open page description is small and muted inside its heading, above the body', () => {
+  const items = [
+    { href: '/described', label: 'Described', testID: 'nav-described', description: 'Page help' },
+    { href: '/plain', label: 'Plain', testID: 'nav-plain' },
+  ];
+  const { rerender } = render(
+    <SettingsArea wide items={items} currentHref="/described" onNavigate={vi.fn()} onBack={vi.fn()}><Text>body</Text></SettingsArea>
+  );
+  const description = screen.getByTestId('settings-page-description');
+  expect(description.textContent).toBe('Page help');
+  expect(classesOf('settings-page-description')).toEqual(expect.arrayContaining(['text-xs', 'text-muted-foreground']));
+  expect(screen.getByTestId('settings-page-title').parentElement?.contains(description)).toBe(true);
+  expect(within(screen.getByTestId('settings-page-body')).queryByTestId('settings-page-description')).toBeNull();
+  rerender(<SettingsArea wide items={items} currentHref="/plain" onNavigate={vi.fn()} onBack={vi.fn()}><Text>body</Text></SettingsArea>);
+  expect(screen.queryByTestId('settings-page-description')).toBeNull();
+});
+
 test('pressing a nav item navigates to its page', () => {
   const onNavigate = vi.fn();
   renderArea({ wide: true, onNavigate });

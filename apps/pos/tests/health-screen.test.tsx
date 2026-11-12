@@ -76,7 +76,7 @@ test('shows refused orders, then the counts, then the queued emails', async () =
   // The Store health area draws the title and the way back.
   expect(screen.queryByTestId('health-back')).toBeNull();
   expect(screen.queryByText('Store health')).toBeNull();
-  expect(screen.getByText('Your store, on this device — sales keep working even if your server does not.')).not.toBeNull();
+  expect(screen.queryByText('Your store, on this device — sales keep working even if your server does not.')).toBeNull();
   expect(screen.getByTestId('db-row-products')).not.toBeNull();
   expect(screen.getByTestId('db-row-orders')).not.toBeNull();
   await waitFor(() => expect(screen.getByTestId('db-row-count-orders').textContent).toBe('1'));
@@ -177,10 +177,4 @@ test('the storage stat reads the estimate', async () => {
   render(<HealthScreen receiptEmails={receiptEmails} collections={collections} />);
   await waitFor(() => expect(textOf('db-stat-storage-value')).toBe('2.0 KB'));
   expect(screen.getByText('storage used')).not.toBeNull();
-});
-
-test('the subtitle is v2\'s card description: small and muted', () => {
-  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} />);
-  expect(textOf('db-subtitle')).toBe('Your store, on this device — sales keep working even if your server does not.');
-  expect(classesOf('db-subtitle')).toEqual(expect.arrayContaining(['text-xs', 'text-muted-foreground']));
 });

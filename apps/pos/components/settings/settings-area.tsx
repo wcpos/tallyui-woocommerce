@@ -2,7 +2,10 @@ import type { JSX, ReactNode } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Button, SettingsLayout, Text } from '@tallyui/components';
 
-export interface SettingsNavItem { href: string; label: string; testID: string }
+export interface SettingsNavItem { href: string; label: string; testID: string;
+  /** The page's help line under its title (v2 `AreaPage` `description`). */
+  description?: string;
+}
 
 /** v2 `NavItem` (row size): selection lifts the row onto `bg-card`, the page card's own surface; no button look. */
 function NavRow({ item, selected, onPress }: { item: SettingsNavItem; selected: boolean; onPress(): void }): JSX.Element {
@@ -32,6 +35,7 @@ export function SettingsArea({ items, currentHref, onNavigate, onBack, wide, tit
   children: ReactNode;
 }): JSX.Element {
   const title = items.find(item => item.href === currentHref)?.label;
+  const description = items.find(item => item.href === currentHref)?.description;
   const navRows = items.map(item => (
     <NavRow key={item.href} item={item} selected={item.href === currentHref} onPress={() => onNavigate(item.href)} />
   ));
@@ -43,6 +47,7 @@ export function SettingsArea({ items, currentHref, onNavigate, onBack, wide, tit
           {title !== undefined && (
             <View className="gap-0.5 px-4 pt-4 pb-3">
               <Text testID={`${id}-page-title`} role="heading" aria-level={1} className="text-xl font-semibold">{title}</Text>
+              {description && <Text testID={`${id}-page-description`} className="text-xs text-muted-foreground">{description}</Text>}
             </View>
           )}
           <View testID={`${id}-page-body`} className="border-t border-border p-4">{children}</View>

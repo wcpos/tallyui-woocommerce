@@ -52,6 +52,14 @@ test('the sub-nav lists Database then Logs, selects the open page, and titles th
   expect(mocks.router.push).toHaveBeenCalledExactlyOnceWith('/health/database');
 });
 
+test('Database has its page description and Logs has none', () => {
+  const { rerender } = render(<HealthLayoutRoute />);
+  expect(screen.getByTestId('health-page-description').textContent).toBe('Your store, on this device — sales keep working even if your server does not.');
+  mocks.pathname = '/health/logs';
+  rerender(<HealthLayoutRoute />);
+  expect(screen.queryByTestId('health-page-description')).toBeNull();
+});
+
 test('on a phone the area bar reads Store health, and Back with no history goes to the POS', () => {
   setWidth(400);
   render(<HealthLayoutRoute />);
