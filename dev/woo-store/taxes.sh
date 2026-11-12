@@ -6,8 +6,8 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$script_dir/lib.sh"
 
 case "${1:-}" in
-    on|off|status) ;;
-    *) printf 'Usage: %s on|off|status\n' "$0" >&2; exit 2 ;;
+    on|off|inclusive|status) ;;
+    *) printf 'Usage: %s on|off|inclusive|status\n' "$0" >&2; exit 2 ;;
 esac
 
 if ! /opt/homebrew/bin/mariadb-admin --socket="$DEV_STORE_DB_SOCKET" ping > /dev/null 2>&1; then

@@ -8,7 +8,7 @@ $product_taxes = [
     'BAK-BAN' => ['', 'none'],
 ];
 
-if (in_array($mode, ['on', 'off'], true)) {
+if (in_array($mode, ['on', 'off', 'inclusive'], true)) {
     foreach ([
         'woocommerce_store_address' => '1 Market Street',
         'woocommerce_store_city' => 'San Francisco',
@@ -79,22 +79,22 @@ if (in_array($mode, ['on', 'off'], true)) {
         }
     }
 
-    update_option('woocommerce_calc_taxes', $mode === 'on' ? 'yes' : 'no');
-    if ($mode === 'on') {
-        foreach ([
-            'woocommerce_prices_include_tax' => 'no',
-            'woocommerce_tax_round_at_subtotal' => 'no',
-            'woocommerce_tax_based_on' => 'base',
-            'woocommerce_tax_display_shop' => 'excl',
-            'woocommerce_tax_display_cart' => 'excl',
-        ] as $option => $value) {
-            update_option($option, $value);
-        }
+    update_option('woocommerce_calc_taxes', $mode === 'off' ? 'no' : 'yes');
+    foreach ([
+        'woocommerce_prices_include_tax' => $mode === 'inclusive' ? 'yes' : 'no',
+        'woocommerce_tax_display_shop' => $mode === 'inclusive' ? 'incl' : 'excl',
+        'woocommerce_tax_display_cart' => $mode === 'inclusive' ? 'incl' : 'excl',
+    ] as $option => $value) {
+        update_option($option, $value);
+    }
+    if ($mode !== 'off') {
+        update_option('woocommerce_tax_round_at_subtotal', 'no');
+        update_option('woocommerce_tax_based_on', 'base');
     }
 }
 
 $result = [];
-foreach (['calc_taxes', 'prices_include_tax', 'tax_round_at_subtotal', 'tax_based_on'] as $option) {
+foreach (['calc_taxes', 'prices_include_tax', 'tax_round_at_subtotal', 'tax_based_on', 'tax_display_cart'] as $option) {
     $result[$option] = get_option('woocommerce_' . $option);
 }
 $result['tax_rates'] = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}woocommerce_tax_rates");

@@ -38,6 +38,8 @@ export function OutboxProvider({ children, transportFor, storage }: {
     storeKey: transport ? storeKey : null,
     open: name => openOrderStore(name, storage),
     transport: () => transport!,
+    // Without the store maximum, every first send is capped at v3; v7 carries the note (TallyUI ADR-083).
+    getMaxOrderCreateVersion: () => latestCatalogue.current?.capabilities?.orderCreate,
     deviceId: transport ? getDeviceId(typeof localStorage === 'undefined' ? null : localStorage, DEVICE_ID_KEY) : '',
   });
   return <OutboxContext.Provider value={transport ? { ...outbox, enabled: true } : { enabled: false }}>{children}</OutboxContext.Provider>;

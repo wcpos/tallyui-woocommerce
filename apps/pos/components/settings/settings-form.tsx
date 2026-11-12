@@ -13,13 +13,16 @@ export const SETTINGS_HELP_CLASS = 'text-muted-foreground text-xs';
  * the page card, no box round them. A later section sits under a rule 16 below the last row (`-mt-1 pt-4` in the
  * pages' `gap-5`); `border-t` stands in for v2's `border-t-hairline`, as settings-area.tsx does.
  */
-export function SettingsSection({ title, first, testID, children }: {
-  title: string; first?: boolean; testID?: string; children: ReactNode;
+export function SettingsSection({ title, description, first, testID, children }: {
+  title: string; description?: string; first?: boolean; testID?: string; children: ReactNode;
 }): JSX.Element {
   return (
     <View testID={testID} className={first ? 'gap-1' : 'gap-1 border-t border-border -mt-1 pt-4'}>
       {/* v2 SectionHeading (section-heading/index.tsx:21): the `section` rank, `text-base font-strong` (600). */}
-      <Text role="heading" aria-level={2} className="text-base font-semibold text-foreground">{title}</Text>
+      {description !== undefined ? <View className="gap-0.5">
+        <Text role="heading" aria-level={2} className="text-base font-semibold text-foreground">{title}</Text>
+        <Text testID={testID && `${testID}-description`} className={SETTINGS_HELP_CLASS}>{description}</Text>
+      </View> : <Text role="heading" aria-level={2} className="text-base font-semibold text-foreground">{title}</Text>}
       <View className="gap-0">{children}</View>
     </View>
   );
