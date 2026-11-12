@@ -1,7 +1,8 @@
 import { useState, type JSX } from 'react';
 import { ScrollView, View } from 'react-native';
+import { Path } from 'react-native-svg';
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, IconButton, Select, SelectContent, SelectGroup, SelectItem,
+  createSvgIcon, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, IconButton, Select, SelectContent, SelectGroup, SelectItem,
   SelectTrigger, SelectValue, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Tabs, TabsContent, TabsList,
   TabsTrigger, Text, XIcon,
 } from '@tallyui/components';
@@ -84,7 +85,12 @@ function TaxRateTable({ rates }: { rates: StoreTaxRate[] }) {
 // v2 dialog/index.tsx:76 `side="right" size="2xl"` (w-200), on the app's right sheet (catalogue-display-options RIGHT_SHEET).
 const SHEET = 'left-auto right-0 top-0 h-full w-full max-w-200 translate-x-0 translate-y-0 gap-4 rounded-none border-0 border-l border-border bg-card p-0 py-4';
 
-// v2 tax-rates/tax-rates.tsx: one tab per class, each holding that class's rates; display only, no sync.
+// lucide `refresh-cw`, v2's `refresh` icon, as table-surface.tsx's TableCount draws it (not exported there).
+const SyncIcon = createSvgIcon('SyncIcon', () => <><Path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><Path d="M21 3v5h-5" />
+  <Path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><Path d="M8 16H3v5" /></>);
+
+// v2 tax-rates/tax-rates.tsx: one tab per class, each holding that class's rates. The rates come with the store
+// settings, which have no refresh once ready (@tallyui/pos useStoreSettings), so the sync icon is drawn but disabled.
 export function TaxRatesDialog({ rates, taxClassSlugs, onClose }: {
   rates: StoreTaxRate[] | undefined; taxClassSlugs: string[] | undefined; onClose: () => void;
 }): JSX.Element {
@@ -109,9 +115,12 @@ export function TaxRatesDialog({ rates, taxClassSlugs, onClose }: {
         {/* v2 tax-rates.tsx:145-152: a min-h-0 flex-1 View round the Tabs (TallyUI's Tabs root takes no className). */}
         <View className="min-h-0 flex-1"><Tabs value={value} onValueChange={setValue}>
           {wide ? (
-            // v2 tabs/index.tsx:112-116: underline tabs, a bottom rule across the strip; TallyUI's TabsList is a muted
-            // box (no underline variant in 3.18.0), so the classes clear it.
-            <TabsList className="mx-4 h-auto flex-row items-end justify-start gap-1 rounded-none border-b border-border bg-transparent p-0">
+            // v2 tax-rates.tsx:167-173 and tabs/index.tsx:126,281-287: a ScrollableTabsList, whose `mx-4` list sits in
+            // 8 px of scroll padding (24 px in all) and is only as wide as its tabs, so its `border-b` rule runs under
+            // the tabs only (`self-start`). TallyUI's TabsList is a muted box (no underline variant in 3.18.0), so the
+            // classes clear it.
+            <TabsList testID="tax-rates-tablist"
+              className="mx-6 h-auto flex-row items-end justify-start gap-1 self-start rounded-none border-b border-border bg-transparent p-0">
               {/* v2 tax-rates.tsx:122-134: the count is its own Text, inline after the class name. */}
               {groups.map(group => (
                 <TabsTrigger key={group.slug} value={group.slug} testID={`tax-rates-tab-${group.slug}`}
@@ -147,9 +156,17 @@ export function TaxRatesDialog({ rates, taxClassSlugs, onClose }: {
         {/* v2 tax-rates.tsx:185-196 and footer.tsx:50-62: the count left, Close right; a phone stacks it. */}
         <DialogFooter className={`gap-2 border-t border-border px-4 pt-4 ${wide
           ? 'flex-row items-center justify-between sm:flex-row sm:justify-between' : 'flex-col sm:flex-col'}`}>
-          <Text testID="tax-rates-count" className={`min-w-0 shrink ${SETTINGS_KEY_CLASS}`}>
-            {count === 1 ? '1 tax rate' : `${count.toLocaleString()} tax rates`}
-          </Text>
+          {/* v2 footer.tsx:54-63: the count, then the SyncButton in a `min-w-0 gap-1` row. sync-button.tsx:39-53 is
+              an `xs` IconButton (icon-button/index.tsx:27 `size-6`; icon/index.tsx:28 a `size-3.5` glyph, :93 muted). */}
+          <View className="min-w-0 shrink flex-row items-center gap-1">
+            <Text testID="tax-rates-count" className={`min-w-0 shrink ${SETTINGS_KEY_CLASS}`}>
+              {count === 1 ? '1 tax rate' : `${count.toLocaleString()} tax rates`}
+            </Text>
+            {/* Disabled, as TableCount is with no `onSync`: nothing here can refresh the rates. */}
+            <IconButton testID="tax-rates-sync" accessibilityLabel="Sync" variant="ghost" size="sm" className="h-6 w-6" disabled>
+              <SyncIcon size={14} className="text-muted-foreground" />
+            </IconButton>
+          </View>
           <SheetCloseButton testID="tax-rates-close" onPress={onClose} />
         </DialogFooter>
       </DialogContent>
