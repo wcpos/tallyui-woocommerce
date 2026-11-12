@@ -269,7 +269,7 @@ deliberately outside it, re-checked against the v2 release tag.
   Vercel, team `wcpos`, as `medusapos/app` does
   ([ADR 0002](adr/0002-hosting-on-vercel.md)).
 - **D5: testers' stores. Decided 2026-11-12 by Paul, through the front desk:** the public demo uses
-  `https://tally-woo-demo.wcpos.com`, while the Mac mini dev store's Funnel
+  `https://tally-woo-demo.wcpos.com`, while the Mac mini dev store's tailnet
   address is for local development and captures only
   ([ADR 0007](adr/0007-demo-store-on-the-vps.md)).
   Testers may still bring their own store: HTTPS, the WCPOS Free plugin
@@ -299,13 +299,14 @@ never created on the Coolify VPS.
   php-fpm (Homebrew's `php@8.3` is keg-only, so the scripts call it by
   path), MariaDB, WP-CLI, and Caddy as the web server, installed with
   Homebrew on 2026-10-05.
-- **HTTPS through Tailscale Funnel.** The dev store's Funnel address,
+- **HTTPS through Tailscale serve.** The dev store's tailnet address,
   `https://claudes-mac-mini.tail6a20e3.ts.net:10000`, is for local development
-  and captures, with TLS terminated at Funnel and forwarded to Caddy's public
+  and captures and is reachable only from the tailnet (its public Funnel was
+  turned off on 2026-11-12), with TLS terminated by Tailscale and forwarded to Caddy's public
   filter listener so no local CA is needed; the public demo uses
   `https://tally-woo-demo.wcpos.com` ([ADR 0007](adr/0007-demo-store-on-the-vps.md)).
 - **Ports and sockets:** Caddy on `127.0.0.1:8480` (full access, local
-  only) and `127.0.0.1:8481` (the public filter Funnel points at);
+  only) and `127.0.0.1:8481` (the filter the tailnet route points at);
   MariaDB on `127.0.0.1:3306`; php-fpm on a Unix socket, because port
   9000 is already taken on this machine.
 - **Where it lives:** setup scripts in this repo under `dev/woo-store/`

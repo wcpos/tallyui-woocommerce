@@ -37,6 +37,10 @@ instead of hiding those links.
   capture store. Its Funnel route is no longer the demo and is not
   advertised. The Funnel itself stays, because other services on the
   machine use it.
+- Update, 2026-11-12, by the front desk: the dev store's port 10000 moved
+  from Funnel to a tailnet-only `tailscale serve` route the same day, so
+  the dev store is no longer reachable from the internet. The Funnel's
+  port 443 route, which other services use, is unchanged.
 
 ## Consequences
 
@@ -44,4 +48,4 @@ instead of hiding those links.
 - A browser that signed in to the old demo keeps the Funnel store in its
   saved session until it signs out and connects to the new address.
 - Parity captures still run against the dev store, so dev-store docs keep
-  its Funnel URL, marked as local development only.
+  its tailnet URL, marked as local development only.

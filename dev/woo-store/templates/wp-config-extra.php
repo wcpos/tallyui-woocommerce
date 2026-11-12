@@ -1,4 +1,4 @@
-// Tailscale Funnel terminates TLS; Caddy forwards X-Forwarded-Proto (ADR 0003).
+// Tailscale serve (tailnet only) terminates TLS; Caddy forwards X-Forwarded-Proto (ADR 0003).
 if ( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && 'https' === $_SERVER['HTTP_X_FORWARDED_PROTO'] ) {
 	$_SERVER['HTTPS'] = 'on';
 }
