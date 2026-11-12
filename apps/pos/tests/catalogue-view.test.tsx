@@ -631,7 +631,8 @@ test('the stock mark stays on the tile when Stock is on', () => {
 });
 
 // P13-S6: v2's phone ground (lib/ground.ts:60-72): the search, the chips and the tiles 16 from the screen's edge. The
-// search stands in the app's px-4 head above the grid, the grid takes px-2 over TallyUI's 8; a window keeps both.
+// search stands in the app's px-4 head above the grid, the grid takes px-2 over TallyUI's 8. R12-S2: a window's tiles
+// stand a gutter in (ground.ts:46-58), under the app's own px-3 head, the grid at px-1 over TallyUI's 8.
 test.each([[390, true], [1280, false]])('at %ipx the phone gutter is %s', (width, phone) => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width, height: 844, scale: 1, fontScale: 1 });
   render(<CatalogueView {...props} />);
@@ -642,12 +643,27 @@ test.each([[390, true], [1280, false]])('at %ipx the phone gutter is %s', (width
     expect(classesOf('catalogue-grid')).toContain('px-2');
   } else {
     expect(screen.queryByTestId('catalogue-phone-head')).toBeNull();
+    expect(classesOf('catalogue-window-head')).toEqual(['px-3', 'pt-2']);
+    expect(screen.getByTestId('catalogue-window-head').contains(search)).toBe(true);
+    expect(classesOf('catalogue-grid')).toContain('px-1');
     expect(classesOf('catalogue-grid')).not.toContain('px-2');
   }
-  expect(screen.getByTestId('catalogue-grid').contains(search)).toBe(!phone);
+  expect(screen.getByTestId('catalogue-grid').contains(search)).toBe(false);
 });
 
-test.each([[390, 'px-3 py-1'], [1280, 'p-1']])('at %ipx the category tiles sit on %s', (width, tiles) => {
+// R12-S2: v2's crumb row (breadcrumb/index.tsx:49 `min-h-ctl ... pr-2`) in a window, over a level's tiles a gutter in;
+// a phone keeps its 36 px row in its own head.
+test.each([[1280, ['min-h-11', 'pt-4', 'pr-2'], 'px-1'], [390, ['min-h-9'], 'px-2']])('at %ipx a level\'s crumb row is %j', (width, crumbClasses, gutter) => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width, height: 844, scale: 1, fontScale: 1 });
+  localStorage.removeItem(CATALOGUE_VIEW_KEY);
+  render(<CatalogueView {...props} />);
+  fireEvent.click(screen.getByTestId('browse-all-products'));
+  expect(classesOf('products-breadcrumb')).toEqual(['flex-row', 'flex-wrap', 'items-center', 'gap-1', ...crumbClasses]);
+  expect(classesOf('browse-level')).toContain(gutter);
+  expect(screen.getByTestId(width > 768 ? 'catalogue-window-head' : 'catalogue-phone-head').contains(screen.getByTestId('products-breadcrumb'))).toBe(true);
+});
+
+test.each([[390, 'px-3 py-1'], [1280, 'px-2']])('at %ipx the category tiles sit on %s', (width, tiles) => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width, height: 844, scale: 1, fontScale: 1 });
   localStorage.removeItem(CATALOGUE_VIEW_KEY);
   render(<CatalogueView {...props} />);

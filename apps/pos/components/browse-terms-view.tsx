@@ -62,9 +62,9 @@ function TermFace({ entry, compact, testID, badge }: { entry: Entry; compact: bo
         {entry.kind === 'term' && entry.count > 0 && <Text className="text-xs text-foreground/70">{productsLabel(entry.count)}</Text>}
       </View>
       <View pointerEvents="none" className="absolute left-2 top-2">
-        {/* v2's bare mark on the filled tile (poster-tile/index.tsx:364 `bare={tint !== null || filled}`) is the Icon's
-            `lg`, 20 px (mark.tsx:44, icon/index.tsx:30 `size-5`), in the tile's ink. */}
-        {filled ? <GridIcon testID={`${testID}-mark`} size={20} className={ink} /> : <FolderIcon size={24} className="text-foreground/70" />}
+        {/* v2's bare mark on a filled or tinted tile (poster-tile/index.tsx:364 `bare={tint !== null || filled}`) is the
+            Icon's `lg`, 20 px (mark.tsx:44, icon/index.tsx:30 `size-5`), the grid in the tile's ink, the folder muted. */}
+        {filled ? <GridIcon testID={`${testID}-mark`} size={20} className={ink} /> : <FolderIcon testID={`${testID}-mark`} size={20} className="text-foreground/70" />}
       </View>
       {badge}
     </View>
@@ -142,13 +142,15 @@ export function BrowseRootGrid({ terms, numColumns, searchSlot, onOpen }: {
   terms: readonly BrowseTerm[]; numColumns: number; searchSlot?: ReactNode; onOpen(place: BrowsePlace): void;
 }): JSX.Element {
   const compact = useCompactTiles();
-  // v2's phone tile ground (lib/ground.ts:60-72 `tiles: 'px-4'`, data-table/surface.tsx:49-55): the tiles 16 from the
-  // screen's edge, 12 here plus the cell's 4; a window keeps 8 (`p-1` plus the cell's 4).
-  const tiles = useIsWide() ? 'p-1' : 'px-3 py-1';
+  // v2's tile ground (data-table/surface.tsx:49-56 `TileGround`, lib/ground.ts:46-72 `tiles`): the tiles a gutter from
+  // the column's edge, 12 in a window (`px-2` plus the cell's 4) and 16 on a phone (`px-3` plus 4); in a window the first
+  // row stands right under the chip row's own 12 (TileGround's `-mt-1` over the cells' `p-1`), so a cell pads only below.
+  const wide = useIsWide();
+  const tiles = wide ? 'px-2' : 'px-3 py-1';
   return <VStack space="none" className="flex-1" testID="browse-root">
     {searchSlot && <View className="px-3 py-2">{searchSlot}</View>}
     <FlatList key={numColumns} testID="browse-root-tiles" data={entriesOf(terms)} numColumns={numColumns} keyExtractor={keyOf} contentContainerClassName={tiles}
-      renderItem={({ item }) => <View style={{ width: `${100 / numColumns}%` }} className="p-1">
+      renderItem={({ item }) => <View style={{ width: `${100 / numColumns}%` }} testID={`browse-root-cell-${keyOf(item)}`} className={wide ? 'px-1 pb-2' : 'p-1'}>
         <TermTile entry={item} compact={compact} onPress={() => onOpen(placeOf(item))} />
       </View>} />
   </VStack>;
@@ -182,15 +184,15 @@ export const PRODUCTS_LABEL = 'Products';
  * crumb) the place becomes a parent too, the way back to its products, and the product's name ends the
  * row in bold. The last parent carries v2's back testID.
  */
-export function BrowseCrumb({ place, onRoot, product }: {
-  place: BrowsePlace | null; onRoot(): void; product?: { name: string; onBack(): void };
+export function BrowseCrumb({ place, onRoot, product, className = 'min-h-9' }: {
+  place: BrowsePlace | null; onRoot(): void; product?: { name: string; onBack(): void }; className?: string;
 }): JSX.Element {
   const placeName = place === null ? null : place.kind === 'all' ? ALL_PRODUCTS_LABEL : place.name;
   const parents = [
     ...place === null ? [] : [{ label: CATEGORIES_LABEL, onPress: onRoot }],
     ...product ? [{ label: placeName ?? PRODUCTS_LABEL, onPress: product.onBack }] : [],
   ];
-  return <View testID="products-breadcrumb" className="min-h-9 flex-row flex-wrap items-center gap-1">
+  return <View testID="products-breadcrumb" className={`flex-row flex-wrap items-center gap-1 ${className}`}>
     {parents.map(({ label, onPress }, index) => <Fragment key={label}>
       <Pressable role="button" accessibilityLabel={label} onPress={onPress}
         testID={index === parents.length - 1 ? 'products-breadcrumb-back' : 'products-breadcrumb-root'}

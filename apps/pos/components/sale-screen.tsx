@@ -545,10 +545,12 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const multiTender = outbox.enabled && props.multiplePayments === true && sale.stage.kind === 'tender';
   if (width >= 900) {
     const shown = liveWidth ?? viewState.width;
+    // v2 keeps no inset on the products column's edge facing the cart (pos-columns.tsx `GroundInnerEdge`, lib/ground.ts:
+    // 84-110 INNER_RIGHT/INNER_LEFT `pr-0`/`pl-0`): the handle is that gutter, so the column's 12 px bleeds under it.
     const productsPanel = <View key="products" testID="pos-products-panel"
       style={{ flexGrow: shown, flexShrink: 1, flexBasis: 0 }}>{multiTender ? <View testID="checkout-ledger-column" className="flex-1 bg-muted p-4">
         <LedgerPane closing order={sale.order} onRemove={cancelling || sale.saving ? undefined : id => { void removeLeg(id); }} />
-      </View> : browse}</View>;
+      </View> : <View testID="pos-products-bleed" className={`flex-1 ${viewState.position === 'right' ? '-ml-3' : '-mr-3'}`}>{browse}</View>}</View>;
     // The bar heads the cart column on whichever side the cart sits, as v2's goes with its cart, on the cart's surface.
     const cartPanel = <View key="cart" testID="pos-cart-panel"
       style={{ flexGrow: 100 - shown, flexShrink: 1, flexBasis: 0 }}

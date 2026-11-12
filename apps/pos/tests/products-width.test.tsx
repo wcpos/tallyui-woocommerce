@@ -5,6 +5,7 @@ import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { PortalHost } from '@tallyui/primitives';
 import { SaleScreen, type SaleScreenProps } from '../components/sale-screen';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { classesOf } from './classes-of';
 import { noTaxSettings } from './fixtures/store-settings';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
@@ -51,6 +52,17 @@ test('the default separator sits between the 60/40 panes', () => {
   expect(Array.from(handle.parentElement!.children)).toEqual([productsPanel, handle, cartPanel]);
   expect(productsPanel.style.flexGrow).toBe('60');
   expect(cartPanel.style.flexGrow).toBe('40');
+});
+
+// R12-S2: v2's handle is one 12 px page gutter over the products column's inner edge (panels/index.tsx:30-36), and the
+// column keeps no inset of its own on that edge (lib/ground.ts:84-110): TallyUI's 12 bleeds under the handle.
+test.each([['left', '-mr-3'], ['right', '-ml-3']])('with products on the %s the handle is the gutter and the column bleeds %s', (position, bleed) => {
+  localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ position }));
+  render(<><SaleScreen {...props} /><PortalHost /></>);
+  expect(classesOf('pos-resize-handle')).toEqual(expect.arrayContaining(['w-3', 'z-10']));
+  expect(classesOf('pos-resize-handle')).not.toContain('w-2');
+  expect(classesOf('pos-products-bleed')).toEqual(['flex-1', bleed]);
+  expect(screen.getByTestId('pos-products-panel').contains(screen.getByTestId('pos-products-bleed'))).toBe(true);
 });
 
 test('arrow keys resize and persist each change', () => {
