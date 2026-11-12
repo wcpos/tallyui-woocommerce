@@ -63,13 +63,15 @@ Product images are generated locally; barcodes use the WooCommerce GTIN field.
 
 ## Taxes and coupons
 
-Run `dev/woo-store/taxes.sh on|off|status` with MariaDB running. `on` and `off`
+Run `dev/woo-store/taxes.sh on|off|inclusive|status` with MariaDB running. `on` and `off`
 idempotently set the San Francisco base address, five tax rates (including reduced,
 zero and compound rates), product tax classes/statuses, and TEN, FIVEOFF, MUG2,
 EXPIRED and ONCE coupons. It never touches the product list or renumbers products.
 All modes print JSON status. Taxes stay off by default: `on` is for tests and
 captures; `off` restores the demo state (taxes off). Run `off` after tests or
 captures, before smoke or demos.
+`inclusive` is `on` with prices entered and shown inclusive of tax, for the order
+money matrix, and `off` restores exclusive prices.
 
 ## WCPOS fork overlay
 

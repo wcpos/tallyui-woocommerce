@@ -1,0 +1,97 @@
+{
+  "row": "till-discount",
+  "cart": [
+    {
+      "product_id": 312,
+      "sku": "COF-FLW",
+      "quantity": 3
+    },
+    {
+      "product_id": 318,
+      "sku": "BAK-MUF",
+      "quantity": 1
+    }
+  ],
+  "tillDiscount": {
+    "type": "fixed",
+    "amount": "1.37",
+    "scope": "order"
+  },
+  "coupon": null,
+  "chargedMinor": 1587,
+  "posted": {
+    "payload": {
+      "status": "completed",
+      "set_paid": true,
+      "currency": "USD",
+      "payment_method": "pos_cash",
+      "payment_method_title": "Cash",
+      "line_items": [
+        {
+          "product_id": 312,
+          "quantity": 3,
+          "subtotal": "11.218665",
+          "total": "11.218665"
+        },
+        {
+          "product_id": 318,
+          "quantity": 1,
+          "subtotal": "3.113788",
+          "total": "3.113788"
+        }
+      ],
+      "meta_data": []
+    }
+  },
+  "response": {
+    "status": 201,
+    "json": {
+      "document": {
+        "id": 411,
+        "number": "411",
+        "status": "completed",
+        "currency": "USD",
+        "prices_include_tax": true,
+        "total": "15.870000",
+        "total_tax": "1.540000",
+        "discount_total": "0.000000",
+        "discount_tax": "0.000000"
+      }
+    }
+  },
+  "woo": {
+    "total": "15.87",
+    "total_tax": "1.54",
+    "tax_lines": [
+      {
+        "label": "CA State",
+        "rate_id": 1,
+        "tax_total": "1.04"
+      },
+      {
+        "label": "SF District",
+        "rate_id": 2,
+        "tax_total": "0.19"
+      },
+      {
+        "label": "Compound Test",
+        "rate_id": 4,
+        "tax_total": "0.31"
+      }
+    ],
+    "line_items": [
+      {
+        "product_id": 312,
+        "quantity": 3,
+        "subtotal": "11.22",
+        "total": "11.22"
+      },
+      {
+        "product_id": 318,
+        "quantity": 1,
+        "subtotal": "3.11",
+        "total": "3.11"
+      }
+    ]
+  }
+}

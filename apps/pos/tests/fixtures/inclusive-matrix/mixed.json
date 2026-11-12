@@ -1,0 +1,124 @@
+{
+  "row": "mixed",
+  "cart": [
+    {
+      "product_id": 312,
+      "sku": "COF-FLW",
+      "quantity": 1
+    },
+    {
+      "product_id": 326,
+      "sku": "MER-TOT",
+      "quantity": 1
+    },
+    {
+      "product_id": 316,
+      "sku": "BAK-CRO",
+      "quantity": 1
+    }
+  ],
+  "tillDiscount": {
+    "type": "fixed",
+    "amount": "1.37",
+    "scope": "order"
+  },
+  "coupon": null,
+  "chargedMinor": 2163,
+  "posted": {
+    "payload": {
+      "status": "completed",
+      "set_paid": true,
+      "currency": "USD",
+      "payment_method": "pos_cash",
+      "payment_method_title": "Cash",
+      "line_items": [
+        {
+          "product_id": 312,
+          "quantity": 1,
+          "subtotal": "3.817776",
+          "total": "3.817776"
+        },
+        {
+          "product_id": 326,
+          "quantity": 1,
+          "subtotal": "14.110000",
+          "total": "14.110000"
+        },
+        {
+          "product_id": 316,
+          "quantity": 1,
+          "subtotal": "3.118483",
+          "total": "3.118483"
+        }
+      ],
+      "meta_data": []
+    }
+  },
+  "response": {
+    "status": 201,
+    "json": {
+      "document": {
+        "id": 414,
+        "number": "414",
+        "status": "completed",
+        "currency": "USD",
+        "prices_include_tax": true,
+        "total": "21.630000",
+        "total_tax": "0.580000",
+        "discount_total": "0.000000",
+        "discount_tax": "0.000000"
+      }
+    }
+  },
+  "woo": {
+    "total": "21.63",
+    "total_tax": "0.58",
+    "tax_lines": [
+      {
+        "label": "CA State",
+        "rate_id": 1,
+        "tax_total": "0.28"
+      },
+      {
+        "label": "SF District",
+        "rate_id": 2,
+        "tax_total": "0.05"
+      },
+      {
+        "label": "Compound Test",
+        "rate_id": 4,
+        "tax_total": "0.08"
+      },
+      {
+        "label": "Zero",
+        "rate_id": 5,
+        "tax_total": "0.00"
+      },
+      {
+        "label": "CA Reduced",
+        "rate_id": 3,
+        "tax_total": "0.17"
+      }
+    ],
+    "line_items": [
+      {
+        "product_id": 312,
+        "quantity": 1,
+        "subtotal": "3.82",
+        "total": "3.82"
+      },
+      {
+        "product_id": 326,
+        "quantity": 1,
+        "subtotal": "14.11",
+        "total": "14.11"
+      },
+      {
+        "product_id": 316,
+        "quantity": 1,
+        "subtotal": "3.12",
+        "total": "3.12"
+      }
+    ]
+  }
+}
