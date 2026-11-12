@@ -335,16 +335,18 @@ test("the bar's avatar sits on the bar, with no accent fill", () => {
 // no fill of its own but a border, the register glyph, the opener's sm initials avatar, and the verbs in the foreground.
 test('the sheet is on the card surface and the drawer door is drawn as v2 draws it', () => {
   const onOpenDrawer = vi.fn();
-  openSheet({ drawer: { figure: '$50.00', verbs: 'Pay in · Pay out · Close register', opener: 'opened 09:00 by Sam Lee', openerName: 'Sam Lee' }, onOpenDrawer });
+  openSheet({ drawer: { figure: '$50.00', verbs: 'Pay in · Pay out · Close register', opener: 'opened 09:00 by', openerName: 'Sam Lee' }, onOpenDrawer });
   expect(classesOf('user-sheet')).toContain('bg-card');
   expect(classesOf('user-sheet')).not.toContain('bg-background');
   expect(classesOf('user-sheet-drawer')).toEqual(expect.arrayContaining(['rounded-lg', 'border', 'border-border', 'active:bg-accent']));
   expect(classesOf('user-sheet-drawer').filter(name => /^bg-/.test(name))).toEqual([]);
   expect(within(screen.getByTestId('user-sheet-drawer')).getByTestId('user-sheet-drawer-icon')).not.toBeNull();
   const opener = screen.getByTestId('user-sheet-drawer-opener');
-  expect(opener.textContent).toBe('opened 09:00 by Sam Lee');
+  // v2's opener line stops at "by" (user-sheet.tsx:143-158); the avatar carries the name for a screen reader.
+  expect(opener.textContent).toBe('opened 09:00 by');
   const avatar = screen.getByTestId('user-sheet-drawer-opener-avatar');
   expect(avatar.textContent).toBe('SL');
+  expect(avatar.getAttribute('aria-label')).toBe('Sam Lee');
   expect(avatar.parentElement).toBe(opener.parentElement);
   expect(classesOf('user-sheet-drawer-opener-avatar')).toEqual(expect.arrayContaining(['size-7', 'rounded-full', 'bg-primary']));
   expect(screen.getByTestId('user-sheet-drawer-verbs-text').textContent).toBe('Pay in · Pay out · Close register');
@@ -353,6 +355,23 @@ test('the sheet is on the card surface and the drawer door is drawn as v2 draws 
   fireEvent.click(screen.getByTestId('user-sheet-drawer'));
   expect(onOpenDrawer).toHaveBeenCalledTimes(1);
   expect(screen.queryByTestId('user-sheet')).toBeNull();
+});
+
+// v2's insets and ranks (dialog/index.tsx:243,277; user-sheet.tsx:679,685-686,702,209; text/ladder.ts:14;
+// amount-figure/index.tsx:20): content 16 px in, flush sections, a 28 px band, muted `key` labels and `tile` figures.
+test("the sheet's content, labels and figure take v2's inset, ranks and gaps", () => {
+  openSheet({ drawer: { figure: '$50.00', verbs: 'Pay in · Pay out · Close register', opener: 'opened 09:00 by', openerName: 'Sam Lee' },
+    onOpenDrawer: () => {}, adminUrl: 'https://shop.example/wp-admin' });
+  expect(classesOf('user-sheet')).toContain('px-4');
+  expect(classesOf('user-sheet-foot')).toContain('-mx-4');
+  expect(classesOf('user-sheet-footer')).toContain('-mx-4');
+  expect(classesOf('user-sheet-body')).toContain('gap-0');
+  expect(classesOf('user-sheet-body')).not.toContain('gap-4');
+  expect(classesOf('user-sheet-switch-band')).toEqual(expect.arrayContaining(['mt-2', 'h-7']));
+  expect(classesOf('user-sheet-drawer-label')).toEqual(expect.arrayContaining(['text-sm', 'text-muted-foreground']));
+  expect(classesOf('user-sheet-drawer-label')).not.toContain('font-medium');
+  expect(classesOf('user-sheet-drawer-figure')).toEqual(expect.arrayContaining(['text-xl', 'font-bold', 'tabular-nums']));
+  expect(classesOf('user-sheet-drawer-figure')).not.toContain('text-lg');
 });
 
 test('an opener with no name shows no avatar', () => {

@@ -20,16 +20,21 @@ const RegisterIcon = createSvgIcon('RegisterIcon', () => <>
 </>);
 
 // v2's right side sheet: full height, flush right, no rounding, a left border, on v2's `bg-card` surface
-// (monorepo packages/components/src/dialog/index.tsx:199), white in Light, not the page's bg-background.
-const SIDE_SHEET = 'left-auto right-0 top-0 h-full max-w-lg translate-x-0 translate-y-0 rounded-none border-0 border-l bg-card';
+// (monorepo packages/components/src/dialog/index.tsx:199), white in Light, not the page's bg-background. `px-4`: v2's panel
+// pads no side of its own; its header, body, foot and footer each sit 16 px in (dialog/index.tsx:243,277,384), not p-6's 24.
+const SIDE_SHEET = 'left-auto right-0 top-0 h-full max-w-lg translate-x-0 translate-y-0 rounded-none border-0 border-l bg-card px-4';
+// v2's labels are the `key` rank (user-sheet.tsx:209,685; text/ladder.ts:14), its figures `AmountFigure size="tile"`
+// (user-sheet.tsx:163,686; amount-figure/index.tsx:18-20).
+const KEY_LABEL = 'text-sm text-muted-foreground';
+const TILE_FIGURE = 'text-xl font-bold tabular-nums';
 
 function SalesTodayRow({ orders, cashierRef, currency, locale }: {
   orders: RxCollection<PosOrder>; cashierRef: string; currency: string; locale?: string;
 }) {
   const total = useCashierSalesToday(orders, cashierRef, currency);
   return <View testID="user-sheet-sales-today" className="flex-row items-center justify-between px-3 py-2.5">
-    <Text className="font-medium">Your sales today</Text>
-    <Text className="text-lg font-semibold">{sheetMoney(total.totalMinor, currency, locale)}</Text>
+    <Text testID="user-sheet-sales-today-label" className={KEY_LABEL}>Your sales today</Text>
+    <Text className={TILE_FIGURE}>{sheetMoney(total.totalMinor, currency, locale)}</Text>
   </View>;
 }
 
@@ -49,17 +54,18 @@ function DrawerDoor({ drawer, disabled, onPress }: { drawer: SheetDrawer; disabl
         <RegisterIcon testID="user-sheet-drawer-icon" size={18} strokeWidth={1.5} className="text-muted-foreground" />
       </View>
       <View className="min-w-0 flex-1">
-        <Text className="font-medium">In the drawer</Text>
-        {/* v2's opener line (user-sheet.tsx:143-158): the `key` rank (text/ladder.ts:14), then the opener's Avatar
-            `size="sm"`: size-7, text-2xs initials on bg-primary (avatar/index.tsx:43,53,77). */}
+        <Text testID="user-sheet-drawer-label" className={KEY_LABEL}>In the drawer</Text>
+        {/* v2's opener line (user-sheet.tsx:143-158): the `key` rank (text/ladder.ts:14), "opened {time} by" with no name
+            (en/core.json:241), then the opener's Avatar `size="sm"`: size-7, text-2xs initials on bg-primary
+            (avatar/index.tsx:43,53,77). The avatar carries the name, so a screen reader still says who opened it. */}
         {drawer.opener && <View className="flex-row items-center gap-1">
           <Text testID="user-sheet-drawer-opener" className="text-sm text-muted-foreground">{drawer.opener}</Text>
-          {openerName && <View testID="user-sheet-drawer-opener-avatar" className="size-7 items-center justify-center rounded-full bg-primary">
+          {openerName && <View testID="user-sheet-drawer-opener-avatar" role="img" accessibilityLabel={openerName} className="size-7 items-center justify-center rounded-full bg-primary">
             <Text className="text-2xs font-medium text-primary-foreground">{getInitials(openerName)}</Text>
           </View>}
         </View>}
       </View>
-      <Text className="text-lg font-semibold">{drawer.figure}</Text>
+      <Text testID="user-sheet-drawer-figure" className={TILE_FIGURE}>{drawer.figure}</Text>
     </View>
     <View testID="user-sheet-drawer-verbs" className="flex-row items-center justify-between border-t border-border px-3 py-2">
       {/* v2's `Text variant="link"` (user-sheet.tsx:218; text/ladder.ts:24,27): the foreground ink at text-base, regular
@@ -116,18 +122,20 @@ export function CashierSheet(props: {
         <View className="absolute right-1 top-1">
           <IconButton variant="ghost" className="h-11 w-11" testID="user-sheet-close-x" accessibilityLabel="Close" onPress={() => setOpen(false)}><XIcon size={18} /></IconButton>
         </View>
-        {/* v2's DialogBody (user-sheet.tsx:679) takes the height, so the links and the footer sit at the sheet's foot. */}
-        <View className="flex-1 gap-4">
+        {/* v2's DialogBody (user-sheet.tsx:679) takes the height, so the links and the footer sit at the sheet's foot;
+            its `gap-0` stacks the sections flush, the band's `mt-2` the only space before "Hand the till to". */}
+        <View testID="user-sheet-body" className="flex-1 gap-0">
         {props.sales && <SalesTodayRow {...props.sales} />}
         {props.drawer && (props.onOpenDrawer ? <DrawerDoor drawer={props.drawer} disabled={Boolean(props.blockedReason)}
           onPress={() => { setOpen(false); props.onOpenDrawer!(); }} />
           : <View testID="user-sheet-drawer" className="flex-row items-center justify-between rounded-lg border border-border px-3 py-2.5">
-            <Text className="font-medium">In the drawer</Text>
-            <Text className="text-lg font-semibold">{props.drawer.figure}</Text>
+            <Text className={KEY_LABEL}>In the drawer</Text>
+            <Text className={TILE_FIGURE}>{props.drawer.figure}</Text>
           </View>)}
         <View testID="user-sheet-switch-user">
-          {/* v2's `caption` rank (user-sheet.tsx:703; text/ladder.ts:18): muted, text-xs, tracking-wide, uppercase. */}
-          <View className="mt-2 h-10 flex-row items-center justify-between border-b border-border px-2.5"><Text className="text-xs uppercase tracking-wide text-muted-foreground">Hand the till to</Text></View>
+          {/* v2's `caption` rank (user-sheet.tsx:703; text/ladder.ts:18): muted, text-xs, tracking-wide, uppercase, on an
+              `h-band` row (user-sheet.tsx:702): seven spacing units, 28 px (apps/main/global.css:33). */}
+          <View testID="user-sheet-switch-band" className="mt-2 h-7 flex-row items-center justify-between border-b border-border px-2.5"><Text className="text-xs uppercase tracking-wide text-muted-foreground">Hand the till to</Text></View>
         {props.cashiers.map(cashier => <View key={cashier.uuid} className="flex-row gap-2">
           <Button testID={`user-sheet-user-${cashier.uuid}`}
             onPress={() => { setOpen(false); props.onSwitch(cashier.uuid); }}><Text>{`Switch to ${cashier.name}`}</Text></Button>
@@ -144,8 +152,8 @@ export function CashierSheet(props: {
         </View>
         </View>
         {/* v2's foot (user-sheet.tsx:773-787): the open-external glyph (size sm, muted) before the `key` rank label.
-            `-mx-6` takes the rule to the sheet's edges, as v2's, past the sheet's p-6. */}
-        {props.adminUrl && <View testID="user-sheet-foot" className="-mx-6 flex-row items-center gap-4 border-t border-border px-4 py-2">
+            `-mx-4` takes the rule to the sheet's edges, as v2's, past the sheet's px-4. */}
+        {props.adminUrl && <View testID="user-sheet-foot" className="-mx-4 flex-row items-center gap-4 border-t border-border px-4 py-2">
           <Pressable testID="user-sheet-wp-admin" role="link" className="flex-row items-center gap-1" onPress={() => { void Linking.openURL(props.adminUrl!); }}>
             <OpenExternalIcon testID="user-sheet-wp-admin-icon" size={16} strokeWidth={1.5} className="text-muted-foreground" />
             <Text className="text-sm text-muted-foreground">WordPress Admin</Text>
@@ -154,7 +162,7 @@ export function CashierSheet(props: {
         {/* v2's DialogFooter (dialog/index.tsx:376-413; user-sheet.tsx:800-822): Sign out as the `destructive` slot, v2's
             `outline-destructive` (button/index.tsx:53, border-destructive bg-card, the label in the foreground ink), apart
             on the left, and the Close dismiss on the right; a full-width rule over pt-4. */}
-        <View testID="user-sheet-footer" className="-mx-6 flex-row items-center justify-between border-t border-border px-4 pt-4">
+        <View testID="user-sheet-footer" className="-mx-4 flex-row items-center justify-between border-t border-border px-4 pt-4">
           <Button variant="outline" testID="user-sheet-sign-out" className="h-11 border-destructive bg-card" onPress={() => { setOpen(false); props.onSignOut(); }}><Text>Sign out</Text></Button>
           <SheetCloseButton testID="user-sheet-close" onPress={() => setOpen(false)} />
         </View>
