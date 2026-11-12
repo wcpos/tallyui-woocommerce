@@ -76,7 +76,8 @@ export function drawerVerbs(
     const name = session.opened_by ? nameOf?.(session.opened_by) : undefined;
     const opened = `opened ${localHourMinute(session.opened_at_gmt)}`;
     // openerName feeds the opener's initials avatar (v2 user-sheet.tsx:154-158), set only when the opener has a name.
-    return name ? { verbs: 'Pay in · Pay out · Close register', opener: `${opened} by ${name}`, openerName: name }
+    // v2's line stops at "by" (en/core.json:241 `register.opened_at_by`): the avatar beside it names the opener.
+    return name ? { verbs: 'Pay in · Pay out · Close register', opener: `${opened} by`, openerName: name }
       : { verbs: 'Pay in · Pay out · Close register', opener: opened };
   }
   return { verbs: 'Last closure · Open register' };

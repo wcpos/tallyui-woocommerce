@@ -17,6 +17,7 @@ import { CashierSheet } from '../components/cashier-sheet';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { sessionsOff } from './cart-head-helpers';
+import { classesOf } from './classes-of';
 
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
@@ -103,7 +104,7 @@ test("drawerVerbs offers v2's drawer verbs for an open session, with who opened 
   const openedAt = new Date(2026, 9, 6, 14, 40).toISOString();
   const nameOf = (id: string) => id === '2' ? 'Ann' : undefined;
   expect(drawerVerbs({ session: { status: 'open', opened_at_gmt: openedAt, opened_by: '2' } }, nameOf))
-    .toEqual({ verbs: 'Pay in · Pay out · Close register', opener: 'opened 14:40 by Ann', openerName: 'Ann' });
+    .toEqual({ verbs: 'Pay in · Pay out · Close register', opener: 'opened 14:40 by', openerName: 'Ann' });
   const unnamed = drawerVerbs({ session: { status: 'open', opened_at_gmt: openedAt, opened_by: '9' } }, nameOf);
   expect(unnamed).toEqual({ verbs: 'Pay in · Pay out · Close register', opener: 'opened 14:40' });
   expect(unnamed.openerName).toBeUndefined();
@@ -136,7 +137,8 @@ test('the drawer door names its verbs and opener, and opens the register panel (
   expect(door.getAttribute('role')).toBe('button');
   expect(door.getAttribute('aria-label')).toBe('In the drawer, $100.00');
   expect(within(screen.getByTestId('user-sheet-drawer-verbs')).getByText('Pay in · Pay out · Close register')).not.toBeNull();
-  expect(within(door).getByText(`opened ${hhmm(app.register.session!.opened_at_gmt)} by Paul`)).not.toBeNull();
+  expect(within(door).getByText(`opened ${hhmm(app.register.session!.opened_at_gmt)} by`)).not.toBeNull();
+  expect(within(door).getByLabelText('Paul').getAttribute('data-testid')).toBe('user-sheet-drawer-opener-avatar');
   expect(screen.queryByTestId('register-panel')).toBeNull();
   fireEvent.click(door);
   await waitFor(() => expect(screen.queryByTestId('user-sheet')).toBeNull());
@@ -198,6 +200,8 @@ test("the sheet shows this cashier's sales today and the drawer while a session 
   fireEvent.click(screen.getByTestId('register-bar-avatar'));
   expect(await within(await screen.findByTestId('user-sheet-sales-today')).findByText('$3.00')).not.toBeNull();
   expect(within(screen.getByTestId('user-sheet-sales-today')).getByText('Your sales today')).not.toBeNull();
+  // v2's `key` rank on the label (user-sheet.tsx:685; text/ladder.ts:14).
+  expect(classesOf('user-sheet-sales-today-label')).toEqual(expect.arrayContaining(['text-sm', 'text-muted-foreground']));
   const drawer = within(screen.getByTestId('user-sheet-drawer'));
   expect(drawer.getByText('In the drawer')).not.toBeNull();
   expect(drawer.getByText('$100.00')).not.toBeNull();
