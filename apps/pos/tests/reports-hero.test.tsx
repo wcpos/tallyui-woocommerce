@@ -142,3 +142,8 @@ test('the compare chip and chart toggle share a row when wide; narrow, the chip 
   expect(nodeClasses(screen.getByTestId('chip').parentElement!)).toEqual(['self-start']);
   expect(screen.getByTestId('toggle').parentElement).toBe(screen.getByTestId('hero-compare-row'));
 });
+
+test('the hero is v2\'s Card: the card fill on the page, its border and radius (hero/index.tsx:491)', () => {
+  renderHero(today, today);
+  expect(classesOf('reports-hero')).toEqual(expect.arrayContaining(['rounded-lg', 'border', 'border-border', 'bg-card', 'p-4']));
+});

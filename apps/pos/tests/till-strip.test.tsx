@@ -4,7 +4,7 @@ import * as ReactNative from 'react-native';
 import type { Closure } from '@tallyui/pos';
 import { TillStrip } from '../components/till-strip';
 import { useRegister } from '../lib/register/register-context';
-import { classesOf } from './classes-of';
+import { CARD_CLASSES, classesOf } from './classes-of';
 
 vi.mock('../lib/register/register-context', () => ({ useRegister: vi.fn() }));
 
@@ -142,4 +142,11 @@ test('under 1024 the equation drops below the row; a phone stacks a ledger over 
   expect(classesOf('till-term-float')).toEqual(expect.arrayContaining(['flex-1', 'flex-row']));
   expect(screen.getByTestId('till-ledger')).toBeTruthy();
   expect(classesOf('till-actions')).toContain('justify-between');
+});
+
+test('the strip is v2\'s Card: the card fill on the page, its border and radius (till-strip.tsx:380)', () => {
+  at(1280);
+  register({ status: 'open' });
+  strip();
+  expect(classesOf('reports-till')).toEqual(expect.arrayContaining([...CARD_CLASSES, 'border-border', 'p-4']));
 });

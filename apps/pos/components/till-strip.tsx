@@ -153,8 +153,9 @@ export function TillStrip({ orders, currency, locale, resolveCashierName, onPrin
   </View>;
 
   // v2 till-strip.tsx: one row that never wraps (title, equation, actions); a phone stacks them.
+  // v2 till-strip.tsx:380 `<Card padding="body">`: card/index.tsx:18 is `border-border bg-card rounded-lg border`, p-4.
   return (
-    <View testID="reports-till" className="gap-3 rounded-lg border border-border p-4">
+    <View testID="reports-till" className="gap-3 rounded-lg border border-border bg-card p-4">
       {phone ? <>{title}{equation}</> : <View testID="till-row" className="flex-row items-center gap-5">
         {title}
         {!stacked && equation}
