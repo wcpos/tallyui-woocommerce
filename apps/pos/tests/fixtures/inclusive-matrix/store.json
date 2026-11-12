@@ -1,0 +1,277 @@
+{
+  "stores": [
+    {
+      "id": 0,
+      "name": "Tally Woo Dev Store",
+      "locale": "en_US",
+      "currency": "USD",
+      "currency_position": "left",
+      "thousand_separator": ",",
+      "decimal_separator": ".",
+      "price_num_decimals": 2,
+      "prices_include_tax": "yes",
+      "calc_taxes": "yes",
+      "tax_based_on": "base",
+      "shipping_tax_class": "inherit",
+      "tax_round_at_subtotal": "no",
+      "calc_discounts_sequentially": "no",
+      "tax_display_cart": "incl",
+      "tax_display_shop": "incl",
+      "tax_address": {
+        "country": "US",
+        "state": "CA",
+        "postcode": "94105",
+        "city": "San Francisco"
+      },
+      "store_address": "",
+      "store_address_2": "",
+      "store_city": "San Francisco",
+      "store_state": "CA",
+      "store_postcode": "94105",
+      "store_country": "US"
+    }
+  ],
+  "taxClasses": [
+    {
+      "slug": "standard",
+      "name": "Standard rate"
+    },
+    {
+      "slug": "reduced-rate",
+      "name": "Reduced rate"
+    },
+    {
+      "slug": "zero-rate",
+      "name": "Zero rate"
+    }
+  ],
+  "taxes": [
+    {
+      "id": 1,
+      "country": "US",
+      "state": "CA",
+      "postcode": "",
+      "city": "",
+      "postcodes": [],
+      "cities": [],
+      "rate": "7.2500",
+      "name": "CA State",
+      "priority": 1,
+      "compound": false,
+      "shipping": true,
+      "order": 0,
+      "class": "standard"
+    },
+    {
+      "id": 2,
+      "country": "US",
+      "state": "CA",
+      "postcode": "94105",
+      "city": "SAN FRANCISCO",
+      "postcodes": [
+        "94105"
+      ],
+      "cities": [
+        "SAN FRANCISCO"
+      ],
+      "rate": "1.3750",
+      "name": "SF District",
+      "priority": 2,
+      "compound": false,
+      "shipping": true,
+      "order": 0,
+      "class": "standard"
+    },
+    {
+      "id": 3,
+      "country": "US",
+      "state": "CA",
+      "postcode": "",
+      "city": "",
+      "postcodes": [],
+      "cities": [],
+      "rate": "5.5000",
+      "name": "CA Reduced",
+      "priority": 1,
+      "compound": false,
+      "shipping": false,
+      "order": 0,
+      "class": "reduced-rate"
+    },
+    {
+      "id": 4,
+      "country": "US",
+      "state": "CA",
+      "postcode": "",
+      "city": "",
+      "postcodes": [],
+      "cities": [],
+      "rate": "2.0000",
+      "name": "Compound Test",
+      "priority": 3,
+      "compound": true,
+      "shipping": false,
+      "order": 0,
+      "class": "standard"
+    },
+    {
+      "id": 5,
+      "country": "US",
+      "state": "CA",
+      "postcode": "",
+      "city": "",
+      "postcodes": [],
+      "cities": [],
+      "rate": "0.0000",
+      "name": "Zero",
+      "priority": 1,
+      "compound": false,
+      "shipping": false,
+      "order": 0,
+      "class": "zero-rate"
+    }
+  ],
+  "products": [
+    {
+      "id": 312,
+      "name": "Flat White",
+      "sku": "COF-FLW",
+      "type": "simple",
+      "status": "publish",
+      "price": "4.50",
+      "regular_price": "4.50",
+      "sale_price": "",
+      "on_sale": false,
+      "tax_class": "",
+      "tax_status": "taxable",
+      "stock_status": "instock",
+      "manage_stock": false,
+      "categories": [
+        {
+          "id": 25,
+          "name": "Coffee"
+        }
+      ]
+    },
+    {
+      "id": 318,
+      "name": "Blueberry Muffin",
+      "sku": "BAK-MUF",
+      "type": "simple",
+      "status": "publish",
+      "price": "3.75",
+      "regular_price": "3.75",
+      "sale_price": "",
+      "on_sale": false,
+      "tax_class": "",
+      "tax_status": "taxable",
+      "stock_status": "instock",
+      "manage_stock": false,
+      "categories": [
+        {
+          "id": 26,
+          "name": "Bakery"
+        }
+      ]
+    },
+    {
+      "id": 326,
+      "name": "Tote Bag",
+      "sku": "MER-TOT",
+      "type": "simple",
+      "status": "publish",
+      "price": "15.00",
+      "regular_price": "15.00",
+      "sale_price": "",
+      "on_sale": false,
+      "tax_class": "zero-rate",
+      "tax_status": "taxable",
+      "stock_status": "instock",
+      "manage_stock": false,
+      "categories": [
+        {
+          "id": 27,
+          "name": "Merch"
+        }
+      ]
+    },
+    {
+      "id": 316,
+      "name": "Croissant",
+      "sku": "BAK-CRO",
+      "type": "simple",
+      "status": "publish",
+      "price": "3.50",
+      "regular_price": "3.50",
+      "sale_price": "",
+      "on_sale": false,
+      "tax_class": "reduced-rate",
+      "tax_status": "taxable",
+      "stock_status": "instock",
+      "manage_stock": false,
+      "categories": [
+        {
+          "id": 26,
+          "name": "Bakery"
+        }
+      ]
+    }
+  ],
+  "coupons": {
+    "fiveoff": {
+      "id": 132,
+      "code": "fiveoff",
+      "discount_type": "fixed_cart",
+      "amount": "5.00",
+      "minimum_amount": "0.00",
+      "maximum_amount": "0.00",
+      "individual_use": false,
+      "product_ids": [],
+      "excluded_product_ids": [],
+      "product_categories": [],
+      "excluded_product_categories": [],
+      "exclude_sale_items": false,
+      "usage_limit": null,
+      "usage_limit_per_user": null,
+      "limit_usage_to_x_items": null,
+      "date_expires_gmt": null,
+      "email_restrictions": [],
+      "usage_count": 0,
+      "used_by": []
+    },
+    "ten": {
+      "id": 131,
+      "code": "ten",
+      "discount_type": "percent",
+      "amount": "10.00",
+      "minimum_amount": "10.00",
+      "maximum_amount": "0.00",
+      "individual_use": false,
+      "product_ids": [],
+      "excluded_product_ids": [],
+      "product_categories": [],
+      "excluded_product_categories": [],
+      "exclude_sale_items": false,
+      "usage_limit": null,
+      "usage_limit_per_user": null,
+      "limit_usage_to_x_items": null,
+      "date_expires_gmt": null,
+      "email_restrictions": [],
+      "usage_count": 0,
+      "used_by": []
+    }
+  },
+  "capabilities": {
+    "orderCreate": 8,
+    "coupons": true,
+    "multiplePayments": true,
+    "taxRounding": {
+      "granularity": "woocommerce",
+      "roundAtSubtotal": false
+    },
+    "lineTax": {
+      "none": true,
+      "classes": true
+    }
+  }
+}
