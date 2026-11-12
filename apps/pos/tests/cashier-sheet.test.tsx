@@ -14,6 +14,8 @@ import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import { parkedTabs } from './open-orders-helpers';
+import { CashierSheet } from '../components/cashier-sheet';
+import { classesOf } from './classes-of';
 
 function SaleScreen(props: SaleScreenProps) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
@@ -268,4 +270,56 @@ test('a cart held for a switch that is still pending stays parked on the same sc
     expect(onSwitchCashier).toHaveBeenCalledWith('b');
     await act(async () => { resolveSwitch(null); await pending; });
   });
+});
+
+// v2's sheet layout (monorepo packages/core/src/screens/main/pos/cart/user-sheet.tsx): × and avatar in the header,
+// a quiet + row under the caption, the WordPress Admin link with its glyph, Sign out and Close in the footer.
+function openSheet(extra: Partial<Parameters<typeof CashierSheet>[0]> = {}) {
+  const handlers = { onAddAnother: vi.fn(), onSignOut: vi.fn() };
+  render(<><CashierSheet name="Bob Ross" cashiers={[]} onSwitch={() => {}} {...handlers} {...extra} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('register-bar-avatar'));
+  return handlers;
+}
+
+test.each(['user-sheet-close-x', 'user-sheet-close'])('%s closes the sheet', testID => {
+  openSheet();
+  expect(screen.getByTestId('user-sheet-avatar').textContent).toBe('BR');
+  expect(screen.getByTestId('user-sheet-close-x').getAttribute('aria-label')).toBe('Close');
+  fireEvent.click(screen.getByTestId(testID));
+  expect(screen.queryByTestId('user-sheet')).toBeNull();
+});
+
+test('Another account is a quiet + row, not a filled button', () => {
+  const { onAddAnother } = openSheet();
+  const row = screen.getByTestId('user-sheet-another-account');
+  expect(row.textContent).toBe('Another account…');
+  expect(within(row).getByTestId('user-sheet-another-account-icon')).not.toBeNull();
+  expect(classesOf('user-sheet-another-account')).toEqual(expect.arrayContaining(['min-h-11', 'px-2.5', 'web:hover:bg-accent']));
+  expect(classesOf('user-sheet-another-account')).not.toContain('bg-primary');
+  fireEvent.click(row);
+  expect(onAddAnother).toHaveBeenCalledTimes(1);
+});
+
+test('Sign out is an outline button with the red border, in the footer beside Close', () => {
+  const { onSignOut } = openSheet();
+  const signOut = screen.getByTestId('user-sheet-sign-out');
+  expect(signOut.parentElement!.getAttribute('data-testid')).toBe('user-sheet-footer');
+  expect(within(screen.getByTestId('user-sheet-footer')).getByTestId('user-sheet-close')).not.toBeNull();
+  // The outline variant keeps its 1 px `border`; the destructive variant has none and a red fill.
+  expect(classesOf('user-sheet-sign-out')).toEqual(expect.arrayContaining(['border', 'border-destructive', 'bg-card']));
+  expect(classesOf('user-sheet-sign-out')).not.toContain('bg-destructive');
+  fireEvent.click(signOut);
+  expect(onSignOut).toHaveBeenCalledTimes(1);
+  expect(screen.queryByTestId('user-sheet')).toBeNull();
+});
+
+test('the WordPress Admin link carries its open-external glyph, and is hidden without adminUrl', () => {
+  openSheet({ adminUrl: 'https://shop.example/wp-admin' });
+  const link = screen.getByTestId('user-sheet-wp-admin');
+  expect(link.textContent).toBe('WordPress Admin');
+  expect(within(link).getByTestId('user-sheet-wp-admin-icon')).not.toBeNull();
+  cleanup();
+  openSheet();
+  expect(screen.queryByTestId('user-sheet-wp-admin')).toBeNull();
+  expect(screen.queryByTestId('user-sheet-foot')).toBeNull();
 });
