@@ -120,7 +120,10 @@ async function sentPayments(send: Awaited<ReturnType<typeof renderTill>>['send']
 
 function chooseVoid() {
   fireEvent.click(screen.getByTestId('cart-foot-more'));
-  fireEvent.click(within(screen.getByTestId('cart-foot-menu')).getByRole('menuitem', { name: 'Void' }));
+  const menu = screen.getByTestId('cart-foot-menu');
+  expect(within(menu).queryByRole('menuitem', { name: 'Void' })).toBeNull();
+  fireEvent.click(within(menu).getByRole('menuitem', { name: 'Order details' }));
+  fireEvent.click(screen.getByTestId('order-details-void'));
 }
 
 test('(a) the foot reads Checkout with the cart total, is absent while empty, and has no Cash or Card terminal buttons', () => {

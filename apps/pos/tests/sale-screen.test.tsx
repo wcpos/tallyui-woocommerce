@@ -1022,3 +1022,21 @@ test('syncLineShown: hidden only while nothing waits, nothing was refused and th
   expect(syncLineShown({ pending: 0, rejected: 1, sending: false })).toBe(true);
   expect(syncLineShown({ pending: 0, sending: false, backendMissing: { since: 0 } })).toBe(true);
 });
+
+test('the ⋮ opens Order details, the note stays on the sale and Void is in the sheet', () => {
+  render(<SaleScreen {...props} />);
+  fireEvent.click(screen.getByText('Espresso'));
+  openCartTab();
+  fireEvent.click(cartPane().getByTestId('cart-foot-more'));
+  expect(within(screen.getByTestId('cart-foot-menu')).queryByText('Void')).toBeNull();
+  fireEvent.click(screen.getByText('Order details'));
+  fireEvent.change(screen.getByLabelText('Customer Note'), { target: { value: 'Leave at the door' } });
+  fireEvent.click(screen.getByTestId('order-details-close'));
+  expect(screen.queryByTestId('order-details')).toBeNull();
+  fireEvent.click(cartPane().getByTestId('cart-foot-more'));
+  fireEvent.click(screen.getByText('Order details'));
+  expect((screen.getByLabelText('Customer Note') as HTMLTextAreaElement).value).toBe('Leave at the door');
+  fireEvent.click(screen.getByTestId('order-details-void'));
+  expect(screen.queryByTestId('order-details')).toBeNull();
+  expect(screen.getByTestId('cart-void-dialog')).not.toBeNull();
+});

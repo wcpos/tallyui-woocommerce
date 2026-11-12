@@ -32,8 +32,8 @@ const SHEET = 'fixed top-0 z-50 h-full w-[512px] max-w-full gap-4 border-border 
 // the overlay and panel start at the window's.
 // v2's scrim is `bg-scrim` (components lib/overlay/index.tsx:562), Light's `--scrim: oklch(0.2 0.01 262 / .28)`
 // (apps/main/global.css:444): a near black at 28%, over TallyUI's `bg-black/80`. This app has no scrim token.
-const SCRIM = 'bg-black/30';
-const CART_SHEET: Record<PanelPosition, (railShown: boolean) => string> = {
+export const SCRIM = 'bg-black/30';
+export const CART_SHEET: Record<PanelPosition, (railShown: boolean) => string> = {
   left: railShown => `${railShown ? BESIDE_RAIL : 'left-0'} right-auto border-r ${SHEET}`,
   right: () => `left-auto right-0 border-l ${SHEET}`,
 };
