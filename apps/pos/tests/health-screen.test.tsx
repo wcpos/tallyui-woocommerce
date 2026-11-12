@@ -178,3 +178,9 @@ test('the storage stat reads the estimate', async () => {
   await waitFor(() => expect(textOf('db-stat-storage-value')).toBe('2.0 KB'));
   expect(screen.getByText('storage used')).not.toBeNull();
 });
+
+test('the subtitle is v2\'s card description: small and muted', () => {
+  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} />);
+  expect(textOf('db-subtitle')).toBe('Your store, on this device — sales keep working even if your server does not.');
+  expect(classesOf('db-subtitle')).toEqual(expect.arrayContaining(['text-xs', 'text-muted-foreground']));
+});

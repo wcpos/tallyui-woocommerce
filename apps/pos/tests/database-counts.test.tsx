@@ -4,6 +4,7 @@ import { createRxDatabase, type RxCollection, type RxDatabase } from 'rxdb';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { addPosOrderCollection, type PosOrder } from '@tallyui/pos';
+import { PortalHost } from '@tallyui/primitives';
 import { DatabaseCounts, type DatabaseCountRow } from '../components/database-counts';
 import { classesOf } from './classes-of';
 
@@ -44,18 +45,43 @@ test('counts each collection and follows writes', async () => {
   await waitFor(() => expect(screen.getByTestId('db-row-count-products').textContent).toBe('1'));
 });
 
+const renderCounts = () => render(<><DatabaseCounts rows={rows} /><PortalHost /></>);
+/** Open a row's ⋮ menu and press Check for changes now (v2 health/database.tsx:347-360). */
+function syncNow(key: string) {
+  fireEvent.click(screen.getByTestId(`db-row-menu-${key}`));
+  fireEvent.click(screen.getByTestId(`db-row-sync-now-${key}`));
+}
+
+test('v2\'s row menu: a ⋮ labelled More actions holds Check for changes now, no inline button', () => {
+  const onSyncNow = vi.fn(async () => {});
+  rows[0].onSyncNow = onSyncNow;
+  renderCounts();
+  expect(screen.getByTestId('db-row-menu-products').getAttribute('aria-label')).toBe('More actions');
+  // The menu is closed: no Check for changes now anywhere until it opens
+  expect(screen.queryByText('Check for changes now')).toBeNull();
+  expect(screen.queryByTestId('db-row-sync-now-products')).toBeNull();
+  expect(screen.queryByTestId('db-row-menu-coupons')).toBeNull();
+  fireEvent.click(screen.getByTestId('db-row-menu-products'));
+  expect(screen.getByTestId('db-row-sync-now-products').textContent).toBe('Check for changes now');
+  expect(screen.getByTestId('db-row-products').textContent).not.toContain('Check for changes now');
+  fireEvent.click(screen.getByTestId('db-row-sync-now-products'));
+  expect(onSyncNow).toHaveBeenCalledTimes(1);
+});
+
 test('Check for changes now runs only that row\'s sync, once at a time', async () => {
   let resolve!: () => void;
   const pending = new Promise<void>(done => { resolve = done; });
   const onSyncNow = vi.fn(() => pending);
   rows[0].onSyncNow = onSyncNow;
-  render(<DatabaseCounts rows={rows} />);
-  expect(screen.queryByTestId('db-row-sync-now-coupons')).toBeNull();
-  const button = screen.getByTestId('db-row-sync-now-products');
-  act(() => { fireEvent.click(button); fireEvent.click(button); });
+  renderCounts();
+  expect(screen.queryByTestId('db-row-menu-coupons')).toBeNull();
+  syncNow('products');
+  // While it runs the ⋮ is disabled, so the item cannot be reached again
+  fireEvent.click(screen.getByTestId('db-row-menu-products'));
+  expect(screen.queryByTestId('db-row-sync-now-products')).toBeNull();
   expect(onSyncNow).toHaveBeenCalledTimes(1);
   await act(async () => { resolve(); await pending; });
-  await act(async () => { fireEvent.click(button); });
+  syncNow('products');
   expect(onSyncNow).toHaveBeenCalledTimes(2);
   expect(screen.queryByTestId('db-sync-failed-products')).toBeNull();
 });
@@ -63,11 +89,14 @@ test('Check for changes now runs only that row\'s sync, once at a time', async (
 test('a failed sync says so until the next try', async () => {
   const onSyncNow = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(undefined);
   rows[0].onSyncNow = onSyncNow;
-  render(<DatabaseCounts rows={rows} />);
-  fireEvent.click(screen.getByTestId('db-row-sync-now-products'));
+  renderCounts();
+  syncNow('products');
   await waitFor(() => expect(screen.getByTestId('db-sync-failed-products').textContent).toBe('Couldn’t sync with the server.'));
-  fireEvent.click(screen.getByTestId('db-row-sync-now-products'));
+  // The ⋮ comes back once the failed sync settles
+  await waitFor(() => expect(screen.getByTestId('db-row-menu-products').getAttribute('aria-disabled')).not.toBe('true'));
+  syncNow('products');
   await waitFor(() => expect(screen.queryByTestId('db-sync-failed-products')).toBeNull());
+  expect(onSyncNow).toHaveBeenCalledTimes(2);
 });
 
 test('v2\'s flat table: caption-rank heads, ruled rows at 61 px, no inner box', async () => {
