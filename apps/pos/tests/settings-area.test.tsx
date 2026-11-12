@@ -15,8 +15,8 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 const store = { id: 1, name: 'Corner Café', currency: 'AUD', locale: 'en_AU' };
 const siteHome = 'https://shop.example/';
 
-test('the nav lists General, Tax, Card readers, Barcode Scanning then Theme, with the v2 test ids and hrefs', () => {
-  expect(SETTINGS_NAV_ITEMS).toEqual([{ href: '/settings/general', label: 'General', testID: 'settings-nav-general' }, { href: '/settings/tax', label: 'Tax', testID: 'settings-nav-tax' }, { href: '/settings/card-readers', label: 'Card readers', testID: 'settings-nav-card-readers', description: 'Readers this till can take card payments with.' }, { href: '/settings/barcode-scanning', label: 'Barcode Scanning', testID: 'settings-nav-barcode-scanning' }, { href: '/settings/theme', label: 'Theme', testID: 'settings-nav-theme' }]);
+test('the nav lists General, Tax, Printing, Card readers, Barcode Scanning then Theme, with the v2 test ids and hrefs', () => {
+  expect(SETTINGS_NAV_ITEMS).toEqual([{ href: '/settings/general', label: 'General', testID: 'settings-nav-general' }, { href: '/settings/tax', label: 'Tax', testID: 'settings-nav-tax' }, { href: '/settings/printing', label: 'Printing', testID: 'settings-nav-printing' }, { href: '/settings/card-readers', label: 'Card readers', testID: 'settings-nav-card-readers', description: 'Readers this till can take card payments with.' }, { href: '/settings/barcode-scanning', label: 'Barcode Scanning', testID: 'settings-nav-barcode-scanning' }, { href: '/settings/theme', label: 'Theme', testID: 'settings-nav-theme' }]);
   expect(SETTINGS_DEFAULT_HREF).toBe('/settings/general');
   render(
     <SettingsArea wide items={SETTINGS_NAV_ITEMS} currentHref="/settings/general" onNavigate={vi.fn()} onBack={vi.fn()}>
@@ -25,6 +25,7 @@ test('the nav lists General, Tax, Card readers, Barcode Scanning then Theme, wit
   );
   expect(screen.getByTestId('settings-nav-general')).not.toBeNull();
   expect(screen.getByTestId('settings-nav-tax')).not.toBeNull();
+  expect(screen.getByTestId('settings-nav-printing')).not.toBeNull();
   expect(screen.getByTestId('settings-nav-barcode-scanning')).not.toBeNull();
   expect(screen.getByTestId('settings-nav-theme')).not.toBeNull();
   expect(within(screen.getByTestId('settings-screen')).getByText('page body')).not.toBeNull();
@@ -32,7 +33,7 @@ test('the nav lists General, Tax, Card readers, Barcode Scanning then Theme, wit
 });
 
 test("the nav lists v2's pages in v2's order", () => {
-  expect(SETTINGS_NAV_ITEMS.map(item => item.label)).toEqual(['General', 'Tax', 'Card readers', 'Barcode Scanning', 'Theme']);
+  expect(SETTINGS_NAV_ITEMS.map(item => item.label)).toEqual(['General', 'Tax', 'Printing', 'Card readers', 'Barcode Scanning', 'Theme']);
   expect(SETTINGS_NAV_ITEMS.find(item => item.label === 'Card readers')?.href).toBe('/settings/card-readers');
 });
 
