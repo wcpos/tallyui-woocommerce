@@ -127,8 +127,9 @@ export function CashierSheet(props: {
           <IconButton variant="ghost" className="h-11 w-11" testID="user-sheet-close-x" accessibilityLabel="Close" onPress={() => setOpen(false)}><XIcon size={18} /></IconButton>
         </View>
         {/* v2's DialogBody (user-sheet.tsx:679) takes the height, so the links and the footer sit at the sheet's foot;
-            its `gap-0` stacks the sections flush, the band's `mt-2` the only space before "Hand the till to". */}
-        <View testID="user-sheet-body" className="flex-1 gap-0">
+            its `gap-0` stacks the sections flush, the band's `mt-2` the only space before "Hand the till to".
+            DialogBody's base `py-1` (dialog/index.tsx:277) is the 4 px between the header and "Your sales today". */}
+        <View testID="user-sheet-body" className="flex-1 gap-0 py-1">
         {props.sales && <SalesTodayRow total={salesToday} currency={props.sales.currency} locale={props.sales.locale} />}
         {props.drawer && (props.onOpenDrawer ? <DrawerDoor drawer={props.drawer} disabled={Boolean(props.blockedReason)}
           onPress={() => { setOpen(false); props.onOpenDrawer!(); }} />
