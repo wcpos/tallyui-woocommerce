@@ -358,7 +358,7 @@ test('the sheet is on the card surface and the drawer door is drawn as v2 draws 
   expect(screen.queryByTestId('user-sheet')).toBeNull();
 });
 
-// v2's insets and ranks (dialog/index.tsx:243,277; user-sheet.tsx:679,685-686,702,209; text/ladder.ts:14;
+// v2's insets and ranks (dialog/index.tsx:243,277 `py-1`; user-sheet.tsx:679,685-686,702,209; text/ladder.ts:14;
 // amount-figure/index.tsx:20): content 16 px in, flush sections, a 28 px band, muted `key` labels and `tile` figures.
 test("the sheet's content, labels and figure take v2's inset, ranks and gaps", () => {
   openSheet({ drawer: { figure: '$50.00', verbs: 'Pay in · Pay out · Close register', opener: 'opened 09:00 by', openerName: 'Sam Lee' },
@@ -368,6 +368,7 @@ test("the sheet's content, labels and figure take v2's inset, ranks and gaps", (
   expect(classesOf('user-sheet-footer')).toContain('-mx-4');
   expect(classesOf('user-sheet-body')).toContain('gap-0');
   expect(classesOf('user-sheet-body')).not.toContain('gap-4');
+  expect(classesOf('user-sheet-body')).toContain('py-1');
   expect(classesOf('user-sheet-switch-band')).toEqual(expect.arrayContaining(['mt-2', 'h-7']));
   expect(classesOf('user-sheet-drawer-label')).toEqual(expect.arrayContaining(['text-sm', 'text-muted-foreground']));
   expect(classesOf('user-sheet-drawer-label')).not.toContain('font-medium');
