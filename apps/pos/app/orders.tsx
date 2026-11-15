@@ -1,10 +1,11 @@
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import { View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import { Text } from '@tallyui/components';
 import { OrdersScreen } from '../components/orders-screen';
 import { SessionHoldBanner } from '../components/session-hold-banner';
 import { useSession } from '../lib/auth/session-context';
+import { useRequestContext } from '../lib/auth/request-context';
 import { useCatalogue } from '../lib/catalogue/catalogue-context';
 import { orderHistorySource } from '../lib/orders/order-history';
 import { customerSource } from '../lib/customers/customer-source';
@@ -13,14 +14,8 @@ export default function Orders() {
   const { session, ready } = useSession();
   const { catalogue, error } = useCatalogue();
   const router = useRouter();
-  const latest = useRef(session);
-  latest.current = session;
   const connector = catalogue?.connector;
-  const context = useMemo(() => () => ({
-    connectorId: connector!.id,
-    baseUrl: latest.current!.site.wcposApiUrl,
-    headers: connector!.auth.getHeaders({ token: latest.current!.tokens.accessToken }),
-  }), [connector]);
+  const context = useRequestContext(connector, session);
   const history = useMemo(() => connector ? orderHistorySource(connector, context) : null, [connector, context]);
   const customers = useMemo(() => connector ? customerSource(connector, context) : null, [connector, context]);
   if (!ready) return null;

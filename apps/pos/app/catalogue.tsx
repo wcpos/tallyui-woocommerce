@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import { Redirect, useRouter, type Href } from 'expo-router';
 import { CatalogueUnavailable } from '../components/catalogue-unavailable';
 import { SaleScreen } from '../components/sale-screen';
@@ -6,6 +6,7 @@ import { SessionHoldBanner } from '../components/session-hold-banner';
 import { StoreSettingsGate } from '../components/store-settings-gate';
 import { useTillStoreSettings } from '../lib/sale/use-till-store-settings';
 import { useSession } from '../lib/auth/session-context';
+import { useRequestContext } from '../lib/auth/request-context';
 import { useCatalogue } from '../lib/catalogue/catalogue-context';
 import { customerSource } from '../lib/customers/customer-source';
 import { useDefaultCustomer, useDefaultCustomerSetting } from '../lib/customers/default-customer';
@@ -21,19 +22,10 @@ export default function Catalogue() {
   const store = useTillStoreSettings(session);
   const { catalogue, products, status, notice, error } = useCatalogue();
   const router = useRouter();
-  const latest = useRef(session);
-  latest.current = session;
   const connector = catalogue?.connector;
-  const customers = useMemo(() => connector ? customerSource(connector, () => ({
-    connectorId: connector.id,
-    baseUrl: latest.current!.site.wcposApiUrl,
-    headers: connector.auth.getHeaders({ token: latest.current!.tokens.accessToken }),
-  })) : null, [connector]);
-  const mailer = useMemo(() => connector ? receiptMailer(connector, () => ({
-    connectorId: connector.id,
-    baseUrl: latest.current!.site.wcposApiUrl,
-    headers: connector.auth.getHeaders({ token: latest.current!.tokens.accessToken }),
-  })) : null, [connector]);
+  const context = useRequestContext(connector, session);
+  const customers = useMemo(() => connector ? customerSource(connector, context) : null, [connector, context]);
+  const mailer = useMemo(() => connector ? receiptMailer(connector, context) : null, [connector, context]);
   const [defaultSetting] = useDefaultCustomerSetting(session?.site.home, catalogue?.store);
   const defaultCustomer = useDefaultCustomer(defaultSetting, session?.tokens.user, customers?.get);
   const couponCollections = useMemo(() => catalogue ? { coupons: catalogue.coupons, products: catalogue.db.products } : undefined, [catalogue]);
