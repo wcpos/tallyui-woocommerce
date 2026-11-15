@@ -90,7 +90,7 @@ export function LogsScreen({ collection, storeName, siteUrl,
       docs => setRows(docs.map(doc => doc.toJSON())));
     return () => subscription.unsubscribe();
   }, [collection]);
-  const { term, query: search, type, set } = useSearchTerm();
+  const { term, query: search, type } = useSearchTerm();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggle = (id: string) => setExpanded(previous => ({ ...previous, [id]: !previous[id] }));
   // v2 ANDs the search with the preset, the level and verbose (logs/index.tsx:188, one query of filters and search).

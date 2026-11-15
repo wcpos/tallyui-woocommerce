@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
-// The area screens' search box: what is typed shows at once, and the search runs 250 ms after the last keystroke.
+// The area screens' search box: what is typed shows at once, and the search runs after the last keystroke,
+// v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
 const SEARCH_DEBOUNCE_MS = 250;
 
 export interface SearchTerm {
