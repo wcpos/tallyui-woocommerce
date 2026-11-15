@@ -7,6 +7,7 @@ import { useOutbox } from '../lib/sale/outbox-context';
 import { useRegister } from '../lib/register/register-context';
 import { initialOrderFilters, matchesOrderFilters, matchesOrderSearch, toHistoryRow, WOO_CREATED_VIA_OPTIONS, WOO_STATUS_LABELS, type OrderHistorySource } from '../lib/orders/order-history';
 import { useAreaColumns } from '../lib/area-columns';
+import { useSearchTerm } from '../lib/search-term';
 import { ORDERS_COLUMNS, OrdersTable } from './orders-table';
 import { AreaDisplayOptions } from './area-display-options';
 import { OrderDetailSheet } from './order-detail';
@@ -17,8 +18,6 @@ import { AreaToolbar, useAreaGutter } from './area-header';
 
 // The till id; the bound register is the drawer.
 const REGISTER_ID = 'web';
-// v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
-const SEARCH_DEBOUNCE_MS = 250;
 // The app has no store timezone yet (lib/orders/order-days.ts)
 const TIMEZONE = 'device';
 
@@ -41,19 +40,13 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
   const [failed, setFailed] = useState(false);
   const [opened, setOpened] = useState<{ data: ReturnType<typeof buildReceiptDataFromPosOrder>; posOrder?: PosOrder } | null>(null);
   const [viewing, setViewing] = useState<StoreOrder | null>(null);
-  const [term, setTerm] = useState('');
-  const [search, setSearch] = useState('');
+  const { term, query: search, type, set } = useSearchTerm();
   const [columns, setColumns] = useAreaColumns('orders', ORDERS_COLUMNS);
   // v2's page gutter (ground.ts:46-72): the bar, the table card (OrdersTable) and this page's notes; the receipt keeps 16.
   const gutter = useAreaGutter();
   const request = useRef(0);
   // The count is in memory only, for each order opened in this screen.
   const counts = useRef(new Map<string, number>());
-
-  useEffect(() => {
-    const timer = setTimeout(() => setSearch(term.trim()), SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [term]);
 
   async function loadPage(nextPage: number, query: string) {
     const mine = ++request.current;
@@ -83,10 +76,10 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
     if (outbox.enabled && history) void loadPage(1, search);
   }, [outbox.enabled, history, search, value]);
 
-  function scan(code: string) { setTerm(code); setSearch(code.trim()); }
+  function scan(code: string) { set(code); }
   useWedgeScanner(scan, outbox.enabled && opened === null && viewing === null);
 
-  function clear() { setTerm(''); setSearch(''); setValue(initial); }
+  function clear() { set(''); setValue(initial); }
 
   function open(row: PosOrder | OrderHistoryRow) {
     const n = (counts.current.get(row.id) ?? 0) + 1;
@@ -111,7 +104,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
   return (
     <View className="flex-1 bg-background">
       <AreaToolbar area="orders" title="Orders" onBack={onBack}
-        search={outbox.enabled && !opened && !viewing ? <SearchInput testID="search-orders" value={term} onChangeText={setTerm} placeholder="Search Orders" /> : null}>
+        search={outbox.enabled && !opened && !viewing ? <SearchInput testID="search-orders" value={term} onChangeText={type} placeholder="Search Orders" /> : null}>
         <AreaDisplayOptions area="orders" columns={ORDERS_COLUMNS} settings={columns} onChange={setColumns} />
       </AreaToolbar>
       {outbox.enabled && history && fields.length > 0 && !opened && !viewing && <View className={`pb-3 ${gutter}`}>

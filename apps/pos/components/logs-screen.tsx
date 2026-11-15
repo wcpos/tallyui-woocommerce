@@ -6,6 +6,7 @@ import type { LogCollection, LogRecord } from '../lib/logs/log-store';
 import { IDLE_OUTBOX_STATE, buildDebugInfo, formatDurationMs, formatLogTime, logStats, matchesLogFilter, outboxSyncStats,
   type LogPreset, type OutboxSyncStats } from '../lib/logs/log-view';
 import { useVerboseDiagnostics } from '../lib/logs/verbose';
+import { useSearchTerm } from '../lib/search-term';
 import { chipInkClassName, chipToneClassName } from './catalogue-filter-chips';
 
 // v2's Stat (packages/components/src/stat): the number above a muted label, pressable as a filter when it has onPress.
@@ -25,8 +26,6 @@ function Stat({ testID, value, label, tone, onPress }: {
     : <View testID={testID} className="-m-1 p-1">{body}</View>;
 }
 
-// v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
-const SEARCH_DEBOUNCE_MS = 250;
 // v2's search fold (foldLogSearchText, packages/utils/src/logger/index.ts:160): lowercase, NFD, no combining marks.
 function fold(text: string): string {
   return text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -91,12 +90,7 @@ export function LogsScreen({ collection, storeName, siteUrl,
       docs => setRows(docs.map(doc => doc.toJSON())));
     return () => subscription.unsubscribe();
   }, [collection]);
-  const [term, setTerm] = useState('');
-  const [search, setSearch] = useState('');
-  useEffect(() => {
-    const timer = setTimeout(() => setSearch(term.trim()), SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [term]);
+  const { term, query: search, type, set } = useSearchTerm();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggle = (id: string) => setExpanded(previous => ({ ...previous, [id]: !previous[id] }));
   // v2 ANDs the search with the preset, the level and verbose (logs/index.tsx:188, one query of filters and search).
@@ -133,7 +127,7 @@ export function LogsScreen({ collection, storeName, siteUrl,
           onPress={() => { void copyDebugInfo(); }}><Text>Copy debug info</Text></Button>}
       </View>
       {/* v2 (logs/index.tsx:389): the search sits between the stats and the chips. */}
-      <SearchInput testID="search-logs" value={term} onChangeText={setTerm} placeholder="Search Logs" className="mb-3" />
+      <SearchInput testID="search-logs" value={term} onChangeText={type} placeholder="Search Logs" className="mb-3" />
       <View className="mb-4 flex-row flex-wrap items-center gap-2">
         {(['all', 'actions', 'errors', 'sync'] as const).map(value => <Chip key={value} testID={`logs-chip-${value}`}
           label={{ all: 'All', actions: 'Actions', errors: 'Errors', sync: 'Sync' }[value]} on={preset === value}

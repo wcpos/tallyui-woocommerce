@@ -12,7 +12,7 @@
 // screen takes plain docs and never touches it. The Featured and Brands chips are still missing: they need
 // connector data the app does not sync. The drilled view has no per-attribute variation selects or variation
 // search: an option's match shows as one chip that clears it.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { JSX } from 'react';
 import { ScrollView, View, useWindowDimensions } from 'react-native';
 import { ConnectorProvider, formatMoney, moneyFromDecimalString } from '@tallyui/core';
@@ -27,6 +27,7 @@ import { matchesCatalogueFilters } from '../lib/catalogue/quick-filters';
 import type { CatalogueFilters } from '../lib/catalogue/quick-filters';
 import { useAreaColumns } from '../lib/area-columns';
 import type { AreaColumn } from '../lib/area-columns';
+import { useSearchTerm } from '../lib/search-term';
 import { AreaDisplayOptions } from './area-display-options';
 import { AreaToolbar, useAreaGutter } from './area-header';
 import { BrowseCrumb } from './browse-terms-view';
@@ -38,8 +39,6 @@ import { StatusDot } from './status-dot';
 import { CaptionRowInset, TableCount, TableSurface, useCatalogueSync } from './table-surface';
 import type { StatusTone } from './status-dot';
 
-// v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
-const SEARCH_DEBOUNCE_MS = 250;
 // The width below which the table becomes a list, as customers-screen.tsx.
 const NARROW_WIDTH = 600;
 // The image cell's square, about v2's thumbnail.
@@ -225,8 +224,7 @@ function variationColumns(columns: (ProductTableColumn<ProductDoc> & { id: Produ
 }
 
 export function ProductsScreen({ products, connector, currency, locale: storeLocale, onBack }: ProductsScreenProps): JSX.Element {
-  const [term, setTerm] = useState('');
-  const [query, setQuery] = useState('');
+  const { term, query, type, set } = useSearchTerm();
   // v2's page gutter (ground.ts:46-72): the crumb and chip rows sit on the bar's 12 in a window, 16 on a phone.
   const gutter = useAreaGutter();
   // v2's Products area lists every product, in stock or not: no chip is on at the start.
@@ -237,11 +235,6 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   const sync = useCatalogueSync();
   const locale = storeLocale?.replaceAll('_', '-');
 
-  useEffect(() => {
-    const timer = setTimeout(() => setQuery(term.trim()), SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [term]);
-
   // v2's drill holds while the search it was opened under does (products.tsx `drilled`); otherwise it is dropped,
   // not parked, so restoring the search does not bring it back. Reset while rendering, React's "previous render"
   // pattern, as v2 does. A product gone from the docs drops it too.
@@ -249,7 +242,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   if (drill && !drilled) setDrill(null);
   const drillTo = useCallback<OnDrill>((doc, match) => setDrill({ id: doc.id, query, match }), [query]);
 
-  function clear() { setTerm(''); setQuery(''); setFilters({}); }
+  function clear() { set(''); setFilters({}); }
 
   const columns = useMemo(() => productColumns(currency, locale, drillTo), [currency, locale, drillTo]);
   // The columns the display options leave on, in the area's order; the narrow list keeps sorting on every column.
@@ -336,7 +329,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
     <ConnectorProvider connector={connector} traitContext={{ currency }}>
       <View testID="screen-products" className="flex-1 bg-background">
         <AreaToolbar area="products" title="Products" onBack={onBack}
-          search={<SearchInput testID="search-products" value={term} onChangeText={setTerm} placeholder="Search products" />}>
+          search={<SearchInput testID="search-products" value={term} onChangeText={type} placeholder="Search products" />}>
           <AreaDisplayOptions area="products" columns={PRODUCTS_COLUMNS} settings={settings} onChange={setSettings} />
         </AreaToolbar>
         <View testID="products-filter-row" className={`pb-2 ${gutter}`}>
