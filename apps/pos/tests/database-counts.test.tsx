@@ -3,13 +3,11 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { createRxDatabase, type RxCollection, type RxDatabase } from 'rxdb';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
-import { addPosOrderCollection, type PosOrder } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
 import { DatabaseCounts, type DatabaseCountRow } from '../components/database-counts';
 import { classesOf } from './classes-of';
 
 let db: RxDatabase;
-let orders: RxCollection<PosOrder>;
 let products: RxCollection;
 let coupons: RxCollection;
 let rows: DatabaseCountRow[];
@@ -18,18 +16,9 @@ beforeEach(async () => {
     storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }) });
   const schema = { version: 0, primaryKey: 'id', type: 'object', properties: { id: { type: 'string', maxLength: 100 } }, required: ['id'] };
   ({ products, coupons } = await db.addCollections({ products: { schema }, coupons: { schema } }));
-  orders = await addPosOrderCollection(db);
   rows = [{ key: 'products', label: 'Products', collection: products }, { key: 'coupons', label: 'Coupons', collection: coupons }];
 });
 afterEach(async () => { cleanup(); await db.close(); });
-
-function insertOrder(id: string, extra: Partial<PosOrder>) {
-  return orders.insert({ id, createdAt: '2026-10-07T09:00:00.000Z', updatedAt: '2026-10-07T09:00:00.000Z',
-    currency: 'USD', pricesIncludeTax: false, lines: [], payments: [], customer: null,
-    subtotalMinor: 100, discountMinor: 0, taxMinor: 0, totalMinor: 100,
-    taxRounding: { granularity: 'per_line_items', mode: 'half_up' }, commandId: crypto.randomUUID(),
-    syncStatus: 'pending', ...extra });
-}
 
 test('counts each collection and follows writes', async () => {
   await products.bulkInsert([{ id: 'a' }, { id: 'b' }]);
