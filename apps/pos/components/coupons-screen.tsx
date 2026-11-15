@@ -21,6 +21,7 @@ import {
 import type { SvgIconProps } from '@tallyui/components';
 import { useAreaColumns } from '../lib/area-columns';
 import type { AreaColumn } from '../lib/area-columns';
+import { useSearchTerm } from '../lib/search-term';
 import { AreaDisplayOptions } from './area-display-options';
 import { AreaToolbar, useAreaGutter } from './area-header';
 import {
@@ -30,8 +31,6 @@ import { StatusDot } from './status-dot';
 import type { StatusTone } from './status-dot';
 import { CaptionRowInset, TableCount, TableSurface, useCatalogueSync } from './table-surface';
 
-// v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
-const SEARCH_DEBOUNCE_MS = 250;
 // The width below which the table becomes a list, as customers-screen.tsx.
 const NARROW_WIDTH = 600;
 
@@ -261,8 +260,7 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
   const [all, setAll] = useState<CouponDoc[] | null>(null);
   // v2's page gutter (ground.ts:46-72): the chip row sits on the bar's 12 in a window, 16 on a phone.
   const gutter = useAreaGutter();
-  const [term, setTerm] = useState('');
-  const [query, setQuery] = useState('');
+  const { term, query, type, set } = useSearchTerm();
   const [filters, setFilters] = useState<CouponFilters>({});
   const [settings, setSettings] = useAreaColumns('coupons', COUPONS_COLUMNS);
   const { width } = useWindowDimensions();
@@ -276,12 +274,7 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
     return () => subscription.unsubscribe();
   }, [coupons]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setQuery(term.trim()), SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [term]);
-
-  function clear() { setTerm(''); setQuery(''); setFilters({}); }
+  function clear() { set(''); setFilters({}); }
   function setFilter(field: FilterKey, value: string | undefined) {
     setFilters(current => {
       const next = { ...current };
@@ -342,7 +335,7 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
   return (
     <View testID="screen-coupons" className="flex-1 bg-background">
       <AreaToolbar area="coupons" title="Coupons" onBack={onBack}
-        search={<SearchInput testID="search-coupons" value={term} onChangeText={setTerm} placeholder="Search Coupons" />}>
+        search={<SearchInput testID="search-coupons" value={term} onChangeText={type} placeholder="Search Coupons" />}>
         <AreaDisplayOptions area="coupons" columns={COUPONS_COLUMNS} settings={settings} onChange={setSettings} />
       </AreaToolbar>
       <View testID="coupons-filter-row" className={`pb-2 ${gutter}`}>

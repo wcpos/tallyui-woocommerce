@@ -10,13 +10,12 @@ import type { AreaColumn } from '../lib/area-columns';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { DEFAULT_CUSTOMER_SORT, billingLines, customerInitials, nextSort, sortCustomers } from '../lib/customers/customer-table';
 import type { CustomerSort, CustomerSortField } from '../lib/customers/customer-table';
+import { useSearchTerm } from '../lib/search-term';
 import { AddCustomerDialog } from './add-customer-dialog';
 import { AreaDisplayOptions } from './area-display-options';
 import { AreaToolbar, useAreaGutter } from './area-header';
 import { CaptionRowInset, TableCount, TableSurface } from './table-surface';
 
-// v2's QuerySearchInput debounce (packages/core/src/screens/main/components/query-search-input.tsx:33).
-const SEARCH_DEBOUNCE_MS = 250;
 // The customer picker's floor (components/customer-picker.tsx:46); the store search is online. Below it the
 // screen shows the store's default list, search(''), as the picker does and as v2's Customers screen opens.
 const MIN_QUERY_CHARS = 2;
@@ -75,8 +74,7 @@ function searchErrorMessage(cause: unknown): string {
 }
 
 export function CustomersScreen({ source, onBack, createBlockedReason }: CustomersScreenProps): JSX.Element {
-  const [term, setTerm] = useState('');
-  const [query, setQuery] = useState('');
+  const { term, query, type, set } = useSearchTerm();
   const [results, setResults] = useState<Customer[]>([]);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string>();
@@ -88,11 +86,6 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
   const { width } = useWindowDimensions();
   // v2's page gutter (ground.ts:46-72): the bar, the table card and this page's notes share 12 in a window, 16 on a phone.
   const gutter = useAreaGutter();
-
-  useEffect(() => {
-    const timer = setTimeout(() => setQuery(term.trim()), SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [term]);
 
   // '' is the default list; one typed character keeps it rather than loading it again.
   const asked = query.length < MIN_QUERY_CHARS ? '' : query;
@@ -115,7 +108,7 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
     });
   }, [source, asked, attempt]);
 
-  function clear() { setTerm(''); setQuery(''); }
+  function clear() { set(''); }
   function retry() { setAttempt(n => n + 1); }
   const shown = sortCustomers(results, sort);
   // The columns the display options leave on, in the area's order.
@@ -175,7 +168,7 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
   return (
     <View testID="screen-customers" className="flex-1 bg-background">
       <AreaToolbar area="customers" title="Customers" onBack={onBack}
-        search={source ? <SearchInput testID="search-customers" value={term} onChangeText={setTerm} placeholder="Search Customers" /> : null}>
+        search={source ? <SearchInput testID="search-customers" value={term} onChangeText={type} placeholder="Search Customers" /> : null}>
         {source ? <IconButton testID="customers-add-button" accessibilityLabel="Add new customer" variant="ghost"
           disabled={createBlockedReason !== undefined} onPress={() => setAdding(true)}><AddCustomerIcon size={20} /></IconButton> : null}
         {/* v2's order: add, then the settings icon, then the bell and the avatar. */}
