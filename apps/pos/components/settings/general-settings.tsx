@@ -1,22 +1,19 @@
 import { useState, type JSX } from 'react';
 import { Linking, View } from 'react-native';
-import { Path } from 'react-native-svg';
-import { Button, createSvgIcon, Switch, Text } from '@tallyui/components';
+import { Button, Switch, Text } from '@tallyui/components';
 import type { CustomerSummary } from '@tallyui/pos';
 import type { CurrencyPosition, StoreInfo } from '../../lib/catalogue/store-info';
 import type { CustomerSource } from '../../lib/customers/customer-source';
 import type { DefaultCustomerSetting } from '../../lib/customers/default-customer';
 import { useRegister } from '../../lib/register/register-context';
 import { CustomerPicker } from '../customer-picker';
+import { OpenExternalIcon } from '../docs-link';
 import { RegisterSwitch } from '../register-controls';
 import { SETTINGS_KEY_CLASS, SettingsField, SettingsSection } from './settings-form';
 
 export function wooSettingsUrl(siteHome: string): string {
   return `${siteHome.replace(/\/+$/, '')}/wp-admin/admin.php?page=wc-settings`;
 }
-
-// v2's tabler `openExternal` glyph at its 1.5 stroke (components icon/components/tabler/openExternal.tsx:14).
-const OpenExternalIcon = createSvgIcon('OpenExternalIcon', () => <Path d="M12 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6m-7 1 9-9m-5 0h5v5" />);
 
 export function LockedRow({ testID, label, value, href }: {
   testID: string; label: string; value: string | boolean | undefined; href: string;

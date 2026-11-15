@@ -4,10 +4,10 @@ import { Path } from 'react-native-svg';
 import { createSvgIcon, Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
 import { tabWho } from '../lib/sale/tab-who';
+import { ChevronDownIcon } from './select-chevron';
 
 // lucide `chevron-up` / `chevron-down`: v2's count cell points the way the list will travel (cart/tabs.tsx).
 const ChevronUpIcon = createSvgIcon('ChevronUpIcon', () => <Path d="m18 15-6-6-6 6" />);
-const ChevronDownIcon = createSvgIcon('ChevronDownIcon', () => <Path d="m6 9 6 6 6-6" />);
 
 // The ages tick once a minute (v2 cart/open-orders-list.tsx AGE_TICK_MS).
 export const AGE_TICK_MS = 60_000;
