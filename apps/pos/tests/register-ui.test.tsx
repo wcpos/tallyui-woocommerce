@@ -89,7 +89,7 @@ test.each([900, 390])('Offline shows once, in the bar\'s own pill, with sessions
     fireEvent.click(screen.getByText('Espresso'));
     openCartTab();
   }
-  toggleRegisterSessions();
+  await toggleRegisterSessions();
   await screen.findByTestId('open-register-card');
   // One pill in the window, the bar's: the cart draws no register row of its own.
   expect(screen.getAllByTestId('register-bar-pill').map(pill => pill.textContent)).toEqual(['Offline']);
@@ -136,7 +136,7 @@ test.each([900, 390])('the switch enables the register and replaces the cart at 
 
 test('open, pay out, sell, count and close, then reuse the counted float', async () => {
   await setup();
-  toggleRegisterSessions();
+  await toggleRegisterSessions();
   fireEvent.change(await screen.findByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
   await screen.findByTestId('cart-empty');
@@ -169,14 +169,15 @@ test('open, pay out, sell, count and close, then reuse the counted float', async
 
 test('switching sessions off removes the register UI and allows a sale without a session', async () => {
   const app = await setup();
-  toggleRegisterSessions();
+  await toggleRegisterSessions();
   expect(await screen.findByTestId('open-register-card')).not.toBeNull();
   // The open-register card replaces the cart and its head, so Cart Settings is reached again once a session is open.
   expect(screen.queryByTestId('cart-settings-button')).toBeNull();
   fireEvent.change(screen.getByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
   await screen.findByTestId('cart-empty');
-  toggleRegisterSessions();
+  await waitFor(() => expect(app.register.session?.status).toBe('open'));
+  await toggleRegisterSessions();
   expect(app.register.setting).toBe(false);
   await waitFor(() => expect(app.register.session).toBeNull());
   expect(screen.queryByTestId('register-bar-pill')).toBeNull();

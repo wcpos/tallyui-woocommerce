@@ -97,7 +97,7 @@ async function payCash() {
 }
 
 async function openRegister(enable = true) {
-  if (enable) toggleRegisterSessions();
+  if (enable) await toggleRegisterSessions();
   fireEvent.change(await screen.findByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
   await screen.findByTestId('cart-empty');
