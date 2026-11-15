@@ -1,6 +1,6 @@
 import { noTaxSettings } from './fixtures/store-settings';
 import type { ComponentProps } from 'react';
-import { act, cleanup, fireEvent, render, renderHook, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { addRxPlugin, createRxDatabase } from 'rxdb';
