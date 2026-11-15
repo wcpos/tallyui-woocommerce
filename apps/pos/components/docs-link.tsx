@@ -6,7 +6,7 @@ import { Button, createSvgIcon, Text } from '@tallyui/components';
 export const PRINTER_DOCS_URL = 'https://docs.wcpos.com/hardware/printers'; // v2 settings/printer/printer-docs.ts:2
 
 // v2's tabler `openExternal` glyph at its 1.5 stroke (components icon/components/tabler/openExternal.tsx:14).
-const OpenExternalIcon = createSvgIcon('OpenExternalIcon', () => <Path d="M12 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6m-7 1 9-9m-5 0h5v5" />);
+export const OpenExternalIcon = createSvgIcon('OpenExternalIcon', () => <Path d="M12 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6m-7 1 9-9m-5 0h5v5" />);
 
 /** v2 components/docs-link/index.tsx: the one way the app links out to documentation, opened in the system browser. */
 export function DocsLink({ href, children, testID, className }: {

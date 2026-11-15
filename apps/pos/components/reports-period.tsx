@@ -2,13 +2,10 @@
 // title, the period bold and its dates muted; pressing it opens the presets.
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet } from 'react-native';
-import { Path } from 'react-native-svg';
-import { createSvgIcon, Text } from '@tallyui/components';
+import { Text } from '@tallyui/components';
 import { DATE_PRESETS, type DatePreset, type DayRange } from '@tallyui/pos';
 import { Popover } from '@tallyui/primitives';
-
-// lucide `chevron-down`, v2's `chevronDown` at the end of its date button, at Icon's default size-4.5 (18 px).
-const ChevronDownIcon = createSvgIcon('ChevronDownIcon', () => <Path d="m6 9 6 6 6-6" />);
+import { ChevronDownIcon } from './select-chevron';
 
 export const PERIOD_LABELS: Record<DatePreset, string> = {
   today: 'Today', yesterday: 'Yesterday', thisWeek: 'This week', lastWeek: 'Last week', thisMonth: 'This month', lastMonth: 'Last month',
