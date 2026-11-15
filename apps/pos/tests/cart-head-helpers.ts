@@ -18,10 +18,13 @@ export function sessionsOff() {
 /**
  * The register sessions switch lives in Cart Settings: open the dialog, flip the switch, close the dialog. Turning
  * sessions on with no open session replaces the cart with the open-register card, which unmounts the dialog itself.
+ * The dialog is awaited because a register-session update still in flight can re-render the cart in the same flush
+ * as the click.
  */
-export function toggleRegisterSessions() {
+export async function toggleRegisterSessions(): Promise<void> {
   fireEvent.click(screen.getByTestId('cart-settings-button'));
-  fireEvent.click(within(screen.getByTestId('cart-settings')).getByRole('switch', { name: 'Use register sessions' }));
+  const dialog = await screen.findByTestId('cart-settings');
+  fireEvent.click(within(dialog).getByRole('switch', { name: 'Use register sessions' }));
   const close = screen.queryByTestId('ui-settings-close');
   if (close) fireEvent.click(close);
 }
