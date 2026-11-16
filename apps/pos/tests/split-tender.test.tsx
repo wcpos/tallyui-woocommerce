@@ -48,6 +48,34 @@ function OrderStoreReady() {
   return outbox.enabled && outbox.orders ? <span>Order store ready</span> : null;
 }
 
+test('cash quick amounts start at the remaining balance after a payment leg', async () => {
+  const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => ({
+    kind: 'results',
+    results: batch.map(envelope => ({ id: envelope.id, status: 'applied', serverRefs: { orderId: '115', totalMinor: 600 } })),
+  }));
+  const fakeTransport = { send };
+  render(
+    <SessionProvider>
+      <OutboxProvider transportFor={() => fakeTransport} storage={getRxStorageMemory()}>
+        <OrderStoreReady />
+        <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
+          storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}}
+          multiplePayments={true} />
+        <PortalHost />
+      </OutboxProvider>
+    </SessionProvider>,
+  );
+  await screen.findByText('Order store ready');
+  fireEvent.click(screen.getByText('Espresso'));
+  setLineQuantity('Espresso', 2);
+  fireEvent.click(screen.getByTestId('cart-checkout'));
+  takeLeg(200);
+  expect(screen.getByTestId('checkout-ledger-remaining').textContent).toBe('$4.00');
+  expect(screen.getByTestId('checkout-quick-4').textContent).toBe('$4.00');
+  expect(screen.getAllByTestId(/^checkout-quick-\d/).map(chip => chip.textContent)).toEqual(['$4.00', '$5.00', '$10.00', '$50.00']);
+  expect(screen.getByTestId('checkout-quick-exact').textContent).toBe('Exact $4.00');
+}, 20_000);
+
 test.each([true, false, undefined])('uses the advertised tender UI with multiplePayments=%s', async multiplePayments => {
   const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => ({
     kind: 'results',
