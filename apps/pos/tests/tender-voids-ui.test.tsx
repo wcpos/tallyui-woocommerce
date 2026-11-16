@@ -186,3 +186,28 @@ test('a failed save hides Remove and records no void', async () => {
   expect(screen.getByTestId(/^checkout-leg-/)).not.toBeNull();
   expect(await collection.find().exec()).toHaveLength(0);
 }, 20_000);
+
+test('Keep taking payment closes the cancel view and keeps the leg', async () => {
+  await renderSale(true);
+  addCash();
+  fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+  expect(screen.getByTestId('cancel-payment')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('checkout-cancel-keep-going'));
+  expect(screen.queryByTestId('cancel-payment')).toBeNull();
+  expect(screen.getByTestId(/^checkout-leg-/)).not.toBeNull();
+  expect(await collection.find().exec()).toHaveLength(0);
+}, 20_000);
+
+test('a void error from one sale is gone on the next sale tender', async () => {
+  await renderSale(true);
+  vi.spyOn(collection, 'bulkInsert').mockRejectedValueOnce(new Error('disk full'));
+  addCash();
+  fireEvent.click(screen.getByTestId(/^checkout-remove-leg-/));
+  expect((await screen.findByTestId('tender-void-error')).textContent).toContain('disk full');
+  takeLeg(400);
+  fireEvent.click(await screen.findByRole('button', { name: 'New sale' }));
+  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
+  expect(await screen.findByTestId('checkout-keypad')).not.toBeNull();
+  expect(screen.queryByTestId('tender-void-error')).toBeNull();
+}, 20_000);
