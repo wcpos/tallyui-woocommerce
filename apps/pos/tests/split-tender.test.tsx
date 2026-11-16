@@ -1,6 +1,6 @@
 import { setLineQuantity } from './cart-line-helpers';
 import { noTaxSettings } from './fixtures/store-settings';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
@@ -47,6 +47,67 @@ function OrderStoreReady() {
   const outbox = useOutbox();
   return outbox.enabled && outbox.orders ? <span>Order store ready</span> : null;
 }
+
+test.each([
+  { scenario: 'a scan adds a line during the two-pane checkout', code: '2000000000015', leg: false, before: '$3.00', after: '$6.00', quantity: '2' },
+  { scenario: 'a scan adds a line after one leg is taken', code: '2000000000015', leg: true, before: '$2.00', after: '$5.00', quantity: '2' },
+  { scenario: 'an unknown code adds nothing during the two-pane checkout', code: '999999999', leg: false, before: '$3.00', after: '$3.00', quantity: '1' },
+])('$scenario', async ({ code, leg, before, after, quantity }) => {
+  const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => ({
+    kind: 'results',
+    results: batch.map(envelope => ({ id: envelope.id, status: 'applied', serverRefs: { orderId: '115', totalMinor: 600 } })),
+  }));
+  const fakeTransport = { send };
+  render(
+    <SessionProvider>
+      <OutboxProvider transportFor={() => fakeTransport} storage={getRxStorageMemory()}>
+        <OrderStoreReady />
+        <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
+          storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}}
+          multiplePayments={true} />
+        <PortalHost />
+      </OutboxProvider>
+    </SessionProvider>,
+  );
+  await screen.findByText('Order store ready');
+  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
+  expect(screen.getByTestId('checkout-ledger-column')).not.toBeNull();
+  if (leg) takeLeg(100);
+  expect(screen.getByTestId('checkout-ledger-remaining').textContent).toBe(before);
+  const recordedLegs = within(screen.getByTestId('checkout-ledger')).queryAllByTestId(/^checkout-leg-/)
+    .map(row => ({ id: row.getAttribute('data-testid'), text: row.textContent }));
+  if (leg) {
+    expect(recordedLegs).toHaveLength(1);
+    expect(recordedLegs[0].text).toContain('Cash');
+    expect(recordedLegs[0].text).toContain('$1.00');
+  }
+  vi.useFakeTimers();
+  try {
+    act(() => {
+      for (const key of [...code, 'Enter']) {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+        vi.advanceTimersByTime(5);
+      }
+    });
+    expect(screen.getByTestId('checkout-ledger-remaining').textContent).toBe(after);
+    expect(within(screen.getByTestId('checkout-ledger')).queryAllByTestId(/^checkout-leg-/)
+      .map(row => ({ id: row.getAttribute('data-testid'), text: row.textContent }))).toEqual(recordedLegs);
+    expect(screen.getByTestId('checkout-ledger-paid').textContent).toBe(leg ? '$1.00' : '$0.00');
+    expect(screen.queryByTestId('variation-picker')).toBeNull();
+    expect(screen.queryByText('Choose an option')).toBeNull();
+    if (!leg) {
+      // This tree has no Toaster; return to the cart to verify the scanned quantity.
+      fireEvent.click(screen.getByText('Back'));
+      expect(screen.getByLabelText('Edit quantity of Espresso').textContent).toBe(quantity);
+      expect(screen.queryByTestId('variation-picker')).toBeNull();
+      expect(screen.queryByText('Choose an option')).toBeNull();
+    }
+  } finally {
+    cleanup();
+    vi.useRealTimers();
+  }
+}, 20_000);
 
 test('cash quick amounts start at the remaining balance after a payment leg', async () => {
   const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => ({

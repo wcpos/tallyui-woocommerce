@@ -22,6 +22,8 @@ import { saleDiscountCodes } from '../lib/sale/discount-codes';
 import { taxClassOptions } from '../lib/sale/tax-classes';
 import { lookupCode } from '../lib/scan/lookup';
 import { scanFeedback } from '../lib/scan/scan-sound';
+import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
+import { toast } from '../lib/toast/toast';
 import { recordTenderVoids, type TenderVoidCollection } from '../lib/sale/tender-voids';
 import type { ParkedCart, ParkedCartCollection } from '../lib/sale/parked-carts';
 import { VariantChooser } from './variant-chooser';
@@ -411,6 +413,40 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     }
   }
 
+  // v2 pos-columns.tsx:147 / tender-scans.tsx (#1438): checkout owns scans while the catalogue is absent.
+  function onTenderScan(code: string): void {
+    try {
+      const result = lookupCode(props.products, connector.traits.product, code, { currency });
+      if (result.kind === 'entry') {
+        const { product, variant } = result.entry;
+        const name = connector.traits.product.getName(product);
+        const label = variant.title ? `${name} · ${variant.title}` : name;
+        if (variant.stock.status === 'out_of_stock') {
+          scanFeedback('failure');
+          toast({ type: 'warning', title: `${label} out of stock` });
+        } else if (onAdd(result.entry)) {
+          scanFeedback('success');
+          toast({ type: 'success', title: `${label} added to cart` });
+        } else {
+          scanFeedback('failure');
+          toast({ type: 'error', title: `${label} was not added` });
+        }
+        return;
+      }
+      scanFeedback('failure');
+      if (result.kind === 'product') {
+        toast({ type: 'info', title: `${connector.traits.product.getName(result.product)}: choose a variant in the products column` });
+      } else {
+        toast({ type: 'info', title: result.kind === 'several'
+          ? `Several matches: ${result.count} products found — ${code}`
+          : `Barcode not found — ${code}` });
+      }
+    } catch (error) {
+      scanFeedback('failure');
+      toast({ type: 'error', title: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
   const drawerFigure = drawerFigureText(register, minor => sheetMoney(minor, currency, props.locale));
   const cashierControl = props.onSwitchCashier ? <CashierSheet name={props.cashierName} cashiers={props.cashiers ?? []}
       onSwitch={changeCashier} onAddAnother={() => changeCashier()} onSignOut={props.onSignOut}
@@ -549,6 +585,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
 
   // WCPOS v2's two-pane checkout: during a multi-payment tender the ledger takes the products panel, beside the tender.
   const multiTender = outbox.enabled && props.multiplePayments === true && sale.stage.kind === 'tender';
+  useWedgeScanner(onTenderScan, multiTender && width >= 900);
   if (width >= 900) {
     const shown = liveWidth ?? viewState.width;
     // v2 keeps no inset on the products column's edge facing the cart (pos-columns.tsx `GroundInnerEdge`, lib/ground.ts:
