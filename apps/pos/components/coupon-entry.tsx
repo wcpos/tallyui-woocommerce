@@ -68,6 +68,15 @@ export function CouponPicker({ sale, coupons, currency, onClose }: {
 
   async function apply() {
     if (!selected) return;
+    const coupon = docs.find(doc => doc.code === selected);
+    // v2's pos_cart.coupon_type_unsupported (#3494): the store records a 0 discount for these types
+    // and never reduces the credit, so they are refused, not applied.
+    if (!Object.prototype.hasOwnProperty.call(typeLabels, coupon?.discount_type ?? '')) {
+      setError(
+        `${selected} can't be applied in the POS: its coupon type (${coupon?.discount_type ?? 'unknown'}) comes from another plugin. Only percentage and fixed discount coupons are supported.`,
+      );
+      return;
+    }
     setApplying(true);
     const refusal = await sale.applyCoupon(selected);
     setApplying(false);
