@@ -17,8 +17,9 @@ what is specific to this repository.
 
 - `apps/pos`: the Expo (expo-router) app, package
   `@tallyui-woocommerce/pos`. Web first; native and desktop come later.
-- `dev/woo-store/` (planned, see `docs/PLAN.md`): scripts for the local
-  WooCommerce dev store on this Mac mini. It is outside the pnpm workspace.
+- `dev/woo-store/`: scripts for the local WooCommerce dev store on this
+  Mac mini (`up.sh`, `down.sh`, `status.sh`, `seed.sh`, `smoke.sh`; see its
+  `README.md`). It is outside the pnpm workspace.
 
 ## Commands
 
@@ -42,7 +43,7 @@ there as a route.
 ## TallyUI
 
 - `@tallyui/*` packages come from npm at one exact version, all the same
-  (`3.20.0` now). Upgrade them together in one PR.
+  (`apps/pos/package.json` pins it). Upgrade them together in one PR.
 - Never a `file:`, `link:` or `workspace:` specifier, a git dependency,
   `pnpm.overrides`, a patch, or a Metro, tsconfig or Vitest alias that
   points at a package's `src`. Resolve through the published `exports`.
