@@ -216,3 +216,100 @@ test('the existing outbox transport sees a catalogue capability that arrives lat
   expect(payload.payment_method).toBe('pos_card');
   expect(JSON.parse(payload.meta_data.find((entry: { key: string }) => entry.key === '_woocommerce_pos_payments').value)).toHaveLength(2);
 }, 20_000);
+
+test.each([
+  { scenario: 'Split 3 ways prefills each share', kind: 'three' },
+  { scenario: 'the plan starts after a leg already taken', kind: 'prior' },
+  { scenario: 'Change split and Split off restore the balance', kind: 'change' },
+  { scenario: 'the one-payment pane has no Split chip', kind: 'single' },
+])('$scenario', async ({ kind }) => {
+  const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => ({
+    kind: 'results',
+    results: batch.map(envelope => ({ id: envelope.id, status: 'applied', serverRefs: { orderId: '115', totalMinor: 600 } })),
+  }));
+  const fakeTransport = { send };
+  render(
+    <SessionProvider>
+      <OutboxProvider transportFor={() => fakeTransport} storage={getRxStorageMemory()}>
+        <OrderStoreReady />
+        <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
+          storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}}
+          multiplePayments={kind !== 'single'} />
+        <PortalHost />
+      </OutboxProvider>
+    </SessionProvider>,
+  );
+  await screen.findByText('Order store ready');
+  fireEvent.click(screen.getByText('Espresso'));
+  setLineQuantity('Espresso', 2);
+  fireEvent.click(screen.getByTestId('cart-checkout'));
+  if (kind === 'single') {
+    expect(screen.getByTestId('checkout-entry').textContent).toBe('$6.00');
+    expect(screen.queryByTestId('checkout-split-chip')).toBeNull();
+    return;
+  }
+  if (kind === 'prior') takeLeg(100);
+  fireEvent.click(screen.getByTestId('checkout-split-chip'));
+  expect(screen.getByText('Split the rest')).not.toBeNull();
+  expect(screen.getByTestId('checkout-split-chip').getAttribute('aria-pressed')).toBe('true');
+  if (kind === 'prior') {
+    expect(within(screen.getByTestId('checkout-even-2')).getByText('$2.50 each')).not.toBeNull();
+    fireEvent.click(screen.getByTestId('checkout-even-2'));
+    expect(screen.getByTestId('checkout-entry').textContent).toBe('$2.50');
+    expect(screen.getByTestId('checkout-label').textContent).toBe('Payment 1 of 2 · $5.00 left');
+    expect(screen.getByTestId('checkout-plan-done').textContent).toBe('Cash $1.00');
+    return;
+  }
+  if (kind === 'change') {
+    fireEvent.click(screen.getByTestId('checkout-even-2'));
+    expect(screen.getByTestId('checkout-entry').textContent).toBe('$3.00');
+    fireEvent.click(screen.getByTestId('checkout-plan-change'));
+    expect(screen.getByText('Split the rest')).not.toBeNull();
+    expect(screen.getByTestId('checkout-even-3')).not.toBeNull();
+    expect(screen.queryByTestId('checkout-plan')).toBeNull();
+    expect(screen.getByTestId('checkout-entry').textContent).toBe('$6.00');
+    fireEvent.click(screen.getByTestId('checkout-even-3'));
+    expect(screen.getByTestId('checkout-entry').textContent).toBe('$2.00');
+    fireEvent.click(screen.getByTestId('checkout-split-chip'));
+    expect(screen.queryByText('Split the rest')).toBeNull();
+    expect(screen.queryAllByTestId(/^checkout-even-/)).toHaveLength(0);
+    expect(screen.queryByTestId('checkout-plan')).toBeNull();
+    expect(screen.getByTestId('checkout-entry').textContent).toBe('$6.00');
+    expect(screen.getByTestId('checkout-label').textContent).toBe('To pay');
+    expect(screen.getByTestId('checkout-split-chip').getAttribute('aria-pressed')).toBe('false');
+    return;
+  }
+  const tile = within(screen.getByTestId('checkout-even-3'));
+  expect(within(screen.getByTestId('checkout-split-ways')).getByTestId('checkout-even-6')).not.toBeNull();
+  expect(tile.getByText('3 ways')).not.toBeNull();
+  expect(tile.getByText('$2.00 each')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('checkout-even-3'));
+  expect(screen.getByTestId('checkout-entry').textContent).toBe('$2.00');
+  expect(screen.getByTestId('checkout-label').textContent).toBe('Payment 1 of 3 · $6.00 left');
+  expect(screen.getByTestId('checkout-commit').textContent).toBe('Take $2.00 in Cash · 1 of 3');
+  expect(screen.getByTestId('checkout-plan-leg-0').textContent).toBe('$2.00');
+  expect(screen.getByTestId('checkout-plan-leg-1').textContent).toBe('Then 2 × $2.00');
+  expect(screen.queryByTestId('checkout-plan-leg-2')).toBeNull();
+  fireEvent.click(screen.getByTestId('checkout-commit'));
+  expect(screen.getByTestId('checkout-label').textContent).toBe('Payment 2 of 3 · $4.00 left');
+  expect(screen.getByTestId('checkout-entry').textContent).toBe('$2.00');
+  expect(screen.getByTestId('checkout-plan-done').textContent).toBe('Cash $2.00');
+  fireEvent.click(screen.getByTestId('checkout-method-pos_card'));
+  expect(screen.getByTestId('checkout-entry').textContent).toBe('$2.00');
+  expect(screen.getByTestId('checkout-commit').textContent).toBe('Take $2.00 in Card · 2 of 3');
+  fireEvent.click(screen.getByTestId('checkout-commit'));
+  expect(screen.getByTestId('checkout-label').textContent).toBe('Payment 3 of 3 · $2.00 left');
+  expect(screen.getByTestId('checkout-entry').textContent).toBe('$2.00');
+  expect(screen.getByTestId('checkout-plan-done').textContent).toBe('2 paid · $4.00');
+  fireEvent.click(screen.getByTestId('checkout-commit'));
+  const receipt = within((await screen.findByTestId('receipt-order')).parentElement!);
+  expect(receipt.getByLabelText('Total: $6.00')).not.toBeNull();
+  await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+  const envelopes = send.mock.calls.flatMap(([batch]) => batch);
+  expect(envelopes).toHaveLength(1);
+  expect(envelopes[0].payload.payments).toEqual([
+    expect.objectContaining({ method: 'cash', amountMinor: 200 }),
+    expect.objectContaining({ method: 'external', amountMinor: 200 }),
+    expect.objectContaining({ method: 'external', amountMinor: 200 }),
+  ]);
+}, 20_000);
