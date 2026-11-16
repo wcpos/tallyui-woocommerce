@@ -3,9 +3,10 @@ import type { JSX } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { Button, Text } from '@tallyui/components';
 import { formatMoney, minorUnitDigits } from '@tallyui/core';
-import { appliedMinor, changeMinor, initTenderState, quickTenderedAmounts, tenderReducer } from '@tallyui/pos';
+import { activePlan, appliedMinor, changeMinor, initTenderState, planLegs, quickTenderedAmounts, tenderReducer } from '@tallyui/pos';
 import type { TenderKey, useSale } from '@tallyui/pos';
 import { filterChipClassName, filterChipTextClassName } from './catalogue-filter-chips';
+import { EvenSplitTiles, PlanStrip } from './split-plan';
 
 /** The single-payment path's two tiles: the connector maps cash to pos_cash and external to pos_card. */
 const METHODS = [
@@ -29,9 +30,12 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
     initTenderState);
   const [reference, setReference] = useState('');
   const due = multi ? sale.order.balanceDueMinor : sale.order.totalMinor;
+  // WCPOS v2: tender-pane.tsx:337-352, 485-584.
+  const since = sale.order.payments.slice(state.plan?.from ?? 0)
+    .map(payment => ({ amountMinor: payment.amountMinor, title: payment.method === 'cash' ? 'Cash' : 'Card' }));
   // Multi: a removed leg raises the balance, and an entry the cashier hasn't touched follows it.
   useEffect(() => {
-    if (multi && !state.entryDirty) dispatch({ type: 'tender-recorded', rowsSinceFrom: [], balanceMinor: due });
+    if (multi && !state.entryDirty) dispatch({ type: 'tender-recorded', rowsSinceFrom: since, balanceMinor: due });
   }, [multi, due]);
   // Multi: one leg per tap; two taps before the new leg renders would otherwise take the same entry twice.
   const taking = useRef(false);
@@ -41,6 +45,12 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
 
   // One payment per order: the total is the balance (balanceDueMinor is 0 once card presets its payment). Multi: what is still due.
   const balance = due;
+  // WCPOS v2: tender-pane.tsx:337-352, 485-584.
+  const sinceRows = since.map(row => ({ minor: row.amountMinor, title: row.title }));
+  const plan = multi ? activePlan(state.plan, since.length, balance) : null;
+  const planned = plan ? planLegs(plan, sinceRows, balance) : null;
+  const taken = sale.order.payments.map(payment => ({ minor: payment.amountMinor, title: payment.method === 'cash' ? 'Cash' : 'Card' }));
+  const on = state.splitView || plan !== null;
   const method = METHODS.find(m => m.id === state.methodId)!;
   const applied = appliedMinor(state.entryMinor, balance);
   const dp = minorUnitDigits(sale.order.currency);
@@ -51,7 +61,7 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
   const hint = noChange ? `Only ${fmt(balance)} is due — ${method.title} can't give change`
     : state.entryMinor > 0 && applied < balance ? `${fmt(balance - applied)} left` : '';
   const legs = sale.order.payments.length;
-  const suffix = !multi ? '' : applied < balance ? ` · ${fmt(balance - applied)} left` : legs > 0 ? ' · pays it off' : '';
+  const suffix = planned ? ` · ${planned.label.n} of ${planned.label.ways}` : !multi ? '' : applied < balance ? ` · ${fmt(balance - applied)} left` : legs > 0 ? ' · pays it off' : '';
   // A failed save (saving with an error) offers Retry; paid in full with nothing saving offers the completion again.
   const finish = multi && (sale.saving ? sale.error !== null : balance === 0 && legs > 0);
 
@@ -72,7 +82,7 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
       if (id === null) return;
       setReference('');
       if (applied >= balance) { void sale.complete(); return; }
-      dispatch({ type: 'tender-recorded', rowsSinceFrom: [], balanceMinor: balance - applied });
+      dispatch({ type: 'tender-recorded', rowsSinceFrom: [...since, { amountMinor: applied, title: method.title }], balanceMinor: balance - applied });
       return;
     }
     // Cash carries the amount tendered; finalize caps it at the total and works out the change.
@@ -89,7 +99,7 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
           aria-selected={selected} accessibilityState={{ selected }}
           className={`flex-1 items-center rounded-lg border px-4 py-3 ${selected ? 'border-primary bg-muted' : 'border-border bg-card'}`}
           onPress={() => {
-            dispatch({ type: 'pick-method', methodId: m.id, prefillMinor: balance, readerId: null });
+            dispatch({ type: 'pick-method', methodId: m.id, prefillMinor: planned?.thisPaymentMinor ?? balance, readerId: null });
             if (!multi && m.method !== stage.method) sale.startTender(m.method);
             if (m.method === 'cash') setReference('');
           }}>
@@ -97,10 +107,18 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
         </Pressable>;
       })}
     </View>
-    <Text testID="checkout-label" className="text-center text-sm text-muted-foreground">
-      {multi && legs > 0 ? `Payment ${legs + 1} · ${fmt(balance)} left`
-        : <>To pay{state.entryMinor !== balance ? <>{' '}<Text testID="checkout-balance" className="tabular-nums">{fmt(balance)}</Text></> : null}</>}
-    </Text>
+    {/* WCPOS v2: tender-pane.tsx:415-429. */}
+    <View className="flex-row items-center justify-center gap-2">
+      <Text testID="checkout-label" className="text-center text-sm text-muted-foreground">
+        {planned ? `Payment ${planned.label.n} of ${planned.label.ways} · ${fmt(balance)} left` : multi && legs > 0 ? `Payment ${legs + 1} · ${fmt(balance)} left`
+          : <>To pay{state.entryMinor !== balance ? <>{' '}<Text testID="checkout-balance" className="tabular-nums">{fmt(balance)}</Text></> : null}</>}
+      </Text>
+      {multi && balance > 0 && <Pressable accessibilityRole="button" testID="checkout-split-chip" aria-pressed={on}
+        className={filterChipClassName(on)} disabled={sale.saving}
+        onPress={() => dispatch(on ? { type: 'clear-plan', balanceMinor: balance } : { type: 'open-split' })}>
+        <Text className={filterChipTextClassName(on)}>Split</Text>
+      </Pressable>}
+    </View>
     {change > 0 ? <>
       <Text testID="checkout-entry-hint" className="text-center text-3xl font-semibold text-foreground">{`Change ${fmt(change)}`}</Text>
       <Text testID="checkout-tendered-line" className="text-center text-base text-muted-foreground">Tendered <Text testID="checkout-entry" className="tabular-nums">{fmt(state.entryMinor)}</Text></Text>
@@ -110,6 +128,9 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
     </>}
     {/* WCPOS v2: tender-pane.tsx:721 and 893-918. */}
     <View testID="checkout-helpers" className="w-full flex-row flex-wrap justify-center gap-2">
+      {/* WCPOS v2: tender-pane.tsx:732-777. */}
+      {multi && state.splitView && !plan && <EvenSplitTiles restMinor={balance} fmt={fmt} disabled={sale.saving}
+        onPick={ways => dispatch({ type: 'set-plan', plan: { kind: 'even', ways, from: sale.order.payments.length }, balanceMinor: balance })} />}
       {quick.map(minor => <Pressable key={minor} accessibilityRole="button" testID={`checkout-quick-${minor / 10 ** dp}`}
         className={filterChipClassName(false)} disabled={sale.saving} onPress={() => dispatch({ type: 'set-entry', minor })}>
         <Text className={filterChipTextClassName(false)}>{fmt(minor)}</Text>
@@ -121,6 +142,9 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
         </Text>
       </Pressable>
     </View>
+    {/* WCPOS v2: tender-pane.tsx:337-352, 485-584. */}
+    {planned && <PlanStrip legs={planned.legs} taken={taken} paidMinor={taken.reduce((sum, row) => sum + row.minor, 0)} fmt={fmt} disabled={sale.saving}
+      onChange={() => { dispatch({ type: 'clear-plan', balanceMinor: balance }); dispatch({ type: 'open-split' }); }} />}
     <View testID="checkout-keypad" className="gap-2">
       {KEY_ROWS.map(row => <View key={row.join()} className="flex-row gap-2">
         {row.map(key => <Pressable key={key} accessibilityRole="button" testID={`checkout-keypad-key-${key}`}
