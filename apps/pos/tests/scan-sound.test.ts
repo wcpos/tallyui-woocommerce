@@ -1,20 +1,9 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { audioLog, installFakeAudio, tones } from './fake-audio-context';
+import { memoryStorage } from './memory-storage';
 
 type ScanSound = typeof import('../lib/scan/scan-sound');
 let sound: ScanSound;
-
-function memoryStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: key => data.get(key) ?? null,
-    key: index => Array.from(data.keys())[index] ?? null,
-    removeItem: key => { data.delete(key); },
-    setItem: (key, value) => { data.set(key, value); },
-  };
-}
 
 // A fresh module per test, so the shared AudioContext is made from this test's window.
 beforeEach(async () => {

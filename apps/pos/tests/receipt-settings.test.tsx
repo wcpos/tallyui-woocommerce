@@ -7,6 +7,7 @@ import { ReceiptPrintSheet } from '../components/receipt-print-sheet';
 import { claimReceiptAutoPrint } from '../lib/receipts/print-receipt';
 import { loadReceiptSettings, RECEIPT_SETTINGS_KEY, saveReceiptSettings, useReceiptSettings } from '../lib/receipts/receipt-settings';
 import { CART_SETTINGS_DEFAULTS } from '../lib/sale/cart-settings';
+import { memoryStorage } from './memory-storage';
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 
@@ -16,18 +17,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
   document.head.querySelectorAll('style[data-receipt-print], style[data-receipt-page]').forEach(style => style.remove());
 });
-
-function memoryStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: key => data.get(key) ?? null,
-    key: index => [...data.keys()][index] ?? null,
-    removeItem: key => { data.delete(key); },
-    setItem: (key, value) => { data.set(key, value); },
-  };
-}
 
 const AUTO_PRINT = 'Automatically print receipt after checkout';
 

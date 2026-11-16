@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { PosOrder, PosOrderPayment } from '@tallyui/pos';
 import { paidMomentFigures, ReceiptPaidMoment } from '../components/receipt-paid-moment';
+import { memoryStorage } from './memory-storage';
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 
@@ -11,18 +12,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
   document.head.querySelectorAll('style[data-receipt-print], style[data-receipt-page]').forEach(style => style.remove());
 });
-
-function memoryStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: key => data.get(key) ?? null,
-    key: index => [...data.keys()][index] ?? null,
-    removeItem: key => { data.delete(key); },
-    setItem: (key, value) => { data.set(key, value); },
-  };
-}
 
 const cash = (amountMinor: number, more: Partial<PosOrderPayment> = {}): PosOrderPayment => ({ id: crypto.randomUUID(), method: 'cash', amountMinor, ...more });
 const external = (amountMinor: number): PosOrderPayment => ({ id: crypto.randomUUID(), method: 'external', amountMinor });

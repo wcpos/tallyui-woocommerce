@@ -9,6 +9,7 @@ import type { Session } from '../lib/auth/session';
 import { SessionProvider, useSession } from '../lib/auth/session-context';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import { setBeforeLeave } from '../lib/sale/before-leave';
+import { memoryStorage } from './memory-storage';
 
 let session: Session;
 let sessionApi: ReturnType<typeof useSession>;
@@ -37,18 +38,6 @@ afterEach(() => {
   setBeforeLeave(null);
   vi.unstubAllGlobals();
 });
-
-function memoryStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: key => data.get(key) ?? null,
-    key: index => Array.from(data.keys())[index] ?? null,
-    removeItem: key => { data.delete(key); },
-    setItem: (key, value) => { data.set(key, value); },
-  };
-}
 
 function Probe() {
   sessionApi = useSession();
