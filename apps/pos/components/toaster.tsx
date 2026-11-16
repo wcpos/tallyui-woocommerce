@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import type { JSX } from 'react';
 import { View } from 'react-native';
-import { Toast, ToastTitle, ToastDescription, ToastClose } from '@tallyui/components';
+import { Button, Text, Toast, ToastTitle, ToastDescription, ToastClose } from '@tallyui/components';
 import { dismissToast, getToasts, subscribeToasts } from '../lib/toast/toast';
 import type { ToastItem } from '../lib/toast/toast';
 
@@ -30,6 +30,10 @@ export function Toaster(): JSX.Element | null {
               <ToastTitle className={text}>{item.title}</ToastTitle>
               {item.description ? <ToastDescription className={text}>{item.description}</ToastDescription> : null}
             </View>
+            {item.action ? <Button variant="outline" size="sm" testID="toast-action" accessibilityRole="button"
+              onPress={() => { item.action!.onPress(); dismissToast(item.id); }}>
+              <Text>{item.action.label}</Text>
+            </Button> : null}
             <ToastClose accessibilityRole="button" accessibilityLabel="Close toast"
               onPress={() => dismissToast(item.id)} />
           </Toast>

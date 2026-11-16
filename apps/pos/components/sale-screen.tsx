@@ -2,8 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
-  AlertDialogTitle, Button, ParkedSales, Receipt, SyncStatus, Text } from '@tallyui/components';
+import { Button, ParkedSales, Receipt, SyncStatus, Text } from '@tallyui/components';
 import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
 import { formatMoney } from '@tallyui/core';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
@@ -141,6 +140,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const restoreResolve = useRef<((result: string | null) => void) | null>(null);
   const currentOrder = useRef<typeof sale.order | null>(sale.order);
   currentOrder.current = sale.order;
+  const stageNow = useRef(sale.stage);
+  stageNow.current = sale.stage;
   const heldAtMount = useRef<string | null>(null);
   useEffect(() => {
     try { heldAtMount.current = props.heldCartKey ? localStorage.getItem(props.heldCartKey) : null; } catch {}
@@ -342,14 +343,28 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
 
   // v2's cart foot (cart/foot.tsx, buttons/pay.tsx): one "Checkout {total}" opens the tender on Cash, where the cashier
   // picks the method, and the ⋮'s one item opens the Order details sheet, which holds Void (cart/order-sheet.tsx).
-  // v2 voids at once and offers Undo; the open sale here has no server copy to restore, so Void asks first.
-  const [voidOpen, setVoidOpen] = useState(false);
+  // v2 voids at once and offers Undo (pos/hooks/use-void-order.ts): Undo brings the voided cart back as resumeCart does.
   const [detailsOpen, setDetailsOpen] = useState(false);
   const voidOffered = sale.order.lineItems.length > 0 && sale.order.payments.length === 0;
   const checkout = {
     onCheckout: () => { void gatedStartTender('cash'); },
     actions: [{ label: 'Order details', onPress: () => setDetailsOpen(true) }],
   };
+
+  function voidSale() {
+    const voided = parkCart(sale.order);
+    sale.newSale();
+    toast({ type: 'success', title: 'Order removed', action: { label: 'Undo', onPress: () => { void undoVoid(voided); } } });
+  }
+
+  async function undoVoid(cart: ParkedCart) {
+    if (stageNow.current.kind !== 'cart') {
+      setMessage('Finish the current sale first, then undo the void.');
+      return;
+    }
+    const result = await resumeCart(cart);
+    if (typeof result === 'string') setMessage(result);
+  }
 
   function onSelect(doc: any) {
     try {
@@ -484,23 +499,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             openOrders={<OpenOrderTabs parked={parked} current={sale.order} currency={currency} locale={props.locale} onSelect={onResume} onNew={onPark} onError={setMessage}
               onOpenList={() => setParkedOpen(true)} listOpen={parkedOpen} compact={phoneLayout} />} />
           <OrderDetailsSheet open={detailsOpen} onOpenChange={setDetailsOpen} side={viewState.position}
-            note={sale.order.note} onNoteChange={sale.setNote} onVoid={voidOffered ? () => setVoidOpen(true) : undefined} />
-          {voidOpen && <AlertDialog open onOpenChange={next => { if (!next) setVoidOpen(false); }}>
-            <AlertDialogContent testID="cart-void-dialog">
-              <AlertDialogHeader>
-                <AlertDialogTitle>Void this sale?</AlertDialogTitle>
-                <AlertDialogDescription>Its items are removed. This can't be undone.</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel asChild onPress={() => setVoidOpen(false)}>
-                  <Button variant="outline" testID="cart-void-keep"><Text>Keep sale</Text></Button>
-                </AlertDialogCancel>
-                <AlertDialogAction asChild onPress={() => { setVoidOpen(false); sale.newSale(); }}>
-                  <Button variant="destructive" testID="cart-void-confirm"><Text>Void sale</Text></Button>
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>}
+            note={sale.order.note} onNoteChange={sale.setNote} onVoid={voidOffered ? voidSale : undefined} />
         </>
       ) : sale.stage.kind === 'tender' ? outbox.enabled ? (props.multiplePayments === true ? (
         cancelling && sale.order.payments.length > 0 ? (

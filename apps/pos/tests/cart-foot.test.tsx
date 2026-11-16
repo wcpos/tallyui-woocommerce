@@ -11,6 +11,8 @@ import type { OrderCreateEnvelope } from '@tallyui/core';
 import type { CommandTransport } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
 import { SaleScreen, type SaleScreenProps } from '../components/sale-screen';
+import { Toaster } from '../components/toaster';
+import { dismissToast } from '../lib/toast/toast';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
@@ -58,6 +60,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  act(() => dismissToast());
   setBeforeLeave(null);
   cleanup();
   vi.restoreAllMocks();
@@ -187,30 +190,31 @@ test('(d) multi-payment: Checkout opens with nothing taken, then a Cash leg and 
   ]);
 }, 20_000);
 
-test('(e) Void asks first: Keep sale keeps every line', () => {
-  render(<><SaleScreen {...props} /><PortalHost /></>);
+test('(e) Void empties the cart at once and offers Undo, which brings every line back', async () => {
+  render(<><SaleScreen {...props} /><PortalHost /><Toaster /></>);
   fireEvent.click(screen.getByText('Espresso'));
   setLineQuantity('Espresso', 2);
   fireEvent.click(screen.getByText('Cold Brew'));
   chooseVoid();
-  expect(screen.getByText('Void this sale?')).not.toBeNull();
-  expect(screen.getByText("Its items are removed. This can't be undone.")).not.toBeNull();
-  expect(screen.getByLabelText('Edit quantity of Espresso')).not.toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Keep sale' }));
   expect(screen.queryByText('Void this sale?')).toBeNull();
-  expect(screen.getByLabelText('Edit quantity of Espresso')).not.toBeNull();
-  expect(screen.getByLabelText('Edit quantity of Cold Brew')).not.toBeNull();
+  expect(screen.queryByLabelText('Edit quantity of Espresso')).toBeNull();
+  expect(screen.queryByLabelText('Edit quantity of Cold Brew')).toBeNull();
+  expect(within(screen.getByTestId('success-toast')).getByText('Order removed')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('toast-action'));
+  await waitFor(() => {
+    expect(screen.getByLabelText('Edit quantity of Espresso')).not.toBeNull();
+    expect(screen.getByLabelText('Edit quantity of Cold Brew')).not.toBeNull();
+  });
   expect(checkoutButton().textContent).toBe('Checkout $10.00');
 }, 20_000);
 
-test('(e) Void sale empties the cart, and it stays empty through the persisted-cart path', async () => {
+test('(e) Void empties the cart, and it stays empty through the persisted-cart path', async () => {
   await withParkedCarts(async parkedCarts => {
     const view = render(<><SaleScreen {...props} parkedCarts={parkedCarts} heldCartKey="held-test" /><PortalHost /></>);
     fireEvent.click(screen.getByText('Espresso'));
     fireEvent.click(screen.getByText('Cold Brew'));
     chooseVoid();
-    fireEvent.click(screen.getByRole('button', { name: 'Void sale' }));
-    await waitFor(() => expect(screen.queryByText('Void this sale?')).toBeNull());
+    await waitFor(() => expect(screen.queryByLabelText('Edit quantity of Espresso')).toBeNull());
     expect(screen.queryByLabelText('Edit quantity of Espresso')).toBeNull();
     expect(screen.queryByLabelText('Edit quantity of Cold Brew')).toBeNull();
     expect(screen.queryByTestId('cart-checkout')).toBeNull();
