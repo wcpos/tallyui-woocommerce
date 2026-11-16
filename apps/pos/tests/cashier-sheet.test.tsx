@@ -17,6 +17,7 @@ import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import { parkedTabs } from './open-orders-helpers';
 import { CashierSheet } from '../components/cashier-sheet';
 import { classesOf } from './classes-of';
+import { memoryStorage } from './memory-storage';
 
 function SaleScreen(props: SaleScreenProps) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
@@ -53,16 +54,7 @@ const props: SaleScreenProps = {
 
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
-  const data = new Map<string, string>();
-  const storage: Storage = {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: key => data.get(key) ?? null,
-    key: index => [...data.keys()][index] ?? null,
-    removeItem: key => { data.delete(key); },
-    setItem: (key, value) => { data.set(key, value); },
-  };
-  vi.stubGlobal('localStorage', storage);
+  vi.stubGlobal('localStorage', memoryStorage());
 });
 
 // Browse by now opens on category tiles; these tests drive the flat product grid, so they browse All products.

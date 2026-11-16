@@ -9,6 +9,7 @@ import { databaseName, startCatalogue } from '../lib/catalogue/start-catalogue';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import variations from './fixtures/variations.json';
+import { memoryStorage } from './memory-storage';
 
 let session: Session;
 
@@ -19,15 +20,7 @@ beforeEach(() => {
     tokens: { accessToken: 't1', refreshToken: 'refresh', expiresAt: 2000000000, user: { id: 2, uuid: 'cashier', displayName: 'Cashier' } },
   };
   for (const key of ['localStorage', 'sessionStorage']) {
-    const data = new Map<string, string>();
-    vi.stubGlobal(key, {
-      get length() { return data.size; },
-      getItem: (key: string) => data.get(key) ?? null,
-      setItem: (key: string, value: string) => { data.set(key, value); },
-      removeItem: (key: string) => { data.delete(key); },
-      clear: () => data.clear(),
-      key: (index: number) => Array.from(data.keys())[index] ?? null,
-    });
+    vi.stubGlobal(key, memoryStorage());
   }
 });
 
