@@ -22,7 +22,7 @@ import { clearBeforeLeave, setBeforeLeave, type BeforeLeave } from '../lib/sale/
 import { parkCart, restoreCart } from '../lib/sale/parked-carts';
 import { saleDiscountCodes } from '../lib/sale/discount-codes';
 import { taxClassOptions } from '../lib/sale/tax-classes';
-import { lookupCode } from '../lib/scan/lookup';
+import { scanOutcome, scanMissText } from '../lib/scan/lookup';
 import { scanFeedback } from '../lib/scan/scan-sound';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { toast } from '../lib/toast/toast';
@@ -379,12 +379,10 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
 
   function onScan(code: string): 'clear' | 'search' | 'keep' {
     try {
-      const result = lookupCode(props.products, connector.traits.product, code, { currency });
-      if (result.kind === 'entry') {
-        const { product, variant } = result.entry;
-        const name = connector.traits.product.getName(product);
-        const label = variant.title ? `${name} · ${variant.title}` : name;
-        if (variant.stock.status === 'out_of_stock') {
+      const result = scanOutcome(props.products, connector.traits.product, code, { currency });
+      if (result.kind === 'add' || result.kind === 'out-of-stock') {
+        const { label } = result;
+        if (result.kind === 'out-of-stock') {
           scanFeedback('failure');
           setMessage(`${label} out of stock`);
           return 'keep';
@@ -395,16 +393,14 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         } else scanFeedback('failure');
         return 'clear';
       }
-      if (result.kind === 'product') {
+      if (result.kind === 'choose') {
         // v2's chooseVariation plays the failure tone: the scan did not add a line.
         scanFeedback('failure');
         onSelect(result.product);
         return 'clear';
       }
       scanFeedback('failure');
-      setMessage(result.kind === 'several'
-        ? `Several matches: ${result.count} products found — ${code}`
-        : `Barcode not found — ${code}`);
+      setMessage(scanMissText(result, code));
       return 'search';
     } catch (error) {
       scanFeedback('failure');
@@ -416,12 +412,10 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   // v2 pos-columns.tsx:147 / tender-scans.tsx (#1438): checkout owns scans while the catalogue is absent.
   function onTenderScan(code: string): void {
     try {
-      const result = lookupCode(props.products, connector.traits.product, code, { currency });
-      if (result.kind === 'entry') {
-        const { product, variant } = result.entry;
-        const name = connector.traits.product.getName(product);
-        const label = variant.title ? `${name} · ${variant.title}` : name;
-        if (variant.stock.status === 'out_of_stock') {
+      const result = scanOutcome(props.products, connector.traits.product, code, { currency });
+      if (result.kind === 'add' || result.kind === 'out-of-stock') {
+        const { label } = result;
+        if (result.kind === 'out-of-stock') {
           scanFeedback('failure');
           toast({ type: 'warning', title: `${label} out of stock` });
         } else if (onAdd(result.entry)) {
@@ -434,12 +428,10 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         return;
       }
       scanFeedback('failure');
-      if (result.kind === 'product') {
+      if (result.kind === 'choose') {
         toast({ type: 'info', title: `${connector.traits.product.getName(result.product)}: choose a variant in the products column` });
       } else {
-        toast({ type: 'info', title: result.kind === 'several'
-          ? `Several matches: ${result.count} products found — ${code}`
-          : `Barcode not found — ${code}` });
+        toast({ type: 'info', title: scanMissText(result, code) });
       }
     } catch (error) {
       scanFeedback('failure');
