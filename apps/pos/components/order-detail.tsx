@@ -45,11 +45,29 @@ function formatPlaced(iso: string): string {
 }
 
 // v2's document-style section (packages/core/src/screens/main/orders/view/sections/_section.tsx).
-function Section({ title, testID, last, children }: { title: string; testID: string; last?: boolean; children: ReactNode }) {
+function Section({ title, testID, last, right, children }: { title: string; testID: string; last?: boolean; right?: ReactNode; children: ReactNode }) {
   return (
     <View testID={testID} className={`px-4 py-4 ${last ? '' : 'border-b border-border'}`}>
-      <Text className="mb-3 text-sm font-semibold text-foreground">{title}</Text>
+      {right !== undefined ? (
+        <View className="mb-3 flex-row items-baseline justify-between gap-2">
+          <Text className="text-sm font-semibold text-foreground">{title}</Text>
+          {right}
+        </View>
+      ) : <Text className="mb-3 text-sm font-semibold text-foreground">{title}</Text>}
       {children}
+    </View>
+  );
+}
+
+// v2's RefundCard (orders/view/sections/refunds.tsx).
+function RefundCard({ refund, amount }: { refund: StoreOrder['refunds'][number]; amount: string }) {
+  return (
+    <View testID={`order-modal-refund-${refund.id}`} className="overflow-hidden rounded-md border border-border">
+      <View className={`flex-row items-start justify-between gap-3 bg-destructive/5 px-3 py-2.5 ${refund.reason ? 'border-b border-border' : ''}`}>
+        <Text className="min-w-0 flex-1 text-xs font-medium text-foreground tabular-nums">{`Refund #${refund.id}`}</Text>
+        <Text className="text-sm font-semibold text-destructive tabular-nums">{amount}</Text>
+      </View>
+      {refund.reason ? <View className="px-3 py-2"><Text testID={`order-modal-refund-reason-${refund.id}`} className="text-xs italic text-foreground/80">{`“${refund.reason}”`}</Text></View> : null}
     </View>
   );
 }
@@ -200,6 +218,18 @@ export function OrderDetailView({ order, onReceipt, onClose }: {
               </>
             )}
             {refunded > 0 && <Row testID="order-modal-payment-refund" className="mt-2" label="Refund" amount={`-${money(refunded)}`} />}
+          </Section>
+        )}
+
+        {order.refunds.length > 0 && (
+          <Section title="Refunds" testID="order-modal-refunds"
+            right={<Text testID="order-modal-refunds-summary" className="text-xs text-muted-foreground tabular-nums">
+              {`${order.refunds.length} ${order.refunds.length === 1 ? 'refund' : 'refunds'} · -${money(refunded)}`}</Text>}>
+            <View className="gap-2">
+              {order.refunds.map((refund, index) => (
+                <RefundCard key={refund.id || String(index)} refund={refund} amount={`-${money(refund.amountMinor)}`} />
+              ))}
+            </View>
           </Section>
         )}
 
