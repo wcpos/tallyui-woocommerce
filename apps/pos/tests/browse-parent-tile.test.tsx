@@ -6,6 +6,7 @@ import type { CatalogueViewProps } from '../components/catalogue-view';
 import { CATALOGUE_VIEW_DEFAULTS } from '../lib/catalogue/catalogue-view-state';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { memoryStorage } from './memory-storage';
 
 // v2's TermLevelGrid (term-grid.tsx): an opened term's own tile is slot 0 of its grid, the way back.
 
@@ -16,18 +17,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
-
-function memoryStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: key => data.get(key) ?? null,
-    key: index => Array.from(data.keys())[index] ?? null,
-    removeItem: key => { data.delete(key); },
-    setItem: (key, value) => { data.set(key, value); },
-  };
-}
 
 // The fixture: Espresso (80) and Cold Brew (84) in Coffee (25), T-Shirt (102) in Merch (27).
 const props: CatalogueViewProps = {

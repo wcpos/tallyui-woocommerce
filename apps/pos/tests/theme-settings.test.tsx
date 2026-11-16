@@ -6,6 +6,7 @@ import * as ReactNative from 'react-native';
 import { ThemeSettings, themeColumns } from '../components/settings/theme-settings';
 import { CARD_CLASSES, classesOf } from './classes-of';
 import { applyStoredTheme, isThemeChoice, readThemeChoice, THEME_CHOICES, THEME_SETTING_KEY } from '../lib/theme/theme-setting';
+import { memoryStorage } from './memory-storage';
 
 let storage: Storage;
 
@@ -20,18 +21,6 @@ afterEach(() => {
   vi.clearAllMocks();
   vi.restoreAllMocks();
 });
-
-function memoryStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: key => data.get(key) ?? null,
-    key: index => Array.from(data.keys())[index] ?? null,
-    removeItem: key => { data.delete(key); },
-    setItem: (key, value) => { data.set(key, value); },
-  };
-}
 
 test('readThemeChoice falls back to System for nothing saved, an unknown value or a storage that throws', () => {
   expect(THEME_SETTING_KEY).toBe('tallywoo.theme');

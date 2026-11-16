@@ -6,6 +6,7 @@ import type { Session } from '../lib/auth/session';
 import { SessionProvider, useSession } from '../lib/auth/session-context';
 import { CatalogueProvider, useCatalogue } from '../lib/catalogue/catalogue-context';
 import { StoreAccessDeniedError } from '../lib/catalogue/store-info';
+import { memoryStorage } from './memory-storage';
 
 const mocks = vi.hoisted(() => ({ startCatalogue: vi.fn() }));
 vi.mock('../lib/catalogue/start-catalogue', () => ({ startCatalogue: mocks.startCatalogue }));
@@ -34,18 +35,6 @@ afterEach(() => {
   mocks.startCatalogue.mockReset();
   vi.unstubAllGlobals();
 });
-
-function memoryStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: key => data.get(key) ?? null,
-    key: index => Array.from(data.keys())[index] ?? null,
-    removeItem: key => { data.delete(key); },
-    setItem: (key, value) => { data.set(key, value); },
-  };
-}
 
 /** Seeds an expired access token and answers its refresh with 'fresh' when the returned function is called. */
 function seedExpiredSession(): () => Promise<void> {

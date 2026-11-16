@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { clearSession, loadSession, REFRESH_WINDOW_SECONDS, refreshSession, saveSession, SESSION_KEY, SessionExpiredError } from '../lib/auth/session';
 import type { Session } from '../lib/auth/session';
 import { SessionProvider, useSession } from '../lib/auth/session-context';
+import { memoryStorage } from './memory-storage';
 
 const now = 1791239000;
 const home = 'https://shop.example';
@@ -28,18 +29,6 @@ afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
-
-function memoryStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: key => data.get(key) ?? null,
-    key: index => Array.from(data.keys())[index] ?? null,
-    removeItem: key => { data.delete(key); },
-    setItem: (key, value) => { data.set(key, value); },
-  };
-}
 
 test('round trips and clears the session under its storage key', () => {
   const storage = memoryStorage();

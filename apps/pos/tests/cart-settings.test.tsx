@@ -11,6 +11,7 @@ import { AppFrame, BESIDE_RAIL } from '../components/app-rail';
 import { isWideWindow } from '../lib/layout/wide';
 import { classesOf } from './classes-of';
 import products from './fixtures/products.json';
+import { memoryStorage } from './memory-storage';
 
 // No RegisterProvider here, so useRegister is null (no register switch) unless a test hands the sheet a register.
 const held = vi.hoisted(() => ({ register: null as null | { setting: boolean; setSetting(on: boolean): void } }));
@@ -27,18 +28,6 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
-
-function memoryStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: key => data.get(key) ?? null,
-    key: index => [...data.keys()][index] ?? null,
-    removeItem: key => { data.delete(key); },
-    setItem: (key, value) => { data.set(key, value); },
-  };
-}
 
 const connector = createWooCommerceConnector();
 const coldBrew = products[1];

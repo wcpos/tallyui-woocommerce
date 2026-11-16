@@ -10,6 +10,7 @@ import { QUICK_FILTERS_KEY } from '../lib/catalogue/quick-filters';
 import { CARD_CLASSES, classesOf } from './classes-of';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { memoryStorage } from './memory-storage';
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 
@@ -19,18 +20,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
-
-function memoryStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: key => data.get(key) ?? null,
-    key: index => Array.from(data.keys())[index] ?? null,
-    removeItem: key => { data.delete(key); },
-    setItem: (key, value) => { data.set(key, value); },
-  };
-}
 
 // The fixture: Espresso and Cold Brew in Coffee (25), T-Shirt in Merch (27). Two out-of-stock extras:
 // Decaf in Coffee, and Old Mug alone in Clearance (40).

@@ -5,23 +5,12 @@ import { buildAuthUrl, newState, parseCallback } from '../lib/auth/login';
 import { SessionProvider } from '../lib/auth/session-context';
 import { loadSession, PENDING_KEY } from '../lib/auth/session';
 import Callback from '../app/auth/callback';
+import { memoryStorage } from './memory-storage';
 
 const { redirect } = vi.hoisted(() => ({ redirect: vi.fn(() => null) }));
 vi.mock('expo-router', () => ({ Redirect: redirect }));
 const query = '?access_token=access.jwt.token&refresh_token=refresh.jwt.token&token_type=Bearer' +
   '&expires_at=1791240388&id=2&uuid=12345678-1234-1234-1234-123456789abc&display_name=cashier&state=expected';
-
-function memoryStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: key => data.get(key) ?? null,
-    key: index => Array.from(data.keys())[index] ?? null,
-    removeItem: key => { data.delete(key); },
-    setItem: (key, value) => { data.set(key, value); },
-  };
-}
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());

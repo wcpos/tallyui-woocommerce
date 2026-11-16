@@ -2,6 +2,7 @@ import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { AppCatalogueViewState } from '../lib/catalogue/catalogue-view-state';
 import { CATALOGUE_VIEW_DEFAULTS, CATALOGUE_VIEW_KEY, dragProductsWidth, loadCatalogueView, moveProductsWidth, saveCatalogueView, useCatalogueView } from '../lib/catalogue/catalogue-view-state';
+import { memoryStorage } from './memory-storage';
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 
@@ -10,18 +11,6 @@ afterEach(() => {
   localStorage.clear();
   vi.unstubAllGlobals();
 });
-
-function memoryStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: key => data.get(key) ?? null,
-    key: index => Array.from(data.keys())[index] ?? null,
-    removeItem: key => { data.delete(key); },
-    setItem: (key, value) => { data.set(key, value); },
-  };
-}
 
 test('empty storage loads the defaults', () => {
   expect(loadCatalogueView(memoryStorage())).toEqual(CATALOGUE_VIEW_DEFAULTS);

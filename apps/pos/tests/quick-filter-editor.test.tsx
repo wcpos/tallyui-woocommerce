@@ -7,6 +7,7 @@ import { isQuickFilterValid, QUICK_FILTER_CONDITION_FIELDS } from '../lib/catalo
 import type { QuickFilter } from '../lib/catalogue/quick-filters';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { memoryStorage } from './memory-storage';
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
@@ -20,18 +21,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
-
-function memoryStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: key => data.get(key) ?? null,
-    key: index => Array.from(data.keys())[index] ?? null,
-    removeItem: key => { data.delete(key); },
-    setItem: (key, value) => { data.set(key, value); },
-  };
-}
 
 function renderEditor(initial: QuickFilter | null = null) {
   const onSave = vi.fn();

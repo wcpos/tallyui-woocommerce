@@ -4,17 +4,10 @@ import { ORDER_NOTE_MAX } from '@tallyui/core';
 import { PortalHost } from '@tallyui/primitives';
 import { OrderDetailsSheet } from '../components/order-details-sheet';
 import { classesOf } from './classes-of';
+import { memoryStorage } from './memory-storage';
 
 beforeEach(() => {
-  const data = new Map<string, string>();
-  vi.stubGlobal('localStorage', {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: (key: string) => data.get(key) ?? null,
-    key: (index: number) => [...data.keys()][index] ?? null,
-    removeItem: (key: string) => { data.delete(key); },
-    setItem: (key: string, value: string) => { data.set(key, value); },
-  });
+  vi.stubGlobal('localStorage', memoryStorage());
 });
 
 afterEach(() => {

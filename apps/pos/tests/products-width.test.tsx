@@ -9,6 +9,7 @@ import { classesOf } from './classes-of';
 import { noTaxSettings } from './fixtures/store-settings';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
+import { memoryStorage } from './memory-storage';
 
 const props: SaleScreenProps = {
   storeSettings: noTaxSettings,
@@ -19,16 +20,7 @@ const props: SaleScreenProps = {
 
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
-  const data = new Map<string, string>();
-  const storage: Storage = {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: key => data.get(key) ?? null,
-    key: index => [...data.keys()][index] ?? null,
-    removeItem: key => { data.delete(key); },
-    setItem: (key, value) => { data.set(key, value); },
-  };
-  vi.stubGlobal('localStorage', storage);
+  vi.stubGlobal('localStorage', memoryStorage());
 });
 
 afterEach(() => {
