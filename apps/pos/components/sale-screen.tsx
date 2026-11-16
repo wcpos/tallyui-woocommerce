@@ -18,7 +18,8 @@ import { buildReceiptIdentity } from '../lib/receipts/receipt-identity';
 import { useReceiptPrintCount } from '../lib/receipts/use-receipt-print-count';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { clearBeforeLeave, setBeforeLeave, type BeforeLeave } from '../lib/sale/before-leave';
-import { parkCart, restoreCart } from '../lib/sale/parked-carts';
+import { parkCart } from '../lib/sale/parked-carts';
+import { useCartRestore } from '../lib/sale/use-cart-restore';
 import { useParkedCarts } from '../lib/sale/use-parked-carts';
 import { saleDiscountCodes } from '../lib/sale/discount-codes';
 import { taxClassOptions } from '../lib/sale/tax-classes';
@@ -133,13 +134,11 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const [cancelling, setCancelling] = useState(false);
   const [voidError, setVoidError] = useState<string>();
   const [message, setMessage] = useState<string>();
+  const { restoring, restore } = useCartRestore(sale, props.products, connector.traits.product, currency, setMessage);
   const parkedStore = useParkedCarts(parkedCarts);
   const { parked } = parkedStore;
   const [parkedOpen, setParkedOpen] = useState(false);
   const [variants, setVariants] = useState<CatalogueEntry<any>[]>();
-  const [restoring, setRestoring] = useState<ParkedCart>();
-  const restoreSteps = useRef<ReturnType<typeof restoreCart> | null>(null);
-  const restoreResolve = useRef<((result: string | null) => void) | null>(null);
   const currentOrder = useRef<typeof sale.order | null>(sale.order);
   currentOrder.current = sale.order;
   const stageNow = useRef(sale.stage);
@@ -224,27 +223,6 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     totalMinor: cart.totalMinor, parkedAt: cart.parkedAt, source: 'local',
   }));
 
-  useEffect(() => {
-    if (!restoring) return;
-    restoreSteps.current ??= restoreCart(sale, restoring, props.products, connector.traits.product, currency);
-    const step = restoreSteps.current.next(sale);
-    if (step.done) {
-      restoreSteps.current = null;
-      setRestoring(undefined);
-      const problems = step.value;
-      const resolve = restoreResolve.current;
-      restoreResolve.current = null;
-      void (async () => {
-        for (const code of restoring.coupons ?? []) {
-          const refusal = await sale.applyCoupon(code);
-          if (refusal !== null) problems.push(`Coupon ${code} was removed: ${refusal}.`);
-        }
-        setMessage(problems.join(' ') || undefined);
-        resolve?.(null);
-      })();
-    }
-  }, [sale.order, restoring]);
-
   async function onPark() {
     const cart = parkCart(sale.order);
     try {
@@ -272,11 +250,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     } catch (error) {
       return error instanceof Error ? error.message : String(error);
     }
-    return new Promise<string | null>(resolve => {
-      restoreResolve.current = resolve;
-      sale.newSale();
-      setRestoring(selected);
-    });
+    return restore(selected);
   }
 
   // Parks a non-empty cart and records it under heldCartKey so it comes back after a redirect.
