@@ -1,20 +1,25 @@
 import type { JSX } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { Text } from '@tallyui/components';
 import { evenSplitShareMinor, type PlanLeg } from '@tallyui/pos';
 
-// WCPOS v2: tender-pane.tsx:732-777.
+// WCPOS v2: tender-pane.tsx:732-785.
 export function EvenSplitTiles({ restMinor, onPick, fmt, disabled }: {
   restMinor: number; onPick: (ways: number) => void; fmt: (minor: number) => string; disabled: boolean;
 }): JSX.Element {
   return <>
     <Text className="w-full text-center text-sm text-muted-foreground">Split the rest</Text>
-    <View className="w-full flex-row flex-wrap gap-2">
-      {[2, 3, 4, 5, 6].map(ways => <Pressable key={ways} accessibilityRole="button" testID={`checkout-even-${ways}`}
-        className="flex-1 items-center rounded-lg border border-border bg-card px-4 py-3" disabled={disabled} onPress={() => onPick(ways)}>
-        <Text className="text-base font-semibold text-foreground">{ways} ways</Text>
-        <Text className="text-sm text-muted-foreground">{fmt(evenSplitShareMinor(restMinor, ways))} each</Text>
-      </Pressable>)}
+    <View className="w-full">
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+        contentContainerClassName="grow gap-2" testID="checkout-split-ways">
+        {[2, 3, 4, 5, 6].map(ways => <View key={ways} className="min-w-28 flex-1">
+          <Pressable accessibilityRole="button" testID={`checkout-even-${ways}`}
+            className="grow items-center justify-center gap-1 rounded-lg border border-border bg-card px-2 py-2" disabled={disabled} onPress={() => onPick(ways)}>
+            <Text className="text-center text-base font-semibold text-foreground" numberOfLines={2}>{ways} ways</Text>
+            <Text className="text-center text-sm text-muted-foreground" numberOfLines={2}>{fmt(evenSplitShareMinor(restMinor, ways))} each</Text>
+          </Pressable>
+        </View>)}
+      </ScrollView>
     </View>
   </>;
 }

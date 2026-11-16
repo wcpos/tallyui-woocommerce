@@ -280,6 +280,7 @@ test.each([
     return;
   }
   const tile = within(screen.getByTestId('checkout-even-3'));
+  expect(within(screen.getByTestId('checkout-split-ways')).getByTestId('checkout-even-6')).not.toBeNull();
   expect(tile.getByText('3 ways')).not.toBeNull();
   expect(tile.getByText('$2.00 each')).not.toBeNull();
   fireEvent.click(screen.getByTestId('checkout-even-3'));
