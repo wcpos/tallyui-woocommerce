@@ -33,6 +33,7 @@ import { AreaDisplayOptions } from './area-display-options';
 import { AreaToolbar, useAreaGutter } from './area-header';
 import { BrowseCrumb } from './browse-terms-view';
 import { CatalogueFilterChips } from './catalogue-filter-chips';
+import { EmptyState } from './empty-state';
 import { ProductAttributes, variationMatches, variationName } from './product-attributes';
 import type { ProductAttribute, VariationDoc, VariationMatch } from './product-attributes';
 import { gmtDayText } from './coupons-screen';
@@ -258,9 +259,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   const paneColumns = useMemo(() => drilled ? centred(variationColumns(tableColumns, drilled)) : [], [drilled, tableColumns]);
 
   const noVariations = (
-    <View testID="no-data-message" className="flex-1 items-center justify-center gap-2 p-6">
-      <Text testID="no-data-message-title" className="text-center font-medium text-foreground">No variations found</Text>
-    </View>
+    <EmptyState title="No variations found" />
   );
   // v2's DrillIn: the crumb, then the pane on its own card, the variations under the table's labels.
   const pane = drilled ? (
@@ -297,15 +296,9 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   ) : null;
 
   const body = total === 0 ? (
-    <View testID="no-data-message" className="flex-1 items-center justify-center gap-2 p-6">
-      <Text testID="no-data-message-title" className="text-center font-medium text-foreground">No products yet</Text>
-      <Text testID="no-data-message-description" className="text-center text-muted-foreground">Products you add to the store will appear here.</Text>
-    </View>
+    <EmptyState title="No products yet" description="Products you add to the store will appear here." />
   ) : shown.length === 0 ? (
-    <View testID="no-data-message" className="flex-1 items-center justify-center gap-2 p-6">
-      <Text testID="no-data-message-title" className="text-center font-medium text-foreground">No products found</Text>
-      <Button testID="no-data-message-action" variant="ghost" size="sm" onPress={clear}><Text>Clear filters</Text></Button>
-    </View>
+    <EmptyState title="No products found" action={{ label: 'Clear filters', onPress: clear }} />
   ) : narrow ? (
         <ScrollView testID="products-body">
           {listed.map(doc => (

@@ -15,6 +15,7 @@ import { useSearchTerm } from '../lib/search-term';
 import { AddCustomerDialog } from './add-customer-dialog';
 import { AreaDisplayOptions } from './area-display-options';
 import { AreaToolbar, useAreaGutter } from './area-header';
+import { EmptyState } from './empty-state';
 import { CaptionRowInset, TableCount, TableSurface } from './table-surface';
 
 // The customer picker's floor (components/customer-picker.tsx:46); the store search is online. Below it the
@@ -123,11 +124,7 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
   ) : searching ? (
     <Text testID="customers-searching" className={`py-4 text-muted-foreground ${gutter}`}>Searching…</Text>
   ) : results.length === 0 ? (
-    <View testID="no-data-message" className="flex-1 items-center justify-center gap-2 p-6">
-      <Text testID="no-data-message-title" className="text-center font-medium text-foreground">
-        {asked ? 'No customers match your search' : 'No customers found'}</Text>
-      {asked ? <Button testID="no-data-message-action" variant="ghost" size="sm" onPress={clear}><Text>Clear search</Text></Button> : null}
-    </View>
+    <EmptyState title={asked ? 'No customers match your search' : 'No customers found'} action={asked ? { label: 'Clear search', onPress: clear } : undefined} />
   ) : (
       <ScrollView testID="customers-body">
         {width < NARROW_WIDTH ? shown.map(c => (
