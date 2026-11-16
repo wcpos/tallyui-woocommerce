@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type JSX } from 'react';
+import { useRef, useState, type JSX } from 'react';
 import { View } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { Button, Text } from '@tallyui/components';
-import { isReopened, isRequeueable, watchFresh, type PosOrder } from '@tallyui/pos';
+import { isRequeueable, type PosOrder } from '@tallyui/pos';
+import { refusedReason, useRefusedOrders } from '../lib/orders/use-refused-orders';
 import { queuedAgo } from './queued-emails-panel';
 
 export function RejectedOrdersPanel({ orders, onRequeue, now = () => new Date() }: {
@@ -10,19 +11,10 @@ export function RejectedOrdersPanel({ orders, onRequeue, now = () => new Date() 
   onRequeue(orderIds: string[]): Promise<number>;
   now?: () => Date;
 }): JSX.Element | null {
-  const [rows, setRows] = useState<PosOrder[]>([]);
+  const rows = useRefusedOrders(orders);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const guard = useRef(false);
-  useEffect(() => {
-    if (!orders) { setRows([]); return; }
-    const subscription = watchFresh(orders, { selector: { syncStatus: 'rejected' }, sort: [{ createdAt: 'desc' }] })
-      .subscribe(next => {
-        // A reopened refusal lives on as a parked sale and must not be sent again (ADR-077 d4b).
-        setRows(next.filter(order => !isReopened(order)));
-      });
-    return () => subscription.unsubscribe();
-  }, [orders]);
 
   async function requeue(id: string) {
     if (guard.current) return;
@@ -44,8 +36,7 @@ export function RejectedOrdersPanel({ orders, onRequeue, now = () => new Date() 
       </View>
       {rows.map(order => {
         const label = order.serverRefs?.orderId ? `Orders · #${order.serverRefs.orderId}` : `Orders · ${order.id.slice(0, 8)}`;
-        const reason = (order.error && [order.error.code, order.error.message].filter(Boolean).join(' · '))
-          || 'Your server refused it without saying why.';
+        const reason = refusedReason(order);
         return (
           <View key={order.id} testID={`db-rejected-row-${order.id}`} className="gap-1">
             <Text className="font-semibold">{label}</Text>
