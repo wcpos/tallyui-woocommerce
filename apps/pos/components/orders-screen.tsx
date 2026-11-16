@@ -5,6 +5,7 @@ import type { StoreOrder } from '@tallyui/core';
 import { buildReceiptDataFromPosOrder, buildReceiptDataFromStoreOrder, orderFiltersQuery, type PosOrder, type ReceiptConfig } from '@tallyui/pos';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { useRegister } from '../lib/register/register-context';
+import { REGISTER_ID } from '../lib/register/register-id';
 import { initialOrderFilters, matchesOrderFilters, matchesOrderSearch, toHistoryRow, WOO_CREATED_VIA_OPTIONS, WOO_STATUS_LABELS, type OrderHistorySource } from '../lib/orders/order-history';
 import { useAreaColumns } from '../lib/area-columns';
 import { useSearchTerm } from '../lib/search-term';
@@ -16,8 +17,6 @@ import { ReceiptZoom } from './receipt-zoom';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { AreaToolbar, useAreaGutter } from './area-header';
 
-// The till id; the bound register is the drawer.
-const REGISTER_ID = 'web';
 // The app has no store timezone yet (lib/orders/order-days.ts)
 const TIMEZONE = 'device';
 

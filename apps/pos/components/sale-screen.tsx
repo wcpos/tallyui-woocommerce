@@ -13,6 +13,7 @@ import { drawerFigureText, drawerVerbs, sheetMoney } from '../lib/cashier/sheet-
 import { inCartCounts } from '../lib/catalogue/tile-words';
 import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
 import { useRegister } from '../lib/register/register-context';
+import { REGISTER_ID } from '../lib/register/register-id';
 import { buildReceiptIdentity } from '../lib/receipts/receipt-identity';
 import { useReceiptPrintCount } from '../lib/receipts/use-receipt-print-count';
 import { useOutbox } from '../lib/sale/outbox-context';
@@ -51,8 +52,6 @@ import { TenderPane } from './tender-pane';
 import { LedgerPane } from './ledger-pane';
 import { PosPhoneTabBar } from './pos-phone-tab-bar';
 
-// The till id; the bound register is the drawer.
-const REGISTER_ID = 'web';
 // Stores without a capabilities read stay on order.create v3 (no fees, shipping or custom lines).
 const DEFAULT_CAPABILITIES = { orderCreate: 3 } as const;
 
