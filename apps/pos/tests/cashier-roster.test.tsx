@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { CASHIERS_KEY, loadCashiers, loadSession, PENDING_KEY, saveCashiers, saveSession, SessionExpiredError } from '../lib/auth/session';
 import type { Session } from '../lib/auth/session';
 import { SessionProvider, useSession } from '../lib/auth/session-context';
+import { memoryStorage } from './memory-storage';
 
 const now = 1791239000;
 const home = 'https://shop.example';
@@ -40,18 +41,6 @@ afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
-
-function memoryStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: key => data.get(key) ?? null,
-    key: index => Array.from(data.keys())[index] ?? null,
-    removeItem: key => { data.delete(key); },
-    setItem: (key, value) => { data.set(key, value); },
-  };
-}
 
 test('adding a cashier keeps the active cashier and lists the new one', async () => {
   saveSession(a);

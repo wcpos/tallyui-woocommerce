@@ -4,6 +4,7 @@ import { CatalogueUnavailable } from '../components/catalogue-unavailable';
 import { CASHIERS_KEY, saveSession, SESSION_KEY } from '../lib/auth/session';
 import { SessionProvider, useSession } from '../lib/auth/session-context';
 import { StoreAccessDeniedError } from '../lib/catalogue/store-info';
+import { memoryStorage } from './memory-storage';
 
 const message = new StoreAccessDeniedError().message;
 
@@ -22,17 +23,6 @@ beforeEach(() => {
 });
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
-function memoryStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: key => data.get(key) ?? null,
-    key: index => Array.from(data.keys())[index] ?? null,
-    removeItem: key => { data.delete(key); },
-    setItem: (key, value) => { data.set(key, value); },
-  };
-}
 
 function Probe({ withSignOut }: { withSignOut: boolean }) {
   const { session, signOut } = useSession();
