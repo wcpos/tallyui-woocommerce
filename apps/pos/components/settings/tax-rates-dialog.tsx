@@ -9,7 +9,7 @@ import {
 import type { StoreTaxRate } from '@tallyui/core';
 import { useIsWide } from '../../lib/layout/wide';
 import { taxClassOptions } from '../../lib/sale/tax-classes';
-import { SHEET_TITLE, SheetCloseButton } from '../catalogue-display-options';
+import { SHEET_TITLE, SheetCloseButton } from '../sheet';
 import { ChevronDownIcon, SELECT_FACE } from '../select-chevron';
 import { SETTINGS_HELP_CLASS, SETTINGS_KEY_CLASS } from './settings-form';
 
@@ -82,7 +82,7 @@ function TaxRateTable({ rates }: { rates: StoreTaxRate[] }) {
   );
 }
 
-// v2 dialog/index.tsx:76 `side="right" size="2xl"` (w-200), on the app's right sheet (catalogue-display-options RIGHT_SHEET).
+// v2 dialog/index.tsx:76 `side="right" size="2xl"` (w-200), on the app's right sheet (sheet.tsx RIGHT_SHEET).
 const SHEET = 'left-auto right-0 top-0 h-full w-full max-w-200 translate-x-0 translate-y-0 gap-4 rounded-none border-0 border-l border-border bg-card p-0 py-4';
 
 // lucide `refresh-cw`, v2's `refresh` icon, as table-surface.tsx's TableCount draws it (not exported there).

@@ -11,7 +11,7 @@ import { useRegister } from '../lib/register/register-context';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { CartAddMenu } from './cart-add-menu';
 import { CATALOGUE_VIEW_DEFAULTS } from '../lib/catalogue/catalogue-view-state';
-import { RestoreDefaultsButton, SHEET_TITLE, SheetCloseButton } from './catalogue-display-options';
+import { RestoreDefaultsButton, SHEET_TITLE, SheetCloseButton } from './sheet';
 import type { PanelPosition } from '../lib/catalogue/catalogue-view-state';
 import { CART_SETTINGS_DEFAULTS, isQuickDiscount, LINE_SORTS, normalizeLineSort, QUICK_DISCOUNT_SLOTS, sortCartLines, useCartSettings } from '../lib/sale/cart-settings';
 import type { CartSettings } from '../lib/sale/cart-settings';

@@ -8,7 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { getInitials } from '../lib/cashier/initials';
 import { sheetMoney, useCashierSalesToday } from '../lib/cashier/sheet-figures';
 import type { SalesTotal } from '../lib/cashier/sheet-figures';
-import { SheetCloseButton } from './catalogue-display-options';
+import { SheetCloseButton } from './sheet';
 import { OpenExternalIcon } from './docs-link';
 
 // v2's tabler glyphs at their 1.5 stroke (monorepo packages/components/src/icon/components/tabler/plus.tsx:14,
