@@ -3,7 +3,7 @@ import type { JSX } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { Button, ParkedSales, Receipt, SyncStatus, Text } from '@tallyui/components';
-import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
+import { catalogueEntries, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
 import { formatMoney } from '@tallyui/core';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
 import type { CatalogueEntry, CustomerSummary, OutboxState } from '@tallyui/pos';
@@ -18,18 +18,18 @@ import { buildReceiptIdentity } from '../lib/receipts/receipt-identity';
 import { useReceiptPrintCount } from '../lib/receipts/use-receipt-print-count';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { clearBeforeLeave, setBeforeLeave, type BeforeLeave } from '../lib/sale/before-leave';
-import { parkCart } from '../lib/sale/parked-carts';
 import { useCartRestore } from '../lib/sale/use-cart-restore';
 import { useParkAndResume } from '../lib/sale/use-park-and-resume';
 import { useParkedCarts } from '../lib/sale/use-parked-carts';
 import { useTenderCancel } from '../lib/sale/use-tender-cancel';
+import { useTenderStart } from '../lib/sale/use-tender-start';
+import { useVoidSale } from '../lib/sale/use-void-sale';
 import { saleDiscountCodes } from '../lib/sale/discount-codes';
 import { taxClassOptions } from '../lib/sale/tax-classes';
 import { saleScanHandlers } from '../lib/scan/sale-scan';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
-import { toast } from '../lib/toast/toast';
 import type { TenderVoidCollection } from '../lib/sale/tender-voids';
-import type { ParkedCart, ParkedCartCollection } from '../lib/sale/parked-carts';
+import type { ParkedCartCollection } from '../lib/sale/parked-carts';
 import { VariantChooser } from './variant-chooser';
 import { CatalogueView, PosBar } from './catalogue-view';
 import type { CatalogueViewProps } from './catalogue-view';
@@ -144,13 +144,9 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     store: parkedStore, cartRestore, heldCartKey: props.heldCartKey,
     catalogueReady: props.status === 'ready', say: setMessage,
   });
+  const startTender = useTenderStart(sale, { register, multiPayment: outbox.enabled && props.multiplePayments === true, say: setMessage });
   const [parkedOpen, setParkedOpen] = useState(false);
   const [variants, setVariants] = useState<CatalogueEntry<any>[]>();
-  const stageNow = useRef(sale.stage);
-  stageNow.current = sale.stage;
-  useEffect(() => {
-    register?.setTenderInProgress(sale.stage.kind === 'tender');
-  }, [register?.setTenderInProgress, sale.stage.kind]);
   const leave = useRef({ hold, tendering: false });
   leave.current = { hold, tendering: sale.stage.kind === 'tender' || sale.saving };
   useEffect(() => {
@@ -168,24 +164,6 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     if (receiptOrderId !== null && !receiptSettings.autoShow && !receiptSettings.autoPrint) sale.newSale();
   }, [sale.stage.kind, receiptOrderId]);
 
-  // A multi-payment tender is taken leg by leg: v2's checkout opens on the balance due with no leg taken, whatever the
-  // method, so startTender's preset tender is cleared on that path (Card's is a full-total leg).
-  function beginTender(method: 'cash' | 'external', options?: Parameters<typeof sale.startTender>[1]) {
-    sale.startTender(method, options);
-    if (outbox.enabled && props.multiplePayments === true) sale.setTender(null);
-  }
-
-  async function gatedStartTender(method: 'cash' | 'external') {
-    if (!register?.enabled) { register?.setTenderInProgress(true); return beginTender(method); }
-    try {
-      const session = await register.requireSaleSession();
-      register?.setTenderInProgress(true);
-      beginTender(method, { session: session ?? undefined });
-    } catch (error) {
-      if (!(error instanceof RegisterSessionRequiredError)) throw error;
-      setMessage('Open the register to take payment.');
-    }
-  }
   async function changeCashier(uuid?: string) {
     const result = await hold();
     if (typeof result === 'string') { setMessage(result); return; }
@@ -204,26 +182,11 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   // picks the method, and the ⋮'s one item opens the Order details sheet, which holds Void (cart/order-sheet.tsx).
   // v2 voids at once and offers Undo (pos/hooks/use-void-order.ts): Undo brings the voided cart back as resumeCart does.
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const voidOffered = sale.order.lineItems.length > 0 && sale.order.payments.length === 0;
+  const voiding = useVoidSale(sale, { resumeCart, say: setMessage });
   const checkout = {
-    onCheckout: () => { void gatedStartTender('cash'); },
+    onCheckout: () => { void startTender('cash'); },
     actions: [{ label: 'Order details', onPress: () => setDetailsOpen(true) }],
   };
-
-  function voidSale() {
-    const voided = parkCart(sale.order);
-    sale.newSale();
-    toast({ type: 'success', title: 'Order removed', action: { label: 'Undo', onPress: () => { void undoVoid(voided); } } });
-  }
-
-  async function undoVoid(cart: ParkedCart) {
-    if (stageNow.current.kind !== 'cart') {
-      setMessage('Finish the current sale first, then undo the void.');
-      return;
-    }
-    const result = await resumeCart(cart);
-    if (typeof result === 'string') setMessage(result);
-  }
 
   function onSelect(doc: any) {
     try {
@@ -288,7 +251,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             onDiscard={discard} currency={currency} open={parkedOpen} onOpenChange={setParkedOpen} />
           {/* M6's order notes can take the price-change reason via onPriceChange. */}
           {/* B7: quantity and price open keypad popovers, as v2's cart/cells/quantity-keypad.tsx and cart/cells/price.tsx do. */}
-          <CartWithSettings sale={{ ...sale, startTender: gatedStartTender }} canEditPrice lineEditor="popover" taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)}
+          <CartWithSettings sale={{ ...sale, startTender: startTender }} canEditPrice lineEditor="popover" taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)}
             afterSubtotal={couponsOffered && props.couponCollections ? <CouponRows sale={sale} /> : undefined}
             // v2's cart "+" menu hosts the order discount, charges and coupons (the Coupon side of Add discount).
             orderActions={false} coupons={props.couponCollections?.coupons ?? null} couponsOffered={couponsOffered}
@@ -300,7 +263,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             openOrders={<OpenOrderTabs parked={parked} current={sale.order} currency={currency} locale={props.locale} onSelect={resume} onNew={park} onError={setMessage}
               onOpenList={() => setParkedOpen(true)} listOpen={parkedOpen} compact={phoneLayout} />} />
           <OrderDetailsSheet open={detailsOpen} onOpenChange={setDetailsOpen} side={viewState.position}
-            note={sale.order.note} onNoteChange={sale.setNote} onVoid={voidOffered ? voidSale : undefined} />
+            note={sale.order.note} onNoteChange={sale.setNote} onVoid={voiding.offered ? voiding.voidSale : undefined} />
         </>
       ) : sale.stage.kind === 'tender' ? outbox.enabled ? (props.multiplePayments === true ? (
         cancelling && sale.order.payments.length > 0 ? (
