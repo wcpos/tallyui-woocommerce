@@ -11,6 +11,7 @@ import { SaleScreen } from '../components/sale-screen';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
+import { OnlineStatusContext, type OnlineStatus } from '../lib/online/online-status';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
@@ -45,22 +46,24 @@ function OrderStoreReady() {
 }
 
 /** One Espresso ($3.00) in the cart of a store that takes one payment per order, then the cart's `button`. */
-async function startTender(button: 'Cash' | 'Card terminal') {
+async function startTender(button: 'Cash' | 'Card terminal', status: OnlineStatus = 'online-website-available') {
   const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => ({
     kind: 'results',
     results: batch.map(envelope => ({ id: envelope.id, status: 'applied', serverRefs: { orderId: '115', totalMinor: 300 } })),
   }));
   const fakeTransport = { send };
   render(
-    <SessionProvider>
-      <OutboxProvider transportFor={() => fakeTransport} storage={getRxStorageMemory()}>
-        <OrderStoreReady />
-        <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
-          storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}}
-          multiplePayments={false} />
-        <PortalHost />
-      </OutboxProvider>
-    </SessionProvider>,
+    <OnlineStatusContext.Provider value={{ status }}>
+      <SessionProvider>
+        <OutboxProvider transportFor={() => fakeTransport} storage={getRxStorageMemory()}>
+          <OrderStoreReady />
+          <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
+            storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}}
+            multiplePayments={false} />
+          <PortalHost />
+        </OutboxProvider>
+      </SessionProvider>
+    </OnlineStatusContext.Provider>,
   );
   await screen.findByText('Order store ready');
   fireEvent.click(screen.getByText('Espresso'));
@@ -192,4 +195,22 @@ test('cash quick amounts follow the applied entry', async () => {
   press('clear', '2', '0', '0');
   expect(text('checkout-entry')).toBe('$2.00');
   expect(screen.getAllByTestId(/^checkout-quick-\d/).map(chip => chip.textContent)).toEqual(['$2.00', '$5.00', '$10.00', '$50.00']);
+}, 20_000);
+
+test('offline, both tiles say the payment is sent later and the store may refuse', async () => {
+  await startTender('Cash', 'offline');
+  expect(screen.getByTestId('checkout-method-sent-later-pos_cash').textContent).toBe('Sent laterStore may refuse');
+  expect(screen.getByTestId('checkout-method-sent-later-pos_card').textContent).toBe('Sent laterStore may refuse');
+  expect(disabled()).not.toBe('true');
+}, 20_000);
+
+test('a store that cannot be reached counts as offline for the tiles', async () => {
+  await startTender('Card terminal', 'online-website-unavailable');
+  expect(screen.getByTestId('checkout-method-sent-later-pos_card')).not.toBeNull();
+}, 20_000);
+
+test('online, the tiles carry no sent-later line', async () => {
+  await startTender('Cash');
+  expect(screen.queryByTestId('checkout-method-sent-later-pos_cash')).toBeNull();
+  expect(screen.queryByTestId('checkout-method-sent-later-pos_card')).toBeNull();
 }, 20_000);
