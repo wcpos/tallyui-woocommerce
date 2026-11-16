@@ -271,14 +271,14 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     return resumeCart(parked.find(cart => cart.id === id)!);
   }
 
-  async function resumeCart(selected: ParkedCart, options?: { parked?: boolean }): Promise<string | null> {
+  async function resumeCart(selected: ParkedCart): Promise<string | null> {
     const { id } = selected;
     const current = currentOrder.current?.lineItems.length ? parkCart(currentOrder.current) : undefined;
     try {
       if (parkedCarts) {
         if (current) await parkedCarts.insert(current);
-        if (options?.parked !== false) await parkedCarts.findOne(id).remove();
-      } else setParked(carts => [...(current ? [current] : []), ...(options?.parked === false ? carts : carts.filter(cart => cart.id !== id))]);
+        await parkedCarts.findOne(id).remove();
+      } else setParked(carts => [...(current ? [current] : []), ...carts.filter(cart => cart.id !== id)]);
     } catch (error) {
       return error instanceof Error ? error.message : String(error);
     }
@@ -362,7 +362,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       setMessage('Finish the current sale first, then undo the void.');
       return;
     }
-    const result = await resumeCart(cart, { parked: false });
+    const result = await resumeCart(cart);
     if (typeof result === 'string') setMessage(result);
   }
 

@@ -1073,6 +1073,24 @@ test('Void empties the cart at once; Undo on the toast brings the sale back', as
   }
 }, 20_000);
 
+test('Undo while the next sale is at checkout restores nothing and says why', async () => {
+  render(<><SaleScreen {...props} /><Toaster /></>);
+  fireEvent.click(screen.getByText('Espresso'));
+  openCartTab();
+  fireEvent.click(cartPane().getByTestId('cart-foot-more'));
+  fireEvent.click(screen.getByText('Order details'));
+  fireEvent.click(screen.getByTestId('order-details-void'));
+  openProductsTab();
+  fireEvent.click(screen.getByText('Cold Brew'));
+  openCartTab();
+  fireEvent.click(screen.getByTestId('cart-checkout'));
+  expect(screen.getByText('Taking payment arrives in the next update')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('toast-action'));
+  expect((await screen.findAllByText('Finish the current sale first, then undo the void.')).length).toBeGreaterThan(0);
+  expect(screen.getByText('Taking payment arrives in the next update')).not.toBeNull();
+  expect(screen.queryByTestId('cart-checkout')).toBeNull();
+}, 20_000);
+
 test('Undo after a new sale was started parks that sale and brings the voided one back', async () => {
   render(<><SaleScreen {...props} /><Toaster /></>);
   fireEvent.click(screen.getByText('Espresso'));
