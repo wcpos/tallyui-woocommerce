@@ -201,6 +201,9 @@ test('a coupon of a type the POS cannot apply says so inline, as v2, and is not 
   await applyCoupon('credit50');
   const alert = await screen.findByText("credit50 can't be applied in the POS: its coupon type (store_credit) comes from another plugin. Only percentage and fixed discount coupons are supported.");
   expect(alert.getAttribute('role')).toBe('alert');
+  // Had the picker gone on to applyCoupon, TallyUI's own refusal would replace this one after its RxDB lookup.
+  await expect(screen.findByText('Coupon credit50 does not exist', {}, { timeout: 1_500 })).rejects.toThrow();
+  expect(screen.getByRole('alert').textContent).toBe("credit50 can't be applied in the POS: its coupon type (store_credit) comes from another plugin. Only percentage and fixed discount coupons are supported.");
   expect(screen.getByRole('button', { name: 'Apply' })).not.toBeNull();
   expect(screen.queryByRole('button', { name: 'Remove coupon credit50' })).toBeNull();
   expect(total().getByText('$3.00')).not.toBeNull();
