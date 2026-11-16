@@ -1,6 +1,5 @@
-import { View } from 'react-native';
 import { Redirect } from 'expo-router';
-import { Text } from '@tallyui/components';
+import { CatalogueUnavailable } from '../../components/catalogue-unavailable';
 import { PerformanceScreen } from '../../components/performance-screen';
 import { PerformanceSync } from '../../components/performance-sync';
 import { SessionHoldBanner } from '../../components/session-hold-banner';
@@ -15,9 +14,7 @@ export default function HealthPerformance() {
   if (!catalogue) return (
     <>
     <SessionHoldBanner />
-    <View className="flex-1 items-center justify-center bg-background p-6">
-      <Text>{error ?? `Connecting to ${session.site.name}…`}</Text>
-    </View>
+    <CatalogueUnavailable message={error ?? `Connecting to ${session.site.name}…`} />
     </>
   );
   // v2 reads the engine's state; here, the pull notice and the catalogue's own status.

@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { View } from 'react-native';
 import { Redirect } from 'expo-router';
-import { Text } from '@tallyui/components';
 import type { PrinterProfileCollection } from '@tallyui/pos';
+import { CatalogueUnavailable } from '../../components/catalogue-unavailable';
 import { PrintingSettings } from '../../components/settings/printing-settings';
 import { useSession } from '../../lib/auth/session-context';
 import { useRequestContext } from '../../lib/auth/request-context';
@@ -27,11 +26,7 @@ export default function PrintingSettingsRoute() {
   };
   if (!ready) return null;
   if (!session) return <Redirect href="/connect" />;
-  if (!catalogue) return (
-    <View className="flex-1 items-center justify-center bg-background p-6">
-      <Text>{error ?? `Connecting to ${session.site.name}…`}</Text>
-    </View>
-  );
+  if (!catalogue) return <CatalogueUnavailable message={error ?? `Connecting to ${session.site.name}…`} />;
   return <PrintingSettings templates={{ receipt, report, closure }} profiles={profiles} printersError={printersError}
     onSavePrinter={profile => run(collection => savePrinterProfile(collection, profile))}
     onSetDefault={id => run(collection => setDefaultPrinterProfile(collection, id))}

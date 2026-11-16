@@ -1,6 +1,5 @@
-import { View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
-import { Text } from '@tallyui/components';
+import { CatalogueUnavailable } from '../components/catalogue-unavailable';
 import { ReportsScreen } from '../components/reports-screen';
 import { SessionHoldBanner } from '../components/session-hold-banner';
 import { useSession } from '../lib/auth/session-context';
@@ -15,9 +14,7 @@ export default function Reports() {
   if (!catalogue) return (
     <>
     <SessionHoldBanner />
-    <View className="flex-1 items-center justify-center bg-background p-6">
-      <Text>{error ?? `Connecting to ${session.site.name}…`}</Text>
-    </View>
+    <CatalogueUnavailable message={error ?? `Connecting to ${session.site.name}…`} />
     </>
   );
   return <><SessionHoldBanner /><ReportsScreen storeName={catalogue.store.name} currency={catalogue.store.currency} locale={catalogue.store.locale}
