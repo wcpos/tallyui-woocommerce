@@ -21,6 +21,7 @@ import {
 import type { SvgIconProps } from '@tallyui/components';
 import { useAreaColumns } from '../lib/area-columns';
 import type { AreaColumn } from '../lib/area-columns';
+import { NARROW_WIDTH } from '../lib/layout/wide';
 import { useSearchTerm } from '../lib/search-term';
 import { AreaDisplayOptions } from './area-display-options';
 import { AreaToolbar, useAreaGutter } from './area-header';
@@ -30,9 +31,6 @@ import {
 import { StatusDot } from './status-dot';
 import type { StatusTone } from './status-dot';
 import { CaptionRowInset, TableCount, TableSurface, useCatalogueSync } from './table-surface';
-
-// The width below which the table becomes a list, as customers-screen.tsx.
-const NARROW_WIDTH = 600;
 
 // v2 coupons/discount-type-label.ts with the English strings of core.json; an unknown type reads as itself.
 const TYPE_LABELS: Record<string, string> = { percent: 'Percentage', fixed_cart: 'Fixed Cart', fixed_product: 'Fixed Product' };

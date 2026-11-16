@@ -5,7 +5,7 @@ import { Text } from '@tallyui/components';
 export type HeroFigures = { count: number; totalMinor: number; averageMinor: number; items: number };
 
 /** Below this window width the figure sits above its companions (v2 hero `phone`). */
-const WIDE_MIN_WIDTH = 600;
+const HERO_SIDE_BY_SIDE_MIN_WIDTH = 600;
 
 /** v2 reports/hero `tone`: up reads good, down bad, no change or no comparison muted. */
 const tone = (value: number) => value > 0 ? 'text-success' : value < 0 ? 'text-destructive' : 'text-muted-foreground';
@@ -33,7 +33,7 @@ export function ReportsHero({ today, previous, comparisonLabel, money, onOpenOrd
   money(minor: number): string; onOpenOrders(): void;
   compareChip?: ReactNode; toggle?: ReactNode; chart?: ReactNode; children?: ReactNode;
 }) {
-  const wide = useWindowDimensions().width >= WIDE_MIN_WIDTH;
+  const wide = useWindowDimensions().width >= HERO_SIDE_BY_SIDE_MIN_WIDTH;
   // No orders to compare with: every line reads "—", never a difference against nothing.
   const compared = previous.count > 0;
   // The percentage is rounded to its displayed tenth before the sign and tone are chosen.

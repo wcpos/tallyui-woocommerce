@@ -12,6 +12,7 @@ import { createCustomersBlockedReason, type CashierCapabilities } from '../lib/a
 import { drawerFigureText, drawerVerbs, sheetMoney } from '../lib/cashier/sheet-figures';
 import { inCartCounts } from '../lib/catalogue/tile-words';
 import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
+import { SALE_SPLIT_MIN_WIDTH } from '../lib/layout/wide';
 import { useRegister } from '../lib/register/register-context';
 import { REGISTER_ID } from '../lib/register/register-id';
 import { buildReceiptIdentity } from '../lib/receipts/receipt-identity';
@@ -460,7 +461,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       onOpenDrawer={register?.enabled ? () => { setCartOpen(true); setRegisterPanelOpen(true); } : undefined}
       adminUrl={props.adminUrl}
     /> : props.cashierControl;
-  const phoneLayout = width < 900;
+  const phoneLayout = width < SALE_SPLIT_MIN_WIDTH;
   // v2 draws its RegisterBar as the cart column's first row (cart/index.tsx), so the catalogue starts with its search row.
   const bar = <PosBar {...props} cashierControl={cashierControl} />;
   const browse = variants ? (
@@ -472,7 +473,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   // its rows sit 8 px in (cart/foot.tsx:35 `gap-2 p-2`; cart-header.tsx:119 `px-2 py-2`).
   const cartPane = (
     <View testID="cart-pane" className="flex-1 bg-card p-2">
-      {width < 900 && message ? <Text>{message}</Text> : null}
+      {width < SALE_SPLIT_MIN_WIDTH && message ? <Text>{message}</Text> : null}
       {sale.stage.kind === 'cart' ? (
         <>
           <ParkedSales sale={sale} parked={summaries} onPark={onPark} onResume={onResume}
@@ -526,7 +527,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             {sale.order.payments.length > 0 ? <Button variant="ghost" testID="checkout-cancel-payment" onPress={requestCancel}><Text>Cancel payment</Text></Button> : null}
             <TenderPane multi sale={{ ...sale, cancelTender: requestCancel }} />
             {/* One column below 900: the legs sit under the tender (wide, the ledger has the products panel). */}
-            {width < 900 ? <LedgerPane order={sale.order} onRemove={sale.saving ? undefined : id => { void removeLeg(id); }} /> : null}
+            {width < SALE_SPLIT_MIN_WIDTH ? <LedgerPane order={sale.order} onRemove={sale.saving ? undefined : id => { void removeLeg(id); }} /> : null}
           </>
         )
       ) : <TenderPane sale={sale} />) : (
@@ -584,8 +585,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
 
   // WCPOS v2's two-pane checkout: during a multi-payment tender the ledger takes the products panel, beside the tender.
   const multiTender = outbox.enabled && props.multiplePayments === true && sale.stage.kind === 'tender';
-  useWedgeScanner(onTenderScan, multiTender && width >= 900);
-  if (width >= 900) {
+  useWedgeScanner(onTenderScan, multiTender && width >= SALE_SPLIT_MIN_WIDTH);
+  if (width >= SALE_SPLIT_MIN_WIDTH) {
     const shown = liveWidth ?? viewState.width;
     // v2 keeps no inset on the products column's edge facing the cart (pos-columns.tsx `GroundInnerEdge`, lib/ground.ts:
     // 84-110 INNER_RIGHT/INNER_LEFT `pr-0`/`pl-0`): the handle is that gutter, so the column's 12 px bleeds under it.
