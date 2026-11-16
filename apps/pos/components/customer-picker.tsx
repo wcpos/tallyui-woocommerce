@@ -45,7 +45,8 @@ export function CustomerPicker({ source, customer, onChange }: {
   }
 
   function pick(selected: Customer) {
-    onChange({ id: selected.id, name: selected.name, ...(selected.email ? { email: selected.email } : {}) });
+    onChange({ id: selected.id, name: selected.name, ...(selected.email ? { email: selected.email } : {}),
+      ...(selected.billing ? { billing: selected.billing } : {}), ...(selected.shipping ? { shipping: selected.shipping } : {}) });
     close();
   }
 
