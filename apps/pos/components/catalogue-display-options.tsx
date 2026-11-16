@@ -10,6 +10,7 @@ import type { AppCatalogueViewState, PanelPosition } from '../lib/catalogue/cata
 import { QUICK_FILTER_SORT_FIELDS } from '../lib/catalogue/quick-filters';
 import { termOptions } from './catalogue-filter-chips';
 import { Segmented } from './segmented';
+import { LEFT_SHEET, RIGHT_SHEET, SHEET_TITLE, SheetCloseButton, RestoreDefaultsButton } from './sheet';
 import { ChevronDownIcon, FieldLabel, SELECT_FACE, SwitchRow } from './select-chevron';
 
 const CheckIcon = createSvgIcon('CheckIcon', () => <Path d="M20 6 9 17l-5-5" />);
@@ -18,9 +19,6 @@ export const SlidersIcon = createSvgIcon('SlidersIcon', () => <>
   <Path d="M21 4h-7" /><Path d="M10 4H3" /><Path d="M21 12h-9" /><Path d="M8 12H3" /><Path d="M21 20h-5" /><Path d="M12 20H3" />
   <Path d="M14 2v4" /><Path d="M8 10v4" /><Path d="M16 18v4" />
 </>);
-
-export const RIGHT_SHEET = 'left-auto right-0 top-0 h-full w-full max-w-lg translate-x-0 translate-y-0 gap-4 rounded-none border-0 border-l border-border bg-card p-0 py-4';
-const LEFT_SHEET = 'left-0 right-auto top-0 h-full w-full max-w-lg translate-x-0 translate-y-0 gap-4 rounded-none border-0 border-r border-border bg-card p-0 py-4';
 
 export function settingsSheetClassName(position: PanelPosition): string {
   // v2's usePanelSide('products'): the sheet slides in over the cart.
@@ -53,29 +51,6 @@ export function SettingsTrigger({ testID, label, tooltip, onPress, className }: 
     <TooltipContent><Text>{tooltip}</Text></TooltipContent>
   </Tooltip>;
 }
-
-/** v2's DialogFooter `destructive` slot (dialog/index.tsx): Button `outline-destructive`, a red border on the card fill
- *  with the foreground label. TallyUI has no such variant, so it is `outline` with v2's border and fill; the label
- *  takes the outline's `text-foreground`. The catalogue, area and cart settings sheets all draw this one.
- *  `h-11` is v2's Button `size.default` `h-ctl` (button/index.tsx; `--spacing-ctl: 44px`), over TallyUI's h-10. */
-export function RestoreDefaultsButton({ testID, onPress }: { testID: string; onPress(): void }): JSX.Element {
-  return <Button testID={testID} variant="outline" className="h-11 border-destructive" onPress={onPress}>
-    <Text testID={`${testID}-label`}>Restore Default Settings</Text>
-  </Button>;
-}
-
-/** v2's DialogFooter dismiss (dialog/index.tsx: a Button `variant="outline"`), whose outline is `border-border bg-card`
- *  with an accent hover (button/index.tsx). TallyUI's outline is `border-input bg-card`, so only v2's border-border
- *  needs overriding. The catalogue, area and cart settings sheets all draw this one.
- *  `h-11` is v2's `h-ctl`, 44 px, as on Restore. */
-export function SheetCloseButton({ testID, onPress }: { testID: string; onPress(): void }): JSX.Element {
-  return <Button testID={testID} variant="outline" className="h-11 border-border web:hover:bg-accent" onPress={onPress}><Text>Close</Text></Button>;
-}
-
-/** v2's DialogTitle (dialog/index.tsx) is the dialog rank (text/ladder.ts `dialog: 'text-lg font-strong'`), 16 px on
- *  v2's 14 px ramp, `leading-none`, so the header row is 16 px tall. global.css takes that ramp, so `text-lg` is 16 px
- *  here too. TallyUI 3.19.0's DialogTitle keeps leading-none beside a caller's text size, so the app need not add it. */
-export const SHEET_TITLE = 'text-lg';
 
 /** v2's Product settings trigger in the search row: a sliders icon with the tooltip "Product settings". `h-11 w-11` is
  *  v2's IconButton `size-ctl`, 44 px (monorepo packages/components/src/icon-button/index.tsx:26), over TallyUI's 40. */

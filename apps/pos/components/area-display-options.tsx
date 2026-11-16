@@ -6,7 +6,8 @@ import type { JSX } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Dialog, DialogContent, DialogTitle, IconButton, Text, XIcon } from '@tallyui/components';
 import { areaColumnRows, type AreaColumn, type AreaColumnSetting, type AreaId } from '../lib/area-columns';
-import { RestoreDefaultsButton, RIGHT_SHEET, SettingsTrigger, SHEET_TITLE, SheetCloseButton } from './catalogue-display-options';
+import { SettingsTrigger } from './catalogue-display-options';
+import { RestoreDefaultsButton, RIGHT_SHEET, SHEET_TITLE, SheetCloseButton } from './sheet';
 import { SwitchRow } from './select-chevron';
 
 // v2's strings (core en.json): the trigger's label (`<area>.display_options`) and the panel's title.

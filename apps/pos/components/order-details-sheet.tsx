@@ -7,7 +7,7 @@ import { Dialog as DialogPrimitive } from '@tallyui/primitives';
 import type { PanelPosition } from '../lib/catalogue/catalogue-view-state';
 import { AppRailShown, BESIDE_RAIL } from './app-rail';
 import { CART_SHEET } from './cart-settings';
-import { SHEET_TITLE } from './catalogue-display-options';
+import { SHEET_TITLE } from './sheet';
 import { FieldLabel } from './select-chevron';
 
 export function OrderDetailsSheet({ open, onOpenChange, side, note, onNoteChange, onVoid }: {
