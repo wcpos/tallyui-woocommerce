@@ -5,6 +5,7 @@ import { Button, Text } from '@tallyui/components';
 import { formatMoney, minorUnitDigits } from '@tallyui/core';
 import { activePlan, appliedMinor, changeMinor, initTenderState, planLegs, quickTenderedAmounts, tenderReducer } from '@tallyui/pos';
 import type { TenderKey, useSale } from '@tallyui/pos';
+import { useIsOnline } from '../lib/online/online-status';
 import { filterChipClassName, filterChipTextClassName } from './catalogue-filter-chips';
 import { EvenSplitTiles, PlanStrip } from './split-plan';
 
@@ -29,6 +30,7 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
     { methodId: sale.stage.kind === 'tender' && sale.stage.method === 'cash' ? 'pos_cash' : 'pos_card', balanceMinor: multi ? sale.order.balanceDueMinor : sale.order.totalMinor },
     initTenderState);
   const [reference, setReference] = useState('');
+  const online = useIsOnline();
   const due = multi ? sale.order.balanceDueMinor : sale.order.totalMinor;
   // WCPOS v2: tender-pane.tsx:337-352, 485-584.
   const since = sale.order.payments.slice(state.plan?.from ?? 0)
@@ -104,6 +106,11 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
             if (m.method === 'cash') setReference('');
           }}>
           <Text className="text-base font-semibold text-foreground">{m.title}</Text>
+          {/* WCPOS v2: tender-pane.tsx MethodStatus (ADR 0040 rule 1): a tile taken offline says it is sent later, and the risk. */}
+          {!online && <View testID={`checkout-method-sent-later-${m.id}`}>
+            <Text className="text-center text-xs text-warning">Sent later</Text>
+            <Text className="text-center text-xs text-warning">Store may refuse</Text>
+          </View>}
         </Pressable>;
       })}
     </View>
