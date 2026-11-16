@@ -15,3 +15,8 @@ export const GridIcon = createSvgIcon('GridIcon', () => <>
   <Rect x={3} y={3} width={7} height={7} rx={1} /><Rect x={14} y={3} width={7} height={7} rx={1} />
   <Rect x={14} y={14} width={7} height={7} rx={1} /><Rect x={3} y={14} width={7} height={7} rx={1} />
 </>);
+// v2's tabler `plus` glyph at its 1.5 stroke (monorepo packages/components/src/icon/components/tabler/plus.tsx:14).
+export const PlusIcon = createSvgIcon('PlusIcon', () => <Path d="M12 5v14m-7-7h14" />);
+// v2's `more` glyph in its default set, tabler's dots-vertical (components/src/icon/svg/tabler/more.svg, sets.ts:14).
+export const MoreIcon = createSvgIcon('MoreIcon', () => <><Path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0-2 0" />
+  <Path d="M11 19a1 1 0 1 0 2 0a1 1 0 1 0-2 0" /><Path d="M11 5a1 1 0 1 0 2 0a1 1 0 1 0-2 0" /></>);

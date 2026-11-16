@@ -10,6 +10,7 @@ import type { PrinterProfile } from '@tallyui/pos';
 import { AUTO_PRINTER_VALUE, autoPrinterLabel, SYSTEM_PRINT_DIALOG, templateTypeLabel } from '../../lib/receipts/printer-routing';
 import type { StoreTemplatesState, TemplateKind } from '../../lib/receipts/use-store-templates';
 import { DocsLink, PRINTER_DOCS_URL } from '../docs-link';
+import { MoreIcon, PlusIcon } from '../icons';
 import { PrinterDialog } from './printer-dialog';
 import { SETTINGS_HELP_CLASS, SETTINGS_KEY_CLASS, SettingsSection } from './settings-form';
 
@@ -18,10 +19,6 @@ const PrinterIcon = createSvgIcon('PrinterIcon', () => <>
   <Path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" />
   <Rect x="6" y="14" width="12" height="8" rx="1" />
 </>);
-const PlusIcon = createSvgIcon('PlusIcon', () => <Path d="M12 5v14m-7-7h14" />);
-// tabler's dots-vertical, as database-counts.tsx draws v2's `more` glyph.
-const MoreIcon = createSvgIcon('MoreIcon', () => <><Path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0-2 0" />
-  <Path d="M11 19a1 1 0 1 0 2 0a1 1 0 1 0-2 0" /><Path d="M11 5a1 1 0 1 0 2 0a1 1 0 1 0-2 0" /></>);
 
 function TemplateRow({ template, printers, first }: {
   template: ReceiptTemplate; printers: PrinterProfile[]; first: boolean;
