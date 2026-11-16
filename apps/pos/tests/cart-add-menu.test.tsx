@@ -105,40 +105,45 @@ function total() {
   return within(footer.getByText('Total').parentElement!);
 }
 
-function addCharge(kind: 'Fee' | 'Shipping' | 'Custom item', name: string, amount: string) {
-  openAddMenuItem('charge');
-  const form = within(within(screen.getByTestId('add-charge-dialog')).getByTestId('charge-form'));
-  fireEvent.click(form.getByRole('button', { name: kind }));
+function addCharge(item: 'misc-product' | 'fee' | 'shipping', name: string, amount: string) {
+  openAddMenuItem(item);
+  const form = within(within(screen.getByTestId(`add-${item}-dialog`)).getByTestId('charge-form'));
   fireEvent.change(form.getByLabelText('Name'), { target: { value: name } });
   fireEvent.change(form.getByLabelText('Amount'), { target: { value: amount } });
   fireEvent.click(form.getByRole('button', { name: 'Apply' }));
 }
 
-test('the cart head has the + menu and the settings icon; the menu lists Add charge and Add discount', async () => {
+test('the cart head has the + menu and the settings icon; the menu lists v2\'s add items in order', async () => {
   await renderTill();
   const head = within(screen.getByTestId('cart-head'));
   expect(head.getByRole('button', { name: 'Add to cart' }).getAttribute('data-testid')).toBe('cart-add-menu');
   expect(head.getByRole('button', { name: 'Cart settings' }).getAttribute('data-testid')).toBe('cart-settings-button');
   fireEvent.click(screen.getByTestId('cart-add-menu'));
   const menu = within(screen.getByRole('menu'));
-  expect(menu.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Add charge', 'Add discount']);
+  expect(menu.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Add Miscellaneous Product', 'Add Fee', 'Add Discount', 'Add Shipping']);
 }, 20_000);
 
-test.each([4, 3])('Add charge is hidden when orderCreate is %s', async orderCreate => {
+test.each([4, 3])('the charge items are hidden when orderCreate is %s', async orderCreate => {
   await renderTill({ ...COUPONS, orderCreate });
   await addEspresso();
   fireEvent.click(screen.getByTestId('cart-add-menu'));
   expect(screen.getByTestId('cart-add-menu-discount')).not.toBeNull();
-  expect(screen.queryByTestId('cart-add-menu-charge')).toBeNull();
+  for (const item of ['misc-product', 'fee', 'shipping']) expect(screen.queryByTestId(`cart-add-menu-${item}`)).toBeNull();
 }, 20_000);
 
-test('a fee, a shipping charge and a custom item each reach the order through the Add charge dialog', async () => {
+test('Add Fee, Add Shipping and Add Miscellaneous Product each open a form fixed to their kind and reach the order', async () => {
   await renderTill();
   await addEspresso();
-  addCharge('Fee', 'Bag', '0.20');
-  await waitFor(() => expect(screen.queryByTestId('add-charge-dialog')).toBeNull());
-  addCharge('Shipping', 'Delivery', '5.00');
-  addCharge('Custom item', 'Gift wrap', '3.00');
+  openAddMenuItem('misc-product');
+  const form = within(within(screen.getByTestId('add-misc-product-dialog')).getByTestId('charge-form'));
+  expect(form.getByRole('group', { name: 'Add custom item' })).not.toBeNull();
+  expect(form.queryByRole('button', { name: 'Fee' })).toBeNull();
+  fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+  await waitFor(() => expect(screen.queryByTestId('add-misc-product-dialog')).toBeNull());
+  addCharge('fee', 'Bag', '0.20');
+  await waitFor(() => expect(screen.queryByTestId('add-fee-dialog')).toBeNull());
+  addCharge('shipping', 'Delivery', '5.00');
+  addCharge('misc-product', 'Gift wrap', '3.00');
   const feeRow = within(screen.getByTestId('cart-fee-0'));
   expect(feeRow.getByText('Bag')).not.toBeNull();
   expect(feeRow.getByText('$0.20')).not.toBeNull();
@@ -249,12 +254,12 @@ test('with customers, Add new customer is first, then a separator, then the add 
   await renderTill(COUPONS, { customers: customerSource(), cashier: CAN_CREATE });
   fireEvent.click(screen.getByTestId('cart-add-menu'));
   const menu = within(screen.getByRole('menu'));
-  expect(menu.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Add new customer', 'Add charge', 'Add discount']);
+  expect(menu.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Add new customer', 'Add Miscellaneous Product', 'Add Fee', 'Add Discount', 'Add Shipping']);
   const item = menu.getByTestId('cart-add-menu-customer');
   expect(item.getAttribute('aria-disabled')).toBeNull();
   const separator = menu.getByRole('separator');
   expect(item.compareDocumentPosition(separator) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(separator.compareDocumentPosition(menu.getByTestId('cart-add-menu-charge')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(separator.compareDocumentPosition(menu.getByTestId('cart-add-menu-misc-product')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 }, 20_000);
 
 test('without customers there is no Add new customer item', async () => {
