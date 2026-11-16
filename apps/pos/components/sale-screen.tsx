@@ -6,7 +6,7 @@ import { Button, ParkedSales, Receipt, SyncStatus, Text } from '@tallyui/compone
 import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
 import { formatMoney } from '@tallyui/core';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
-import type { CatalogueEntry, CustomerSummary, OutboxState, ParkedOrderSummary } from '@tallyui/pos';
+import type { CatalogueEntry, CustomerSummary, OutboxState } from '@tallyui/pos';
 import { createCustomersBlockedReason, type CashierCapabilities } from '../lib/auth/capabilities';
 import { drawerFigureText, drawerVerbs, sheetMoney } from '../lib/cashier/sheet-figures';
 import { inCartCounts } from '../lib/catalogue/tile-words';
@@ -20,6 +20,7 @@ import { useOutbox } from '../lib/sale/outbox-context';
 import { clearBeforeLeave, setBeforeLeave, type BeforeLeave } from '../lib/sale/before-leave';
 import { parkCart } from '../lib/sale/parked-carts';
 import { useCartRestore } from '../lib/sale/use-cart-restore';
+import { useParkAndResume } from '../lib/sale/use-park-and-resume';
 import { useParkedCarts } from '../lib/sale/use-parked-carts';
 import { useTenderCancel } from '../lib/sale/use-tender-cancel';
 import { saleDiscountCodes } from '../lib/sale/discount-codes';
@@ -136,24 +137,22 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     sessionId: register?.saleSession?.id, cashierRef: props.cashierRef,
   });
   const [message, setMessage] = useState<string>();
-  const { restoring, restore } = useCartRestore(sale, props.products, connector.traits.product, currency, setMessage);
+  const cartRestore = useCartRestore(sale, props.products, connector.traits.product, currency, setMessage);
   const parkedStore = useParkedCarts(parkedCarts);
   const { parked } = parkedStore;
+  const { summaries, park, resume, resumeCart, hold, unhold, discard } = useParkAndResume(sale, {
+    store: parkedStore, cartRestore, heldCartKey: props.heldCartKey,
+    catalogueReady: props.status === 'ready', say: setMessage,
+  });
   const [parkedOpen, setParkedOpen] = useState(false);
   const [variants, setVariants] = useState<CatalogueEntry<any>[]>();
-  const currentOrder = useRef<typeof sale.order | null>(sale.order);
-  currentOrder.current = sale.order;
   const stageNow = useRef(sale.stage);
   stageNow.current = sale.stage;
-  const heldAtMount = useRef<string | null>(null);
-  useEffect(() => {
-    try { heldAtMount.current = props.heldCartKey ? localStorage.getItem(props.heldCartKey) : null; } catch {}
-  }, []);
   useEffect(() => {
     register?.setTenderInProgress(sale.stage.kind === 'tender');
   }, [register?.setTenderInProgress, sale.stage.kind]);
-  const leave = useRef({ hold: holdOpenCart, tendering: false });
-  leave.current = { hold: holdOpenCart, tendering: sale.stage.kind === 'tender' || sale.saving };
+  const leave = useRef({ hold, tendering: false });
+  leave.current = { hold, tendering: sale.stage.kind === 'tender' || sale.saving };
   useEffect(() => {
     const handler: BeforeLeave = async () => {
       if (leave.current.tendering) return 'Finish or cancel the payment first.';
@@ -187,60 +186,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       setMessage('Open the register to take payment.');
     }
   }
-  const summaries: ParkedOrderSummary[] = parked.map(cart => ({
-    id: cart.id, customerName: cart.customer?.name, itemCount: cart.itemCount,
-    totalMinor: cart.totalMinor, parkedAt: cart.parkedAt, source: 'local',
-  }));
-
-  async function onPark() {
-    const cart = parkCart(sale.order);
-    try {
-      await parkedStore.park(cart);
-    } catch (error) {
-      return error instanceof Error ? error.message : String(error);
-    }
-    sale.newSale();
-    return null;
-  }
-
-  async function onResume(id: string) {
-    // The 3.3.0 product schema v2 resyncs the catalogue once; resuming before it finishes would drop lines.
-    if (props.status !== 'ready') {
-      return 'The catalogue is still syncing. Try again in a moment.';
-    }
-    return resumeCart(parked.find(cart => cart.id === id)!);
-  }
-
-  async function resumeCart(selected: ParkedCart): Promise<string | null> {
-    const { id } = selected;
-    const current = currentOrder.current?.lineItems.length ? parkCart(currentOrder.current) : undefined;
-    try {
-      await parkedStore.swap(id, current);
-    } catch (error) {
-      return error instanceof Error ? error.message : String(error);
-    }
-    return restore(selected);
-  }
-
-  // Parks a non-empty cart and records it under heldCartKey so it comes back after a redirect.
-  // Resolves the parked cart, undefined for an empty cart, or the failure message.
-  async function holdOpenCart(): Promise<ParkedCart | undefined | string> {
-    // Only an open cart is parked: on the receipt stage the builder still holds the finished sale, which must never come back.
-    if (sale.stage.kind !== 'cart' || !sale.order.lineItems.length) return undefined;
-    const held = parkCart(sale.order);
-    try {
-      await parkedStore.park(held);
-    } catch (error) {
-      return error instanceof Error ? error.message : String(error);
-    }
-    try { if (props.heldCartKey) localStorage.setItem(props.heldCartKey, held.id); } catch {}
-    sale.newSale();
-    currentOrder.current = null;
-    return held;
-  }
-
   async function changeCashier(uuid?: string) {
-    const result = await holdOpenCart();
+    const result = await hold();
     if (typeof result === 'string') { setMessage(result); return; }
     const held = result;
     if (uuid === undefined) { props.onAddCashier?.(); return; }
@@ -248,27 +195,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     if (typeof error === 'string') {
       setMessage(error);
       if (held) {
-        try { if (props.heldCartKey) localStorage.removeItem(props.heldCartKey); } catch {}
-        setMessage(await resumeCart(held) ?? error);
+        setMessage(await unhold(held) ?? error);
       }
-    }
-  }
-
-  useEffect(() => {
-    if (!props.heldCartKey || !heldAtMount.current || props.status !== 'ready'
-      || sale.stage.kind !== 'cart' || sale.order.lineItems.length || restoring) return;
-    const cart = parked.find(cart => cart.id === heldAtMount.current);
-    if (!cart) return;
-    heldAtMount.current = null;
-    try { localStorage.removeItem(props.heldCartKey); } catch {}
-    void resumeCart(cart).then(error => { if (typeof error === 'string') setMessage(error); });
-  }, [parked, props.status, sale.stage.kind, sale.order.lineItems.length, restoring]);
-
-  async function onDiscard(id: string) {
-    try {
-      await parkedStore.discard(id);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -356,8 +284,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       {width < SALE_SPLIT_MIN_WIDTH && message ? <Text>{message}</Text> : null}
       {sale.stage.kind === 'cart' ? (
         <>
-          <ParkedSales sale={sale} parked={summaries} onPark={onPark} onResume={onResume}
-            onDiscard={onDiscard} currency={currency} open={parkedOpen} onOpenChange={setParkedOpen} />
+          <ParkedSales sale={sale} parked={summaries} onPark={park} onResume={resume}
+            onDiscard={discard} currency={currency} open={parkedOpen} onOpenChange={setParkedOpen} />
           {/* M6's order notes can take the price-change reason via onPriceChange. */}
           {/* B7: quantity and price open keypad popovers, as v2's cart/cells/quantity-keypad.tsx and cart/cells/price.tsx do. */}
           <CartWithSettings sale={{ ...sale, startTender: gatedStartTender }} canEditPrice lineEditor="popover" taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)}
@@ -369,7 +297,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             customers={props.customers ?? null} createCustomersBlockedReason={createCustomersBlockedReason(effective, props.siteHome)}
             checkout={checkout}
             position={viewState.position} onPositionChange={position => setViewState({ ...viewState, position })}
-            openOrders={<OpenOrderTabs parked={parked} current={sale.order} currency={currency} locale={props.locale} onSelect={onResume} onNew={onPark} onError={setMessage}
+            openOrders={<OpenOrderTabs parked={parked} current={sale.order} currency={currency} locale={props.locale} onSelect={resume} onNew={park} onError={setMessage}
               onOpenList={() => setParkedOpen(true)} listOpen={parkedOpen} compact={phoneLayout} />} />
           <OrderDetailsSheet open={detailsOpen} onOpenChange={setDetailsOpen} side={viewState.position}
             note={sale.order.note} onNoteChange={sale.setNote} onVoid={voidOffered ? voidSale : undefined} />
