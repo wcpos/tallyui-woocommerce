@@ -135,8 +135,9 @@ test('Add Fee, Add Shipping and Add Miscellaneous Product each open a form fixed
   await renderTill();
   await addEspresso();
   openAddMenuItem('misc-product');
-  const form = within(within(screen.getByTestId('add-misc-product-dialog')).getByTestId('charge-form'));
-  expect(form.getByRole('group', { name: 'Add custom item' })).not.toBeNull();
+  const dialog = within(screen.getByTestId('add-misc-product-dialog'));
+  expect(dialog.getByRole('group', { name: 'Add custom item' }).getAttribute('data-testid')).toBe('charge-form');
+  const form = within(dialog.getByTestId('charge-form'));
   expect(form.queryByRole('button', { name: 'Fee' })).toBeNull();
   fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
   await waitFor(() => expect(screen.queryByTestId('add-misc-product-dialog')).toBeNull());
