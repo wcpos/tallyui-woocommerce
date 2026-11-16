@@ -2,9 +2,10 @@ import { useEffect, useReducer, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { Button, Text } from '@tallyui/components';
-import { formatMoney } from '@tallyui/core';
-import { appliedMinor, changeMinor, initTenderState, tenderReducer } from '@tallyui/pos';
+import { formatMoney, minorUnitDigits } from '@tallyui/core';
+import { appliedMinor, changeMinor, initTenderState, quickTenderedAmounts, tenderReducer } from '@tallyui/pos';
 import type { TenderKey, useSale } from '@tallyui/pos';
+import { filterChipClassName, filterChipTextClassName } from './catalogue-filter-chips';
 
 /** The single-payment path's two tiles: the connector maps cash to pos_cash and external to pos_card. */
 const METHODS = [
@@ -13,6 +14,8 @@ const METHODS = [
 ] as const;
 /** WCPOS v2's keypad: no decimal key, digits shift in from the right in minor units. */
 const KEY_ROWS: TenderKey[][] = [['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9'], ['clear', '0', 'backspace']];
+// WCPOS v2: tender-figures.ts:25.
+const QUICK_TENDER_STEPS = [5, 10, 50] as const;
 /** order.create's bound on `payments[].reference`, in UTF-16 units: a typed reference never goes past what finalize keeps. */
 const REFERENCE_MAX = 255;
 
@@ -40,6 +43,8 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
   const balance = due;
   const method = METHODS.find(m => m.id === state.methodId)!;
   const applied = appliedMinor(state.entryMinor, balance);
+  const dp = minorUnitDigits(sale.order.currency);
+  const quick = method.givesChange ? quickTenderedAmounts(applied, QUICK_TENDER_STEPS.map(step => step * 10 ** dp)) : [];
   const change = changeMinor(state.entryMinor, applied, method.givesChange);
   const noChange = !method.givesChange && state.entryMinor > balance;
   const fmt = (amount: number) => formatMoney({ amount, currency: sale.order.currency }) ?? '';
@@ -103,6 +108,19 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
       <Text testID="checkout-entry" className={`text-center text-4xl font-semibold tabular-nums text-foreground ${state.entryDirty ? '' : 'opacity-70'}`}>{fmt(state.entryMinor)}</Text>
       <Text testID="checkout-entry-hint" className={`min-h-6 text-center ${noChange ? 'text-warning' : 'text-muted-foreground'}`}>{hint}</Text>
     </>}
+    {/* WCPOS v2: tender-pane.tsx:721 and 893-918. */}
+    <View testID="checkout-helpers" className="w-full flex-row flex-wrap justify-center gap-2">
+      {quick.map(minor => <Pressable key={minor} accessibilityRole="button" testID={`checkout-quick-${minor / 10 ** dp}`}
+        className={filterChipClassName(false)} disabled={sale.saving} onPress={() => dispatch({ type: 'set-entry', minor })}>
+        <Text className={filterChipTextClassName(false)}>{fmt(minor)}</Text>
+      </Pressable>)}
+      <Pressable accessibilityRole="button" testID={method.givesChange ? 'checkout-quick-exact' : 'checkout-quick-balance'}
+        className={filterChipClassName(false)} disabled={sale.saving} onPress={() => dispatch({ type: 'set-entry', minor: balance })}>
+        <Text className={filterChipTextClassName(false)}>
+          {method.givesChange ? `Exact ${fmt(balance)}` : state.entryMinor === balance ? 'Full balance' : `Full balance ${fmt(balance)}`}
+        </Text>
+      </Pressable>
+    </View>
     <View testID="checkout-keypad" className="gap-2">
       {KEY_ROWS.map(row => <View key={row.join()} className="flex-row gap-2">
         {row.map(key => <Pressable key={key} accessibilityRole="button" testID={`checkout-keypad-key-${key}`}

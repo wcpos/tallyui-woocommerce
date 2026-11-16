@@ -1,5 +1,5 @@
 import { noTaxSettings } from './fixtures/store-settings';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
@@ -148,4 +148,48 @@ test('switching from card to cash then taking sends the cash tendered and its ch
   press('clear', '5', '0', '0');
   fireEvent.click(screen.getByTestId('checkout-commit'));
   expect(await sentPayments(send)).toEqual([expect.objectContaining({ method: 'cash', amountMinor: 300, tenderedMinor: 500, changeMinor: 200 })]);
+}, 20_000);
+
+test('cash shows quick amounts in order and takes the selected tender with change', async () => {
+  const send = await startTender('Cash');
+  expect(within(screen.getByTestId('checkout-helpers')).getAllByRole('button').map(chip => [chip.dataset.testid, chip.textContent])).toEqual([
+    ['checkout-quick-3', '$3.00'],
+    ['checkout-quick-5', '$5.00'],
+    ['checkout-quick-10', '$10.00'],
+    ['checkout-quick-50', '$50.00'],
+    ['checkout-quick-exact', 'Exact $3.00'],
+  ]);
+  fireEvent.click(screen.getByTestId('checkout-quick-10'));
+  expect(text('checkout-entry-hint')).toBe('Change $7.00');
+  expect(text('checkout-tendered-line')).toBe('Tendered $10.00');
+  fireEvent.click(screen.getByTestId('checkout-commit'));
+  expect(await sentPayments(send)).toEqual([expect.objectContaining({ method: 'cash', amountMinor: 300, tenderedMinor: 1000, changeMinor: 700 })]);
+}, 20_000);
+
+test('Exact restores the amount due after a keypad edit', async () => {
+  await startTender('Cash');
+  press('clear', '1');
+  expect(text('checkout-entry')).toBe('$0.01');
+  fireEvent.click(screen.getByTestId('checkout-quick-exact'));
+  expect(text('checkout-entry')).toBe('$3.00');
+  expect(text('checkout-commit')).toBe('Take $3.00 in Cash');
+}, 20_000);
+
+test('card has no quick amounts and Full balance restores the amount due', async () => {
+  await startTender('Card terminal');
+  expect(screen.queryAllByTestId(/^checkout-quick-\d/)).toHaveLength(0);
+  expect(screen.queryByTestId('checkout-quick-exact')).toBeNull();
+  expect(text('checkout-quick-balance')).toBe('Full balance');
+  press('clear', '1');
+  expect(text('checkout-entry')).toBe('$0.01');
+  expect(text('checkout-quick-balance')).toBe('Full balance $3.00');
+  fireEvent.click(screen.getByTestId('checkout-quick-balance'));
+  expect(text('checkout-entry')).toBe('$3.00');
+}, 20_000);
+
+test('cash quick amounts follow the applied entry', async () => {
+  await startTender('Cash');
+  press('clear', '2', '0', '0');
+  expect(text('checkout-entry')).toBe('$2.00');
+  expect(screen.getAllByTestId(/^checkout-quick-\d/).map(chip => chip.textContent)).toEqual(['$2.00', '$5.00', '$10.00', '$50.00']);
 }, 20_000);
