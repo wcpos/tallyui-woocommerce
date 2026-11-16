@@ -5,6 +5,7 @@ import { useSession } from '../auth/session-context';
 import { useOutbox } from '../sale/outbox-context';
 import { ordersDatabaseName } from '../sale/order-store';
 import { SOFTWARE_VERSION } from '../software';
+import { REGISTER_ID } from './register-id';
 import { useRegisterSessionsSetting } from './register-setting';
 
 type Register = ReturnType<typeof useRegisterSession> & {
@@ -33,7 +34,7 @@ export function RegisterProvider({ children }: { children: ReactNode }) {
     if (!host || !storeKey) return;
     let mounted = true;
     void (async () => {
-      const doc = await ensureRegister(host, 'web');
+      const doc = await ensureRegister(host, REGISTER_ID);
       const id = getBoundRegisterId(doc, storeKey) ?? doc.id;
       if (getBoundRegisterId(doc, storeKey) === null) {
         await bindRegister(host, storeKey, { id, name: doc.name });

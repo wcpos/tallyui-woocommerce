@@ -5,6 +5,7 @@ import type { PosOrder } from '@tallyui/pos';
 import { appStorage } from '../app-storage';
 import type { Session } from '../auth/session';
 import { databaseName } from '../catalogue/start-catalogue';
+import { REGISTER_ID } from '../register/register-id';
 import { guardTenderVoids } from './tender-voids';
 
 export function ordersDatabaseName(session: Session): string {
@@ -23,6 +24,6 @@ export async function openOrderStore(
     tender_voids: tenderVoidCollection(),
   });
   guardTenderVoids(db.tender_voids);
-  await ensureRegister(db.register_sessions, 'web');
+  await ensureRegister(db.register_sessions, REGISTER_ID);
   return { orders, async close() { await db.close(); } };
 }
