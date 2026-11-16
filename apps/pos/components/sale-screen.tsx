@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { JSX } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
@@ -17,8 +17,8 @@ import { REGISTER_ID } from '../lib/register/register-id';
 import { buildReceiptIdentity } from '../lib/receipts/receipt-identity';
 import { useReceiptPrintCount } from '../lib/receipts/use-receipt-print-count';
 import { useOutbox } from '../lib/sale/outbox-context';
-import { clearBeforeLeave, setBeforeLeave, type BeforeLeave } from '../lib/sale/before-leave';
 import { useCartRestore } from '../lib/sale/use-cart-restore';
+import { useLeaveTill } from '../lib/sale/use-leave-till';
 import { useParkAndResume } from '../lib/sale/use-park-and-resume';
 import { useParkedCarts } from '../lib/sale/use-parked-carts';
 import { useTenderCancel } from '../lib/sale/use-tender-cancel';
@@ -147,42 +147,18 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const startTender = useTenderStart(sale, { register, multiPayment: outbox.enabled && props.multiplePayments === true, say: setMessage });
   const [parkedOpen, setParkedOpen] = useState(false);
   const [variants, setVariants] = useState<CatalogueEntry<any>[]>();
-  const leave = useRef({ hold, tendering: false });
-  leave.current = { hold, tendering: sale.stage.kind === 'tender' || sale.saving };
-  useEffect(() => {
-    const handler: BeforeLeave = async () => {
-      if (leave.current.tendering) return 'Finish or cancel the payment first.';
-      const result = await leave.current.hold();
-      return typeof result === 'string' ? result : null;
-    };
-    setBeforeLeave(handler);
-    return () => clearBeforeLeave(handler);
-  }, []);
   // v2's autoShowReceipt off (use-complete-order-flow.ts): with no auto print either, a finished sale goes straight
   // back to an empty till, once per order. With auto print on, the receipt stage renders so the print area exists.
   useEffect(() => {
     if (receiptOrderId !== null && !receiptSettings.autoShow && !receiptSettings.autoPrint) sale.newSale();
   }, [sale.stage.kind, receiptOrderId]);
 
-  async function changeCashier(uuid?: string) {
-    const result = await hold();
-    if (typeof result === 'string') { setMessage(result); return; }
-    const held = result;
-    if (uuid === undefined) { props.onAddCashier?.(); return; }
-    const error = await props.onSwitchCashier!(uuid);
-    if (typeof error === 'string') {
-      setMessage(error);
-      if (held) {
-        setMessage(await unhold(held) ?? error);
-      }
-    }
-  }
-
   // v2's cart foot (cart/foot.tsx, buttons/pay.tsx): one "Checkout {total}" opens the tender on Cash, where the cashier
   // picks the method, and the ⋮'s one item opens the Order details sheet, which holds Void (cart/order-sheet.tsx).
   // v2 voids at once and offers Undo (pos/hooks/use-void-order.ts): Undo brings the voided cart back as resumeCart does.
   const [detailsOpen, setDetailsOpen] = useState(false);
   const voiding = useVoidSale(sale, { resumeCart, say: setMessage });
+  const changeCashier = useLeaveTill(sale, { hold, unhold, onSwitchCashier: props.onSwitchCashier, onAddCashier: props.onAddCashier, say: setMessage });
   const checkout = {
     onCheckout: () => { void startTender('cash'); },
     actions: [{ label: 'Order details', onPress: () => setDetailsOpen(true) }],
