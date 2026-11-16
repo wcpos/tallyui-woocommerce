@@ -13,6 +13,7 @@ import type { CustomerSource } from '../lib/customers/customer-source';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { CARD_CLASSES, classesOf } from './classes-of';
+import { memoryStorage } from './memory-storage';
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
@@ -25,18 +26,6 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
-
-function memoryStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: key => data.get(key) ?? null,
-    key: index => Array.from(data.keys())[index] ?? null,
-    removeItem: key => { data.delete(key); },
-    setItem: (key, value) => { data.set(key, value); },
-  };
-}
 
 const gee: Customer = { id: '7', name: 'Gee Four', firstName: 'Gee', lastName: 'Four', email: 'gee@example.invalid', phone: '123', company: 'Four Co' };
 const ada: Customer = { id: '9', name: 'Ada Lovelace', firstName: 'Ada', lastName: 'Lovelace' };

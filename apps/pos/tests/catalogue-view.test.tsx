@@ -9,6 +9,7 @@ import { CATALOGUE_TILE_FIELDS, CATALOGUE_VIEW_DEFAULTS, CATALOGUE_VIEW_KEY } fr
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { classesOf } from './classes-of';
+import { memoryStorage } from './memory-storage';
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 
@@ -21,18 +22,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
-
-function memoryStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: key => data.get(key) ?? null,
-    key: index => Array.from(data.keys())[index] ?? null,
-    removeItem: key => { data.delete(key); },
-    setItem: (key, value) => { data.set(key, value); },
-  };
-}
 
 const props: CatalogueViewProps = {
   connector: createWooCommerceConnector(), currency: stores[0].currency, products,
