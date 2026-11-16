@@ -1,17 +1,15 @@
 import { useEffect, useState, type JSX } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
-import { Path } from 'react-native-svg';
-import { Button, createSvgIcon, IconButton, Text } from '@tallyui/components';
+import { Button, IconButton, Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
 import { formatClosureDate, replacedOrderIds, type Closure, type PosOrder } from '@tallyui/pos';
 import { useIsWide } from '../lib/layout/wide';
 import { useRegister } from '../lib/register/register-context';
 import { PrintIcon } from './report-chips';
 import { openedAtLabel } from './session-card';
+import { ChevronRightIcon } from './icons';
 
-// lucide `chevron-right`, v2's `chevronRight` on `till-closures`.
-const ChevronRightIcon = createSvgIcon('ChevronRightIcon', () => <Path d="m9 18 6-6-6-6" />);
 /** v2 `hooks/use-roomy.ts`: a desk, or a tablet on its side (a standing tablet is at most 834, 1032 for the largest). */
 const ROOMY_MIN_WIDTH = 1024;
 

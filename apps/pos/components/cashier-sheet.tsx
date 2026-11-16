@@ -10,10 +10,8 @@ import { sheetMoney, useCashierSalesToday } from '../lib/cashier/sheet-figures';
 import type { SalesTotal } from '../lib/cashier/sheet-figures';
 import { SheetCloseButton } from './sheet';
 import { OpenExternalIcon } from './docs-link';
+import { PlusIcon } from './icons';
 
-// v2's tabler glyphs at their 1.5 stroke (monorepo packages/components/src/icon/components/tabler/plus.tsx:14,
-// openExternal.tsx:14).
-const PlusIcon = createSvgIcon('PlusIcon', () => <Path d="M12 5v14m-7-7h14" />);
 // v2's `register` glyph, the drawer door's (monorepo packages/components/src/icon/components/tabler/register.tsx:16-17).
 const RegisterIcon = createSvgIcon('RegisterIcon', () => <>
   <Path d="M21 15h-2.5a1.503 1.503 0 0 0-1.5 1.5 1.503 1.503 0 0 0 1.5 1.5h1a1.503 1.503 0 0 1 1.5 1.5 1.503 1.503 0 0 1-1.5 1.5H17m2 0v1m0-8v1m-6 6H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2m12 3.12V9a2 2 0 0 0-2-2h-2" />

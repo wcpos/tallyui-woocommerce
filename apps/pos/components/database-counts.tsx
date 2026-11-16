@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { View } from 'react-native';
-import { Path } from 'react-native-svg';
 import type { RxCollection } from 'rxdb';
 import { startWith, switchMap } from 'rxjs';
-import { createSvgIcon, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, IconButton,
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, IconButton,
   Text } from '@tallyui/components';
 import { countFresh } from '@tallyui/pos';
+import { MoreIcon } from './icons';
 
 export interface DatabaseCountRow {
   key: string;
@@ -25,9 +25,6 @@ const LOCAL = 'w-20 text-right';
 // v2's actions column (health/database.tsx:271, DB_COLUMN.actions `w-ctl flex-none`): the ⋮'s own 44 px, kept on
 // every row and the head so the counts line up whether or not a row has a menu.
 const ACTIONS = 'w-11';
-// v2's `more` glyph in its default set, tabler's dots-vertical (components/src/icon/svg/tabler/more.svg, sets.ts:14).
-const MoreIcon = createSvgIcon('MoreIcon', () => <><Path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0-2 0" />
-  <Path d="M11 19a1 1 0 1 0 2 0a1 1 0 1 0-2 0" /><Path d="M11 5a1 1 0 1 0 2 0a1 1 0 1 0-2 0" /></>);
 
 export function DatabaseCounts({ rows, onCount }: {
   rows: DatabaseCountRow[]; onCount?(key: string, count: number): void;
