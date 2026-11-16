@@ -28,6 +28,7 @@ import { AreaToolbar, useAreaGutter } from './area-header';
 import {
   CHIP_CLEAR_CELL_CLASS, CHIP_CLEAR_GLYPH_SIZE, chipInkClassName, filterChipClassName, filterChipTextClassName,
 } from './catalogue-filter-chips';
+import { EmptyState } from './empty-state';
 import { StatusDot } from './status-dot';
 import type { StatusTone } from './status-dot';
 import { CaptionRowInset, TableCount, TableSurface, useCatalogueSync } from './table-surface';
@@ -293,15 +294,9 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
   const columns = visibleAreaColumns(COUPONS_COLUMNS, settings);
 
   const body = all === null ? null : total === 0 ? (
-    <View testID="no-data-message" className="flex-1 items-center justify-center gap-2 p-6">
-      <Text testID="no-data-message-title" className="text-center font-medium text-foreground">No coupons yet</Text>
-      <Text testID="no-data-message-description" className="text-center text-muted-foreground">Coupons you create will appear here.</Text>
-    </View>
+    <EmptyState title="No coupons yet" description="Coupons you create will appear here." />
   ) : shown.length === 0 ? (
-    <View testID="no-data-message" className="flex-1 items-center justify-center gap-2 p-6">
-      <Text testID="no-data-message-title" className="text-center font-medium text-foreground">No coupons match these filters</Text>
-      <Button testID="no-data-message-action" variant="ghost" size="sm" onPress={clear}><Text>Clear filters</Text></Button>
-    </View>
+    <EmptyState title="No coupons match these filters" action={{ label: 'Clear filters', onPress: clear }} />
   ) : (
       <ScrollView testID="coupons-body">
         {width < NARROW_WIDTH ? shown.map(c => (

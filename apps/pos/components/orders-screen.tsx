@@ -11,6 +11,7 @@ import { useAreaColumns } from '../lib/area-columns';
 import { useSearchTerm } from '../lib/search-term';
 import { ORDERS_COLUMNS, OrdersTable } from './orders-table';
 import { AreaDisplayOptions } from './area-display-options';
+import { EmptyState } from './empty-state';
 import { OrderDetailSheet } from './order-detail';
 import { ReceiptPrintSheet } from './receipt-print-sheet';
 import { ReceiptZoom } from './receipt-zoom';
@@ -129,14 +130,8 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
             ? loading
               ? <View testID="orders-loading" className="flex-1" />
               : search !== '' || filtered
-                ? <View testID="no-data-message" className="flex-1 items-center justify-center gap-2 p-6">
-                    <Text testID="no-data-message-title" className="text-center font-medium text-foreground">No orders match these filters</Text>
-                    <Button testID="no-data-message-action" variant="ghost" size="sm" onPress={clear}><Text>Clear filters</Text></Button>
-                  </View>
-                : <View testID="no-data-message" className="flex-1 items-center justify-center gap-2 p-6">
-                    <Text testID="no-data-message-title" className="text-center font-medium text-foreground">No orders yet</Text>
-                    <Text testID="no-data-message-description" className="text-center text-muted-foreground">Sales you take will appear here.</Text>
-                  </View>
+                ? <EmptyState title="No orders match these filters" action={{ label: 'Clear filters', onPress: clear }} />
+                : <EmptyState title="No orders yet" description="Sales you take will appear here." />
             : <OrdersTable local={local} store={orders} footer={footer} active={loading}
               visible={columns.filter(column => column.visible).map(column => column.id)}
               onSync={history ? () => { void loadPage(1, search); } : undefined}
