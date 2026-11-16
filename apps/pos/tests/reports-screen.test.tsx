@@ -24,7 +24,7 @@ import { dayRange } from '../lib/reports/today-sales';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash, takeLeg } from './tender-helpers';
-import { sessionsOff, toggleRegisterSessions } from './cart-head-helpers';
+import { openRegisterPanel, sessionsOff, toggleRegisterSessions } from './cart-head-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import { classesOf } from './classes-of';
 
@@ -101,13 +101,6 @@ async function openRegister(enable = true) {
   fireEvent.change(await screen.findByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
   await screen.findByTestId('cart-empty');
-}
-
-/** v2's one door to the register panel: the bar's avatar opens the cashier sheet, whose drawer figure opens the panel.
- *  Scoped to the till's bar: the reports header draws its own avatar. */
-async function openRegisterPanel() {
-  fireEvent.click(within(screen.getByTestId('register-bar-shell')).getByTestId('register-bar-avatar'));
-  fireEvent.click(await screen.findByTestId('user-sheet-drawer'));
 }
 
 async function closeRegister(counted: string) {

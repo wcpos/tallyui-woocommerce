@@ -7,6 +7,14 @@ export function openAddMenuItem(item: 'customer' | 'charge' | 'discount') {
   fireEvent.click(screen.getByTestId(`cart-add-menu-${item}`));
 }
 
+/** v2's one door to the register panel: the bar's avatar opens the cashier sheet, whose drawer figure opens the panel.
+ *  Scoped to the till's bar: the reports header draws its own avatar.
+ *  The drawer door is awaited with a longer timeout because the sheet draws it only once the session stream reports the register open, which can lag the cart on a loaded worker. */
+export async function openRegisterPanel(): Promise<void> {
+  fireEvent.click(within(screen.getByTestId('register-bar-shell')).getByTestId('register-bar-avatar'));
+  fireEvent.click(await screen.findByTestId('user-sheet-drawer', {}, { timeout: 5000 }));
+}
+
 /**
  * Register sessions are on by default (2026-11-11). A test of a plain sale, or one that turns sessions on with the
  * switch, starts from a till that saved "off". Call it after the test's localStorage stub.
