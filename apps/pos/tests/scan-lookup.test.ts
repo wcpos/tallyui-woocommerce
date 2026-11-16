@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
-import { lookupCode } from '../lib/scan/lookup';
+import { lookupCode, scanMissText, scanOutcome } from '../lib/scan/lookup';
 import products from './fixtures/products.json';
 import variations from './fixtures/variations.json';
 
@@ -46,4 +46,35 @@ test('barcode matches take precedence over SKU matches', () => {
   expect(lookupCode([...catalogue, coldBrew], traits, 'COF-ESP', context)).toMatchObject({
     kind: 'entry', entry: { product: { id: 900 } },
   });
+});
+
+test('scan outcome adds Espresso with its name alone', () => {
+  expect(scanOutcome(catalogue, traits, '2000000000015', context)).toMatchObject({
+    kind: 'add', entry: { product: { id: 80 } }, label: 'Espresso',
+  });
+});
+
+test('scan outcome adds a shirt variation with its title in the label', () => {
+  expect(scanOutcome(catalogue, traits, '2000000000138', context)).toMatchObject({
+    kind: 'add', entry: { product: { id: 102 }, variant: { id: '104' } }, label: expect.stringContaining(' · '),
+  });
+});
+
+test('scan outcome asks to choose a variant for a parent code', () => {
+  expect(scanOutcome(catalogue, traits, 'MER-TEE', context)).toMatchObject({ kind: 'choose', product: { id: 102 } });
+});
+
+test('scan outcome returns none for an unmatched code', () => {
+  expect(scanOutcome(catalogue, traits, '999', context)).toEqual({ kind: 'none' });
+});
+
+test('scan outcome rejects out-of-stock Espresso', () => {
+  const outOfStock = [{ ...catalogue[0], stock_status: 'outofstock' }, ...catalogue.slice(1)];
+  expect(scanOutcome(outOfStock, traits, '2000000000015', context)).toEqual({ kind: 'out-of-stock', label: 'Espresso' });
+});
+
+test('scan miss text preserves the several-matches and no-match messages', () => {
+  expect(scanMissText({ kind: 'several', count: 2 }, '2000000000015'))
+    .toBe('Several matches: 2 products found — 2000000000015');
+  expect(scanMissText({ kind: 'none' }, '999')).toBe('Barcode not found — 999');
 });
