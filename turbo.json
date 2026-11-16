@@ -10,19 +10,9 @@
       "cache": false,
       "persistent": true
     },
-    "test": {
-      "cache": false,
-      "inputs": ["**/*.{ts,tsx,js,jsx}"]
-    },
-    "lint": {
-      "outputs": []
-    },
     "typecheck": {
       "dependsOn": ["^typecheck"],
       "outputs": []
-    },
-    "clean": {
-      "cache": false
     }
   }
 }
