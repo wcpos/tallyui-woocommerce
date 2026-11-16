@@ -116,21 +116,20 @@ test('matches WooCommerce order #136: tax 1.16 and total 32.91', async () => {
 test('taxes a reduced-rate fee, leaves a No-tax fee and inherited shipping untaxed, as WooCommerce does', async () => {
   renderTill(CHARGES);
   await addToCart('Croissant');
-  openAddMenuItem('charge');
+  openAddMenuItem('fee');
   const bag = within(screen.getByTestId('charge-form'));
   fireEvent.change(bag.getByLabelText('Name'), { target: { value: 'Bag' } });
   fireEvent.change(bag.getByLabelText('Amount'), { target: { value: '2.00' } });
   fireEvent.click(within(bag.getByRole('group', { name: 'Tax class' })).getByRole('button', { name: 'Reduced rate' }));
   fireEvent.click(bag.getByRole('button', { name: 'Apply' }));
-  openAddMenuItem('charge');
+  openAddMenuItem('fee');
   const service = within(screen.getByTestId('charge-form'));
   fireEvent.change(service.getByLabelText('Name'), { target: { value: 'Service' } });
   fireEvent.change(service.getByLabelText('Amount'), { target: { value: '1.00' } });
   fireEvent.click(service.getByRole('switch', { name: 'No tax' }));
   fireEvent.click(service.getByRole('button', { name: 'Apply' }));
-  openAddMenuItem('charge');
+  openAddMenuItem('shipping');
   const shipping = within(screen.getByTestId('charge-form'));
-  fireEvent.click(shipping.getByRole('button', { name: 'Shipping' }));
   fireEvent.change(shipping.getByLabelText('Name'), { target: { value: 'Delivery' } });
   fireEvent.change(shipping.getByLabelText('Amount'), { target: { value: '5.00' } });
   fireEvent.click(shipping.getByRole('button', { name: 'Apply' }));

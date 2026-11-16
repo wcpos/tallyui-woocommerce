@@ -1,8 +1,8 @@
 import { fireEvent, screen, within } from '@testing-library/react';
 import { REGISTER_SESSIONS_KEY } from '../lib/register/register-setting';
 
-/** Open the cart head's + menu and press one of its items (Add new customer, Add charge or Add discount). */
-export function openAddMenuItem(item: 'customer' | 'charge' | 'discount') {
+/** Open the cart head's + menu and press Add new customer, Add Miscellaneous Product, Add Fee, Add Discount or Add Shipping. */
+export function openAddMenuItem(item: 'customer' | 'misc-product' | 'fee' | 'discount' | 'shipping') {
   fireEvent.click(screen.getByTestId('cart-add-menu'));
   fireEvent.click(screen.getByTestId(`cart-add-menu-${item}`));
 }

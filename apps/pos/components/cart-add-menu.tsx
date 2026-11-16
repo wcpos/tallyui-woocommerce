@@ -1,5 +1,5 @@
-// v2's cart "+" menu (WCPOS monorepo `packages/core/src/screens/main/pos/cart/add-cart-items-menu.tsx`): a dropdown of
-// add actions, each opening a dialog. Add discount is v2's add-discount-sheet.tsx, a Quick discount | Coupon switch.
+// v2's cart "+" menu (WCPOS monorepo `packages/core/src/screens/main/pos/cart/add-cart-items-menu.tsx`) lists
+// Add Miscellaneous Product, Add Fee, Add Discount and Add Shipping, each opening its own dialog.
 import { useState } from 'react';
 import type { ComponentProps, JSX } from 'react';
 import { View } from 'react-native';
@@ -23,7 +23,7 @@ export function CartAddMenu({ sale, taxClasses, coupons, couponsOffered, custome
   customers?: CustomerSource | null;     // the store's customers; without them there is no Add new customer
   createCustomersBlockedReason?: string; // why the cashier cannot create customers (v2's capability tooltip)
 }): JSX.Element {
-  const [dialog, setDialog] = useState<'customer' | 'charge' | 'discount' | null>(null);
+  const [dialog, setDialog] = useState<'customer' | 'misc-product' | 'fee' | 'shipping' | 'discount' | null>(null);
   const [kind, setKind] = useState<'quick' | 'coupon'>('quick');
   const close = () => setDialog(null);
   const onOpenChange = (open: boolean) => { if (!open) close(); };
@@ -52,17 +52,22 @@ export function CartAddMenu({ sale, taxClasses, coupons, couponsOffered, custome
           </DropdownMenuItem>
           <DropdownMenuSeparator />
         </>}
-        {chargesOffered && <DropdownMenuItem testID="cart-add-menu-charge" onPress={() => setDialog('charge')}>
-          <Text>Add charge</Text></DropdownMenuItem>}
+        {/* v2 pos/cart/add-cart-items-menu.tsx order: miscellaneous product, fee, discount, shipping. */}
+        {chargesOffered && <DropdownMenuItem testID="cart-add-menu-misc-product" onPress={() => setDialog('misc-product')}>
+          <Text>Add Miscellaneous Product</Text></DropdownMenuItem>}
+        {chargesOffered && <DropdownMenuItem testID="cart-add-menu-fee" onPress={() => setDialog('fee')}>
+          <Text>Add Fee</Text></DropdownMenuItem>}
         <DropdownMenuItem testID="cart-add-menu-discount" disabled={!sale.order.lineItems.length}
-          onPress={() => { setKind('quick'); setDialog('discount'); }}><Text>Add discount</Text></DropdownMenuItem>
+          onPress={() => { setKind('quick'); setDialog('discount'); }}><Text>Add Discount</Text></DropdownMenuItem>
+        {chargesOffered && <DropdownMenuItem testID="cart-add-menu-shipping" onPress={() => setDialog('shipping')}>
+          <Text>Add Shipping</Text></DropdownMenuItem>}
       </DropdownMenuContent>
     </DropdownMenu>
     {dialog === 'customer' && customers && <AddCustomerDialog source={customers} onClose={close} onCreated={sale.setCustomer} />}
-    {dialog === 'charge' && <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent testID="add-charge-dialog" className="w-full max-w-lg">
+    {(dialog === 'misc-product' || dialog === 'fee' || dialog === 'shipping') && <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent testID={`add-${dialog}-dialog`} className="w-full max-w-lg">
         {/* Wired as the Cart wires its own ChargeForm. */}
-        <ChargeForm currency={sale.order.currency} lineTax={sale.capabilities?.lineTax} taxClasses={taxClasses}
+        <ChargeForm kind={dialog === 'misc-product' ? 'custom' : dialog} currency={sale.order.currency} lineTax={sale.capabilities?.lineTax} taxClasses={taxClasses}
           shippingTaxFromStore={sale.capabilities?.taxRounding?.granularity === 'woocommerce'} onClose={close}
           onApply={({ kind: chargeKind, name, amountMinor, taxStatus, taxClass }) => {
             const result = chargeKind === 'custom' ? sale.addCustomLine({ name, priceMinor: amountMinor, taxStatus, taxClass })
