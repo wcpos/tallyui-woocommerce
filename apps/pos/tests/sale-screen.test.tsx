@@ -1118,6 +1118,31 @@ test('Undo while the next sale is at checkout restores nothing and says why', as
   expect(screen.queryByTestId('cart-checkout')).toBeNull();
 }, 20_000);
 
+test('a failed Undo of a void leaves the cart empty and says why', async () => {
+  const db = await createRxDatabase({
+    name: `void_${crypto.randomUUID()}`, multiInstance: false,
+    storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }),
+  });
+  try {
+    const { parked_carts: parkedCarts } = await db.addCollections<{ parked_carts: ParkedCartCollection }>({
+      parked_carts: { schema: parkedCartSchema, migrationStrategies: parkedCartMigrationStrategies },
+    });
+    render(<><SaleScreen {...props} parkedCarts={parkedCarts} /><Toaster /></>);
+    fireEvent.click(screen.getByText('Espresso'));
+    openCartTab();
+    fireEvent.click(cartPane().getByTestId('cart-foot-more'));
+    fireEvent.click(screen.getByText('Order details'));
+    fireEvent.click(screen.getByTestId('order-details-void'));
+    vi.spyOn(parkedCarts, 'findOne').mockReturnValueOnce({ remove: () => Promise.reject(new Error('disk full')) } as never);
+    await act(async () => { fireEvent.click(screen.getByTestId('toast-action')); });
+    expect((await screen.findAllByText('disk full')).length).toBeGreaterThan(0);
+    expect(queryCartItem('Espresso')).toBeNull();
+  } finally {
+    cleanup();
+    await db.remove();
+  }
+}, 20_000);
+
 test('Undo after a new sale was started parks that sale and brings the voided one back', async () => {
   render(<><SaleScreen {...props} /><Toaster /></>);
   fireEvent.click(screen.getByText('Espresso'));
