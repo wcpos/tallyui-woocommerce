@@ -7,6 +7,7 @@ export interface ToastOptions {
   id?: string;
   /** Milliseconds before it closes itself; TOAST_DURATION_MS when omitted. */
   duration?: number;
+  action?: { label: string; onPress(): void };
 }
 export interface ToastItem {
   id: string;
@@ -14,6 +15,7 @@ export interface ToastItem {
   description?: string;
   type: ToastType | 'default';
   duration: number;
+  action?: { label: string; onPress(): void };
 }
 // sonner's TOAST_LIFETIME, which v2 uses everywhere (added-to-cart-toast.ts states it as 4000).
 export const TOAST_DURATION_MS = 4000;
@@ -30,6 +32,7 @@ export function toast(options: ToastOptions): string {
   const item: ToastItem = {
     id, title: options.title, description: options.description,
     type: options.type ?? 'default', duration: options.duration ?? TOAST_DURATION_MS,
+    action: options.action,
   };
   const index = toasts.findIndex(existing => existing.id === id);
   toasts = index === -1 ? [item, ...toasts] : toasts.map((existing, i) => i === index ? item : existing);

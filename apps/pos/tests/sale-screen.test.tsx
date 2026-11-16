@@ -13,6 +13,8 @@ import * as TallyComponents from '@tallyui/components';
 import { catalogueEntries, TaxProvider, useSale } from '@tallyui/pos';
 import type { OutboxState } from '@tallyui/pos';
 import { SaleScreen as SaleScreenWithoutHost, syncLineShown } from '../components/sale-screen';
+import { Toaster } from '../components/toaster';
+import { dismissToast } from '../lib/toast/toast';
 import { PortalHost } from '@tallyui/primitives';
 import type { SaleScreenProps } from '../components/sale-screen';
 import { parkedCartSchema, parkedCartMigrationStrategies, type ParkedCartCollection } from '../lib/sale/parked-carts';
@@ -110,6 +112,7 @@ beforeEach(() => {
 const tableView = () => localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all', view: 'table' }));
 
 afterEach(() => {
+  act(() => dismissToast());
   cleanup();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -1038,5 +1041,55 @@ test('the ⋮ opens Order details, the note stays on the sale and Void is in the
   expect((screen.getByLabelText('Customer Note') as HTMLTextAreaElement).value).toBe('Leave at the door');
   fireEvent.click(screen.getByTestId('order-details-void'));
   expect(screen.queryByTestId('order-details')).toBeNull();
-  expect(screen.getByTestId('cart-void-dialog')).not.toBeNull();
+  expect(screen.queryByTestId('cart-void-dialog')).toBeNull();
 });
+
+test('Void empties the cart at once; Undo on the toast brings the sale back', async () => {
+  const db = await createRxDatabase({
+    name: `void_${crypto.randomUUID()}`, multiInstance: false,
+    storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }),
+  });
+  try {
+    const { parked_carts: parkedCarts } = await db.addCollections<{ parked_carts: ParkedCartCollection }>({
+      parked_carts: { schema: parkedCartSchema, migrationStrategies: parkedCartMigrationStrategies },
+    });
+    render(<><SaleScreen {...props} parkedCarts={parkedCarts} /><Toaster /></>);
+    fireEvent.click(screen.getByText('Espresso'));
+    openCartTab();
+    fireEvent.click(cartPane().getByTestId('cart-foot-more'));
+    fireEvent.click(screen.getByText('Order details'));
+    fireEvent.click(screen.getByTestId('order-details-void'));
+    expect(queryCartItem('Espresso')).toBeNull();
+    expect(within(screen.getByTestId('success-toast')).getByText('Order removed')).not.toBeNull();
+    expect(parkedTabs()).toHaveLength(0);
+    expect(await parkedCarts.find().exec()).toEqual([]);
+    fireEvent.click(screen.getByTestId('toast-action'));
+    await waitFor(() => expect(queryCartItem('Espresso')).not.toBeNull());
+    expect(screen.queryByTestId('success-toast')).toBeNull();
+    expect(await parkedCarts.find().exec()).toEqual([]);
+  } finally {
+    cleanup();
+    await db.remove();
+  }
+}, 20_000);
+
+test('Undo after a new sale was started parks that sale and brings the voided one back', async () => {
+  render(<><SaleScreen {...props} /><Toaster /></>);
+  fireEvent.click(screen.getByText('Espresso'));
+  openCartTab();
+  fireEvent.click(cartPane().getByTestId('cart-foot-more'));
+  fireEvent.click(screen.getByText('Order details'));
+  fireEvent.click(screen.getByTestId('order-details-void'));
+  openProductsTab();
+  fireEvent.click(screen.getByText('Cold Brew'));
+  openCartTab();
+  fireEvent.click(screen.getByTestId('toast-action'));
+  await waitFor(() => expect(queryCartItem('Espresso')).not.toBeNull());
+  expect(queryCartItem('Cold Brew')).toBeNull();
+  expect(parkedTabs()).toHaveLength(1);
+  openParkedList();
+  expect(within(screen.getByTestId('parked-sales')).getByText('1 item')).not.toBeNull();
+  expect(within(screen.getByTestId('parked-sales')).getByText('$4.00')).not.toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' }));
+  await waitFor(() => expect(queryCartItem('Cold Brew')).not.toBeNull());
+}, 20_000);

@@ -91,3 +91,20 @@ test('renders nothing when there are no toasts', () => {
   render(<Toaster />);
   expect(screen.queryByTestId('toaster')).toBeNull();
 });
+
+test('a toast with an action shows it, and pressing it runs the action and closes the toast', () => {
+  render(<Toaster />);
+  const onPress = vi.fn();
+  act(() => { toast({ type: 'success', title: 'Order removed', action: { label: 'Undo', onPress } }); });
+  const action = screen.getByTestId('toast-action');
+  expect(within(action).getByText('Undo')).not.toBeNull();
+  fireEvent.click(action);
+  expect(onPress).toHaveBeenCalledTimes(1);
+  expect(screen.queryByTestId('success-toast')).toBeNull();
+});
+
+test('a toast without an action shows no action button', () => {
+  render(<Toaster />);
+  act(() => { toast({ type: 'success', title: 'Saved' }); });
+  expect(screen.queryByTestId('toast-action')).toBeNull();
+});
