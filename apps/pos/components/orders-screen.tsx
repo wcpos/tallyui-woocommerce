@@ -17,14 +17,16 @@ import { ReceiptPrintSheet } from './receipt-print-sheet';
 import { ReceiptZoom } from './receipt-zoom';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { AreaToolbar, useAreaGutter } from './area-header';
+import { RefusedOrdersNotice } from './refused-orders-notice';
 
 // The app has no store timezone yet (lib/orders/order-days.ts)
 const TIMEZONE = 'device';
 
-export function OrdersScreen({ onBack, history, storeName, cashierName, cashierId, onCustomerSearch }: {
+export function OrdersScreen({ onBack, history, storeName, cashierName, cashierId, onCustomerSearch, onReview }: {
   onBack(): void; history: OrderHistorySource | null; storeName: string; cashierName: string;
   cashierId?: string;
   onCustomerSearch?(text: string): Promise<Array<{ id: string; name: string }>>;
+  onReview?(): void;
 }) {
   const outbox = useOutbox();
   const register = useRegister();
@@ -107,6 +109,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
         search={outbox.enabled && !opened && !viewing ? <SearchInput testID="search-orders" value={term} onChangeText={type} placeholder="Search Orders" /> : null}>
         <AreaDisplayOptions area="orders" columns={ORDERS_COLUMNS} settings={columns} onChange={setColumns} />
       </AreaToolbar>
+      {outbox.enabled && !opened && !viewing && <RefusedOrdersNotice className={`pb-3 ${gutter}`} orders={outbox.orders} onOpen={open} onReview={onReview} />}
       {outbox.enabled && history && fields.length > 0 && !opened && !viewing && <View className={`pb-3 ${gutter}`}>
         <ScrollView testID="orders-chip-row" horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
           contentContainerClassName="items-center gap-2">

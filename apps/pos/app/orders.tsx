@@ -29,6 +29,7 @@ export default function Orders() {
     </>
   );
   return <><SessionHoldBanner /><OrdersScreen onBack={() => { router.canGoBack() ? router.back() : router.replace('/catalogue'); }}
+    onReview={() => router.push('/health/database')}
     history={history} storeName={catalogue.store.name} cashierName={session.tokens.user.displayName} cashierId={String(session.tokens.user.id)}
     onCustomerSearch={customers ? text => customers.search(text).then(found => found.map(({ id, name }) => ({ id, name }))) : undefined} /></>;
 }
