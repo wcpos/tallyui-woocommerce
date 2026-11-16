@@ -1,17 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { discoverSite, normalizeSiteUrl, SiteError } from '../lib/auth/site';
-
-function memoryStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: key => data.get(key) ?? null,
-    key: index => Array.from(data.keys())[index] ?? null,
-    removeItem: key => { data.delete(key); },
-    setItem: (key, value) => { data.set(key, value); },
-  };
-}
+import { memoryStorage } from './memory-storage';
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());

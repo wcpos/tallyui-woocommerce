@@ -5,18 +5,7 @@ import { readScanSettings, SCAN_SETTINGS_KEY, writeScanSettings } from '../lib/s
 import { readScanSoundSettings, SCAN_SOUND_KEY, writeScanSoundSettings } from '../lib/scan/scan-sound';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { installFakeAudio, tones } from './fake-audio-context';
-
-function memoryStorage(): Storage {
-  const data = new Map<string, string>();
-  return {
-    get length() { return data.size; },
-    clear: () => data.clear(),
-    getItem: key => data.get(key) ?? null,
-    key: index => Array.from(data.keys())[index] ?? null,
-    removeItem: key => { data.delete(key); },
-    setItem: (key, value) => { data.set(key, value); },
-  };
-}
+import { memoryStorage } from './memory-storage';
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
