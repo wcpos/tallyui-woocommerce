@@ -11,6 +11,7 @@ import {
 } from '@tallyui/components';
 import type { SvgIconProps } from '@tallyui/components';
 import type { CatalogueFilters, QuickFilterStockStatus } from '../lib/catalogue/quick-filters';
+import { FolderIcon } from './icons';
 
 const WarehouseIcon = createSvgIcon('WarehouseIcon', () => <>
   <Path d="M22 8.35V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.35A2 2 0 0 1 3.26 6.5l8-3.2a2 2 0 0 1 1.48 0l8 3.2A2 2 0 0 1 22 8.35Z" />
@@ -22,9 +23,6 @@ const CurrencyIcon = createSvgIcon('CurrencyIcon', () => <>
   <Circle cx={12} cy={12} r={10} />
   <Path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
   <Path d="M12 18V6" />
-</>);
-const FolderIcon = createSvgIcon('FolderIcon', () => <>
-  <Path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
 </>);
 
 const STOCK_LABELS: Record<QuickFilterStockStatus, string> = { instock: 'In Stock', outofstock: 'Out of Stock', onbackorder: 'On Backorder' };

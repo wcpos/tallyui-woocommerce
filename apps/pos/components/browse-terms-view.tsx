@@ -4,26 +4,14 @@
 import { Fragment } from 'react';
 import type { JSX, ReactNode } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
-import { Path, Rect } from 'react-native-svg';
-import { createSvgIcon, Text, VStack } from '@tallyui/components';
+import { Text, VStack } from '@tallyui/components';
 import { productsLabel } from '../lib/catalogue/browse-terms';
 import type { BrowseTerm } from '../lib/catalogue/browse-terms';
 import { tileNameSize, tileWords, useCompactTiles } from '../lib/catalogue/tile-scale';
 import { tintOf } from '../lib/catalogue/tile-words';
 import { useIsWide } from '../lib/layout/wide';
+import { ChevronLeftIcon, ChevronRightIcon, FolderIcon, GridIcon } from './icons';
 import { BAND, FAR, NEAR, STACK_CARD, TILE_TINTS } from './product-tile';
-
-const FolderIcon = createSvgIcon('FolderIcon', () => <>
-  <Path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
-</>);
-// v2's `viewGrid` glyph, for All products.
-const GridIcon = createSvgIcon('GridIcon', () => <>
-  <Rect x={3} y={3} width={7} height={7} rx={1} /><Rect x={14} y={3} width={7} height={7} rx={1} />
-  <Rect x={14} y={14} width={7} height={7} rx={1} /><Rect x={3} y={14} width={7} height={7} rx={1} />
-</>);
-const ChevronRightIcon = createSvgIcon('ChevronRightIcon', () => <Path d="m9 18 6-6-6-6" />);
-// v2's chevronLeft, for the parent tile's back badge.
-const ChevronLeftIcon = createSvgIcon('ChevronLeftIcon', () => <Path d="m15 18-6-6 6-6" />);
 
 /** What a cashier can open from the term set: All products, or one category. */
 export type BrowsePlace = { kind: 'all' } | { kind: 'term'; id: number; name: string };

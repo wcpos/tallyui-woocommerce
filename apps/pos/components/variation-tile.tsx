@@ -2,16 +2,14 @@
 // `option-chips.tsx`): the parent's own tile in the first slot with the back badge, then one tile per variation.
 import type { JSX } from 'react';
 import { Pressable, View } from 'react-native';
-import { Path } from 'react-native-svg';
 import { resolvePrice, useProductTraits, useTraitContext } from '@tallyui/core';
-import { createSvgIcon, Text } from '@tallyui/components';
+import { Text } from '@tallyui/components';
 import type { CatalogueEntry } from '@tallyui/pos';
 import type { CatalogueTileFields } from '../lib/catalogue/catalogue-view-state';
 import { formatTileMoney } from '../lib/catalogue/tile-words';
 import type { TileTax } from '../lib/catalogue/tile-words';
+import { ChevronLeftIcon } from './icons';
 import { ProductTile, TilePoster } from './product-tile';
-
-const ChevronLeftIcon = createSvgIcon('ChevronLeftIcon', () => <Path d="m15 18-6-6 6-6" />);
 
 /** v2's ParentTile: the tapped product's tile, its back badge (v2's CIRCLE) where its cart count was. */
 export function ParentTile({ doc, fields, tax, onBack }: { doc: any; fields: CatalogueTileFields; tax?: TileTax; onBack(): void }): JSX.Element {

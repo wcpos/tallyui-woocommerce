@@ -6,11 +6,8 @@
 import type { JSX } from 'react';
 import { Fragment } from 'react';
 import { View } from 'react-native';
-import { Path } from 'react-native-svg';
-import { Button, createSvgIcon, Text } from '@tallyui/components';
-
-// lucide `chevron-right`, v2's `chevronRight`, as browse-terms-view.tsx draws it.
-const ChevronRightIcon = createSvgIcon('ChevronRightIcon', () => <Path d="m9 18 6-6-6-6" />);
+import { Button, Text } from '@tallyui/components';
+import { ChevronRightIcon } from './icons';
 
 export interface ProductAttribute {
   id?: number;
