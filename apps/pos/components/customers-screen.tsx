@@ -5,7 +5,7 @@ import { Circle, Line, Path } from 'react-native-svg';
 import { ConnectorUnauthorizedError, CustomerServiceError } from '@tallyui/core';
 import type { Customer } from '@tallyui/core';
 import { Avatar, Button, IconButton, SearchInput, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Text, createSvgIcon } from '@tallyui/components';
-import { useAreaColumns } from '../lib/area-columns';
+import { useAreaColumns, visibleAreaColumns } from '../lib/area-columns';
 import type { AreaColumn } from '../lib/area-columns';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { DEFAULT_CUSTOMER_SORT, billingLines, customerInitials, nextSort, sortCustomers } from '../lib/customers/customer-table';
@@ -113,7 +113,7 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
   function retry() { setAttempt(n => n + 1); }
   const shown = sortCustomers(results, sort);
   // The columns the display options leave on, in the area's order.
-  const columns = CUSTOMERS_COLUMNS.filter(column => settings.some(setting => setting.id === column.id && setting.visible));
+  const columns = visibleAreaColumns(CUSTOMERS_COLUMNS, settings);
 
   const body = error ? (
     <View className="gap-2 p-4">

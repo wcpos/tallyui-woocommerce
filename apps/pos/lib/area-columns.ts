@@ -29,6 +29,11 @@ export function normalizeAreaColumns<Id extends string>(raw: unknown, defaults: 
   });
 }
 
+/** The columns whose setting is visible, in the columns' own order; a column with no setting is hidden. */
+export function visibleAreaColumns<C extends { id: string }>(columns: readonly C[], settings: readonly AreaColumnSetting[]): C[] {
+  return columns.filter(column => settings.some(setting => setting.id === column.id && setting.visible));
+}
+
 export function loadAreaColumns<Id extends string>(area: AreaId, defaults: readonly AreaColumnSetting<Id>[], storage?: Storage): AreaColumnSetting<Id>[] {
   try {
     const raw = (storage ?? globalThis.localStorage).getItem(areaColumnsKey(area));

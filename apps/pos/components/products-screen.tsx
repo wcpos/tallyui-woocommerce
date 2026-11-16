@@ -25,7 +25,7 @@ import { resolveStock, STOCK_LABEL } from '../lib/products/resolve-stock';
 import type { StockState } from '../lib/products/resolve-stock';
 import { matchesCatalogueFilters } from '../lib/catalogue/quick-filters';
 import type { CatalogueFilters } from '../lib/catalogue/quick-filters';
-import { useAreaColumns } from '../lib/area-columns';
+import { useAreaColumns, visibleAreaColumns } from '../lib/area-columns';
 import type { AreaColumn } from '../lib/area-columns';
 import { NARROW_WIDTH } from '../lib/layout/wide';
 import { useSearchTerm } from '../lib/search-term';
@@ -245,8 +245,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
 
   const columns = useMemo(() => productColumns(currency, locale, drillTo), [currency, locale, drillTo]);
   // The columns the display options leave on, in the area's order; the narrow list keeps sorting on every column.
-  const tableColumns = useMemo(() => columns.filter(column => settings.some(setting => setting.id === column.id && setting.visible)),
-    [columns, settings]);
+  const tableColumns = useMemo(() => visibleAreaColumns(columns, settings), [columns, settings]);
   const searched = useMemo(() => query ? searchProducts(products, query, connector.traits.product) : products,
     [products, query, connector.traits.product]);
   const shown = useMemo(() => searched.filter(doc => matchesCatalogueFilters(doc, filters)), [searched, filters]);

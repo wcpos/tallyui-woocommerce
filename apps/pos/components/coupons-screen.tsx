@@ -19,7 +19,7 @@ import {
   TableCell, TableHead, TableHeader, TableRow, Text, XIcon,
 } from '@tallyui/components';
 import type { SvgIconProps } from '@tallyui/components';
-import { useAreaColumns } from '../lib/area-columns';
+import { useAreaColumns, visibleAreaColumns } from '../lib/area-columns';
 import type { AreaColumn } from '../lib/area-columns';
 import { NARROW_WIDTH } from '../lib/layout/wide';
 import { useSearchTerm } from '../lib/search-term';
@@ -290,7 +290,7 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
   const shown = all ? all.filter(coupon => (!query || matches(coupon, query)) && passes(coupon, filters, now)) : [];
   const total = all?.length ?? 0;
   // The columns the display options leave on, in the area's order.
-  const columns = COUPONS_COLUMNS.filter(column => settings.some(setting => setting.id === column.id && setting.visible));
+  const columns = visibleAreaColumns(COUPONS_COLUMNS, settings);
 
   const body = all === null ? null : total === 0 ? (
     <View testID="no-data-message" className="flex-1 items-center justify-center gap-2 p-6">
