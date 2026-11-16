@@ -5,13 +5,14 @@ import { Path } from 'react-native-svg';
 import { createSvgIcon, IconButton, Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
 import {
-  clampClosureScope, comparisonRange, daysOf, formatClosureDate, presetRange, selectClosureRows, type Closure, type DatePreset, type PosOrder,
+  formatClosureDate, presetRange, type Closure, type DatePreset, type PosOrder,
 } from '@tallyui/pos';
 import { Portal } from '@tallyui/primitives';
 import { useSession } from '../lib/auth/session-context';
 import { useRegister } from '../lib/register/register-context';
 import { closuresCsv } from '../lib/reports/closures-csv';
-import { isMultiDay, rangeBounds, salesRoom, storeDay, type Compare } from '../lib/reports/sales-room';
+import { closuresScope, periodNow, salesPeriod } from '../lib/reports/report-scope';
+import { rangeBounds, salesRoom, type Compare } from '../lib/reports/sales-room';
 import { salesTableCsv } from '../lib/reports/sales-table-csv';
 import { ordersTable, paymentsTable, taxesTable } from '../lib/reports/sales-tables';
 import { useMinuteClock } from '../lib/reports/use-minute-clock';
@@ -55,12 +56,6 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const [opened] = useState(() => new Date());
   const [preset, setPreset] = useState<DatePreset>('today');
   const [compare, setCompare] = useState<Compare>('yesterday');
-  const range = useMemo(() => presetRange(preset, opened, 'device'), [preset, opened]);
-  const multiDay = isMultiDay(range, preset);
-  const comparison = useMemo(() => comparisonRange(range, !multiDay && compare === 'lastweek' ? 'week' : 'previous', preset),
-    [range, multiDay, compare, preset]);
-  const bounds = rangeBounds(range);
-  const since = rangeBounds(comparison).startIso;
   const [cashierId, setCashierId] = useState<string | null>(null);
   const now = useMinuteClock();
   const [sales, setSales] = useState<PosOrder[]>([]);
@@ -80,28 +75,16 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const wide = useWindowDimensions().width >= 600;
   const gutter = useAreaGutter();
   locale = locale.replaceAll('_', '-');
+  const { range, multiDay, comparison, bounds, since, weekday, comparisonName } = useMemo(
+    () => salesPeriod(preset, compare, opened, locale), [preset, compare, opened, locale]);
   const shown = cashierId === null ? sales : sales.filter(order => order.cashierRef === cashierId);
-  const weekday = new Date(bounds.startIso).toLocaleDateString(locale, { weekday: 'long' });
-  const comparisonName = multiDay ? (preset.endsWith('Month') ? 'month before' : 'week before')
-    : compare === 'yesterday' ? 'yesterday' : `last ${weekday}`;
   const { label: periodName } = periodLabel(range, preset, locale);
-  // A live period's buckets after now are the future: now's minute of the day, or today's place in the period's days
-  // (salesRoom's own day list). A closed period has no future, so its running line reaches the last bucket.
-  const live = range.to === storeDay(now);
-  const nowKey = !live ? Number.POSITIVE_INFINITY
-    : multiDay ? daysOf(range).indexOf(storeDay(now)) : now.getHours() * 60 + now.getMinutes();
+  const { live, nowKey } = periodNow(range, multiDay, now);
   const today = formatClosureDate(new Date().toISOString(), { timezone: 'device', locale }).date_ymd;
   const storeKey = session ? ordersDatabaseName(session) : '';
-  // `selectClosureRows` matches `cashier` against a closure's `closed_by`, the user id as a string; All passes none.
-  const closures = selectClosureRows(rows, clampClosureScope({
-    from: closuresRange.from, to: closuresRange.to, registerId: register.boundRegisterId ?? '', storeKey,
-    cashier: closuresCashier ?? undefined,
-  }, today), 'device');
   const active = register.enabled && (register.session?.status === 'open' || register.session?.status === 'counting') ? register.session : null;
-  // v2 closures/index.tsx: an open session has no closer yet, so its opener stands in for the cashier;
-  // v2 closure-list.tsx `inPeriod`: it counts only when the period spans today.
-  const openSession = active && (closuresCashier === null || active.opened_by === closuresCashier)
-    && closuresRange.from <= today && today <= closuresRange.to ? active : null;
+  const { closures, openSession } = closuresScope(rows, { range: closuresRange, registerId: register.boundRegisterId ?? '',
+    storeKey, cashier: closuresCashier, today, active });
   const openClosure = openClosureId ? rows.find(c => c.id === openClosureId) ?? null : null;
   const reprintClosure = (closure: Closure) => { setReprint(closure); setPrintRequest(value => value + 1); };
   const printXReport = () => { setReprint('x'); setPrintRequest(value => value + 1); };
