@@ -10,6 +10,7 @@ import type { AreaColumn } from '../lib/area-columns';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { DEFAULT_CUSTOMER_SORT, billingLines, customerInitials, nextSort, sortCustomers } from '../lib/customers/customer-table';
 import type { CustomerSort, CustomerSortField } from '../lib/customers/customer-table';
+import { NARROW_WIDTH } from '../lib/layout/wide';
 import { useSearchTerm } from '../lib/search-term';
 import { AddCustomerDialog } from './add-customer-dialog';
 import { AreaDisplayOptions } from './area-display-options';
@@ -129,7 +130,7 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
     </View>
   ) : (
       <ScrollView testID="customers-body">
-        {width < 600 ? shown.map(c => (
+        {width < NARROW_WIDTH ? shown.map(c => (
           <View key={c.id} testID={`customers-row-${c.id}`} className="flex-row items-center gap-3 border-b border-border px-4 py-3">
             <Avatar size="lg" fallback={customerInitials(c)} />
             <View className="flex-1 gap-1">

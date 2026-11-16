@@ -27,6 +27,7 @@ import { matchesCatalogueFilters } from '../lib/catalogue/quick-filters';
 import type { CatalogueFilters } from '../lib/catalogue/quick-filters';
 import { useAreaColumns } from '../lib/area-columns';
 import type { AreaColumn } from '../lib/area-columns';
+import { NARROW_WIDTH } from '../lib/layout/wide';
 import { useSearchTerm } from '../lib/search-term';
 import { AreaDisplayOptions } from './area-display-options';
 import { AreaToolbar, useAreaGutter } from './area-header';
@@ -39,8 +40,6 @@ import { StatusDot } from './status-dot';
 import { CaptionRowInset, TableCount, TableSurface, useCatalogueSync } from './table-surface';
 import type { StatusTone } from './status-dot';
 
-// The width below which the table becomes a list, as customers-screen.tsx.
-const NARROW_WIDTH = 600;
 // The image cell's square, about v2's thumbnail.
 const IMAGE_SIZE = 40;
 // v2's default sort for the products table (initial-settings.json "products").
