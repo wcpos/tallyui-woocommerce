@@ -902,6 +902,33 @@ test('persisted carts survive a new screen, restore, swap and discard', async ()
   }
 }, 20_000);
 
+test('a parked sale whose discard fails stays parked and the failure is shown', async () => {
+  vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
+  const db = await createRxDatabase({
+    name: `parked_${crypto.randomUUID()}`, multiInstance: false,
+    storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }),
+  });
+  try {
+    const { parked_carts: parkedCarts } = await db.addCollections<{ parked_carts: ParkedCartCollection }>({
+      parked_carts: { schema: parkedCartSchema, migrationStrategies: parkedCartMigrationStrategies },
+    });
+    render(<SaleScreen {...props} parkedCarts={parkedCarts} />);
+    fireEvent.click(screen.getByText('Espresso'));
+    await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
+    await waitFor(() => expect(parkedTabs()).toHaveLength(1));
+    vi.spyOn(parkedCarts, 'findOne').mockReturnValueOnce({ remove: () => Promise.reject(new Error('disk full')) } as never);
+    openParkedList();
+    fireEvent.click(screen.getByRole('button', { name: 'Discard parked sale' }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Discard' })); });
+    await screen.findByText('disk full');
+    expect(await parkedCarts.find().exec()).toHaveLength(1);
+    expect(parkedTabs()).toHaveLength(1);
+  } finally {
+    cleanup();
+    await db.remove();
+  }
+}, 20_000);
+
 // A12/B12: the phone till's Products / Cart tab bar (v2 pos-phone-tab-bar.tsx), both panes mounted.
 const phone = () => vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
 
