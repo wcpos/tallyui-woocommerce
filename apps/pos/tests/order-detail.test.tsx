@@ -116,6 +116,31 @@ test('payments are listed by the store\'s name, titled Payments when there are s
   expect(screen.queryByTestId('order-modal-payments')).toBeNull();
 });
 
+test('refunds show their own section after Payment: count, total and one card per refund with its reason', () => {
+  show(make({ totalMinor: 600, refunds: [{ id: '31', amountMinor: 200, reason: 'Damaged cup' }, { id: '30', amountMinor: 100 }] }));
+  expect(part('order-modal-refunds').getByText('Refunds')).not.toBeNull();
+  expect(screen.getByTestId('order-modal-refunds-summary').textContent).toBe('2 refunds · -$3.00');
+  expect(part('order-modal-refund-31').getByText('Refund #31')).not.toBeNull();
+  expect(part('order-modal-refund-31').getByText('-$2.00')).not.toBeNull();
+  expect(screen.getByTestId('order-modal-refund-reason-31').textContent).toBe('“Damaged cup”');
+  expect(part('order-modal-refund-30').getByText('-$1.00')).not.toBeNull();
+  expect(screen.queryByTestId('order-modal-refund-reason-30')).toBeNull();
+  expect(screen.getByTestId('order-modal-refunds').querySelector('[data-testid^="order-modal-refund-3"]')?.getAttribute('data-testid')).toBe('order-modal-refund-31');
+  const [payments, refunds, customer] = ['order-modal-payments', 'order-modal-refunds', 'order-modal-customer'].map(id => screen.getByTestId(id));
+  expect(payments.compareDocumentPosition(refunds) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(refunds.compareDocumentPosition(customer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+test('one refund reads 1 refund', () => {
+  show(make({ refunds: [{ id: '7', amountMinor: 600 }] }));
+  expect(screen.getByTestId('order-modal-refunds-summary').textContent).toBe('1 refund · -$6.00');
+});
+
+test('an order with no refunds has no Refunds section', () => {
+  show(make());
+  expect(screen.queryByTestId('order-modal-refunds')).toBeNull();
+});
+
 test('the customer is named with the email, and Guest when there is none', () => {
   show(make());
   expect(part('order-modal-customer').getByText('Guest')).not.toBeNull();
