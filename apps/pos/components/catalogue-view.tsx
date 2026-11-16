@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useReducer, useState } from 'react';
 import type { JSX, ReactNode } from 'react';
 import { ScrollView, View, useWindowDimensions } from 'react-native';
 import { Path } from 'react-native-svg';
@@ -7,11 +7,12 @@ import type { TallyConnector } from '@tallyui/core';
 import { Button, createSvgIcon, defaultProductColumns, IconButton, ProductGrid, ProductTable, SearchInput, Text } from '@tallyui/components';
 import type { ProductTableColumn } from '@tallyui/components';
 import { catalogueEntries, productSortValue, resolveGridColumns, searchProducts, sortProducts } from '@tallyui/pos';
-import type { CatalogueEntry, ProductSort } from '@tallyui/pos';
+import type { CatalogueEntry } from '@tallyui/pos';
+import { catalogueQuery, initialCatalogueQuery } from '../lib/catalogue/catalogue-query';
 import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
 import type { AppCatalogueViewState } from '../lib/catalogue/catalogue-view-state';
-import { catalogueFilterBaseline, isQuickFilterActive, matchesCatalogueFilters, quickFilterToQueryPatch, rebaseStockStatus, useQuickFilters } from '../lib/catalogue/quick-filters';
-import type { CatalogueFilters, QuickFilter } from '../lib/catalogue/quick-filters';
+import { catalogueFilterBaseline, isQuickFilterActive, matchesCatalogueFilters, useQuickFilters } from '../lib/catalogue/quick-filters';
+import type { QuickFilter } from '../lib/catalogue/quick-filters';
 import { optionsLabel } from '../lib/catalogue/tile-words';
 import type { TileTax } from '../lib/catalogue/tile-words';
 import { needsAnyPick, variantMatchesStock } from '../lib/catalogue/variation-match';
@@ -19,7 +20,6 @@ import { useIsWide } from '../lib/layout/wide';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { categoriesLabel, categoryTerms, filtersAtBaseline, productsInCategory, productsLabel } from '../lib/catalogue/browse-terms';
 import { BrowseCrumb, BrowseRootGrid, BrowseRootTable, ParentTermTile } from './browse-terms-view';
-import type { BrowsePlace } from './browse-terms-view';
 import { CatalogueDisplayOptions, CatalogueSettingsButton } from './catalogue-display-options';
 import { CatalogueFilterChips } from './catalogue-filter-chips';
 import { DrawerSheet } from './drawer-content';
@@ -93,26 +93,26 @@ export function CatalogueView({
   viewState: controlledViewState, onViewStateChange,
   tax, inCartCounts, onSync, hideBar,
 }: CatalogueViewProps): JSX.Element {
-  const [term, setTerm] = useState('');
   const [quickFilters, setQuickFilters] = useQuickFilters();
-  const [sortOverride, setSortOverride] = useState<ProductSort | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [filterBarOpen, setFilterBarOpen] = useState(false);
   function scan(code: string) {
     const result = onScan?.(code);
-    if (result === 'clear') setTerm('');
-    else if (result === 'search') setTerm(code);
+    if (result === 'clear') dispatch({ type: 'search', term: '' });
+    else if (result === 'search') dispatch({ type: 'search', term: code });
   }
   useWedgeScanner(scan, Boolean(onScan));
   const [ownViewState, setOwnViewState] = useCatalogueView();
   const viewState = controlledViewState ?? ownViewState;
   const setViewState = onViewStateChange ?? setOwnViewState;
-  const [filters, setFilters] = useState<CatalogueFilters>(() => catalogueFilterBaseline(viewState.showOutOfStock));
+  const [query, dispatch] = useReducer(catalogueQuery, viewState.showOutOfStock,
+    showOutOfStock => initialCatalogueQuery(catalogueFilterBaseline(showOutOfStock)));
+  const { term, filters, sortOverride, place } = query;
   const baseline = useMemo(() => catalogueFilterBaseline(viewState.showOutOfStock), [viewState.showOutOfStock]);
   // As v2: the stock filter rebases only when the setting moves, and a sort set in the sheet replaces a quick filter's.
   function changeViewState(next: AppCatalogueViewState) {
-    if (next.showOutOfStock !== viewState.showOutOfStock) setFilters(current => rebaseStockStatus(current, next.showOutOfStock));
-    if (next.sort !== viewState.sort) setSortOverride(null);
+    if (next.showOutOfStock !== viewState.showOutOfStock) dispatch({ type: 'stockSettingChanged', showOutOfStock: next.showOutOfStock });
+    if (next.sort !== viewState.sort) dispatch({ type: 'sortSettingChanged' });
     setViewState(next);
   }
   const sort = sortOverride ?? viewState.sort;
@@ -125,9 +125,8 @@ export function CatalogueView({
   // browse-stage.tsx); with no hierarchy here one open place is enough: null is the root. The place
   // drops when Browse by changes (React's "previous render" pattern, so a change from anywhere drops it)
   // and when the active quick filter is pressed; a search, a chip or Clear filters stay inside it.
-  const [place, setPlace] = useState<BrowsePlace | null>(null);
   const [browsedBy, setBrowsedBy] = useState(viewState.browseBy);
-  if (browsedBy !== viewState.browseBy) { setBrowsedBy(viewState.browseBy); setPlace(null); }
+  if (browsedBy !== viewState.browseBy) { setBrowsedBy(viewState.browseBy); dispatch({ type: 'browseByChanged' }); }
   const browsing = viewState.browseBy === 'categories';
   const level = browsing ? place : null;
   // The terms count what the baseline lets through: with out-of-stock hidden, only in-stock products.
@@ -181,21 +180,15 @@ export function CatalogueView({
   // Like v2, a press replaces the whole filter state, and pressing the active button restores the baseline.
   function pressQuickFilter(qf: QuickFilter) {
     if (isActive(qf)) {
-      setFilters(baseline);
-      setTerm('');
-      setSortOverride(null);
-      setPlace(null);
+      dispatch({ type: 'clearQuickFilter', baseline });
     } else {
-      const patch = quickFilterToQueryPatch(qf);
-      setFilters({ ...baseline, ...patch.filters });
-      setTerm(patch.search);
-      setSortOverride(qf.sort ?? null);
+      dispatch({ type: 'applyQuickFilter', quickFilter: qf, baseline });
     }
   }
   function changeQuickFilters(next: QuickFilter[]) {
     // An applied quick filter that was deleted or changed resets the catalogue to the baseline.
     const applied = quickFilters.find(isActive);
-    if (applied && !next.some(qf => qf.id === applied.id && isActive(qf))) { setFilters(baseline); setTerm(''); setSortOverride(null); }
+    if (applied && !next.some(qf => qf.id === applied.id && isActive(qf))) { dispatch({ type: 'appliedQuickFilterGone', baseline }); }
     setQuickFilters(next);
   }
   // v2's PageBar: the search fills the row, the view toggle and Product settings sit beside it, the chips below.
@@ -207,7 +200,7 @@ export function CatalogueView({
   const searchSlot = <View testID="catalogue-search-slot" className={wide ? 'gap-3 pt-1 pb-1' : 'gap-2'}>
     <View className="flex-row items-center gap-2">
       {/* h-11: v2's control height `h-ctl`, 44 px (monorepo apps/main/global.css:40), over TallyUI's 40. */}
-      <SearchInput testID="catalogue-search" className="h-11 flex-1" value={term} onChangeText={setTerm} placeholder="Search products"
+      <SearchInput testID="catalogue-search" className="h-11 flex-1" value={term} onChangeText={text => dispatch({ type: 'search', term: text })} placeholder="Search products"
         onSubmitEditing={() => { const code = term.trim(); if (code && onScan) scan(code); }} />
       <ViewModeToggle view={viewState.view} onChange={view => setViewState({ ...viewState, view })} />
       <CatalogueSettingsButton onPress={() => setSettingsOpen(true)} />
@@ -218,7 +211,7 @@ export function CatalogueView({
       {/* v2 folds the place's own pill while a browse level is open (filter-bar.tsx:505, `place={browsePlace}` from
           index.tsx:599): the Categories source's field, for a category and All products alike, and for a product drilled
           inside the level. A product drilled from no level only dims it (filter-bar.tsx:508). */}
-      <CatalogueFilterChips products={products} filters={filters} onChange={setFilters} dimmed={drilled !== undefined}
+      <CatalogueFilterChips products={products} filters={filters} onChange={next => dispatch({ type: 'filter', filters: next })} dimmed={drilled !== undefined}
         placeField={level === null ? undefined : 'categories'} />
       <QuickFilterBar quickFilters={quickFilters} isActive={isActive} onPress={pressQuickFilter} dimmed={drilled !== undefined} />
     </ScrollView>
@@ -237,8 +230,8 @@ export function CatalogueView({
     : shown < total ? `Showing ${shown.toLocaleString()} of ${total.toLocaleString()}`
     : total === 1 ? '1 product' : `${total.toLocaleString()} products`;
   // One level back from a level: the crumb's previous step and the parent tile's. The browse is flat, so that is the root.
-  const backToRoot = () => setPlace(null);
-  const crumbOf = (className?: string) => drilled ? <BrowseCrumb place={level} onRoot={() => { setDrill(null); setPlace(null); }}
+  const backToRoot = () => dispatch({ type: 'open', place: null });
+  const crumbOf = (className?: string) => drilled ? <BrowseCrumb place={level} onRoot={() => { setDrill(null); dispatch({ type: 'open', place: null }); }}
       product={{ name: traits.getName(drilled), onBack: () => setDrill(null) }} className={className} />
     : level === null ? undefined : <BrowseCrumb place={level} onRoot={backToRoot} className={className} />;
   const crumb = crumbOf();
@@ -291,8 +284,8 @@ export function CatalogueView({
             : <VariationTile entry={item.entry} onPress={() => onAddEntry?.(item.entry)} />}
         />
         : atRoot ? viewState.view === 'grid'
-          ? <BrowseRootGrid terms={terms} numColumns={numColumns} {...slots()} onOpen={setPlace} />
-          : <BrowseRootTable terms={terms} {...slots()} onOpen={setPlace} />
+          ? <BrowseRootGrid terms={terms} numColumns={numColumns} {...slots()} onOpen={place => dispatch({ type: 'open', place })} />
+          : <BrowseRootTable terms={terms} {...slots()} onOpen={place => dispatch({ type: 'open', place })} />
         : viewState.view === 'grid' ? level === null ? <ProductGrid
           testID="catalogue-grid"
           className={gridGutter}
@@ -319,7 +312,7 @@ export function CatalogueView({
           sortItems={false}
           columns={columns}
           sort={sort}
-          onSortChange={next => { setSortOverride(null); setViewState({ ...viewState, sort: next }); }}
+          onSortChange={next => { dispatch({ type: 'sortSettingChanged' }); setViewState({ ...viewState, sort: next }); }}
           onSelect={onSelect}
           {...slots(crumb)}
           emptyState={emptyState}
