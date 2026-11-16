@@ -60,7 +60,8 @@ test('no "more" line at three or fewer', async () => {
 });
 
 test('Open order hands that order to the screen', async () => {
-  await insertOrder('r1', { syncStatus: 'rejected' });
+  await insertOrder('r1', { syncStatus: 'rejected', createdAt: '2026-10-07T09:00:00.000Z' });
+  await insertOrder('r2', { syncStatus: 'rejected', createdAt: '2026-10-07T09:30:00.000Z' });
   const onOpen = vi.fn();
   render(<RefusedOrdersNotice orders={orders} onOpen={onOpen} />);
   fireEvent.click(await screen.findByTestId('orders-attention-open-r1'));
