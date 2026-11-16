@@ -1,4 +1,5 @@
 import type { Customer } from '@tallyui/core';
+import { getInitials } from '../cashier/initials';
 
 export type CustomerSortField = 'first_name' | 'last_name' | 'email';
 export interface CustomerSort { field: CustomerSortField; direction: 'asc' | 'desc' }
@@ -14,12 +15,7 @@ const SORT_KEY: Record<CustomerSortField, 'firstName' | 'lastName' | 'email'> = 
 // v2 packages/components/src/avatar/index.tsx getInitials, with cells/avatar.tsx's email-local-part fallback.
 export function customerInitials(customer: Pick<Customer, 'name' | 'email'>): string {
   const email = customer.email ?? '';
-  const name = email && customer.name === email ? email.split('@')[0] : customer.name;
-  const trimmed = (name ?? '').trim();
-  if (!trimmed) return '?';
-  const words = trimmed.split(/\s+/);
-  if (words.length >= 2) return (words[0][0] + words[words.length - 1][0]).toUpperCase();
-  return trimmed.slice(0, 2).toUpperCase();
+  return getInitials(email && customer.name === email ? email.split('@')[0] : customer.name);
 }
 
 // v2 packages/components/src/format/address.tsx (FormatAddress showName): the name, then the company.
