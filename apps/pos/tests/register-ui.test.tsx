@@ -16,7 +16,7 @@ import { OnlineStatusContext, type OnlineStatus } from '../lib/online/online-sta
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
-import { sessionsOff, toggleRegisterSessions } from './cart-head-helpers';
+import { openRegisterPanel, sessionsOff, toggleRegisterSessions } from './cart-head-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import { REGISTER_SESSIONS_KEY } from '../lib/register/register-setting';
 import { cartPane, openCartTab, openProductsTab } from './phone-tabs-helpers';
@@ -66,12 +66,6 @@ async function setup(online?: OnlineStatus) {
   await waitFor(() => expect(register.boundRegisterId).not.toBeNull());
   if (!outbox.enabled || !outbox.orders) throw new Error('Order store not ready');
   return { get register() { return register; }, orders: outbox.orders, send };
-}
-
-/** v2's one door to the register panel: the bar's avatar opens the cashier sheet, whose drawer figure opens the panel. */
-async function openRegisterPanel() {
-  fireEvent.click(within(screen.getByTestId('register-bar-shell')).getByTestId('register-bar-avatar'));
-  fireEvent.click(await screen.findByTestId('user-sheet-drawer'));
 }
 
 async function payCash() {
@@ -135,11 +129,12 @@ test.each([900, 390])('the switch enables the register and replaces the cart at 
 });
 
 test('open, pay out, sell, count and close, then reuse the counted float', async () => {
-  await setup();
+  const app = await setup();
   await toggleRegisterSessions();
   fireEvent.change(await screen.findByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
   await screen.findByTestId('cart-empty');
+  await waitFor(() => expect(app.register.session?.status).toBe('open'));
   await openRegisterPanel();
   fireEvent.click(await screen.findByTestId('register-panel-paid-out'));
   fireEvent.change(await screen.findByTestId('movement-amount'), { target: { value: '20.00' } });
