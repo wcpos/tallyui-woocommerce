@@ -6,7 +6,7 @@ import { Button, ParkedSales, Receipt, SyncStatus, Text } from '@tallyui/compone
 import { catalogueEntries, RegisterSessionRequiredError, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
 import { formatMoney } from '@tallyui/core';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
-import type { CatalogueEntry, CustomerSummary, OutboxState, ParkedOrderSummary, Payment, TenderVoid } from '@tallyui/pos';
+import type { CatalogueEntry, CustomerSummary, OutboxState, ParkedOrderSummary } from '@tallyui/pos';
 import { createCustomersBlockedReason, type CashierCapabilities } from '../lib/auth/capabilities';
 import { drawerFigureText, drawerVerbs, sheetMoney } from '../lib/cashier/sheet-figures';
 import { inCartCounts } from '../lib/catalogue/tile-words';
@@ -21,12 +21,13 @@ import { clearBeforeLeave, setBeforeLeave, type BeforeLeave } from '../lib/sale/
 import { parkCart } from '../lib/sale/parked-carts';
 import { useCartRestore } from '../lib/sale/use-cart-restore';
 import { useParkedCarts } from '../lib/sale/use-parked-carts';
+import { useTenderCancel } from '../lib/sale/use-tender-cancel';
 import { saleDiscountCodes } from '../lib/sale/discount-codes';
 import { taxClassOptions } from '../lib/sale/tax-classes';
 import { saleScanHandlers } from '../lib/scan/sale-scan';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { toast } from '../lib/toast/toast';
-import { recordTenderVoids, type TenderVoidCollection } from '../lib/sale/tender-voids';
+import type { TenderVoidCollection } from '../lib/sale/tender-voids';
 import type { ParkedCart, ParkedCartCollection } from '../lib/sale/parked-carts';
 import { VariantChooser } from './variant-chooser';
 import { CatalogueView, PosBar } from './catalogue-view';
@@ -130,8 +131,10 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   // The register panel lives in RegisterControls (the cart side); the cashier sheet's drawer door, on the bar over the
   // cart, is the one way into it (v2 register-bar.tsx: "the avatar's sheet is the one door to the panel").
   const [registerPanelOpen, setRegisterPanelOpen] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
-  const [voidError, setVoidError] = useState<string>();
+  const { cancelling, voidError, requestCancel, keepPayments, confirmCancel, removeLeg } = useTenderCancel(sale, {
+    collection: () => (outbox.enabled && outbox.orders!.database.collections.tender_voids) as TenderVoidCollection,
+    sessionId: register?.saleSession?.id, cashierRef: props.cashierRef,
+  });
   const [message, setMessage] = useState<string>();
   const { restoring, restore } = useCartRestore(sale, props.products, connector.traits.product, currency, setMessage);
   const parkedStore = useParkedCarts(parkedCarts);
@@ -160,44 +163,11 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     setBeforeLeave(handler);
     return () => clearBeforeLeave(handler);
   }, []);
-  useEffect(() => {
-    if (sale.stage.kind !== 'tender') { setCancelling(false); setVoidError(undefined); }
-  }, [sale.stage.kind]);
   // v2's autoShowReceipt off (use-complete-order-flow.ts): with no auto print either, a finished sale goes straight
   // back to an empty till, once per order. With auto print on, the receipt stage renders so the print area exists.
   useEffect(() => {
     if (receiptOrderId !== null && !receiptSettings.autoShow && !receiptSettings.autoPrint) sale.newSale();
   }, [sale.stage.kind, receiptOrderId]);
-
-  async function voidTenders(payments: readonly Payment[], reason: TenderVoid['reason']): Promise<boolean> {
-    try {
-      const collection = (outbox.enabled && outbox.orders!.database.collections.tender_voids) as TenderVoidCollection;
-      await recordTenderVoids(collection, payments, {
-        saleId: sale.order.id, currency: sale.order.currency, reason,
-        registerId: REGISTER_ID, sessionId: register?.saleSession?.id,
-        cashierRef: props.cashierRef, deviceTime: new Date().toISOString(),
-        deviceTz: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      });
-      setVoidError(undefined);
-      return true;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setVoidError(`The void was not recorded, so the payment was kept: ${message}`);
-      return false;
-    }
-  }
-
-  async function removeLeg(id: string) {
-    if (sale.saving) { sale.removeTender(id); return; }
-    const payment = sale.order.payments.find(payment => payment.id === id);
-    if (!payment) return;
-    if (await voidTenders([payment], 'removed')) sale.removeTender(id);
-  }
-
-  function requestCancel() {
-    if (sale.order.payments.length > 0 && !sale.saving) setCancelling(true);
-    else sale.cancelTender();
-  }
 
   // A multi-payment tender is taken leg by leg: v2's checkout opens on the balance due with no leg taken, whatever the
   // method, so startTender's preset tender is cleared on that path (Card's is a full-total leg).
@@ -408,12 +378,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         cancelling && sale.order.payments.length > 0 ? (
           <>
             {voidError ? <Text testID="tender-void-error" accessibilityRole="alert" className="text-destructive">{voidError}</Text> : null}
-            <CancelPaymentView payments={sale.order.payments} currency={currency} onKeep={() => setCancelling(false)}
-              onConfirm={async () => {
-                if (sale.saving) { setCancelling(false); sale.cancelTender(); return; }
-                if (!(await voidTenders(sale.order.payments, 'cancelled'))) return;
-                setCancelling(false); sale.cancelTender();
-              }} />
+            <CancelPaymentView payments={sale.order.payments} currency={currency} onKeep={keepPayments}
+              onConfirm={confirmCancel} />
           </>
         ) : (
           <>
