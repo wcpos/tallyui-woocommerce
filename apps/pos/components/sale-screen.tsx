@@ -19,6 +19,7 @@ import { useReceiptPrintCount } from '../lib/receipts/use-receipt-print-count';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { clearBeforeLeave, setBeforeLeave, type BeforeLeave } from '../lib/sale/before-leave';
 import { parkCart, restoreCart } from '../lib/sale/parked-carts';
+import { useParkedCarts } from '../lib/sale/use-parked-carts';
 import { saleDiscountCodes } from '../lib/sale/discount-codes';
 import { taxClassOptions } from '../lib/sale/tax-classes';
 import { scanOutcome, scanMissText } from '../lib/scan/lookup';
@@ -132,7 +133,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const [cancelling, setCancelling] = useState(false);
   const [voidError, setVoidError] = useState<string>();
   const [message, setMessage] = useState<string>();
-  const [parked, setParked] = useState<ParkedCart[]>([]);
+  const parkedStore = useParkedCarts(parkedCarts);
+  const { parked } = parkedStore;
   const [parkedOpen, setParkedOpen] = useState(false);
   const [variants, setVariants] = useState<CatalogueEntry<any>[]>();
   const [restoring, setRestoring] = useState<ParkedCart>();
@@ -223,14 +225,6 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   }));
 
   useEffect(() => {
-    if (!parkedCarts) return;
-    const subscription = parkedCarts.find({ sort: [{ parkedAt: 'desc' }] }).$.subscribe(docs => {
-      setParked(docs.map(doc => doc.toJSON() as ParkedCart));
-    });
-    return () => subscription.unsubscribe();
-  }, [parkedCarts]);
-
-  useEffect(() => {
     if (!restoring) return;
     restoreSteps.current ??= restoreCart(sale, restoring, props.products, connector.traits.product, currency);
     const step = restoreSteps.current.next(sale);
@@ -254,8 +248,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   async function onPark() {
     const cart = parkCart(sale.order);
     try {
-      if (parkedCarts) await parkedCarts.insert(cart);
-      else setParked(carts => [cart, ...carts]);
+      await parkedStore.park(cart);
     } catch (error) {
       return error instanceof Error ? error.message : String(error);
     }
@@ -275,10 +268,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     const { id } = selected;
     const current = currentOrder.current?.lineItems.length ? parkCart(currentOrder.current) : undefined;
     try {
-      if (parkedCarts) {
-        if (current) await parkedCarts.insert(current);
-        await parkedCarts.findOne(id).remove();
-      } else setParked(carts => [...(current ? [current] : []), ...carts.filter(cart => cart.id !== id)]);
+      await parkedStore.swap(id, current);
     } catch (error) {
       return error instanceof Error ? error.message : String(error);
     }
@@ -296,8 +286,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     if (sale.stage.kind !== 'cart' || !sale.order.lineItems.length) return undefined;
     const held = parkCart(sale.order);
     try {
-      if (parkedCarts) await parkedCarts.insert(held);
-      else setParked(carts => [held, ...carts]);
+      await parkedStore.park(held);
     } catch (error) {
       return error instanceof Error ? error.message : String(error);
     }
@@ -334,8 +323,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
 
   async function onDiscard(id: string) {
     try {
-      if (parkedCarts) await parkedCarts.findOne(id).remove();
-      else setParked(carts => carts.filter(cart => cart.id !== id));
+      await parkedStore.discard(id);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     }
