@@ -5,6 +5,8 @@ import { discoverSite } from './site';
 import type { ConnectStage } from './site';
 import { clearSession, loadCashiers, loadSession, PENDING_KEY, refreshSession, saveCashiers, saveSession, SessionExpiredError } from './session';
 import type { Session } from './session';
+import { otherCashiers, rosterAfterSignIn, rosterAfterSwitch, withoutCashier } from './roster';
+import type { Roster } from './roster';
 import { runBeforeLeave } from '../sale/before-leave';
 
 interface SessionContextValue {
@@ -29,7 +31,7 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 export function SessionProvider({ children }: { children: ReactNode }): JSX.Element {
   const [session, setSession] = useState<Session | null>(null);
   const [held, setHeld] = useState(false);
-  const [roster, setRoster] = useState<Record<string, Session[]>>({});
+  const [roster, setRoster] = useState<Roster>({});
   const [ready, setReady] = useState(false);
   const current = useRef<Session | null>(null);
   const updateSession = useCallback((next: Session | null) => {
@@ -119,13 +121,7 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
       updateSession(next);
     }
     {
-      const entries = loadCashiers();
-      const others = entries[next.site.home] ?? [];
-      const index = others.findIndex(entry => entry.tokens.user.uuid === next.tokens.user.uuid);
-      const updated = { ...entries, [next.site.home]: add
-        ? index === -1 ? [...others, next] : others.map((entry, i) => i === index ? next : entry)
-        : [...others.filter(entry => entry.tokens.user.uuid !== next.tokens.user.uuid
-          && entry.tokens.user.uuid !== kept?.tokens.user.uuid), ...(kept ? [kept] : [])] };
+      const updated = rosterAfterSignIn(loadCashiers(), next, Boolean(add), kept);
       saveCashiers(updated);
       setRoster(updated);
     }
@@ -143,8 +139,7 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
     } catch (error) {
       if (error instanceof SessionExpiredError) {
         {
-          const entries = loadCashiers();
-          const updated = { ...entries, [target.site.home]: (entries[target.site.home] ?? []).filter(entry => entry.tokens.user.uuid !== uuid) };
+          const updated = withoutCashier(loadCashiers(), target.site.home, uuid);
           saveCashiers(updated);
           setRoster(updated);
         }
@@ -155,9 +150,7 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
     saveSession(next);
     updateSession(next);
     {
-      const entries = loadCashiers();
-      const others = (entries[target.site.home] ?? []).filter(entry => entry.tokens.user.uuid !== uuid);
-      const updated = { ...entries, [target.site.home]: previous ? [...others, previous] : others };
+      const updated = rosterAfterSwitch(loadCashiers(), target.site.home, uuid, previous);
       saveCashiers(updated);
       setRoster(updated);
     }
@@ -167,8 +160,7 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
     const active = current.current;
     if (!active || uuid === active.tokens.user.uuid) return;
     const home = active.site.home;
-    const entries = loadCashiers();
-    const updated = { ...entries, [home]: (entries[home] ?? []).filter(entry => entry.tokens.user.uuid !== uuid) };
+    const updated = withoutCashier(loadCashiers(), home, uuid);
     saveCashiers(updated);
     setRoster(updated);
   }
@@ -178,7 +170,7 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
     updateSession(null);
   }
 
-  const cashiers = session ? (roster[session.site.home] ?? []).filter(entry => entry.tokens.user.uuid !== session.tokens.user.uuid) : [];
+  const cashiers = otherCashiers(roster, session);
   return (
     <SessionContext.Provider value={{ session, held, hold, ready, cashiers, startSignIn, startAddCashier, startReauth, switchCashier, removeCashier, completeSignIn, signOut }}>
       {children}
