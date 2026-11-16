@@ -1,6 +1,5 @@
-import { View } from 'react-native';
 import { Redirect } from 'expo-router';
-import { Text } from '@tallyui/components';
+import { CatalogueUnavailable } from '../../components/catalogue-unavailable';
 import { HealthScreen } from '../../components/health-screen';
 import { SessionHoldBanner } from '../../components/session-hold-banner';
 import { useSession } from '../../lib/auth/session-context';
@@ -14,9 +13,7 @@ export default function HealthDatabase() {
   if (!catalogue) return (
     <>
     <SessionHoldBanner />
-    <View className="flex-1 items-center justify-center bg-background p-6">
-      <Text>{error ?? `Connecting to ${session.site.name}…`}</Text>
-    </View>
+    <CatalogueUnavailable message={error ?? `Connecting to ${session.site.name}…`} />
     </>
   );
   return <><SessionHoldBanner /><HealthScreen receiptEmails={catalogue.receiptEmails}
