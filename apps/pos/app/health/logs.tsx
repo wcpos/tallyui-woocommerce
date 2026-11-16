@@ -1,6 +1,5 @@
-import { View } from 'react-native';
 import { Redirect } from 'expo-router';
-import { Text } from '@tallyui/components';
+import { CatalogueUnavailable } from '../../components/catalogue-unavailable';
 import { LogsScreen } from '../../components/logs-screen';
 import { useSession } from '../../lib/auth/session-context';
 import { useCatalogue } from '../../lib/catalogue/catalogue-context';
@@ -13,11 +12,7 @@ export default function HealthLogs() {
   const outbox = useOutbox();
   if (!ready) return null;
   if (!session) return <Redirect href="/connect" />;
-  if (!catalogue) return (
-    <View className="flex-1 items-center justify-center bg-background p-6">
-      <Text>{error ?? `Connecting to ${session.site.name}…`}</Text>
-    </View>
-  );
+  if (!catalogue) return <CatalogueUnavailable message={error ?? `Connecting to ${session.site.name}…`} />;
   return <LogsScreen collection={catalogue.logs} storeName={catalogue.store.name} siteUrl={session.site.home}
     sync={outboxSyncStats(outbox.enabled ? outbox.state : IDLE_OUTBOX_STATE)} />;
 }

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
 import { Redirect } from 'expo-router';
-import { Text } from '@tallyui/components';
+import { CatalogueUnavailable } from '../../components/catalogue-unavailable';
 import { CardReadersSettings, type CardReadersLoad } from '../../components/settings/card-readers-settings';
 import { useSession } from '../../lib/auth/session-context';
 import { useRequestContext } from '../../lib/auth/request-context';
@@ -31,10 +30,6 @@ export default function CardReadersSettingsRoute() {
   const [chosen, choose] = useChosenReaders(session?.site.home);
   if (!ready) return null;
   if (!session) return <Redirect href="/connect" />;
-  if (!catalogue) return (
-    <View className="flex-1 items-center justify-center bg-background p-6">
-      <Text>{error ?? `Connecting to ${session.site.name}…`}</Text>
-    </View>
-  );
+  if (!catalogue) return <CatalogueUnavailable message={error ?? `Connecting to ${session.site.name}…`} />;
   return <CardReadersSettings load={load} chosen={chosen} onChoose={choose} />;
 }

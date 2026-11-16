@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
-import { View } from 'react-native';
 import { Redirect } from 'expo-router';
-import { Text } from '@tallyui/components';
+import { CatalogueUnavailable } from '../../components/catalogue-unavailable';
 import { GeneralSettings } from '../../components/settings/general-settings';
 import { createCustomersBlockedReason } from '../../lib/auth/capabilities';
 import { useSession } from '../../lib/auth/session-context';
@@ -22,11 +21,7 @@ export default function GeneralSettingsRoute() {
     session?.tokens.user, customers?.get);
   if (!ready) return null;
   if (!session) return <Redirect href="/connect" />;
-  if (!catalogue || !setting) return (
-    <View className="flex-1 items-center justify-center bg-background p-6">
-      <Text>{error ?? `Connecting to ${session.site.name}…`}</Text>
-    </View>
-  );
+  if (!catalogue || !setting) return <CatalogueUnavailable message={error ?? `Connecting to ${session.site.name}…`} />;
   return <GeneralSettings store={catalogue.store} siteHome={session.site.home} defaultCustomer={{
     setting, customer: chosen, source: customers, onChange: save,
     createBlockedReason: createCustomersBlockedReason(catalogue.cashier, session.site.home),
