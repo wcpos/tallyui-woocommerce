@@ -5,7 +5,7 @@ import { afterAll, expect, test } from 'vitest';
 import { formatMoney } from '@tallyui/core';
 import type { PosOrder } from '@tallyui/pos';
 import { salesRoom } from '../lib/reports/sales-room';
-import { ordersTable, paymentsTable, taxesTable } from '../lib/reports/sales-tables';
+import { ordersTable, paymentsTable, taxesTable, whereSoldTable } from '../lib/reports/sales-tables';
 
 afterAll(() => {
   if (savedTimezone === undefined) delete process.env.TZ;
@@ -67,6 +67,24 @@ test('payments table sorts by amount and shares the period total', () => {
   expect(table.total).toEqual(['Total', '4', '$29.96', '']);
   expect(table.status).toBe('4 orders · $29.96');
   expect(table.title).toBe('Sales by payment method');
+}, 20_000);
+
+test("where sold table is one In store row with the period's orders and total", () => {
+  const table = whereSoldTable(today, money);
+  expect(table.rows.map(row => row.cells)).toEqual([['In store', '4', '$29.96', '100.0%']]);
+  expect(table.rows[0].key).toBe('store');
+  expect(table.total).toEqual(['Total', '4', '$29.96', '100.0%']);
+  expect(table.head).toEqual(['Channel', 'Orders', 'Amount', 'Share']);
+  expect(table.title).toBe('Channels');
+  expect(table.status).toBe('4 orders · $29.96');
+}, 20_000);
+
+test('where sold table has no rows in an empty period', () => {
+  const empty = salesRoom([], { now, currency: 'USD', ...day }).today;
+  const table = whereSoldTable(empty, money);
+  expect(table.rows).toEqual([]);
+  expect(table.total).toEqual(['Total', '0', '$0.00', '']);
+  expect(table.status).toBe('0 orders · $0.00');
 }, 20_000);
 
 test('taxes table lists rates ascending and totals the period, not the rows', () => {

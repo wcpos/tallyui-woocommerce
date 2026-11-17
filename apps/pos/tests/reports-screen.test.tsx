@@ -907,6 +907,23 @@ test('the Taxes tile opens a table of rates', async () => {
   await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
 }, 20_000);
 
+test('the Where sold card opens a table of channels', async () => {
+  await setup();
+  await payCash();
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+  fireEvent.click(screen.getByTestId('card-where-sold-open'));
+  const table = within(await screen.findByTestId('sales-table'));
+  expect(table.getByText('Channels')).not.toBeNull();
+  expect(within(table.getByTestId('sales-table-row-store')).getAllByText(/./).map(cell => cell.textContent)).toEqual([
+    'In store', '1', '$3.00', '100.0%',
+  ]);
+  expect(within(table.getByTestId('sales-table-total')).getAllByText(/./).map(cell => cell.textContent)).toEqual([
+    'Total', '1', '$3.00', '100.0%',
+  ]);
+  fireEvent.click(table.getByTestId('sales-table-close'));
+  await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
+}, 20_000);
+
 test("the hero's Orders line opens a table of today's orders", async () => {
   const app = await setup();
   await payCash();
