@@ -58,7 +58,17 @@ function SmartReaderRow({ method, hardware, reader, chosen, onChoose, first }: {
   );
 }
 
-export function CardReadersSettings({ load, chosen, onChoose }: {
+export function CardReadersSettings(props: Parameters<typeof CardReadersBody>[0]): JSX.Element {
+  // v2 card-readers/index.tsx:137-141: gap-5 VStack, muted description_till first; copy from core.json:1541.
+  return (
+    <View testID="card-readers-page" className="gap-5">
+      <Text testID="card-readers-description" className="text-muted-foreground">Readers this till can take card payments with.</Text>
+      <CardReadersBody {...props} />
+    </View>
+  );
+}
+
+function CardReadersBody({ load, chosen, onChoose }: {
   load: CardReadersLoad;
   chosen: RememberedReaders;
   onChoose(methodId: string, reader: RememberedReader): void;

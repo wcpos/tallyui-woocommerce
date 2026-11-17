@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import type { JSX } from 'react';
-import { Linking, View } from 'react-native';
+import type { JSX, ReactNode } from 'react';
+import { Linking, ScrollView, View } from 'react-native';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Text } from '@tallyui/components';
 import { CONNECT_STAGE_COPY, errorCodeDocUrl, useConnectDiscovery } from '../lib/auth/use-connect-discovery';
 import type { StartSignIn } from '../lib/auth/use-connect-discovery';
@@ -8,10 +8,12 @@ import type { StartSignIn } from '../lib/auth/use-connect-discovery';
 export interface ConnectFormProps {
   startSignIn: StartSignIn;
   signInError?: string; // the `error` query param from the sign-in callback
+  saved?: ReactNode;
 }
 
-export function ConnectForm({ startSignIn, signInError }: ConnectFormProps): JSX.Element {
+export function ConnectForm({ startSignIn, signInError, saved }: ConnectFormProps): JSX.Element {
   const [siteInput, setSiteInput] = useState('');
+  const [formOpen, setFormOpen] = useState(signInError !== undefined);
   const [showSignInError, setShowSignInError] = useState(true);
   const discovery = useConnectDiscovery(startSignIn);
   const { stage, busy, errorCode } = discovery;
@@ -32,8 +34,15 @@ export function ConnectForm({ startSignIn, signInError }: ConnectFormProps): JSX
     void discovery.connect(siteInput);
   }
   return (
-    <View className="flex-1 items-center justify-center bg-background p-6">
-      <Card className="w-full max-w-md">
+    <ScrollView style={{ flex: 1 }} className="bg-background"
+      contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 16 }}
+      keyboardShouldPersistTaps="handled">
+      <View className="w-full max-w-[460px] gap-5 py-4">
+      {saved}
+      {saved && !formOpen ? <Button variant="ghost" testID="connect-another-store" onPress={() => setFormOpen(true)}>
+        <Text>Connect another store</Text>
+      </Button> : null}
+      {!saved || formOpen ? <Card className="w-full">
         <CardHeader><CardTitle>Connect to your store</CardTitle></CardHeader>
         <CardContent className="gap-4">
           <Label nativeID="store-url-label">Your store's address</Label>
@@ -52,7 +61,8 @@ export function ConnectForm({ startSignIn, signInError }: ConnectFormProps): JSX
             <Text>Learn more</Text><Text className="text-muted-foreground">{`· ${errorCode}`}</Text>
           </Button> : null}
         </CardContent>
-      </Card>
-    </View>
+      </Card> : null}
+      </View>
+    </ScrollView>
   );
 }

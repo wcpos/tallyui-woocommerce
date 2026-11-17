@@ -151,7 +151,7 @@ test('a switch that fails for another reason changes nothing', async () => {
   expect(fetch).toHaveBeenCalledTimes(1);
 });
 
-test('signing out keeps the other cashiers, and signing one of them in again removes the duplicate', async () => {
+test('signing out keeps the cashier saved, and signing another saved cashier in lists the first', async () => {
   saveSession(a);
   saveCashiers({ [home]: [b] });
   const { result } = renderHook(useSession, { wrapper });
@@ -160,15 +160,87 @@ test('signing out keeps the other cashiers, and signing one of them in again rem
   expect(result.current.session).toBeNull();
   expect(result.current.cashiers).toEqual([]);
   expect(loadSession()).toBeNull();
-  expect(loadCashiers()[home]).toEqual([b]);
+  expect(loadCashiers()[home]).toEqual([b, a]);
+  expect(result.current.savedSites).toEqual([{ site, cashiers: [b, a] }]);
   sessionStorage.setItem(PENDING_KEY, JSON.stringify({ state: 's2', site }));
   act(() => { result.current.completeSignIn(bSearch.replace('state=s&', 'state=s2&')); });
   expect(result.current.session).toEqual({ ...b, signedInAt: expect.any(Number) });
-  expect(result.current.cashiers).toEqual([]);
+  expect(result.current.cashiers).toEqual([a]);
   expect(loadSession()).toEqual({ ...b, signedInAt: expect.any(Number) });
-  expect(loadCashiers()[home]).toEqual([]);
+  expect(loadCashiers()[home]).toEqual([a]);
   expect(sessionStorage.getItem(PENDING_KEY)).toBeNull();
   expect(fetch).not.toHaveBeenCalled();
+});
+
+test('signInSaved signs a saved cashier in from their stored sign-in', async () => {
+  const due = { ...a, tokens: { ...a.tokens, expiresAt: now + 300 } };
+  saveCashiers({ [home]: [b, due] });
+  vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ access_token: 'new-a', expires_in: 3600 }), { status: 200 }));
+  const { result } = renderHook(useSession, { wrapper });
+  await act(async () => {});
+  await act(() => result.current.signInSaved(home, a.tokens.user.uuid));
+  const next = { ...a, tokens: { ...a.tokens, accessToken: 'new-a', expiresAt: now + 3600 }, signedInAt: expect.any(Number) };
+  expect(result.current.session).toEqual(next);
+  expect(loadSession()).toEqual(next);
+  expect(loadCashiers()[home]).toEqual([b]);
+  expect(result.current.savedSites).toEqual([{ site, cashiers: [b] }]);
+  expect(fetch).toHaveBeenCalledExactlyOnceWith(`${site.wcposApiUrl}/auth/refresh`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-WCPOS': '1' },
+    body: JSON.stringify({ refresh_token: a.tokens.refreshToken }),
+  });
+});
+
+test('signInSaved keeps a cashier the store refused', async () => {
+  const due = { ...a, tokens: { ...a.tokens, expiresAt: now + 300 } };
+  saveCashiers({ [home]: [due] });
+  vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 401 }));
+  const { result } = renderHook(useSession, { wrapper });
+  await act(async () => {});
+  await act(async () => {
+    await expect(result.current.signInSaved(home, a.tokens.user.uuid)).rejects.toBeInstanceOf(SessionExpiredError);
+  });
+  expect(result.current.session).toBeNull();
+  expect(loadSession()).toBeNull();
+  expect(loadCashiers()[home]).toEqual([due]);
+});
+
+test('signInSaved rejects an unknown cashier', async () => {
+  const { result } = renderHook(useSession, { wrapper });
+  await act(async () => {});
+  await act(async () => {
+    await expect(result.current.signInSaved(home, 'nobody')).rejects.toThrow('No such cashier');
+  });
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+test('removeSaved forgets one saved cashier and keeps the others and other stores', async () => {
+  const bOther = { ...b, site: { ...b.site, home: 'https://other.example' } };
+  saveCashiers({ [home]: [a, b], 'https://other.example': [bOther] });
+  const { result } = renderHook(useSession, { wrapper });
+  await act(async () => {});
+  act(() => result.current.removeSaved(home, a.tokens.user.uuid));
+  expect(loadCashiers()).toEqual({ [home]: [b], 'https://other.example': [bOther] });
+});
+
+test('removeSavedSite forgets the store and its cashiers', async () => {
+  const bOther = { ...b, site: { ...b.site, home: 'https://other.example' } };
+  saveCashiers({ [home]: [a, b], 'https://other.example': [bOther] });
+  const { result } = renderHook(useSession, { wrapper });
+  await act(async () => {});
+  act(() => result.current.removeSavedSite(home));
+  expect(loadCashiers()).toEqual({ 'https://other.example': [bOther] });
+  expect(result.current.savedSites).toEqual([{ site: bOther.site, cashiers: [bOther] }]);
+});
+
+test('startSignInAt records a plain sign-in for the saved store', async () => {
+  const { result } = renderHook(useSession, { wrapper });
+  await act(async () => {});
+  act(() => result.current.startSignInAt(site));
+  const pending = JSON.parse(sessionStorage.getItem(PENDING_KEY)!);
+  expect(pending.site).toEqual(site);
+  expect(pending.state).toEqual(expect.any(String));
+  expect(pending.state.length).toBeGreaterThan(0);
+  expect('mode' in pending).toBe(false);
 });
 
 test('removing a cashier forgets their sign-in and keeps the active cashier and other sites', async () => {

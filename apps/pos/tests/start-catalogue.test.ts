@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { RxCollection } from 'rxdb';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { firstValueFrom, filter } from 'rxjs';
-import { setSyncCadence } from '@tallyui/database';
+import { setSyncCadence, startCatalogueReconcile } from '@tallyui/database';
 import { taxLogger } from '@tallyui/pos';
 import type { Session } from '../lib/auth/session';
 import { databaseName, startCatalogue } from '../lib/catalogue/start-catalogue';
@@ -10,6 +10,11 @@ import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import variations from './fixtures/variations.json';
 import { memoryStorage } from './memory-storage';
+
+vi.mock('@tallyui/database', async importOriginal => {
+  const actual = await importOriginal<typeof import('@tallyui/database')>();
+  return { ...actual, startCatalogueReconcile: vi.fn(options => actual.startCatalogueReconcile(options)) };
+});
 
 let session: Session;
 
@@ -194,6 +199,50 @@ test('keeps a local logs collection that the TallyUI loggers write to until stop
   }
 });
 
+test('logs a store-sync row when the products pull', async () => {
+  vi.stubGlobal('fetch', fakeStore({}));
+  const catalogue = await startCatalogue(session, { storage: getRxStorageMemory() });
+  try {
+    await catalogue.replication.awaitInitialReplication();
+    await vi.waitFor(async () => {
+      const rows = await catalogue.logs.find({ selector: { scope: 'sync' } }).exec();
+      const row = rows.find(row => row.detail?.includes('"collection":"products"'));
+      expect(row).toBeDefined();
+      expect(row!.message).toMatch(/^Saved updates from your store · \d+ records?$/);
+      expect(row!.durationMs).toEqual(expect.any(Number));
+    });
+  } finally {
+    await catalogue.stop();
+  }
+});
+
+test('logs a store-sync row when the coupons pull', async () => {
+  const fetchImpl = fakeStore({
+    coupons: [{
+      id: 7, code: 'save10', status: 'publish', discount_type: 'percent', amount: '10',
+      date_modified_gmt: '2026-10-01T00:00:00', usage_count: 0, used_by: [],
+      meta_data: [{ key: '_woocommerce_pos_uuid', value: 'c-7' }],
+    }],
+    site: Response.json({ wcpos_version: '1.10.20' }),
+  });
+  // No product documents: the sync row must come from the coupons replication.
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => new URL(String(input)).pathname.endsWith('/products')
+    ? Response.json([], { headers: { 'X-WP-Total': '0' } })
+    : fetchImpl(String(input))));
+  const catalogue = await startCatalogue(session, { storage: getRxStorageMemory() });
+  try {
+    await vi.waitFor(async () => {
+      const rows = await catalogue.logs.find({ selector: { scope: 'sync' } }).exec();
+      const row = rows.find(row => row.detail?.includes('"collection":"coupons"') && row.message.startsWith('Saved updates from your store'));
+      expect(row).toBeDefined();
+      expect(row!.message).toMatch(/^Saved updates from your store · \d+ records?$/);
+      expect(row!.durationMs).toEqual(expect.any(Number));
+    });
+  } finally {
+    await catalogue.stop();
+  }
+});
+
 function productRequests(fetchImpl: ReturnType<typeof fakeStore>) {
   return fetchImpl.mock.calls.map(([input]) => new URL(String(input))).filter(url => url.pathname.endsWith('/products'));
 }
@@ -259,4 +308,27 @@ test.each([401, 403])('surfaces a capability read refused with HTTP %s', async s
   await expect(startCatalogue(session, { storage: getRxStorageMemory() })).rejects.toMatchObject({
     code: status === 401 ? 'unauthorized' : 'forbidden', status,
   });
+});
+
+test('passes each catalogue check a log that writes its rows', async () => {
+  vi.stubGlobal('fetch', fakeStore({}));
+  vi.mocked(startCatalogueReconcile).mockClear();
+  const catalogue = await startCatalogue(session, { storage: getRxStorageMemory() });
+  try {
+    const products = vi.mocked(startCatalogueReconcile).mock.calls[0][0];
+    const coupons = vi.mocked(startCatalogueReconcile).mock.calls[1][0];
+    expect(products.collection).toBe(catalogue.db.products);
+    expect(coupons.collection).toBe(catalogue.db.coupons);
+    products.log!({ type: 'tombstoned', count: 2, keys: ['1', '2'] });
+    coupons.log!({ type: 'refetched', count: 3, keys: ['a', 'b', 'c'] });
+    await vi.waitFor(async () => {
+      const rows = await catalogue.logs.find({ selector: { scope: 'sync' } }).exec();
+      expect(rows.find(row => row.message === 'Removed items deleted in your store · 2')?.detail)
+        .toContain('"collection":"products"');
+      expect(rows.find(row => row.message === 'Fetched records again for missing details · 3')?.detail)
+        .toContain('"collection":"coupons"');
+    });
+  } finally {
+    await catalogue.stop();
+  }
 });

@@ -37,6 +37,26 @@ test('a WordPress en_US store locale reaches formatMoney as en-US and formats mo
 const respond = (fields: Record<string, unknown>) => fetchStoreInfo(session, headers,
   vi.fn<typeof fetch>().mockResolvedValue(Response.json([{ ...stores[0], ...fields }])) as unknown as typeof fetch);
 
+test('maps the tax display fields', async () => {
+  const info = await respond({
+    tax_total_display: 'single', tax_display_shop: 'incl', tax_display_cart: 'excl', price_display_suffix: 'incl. VAT',
+  });
+  expect(info.taxTotalDisplay).toBe('single');
+  expect(info.taxDisplayShop).toBe('incl');
+  expect(info.taxDisplayCart).toBe('excl');
+  expect(info.priceDisplaySuffix).toBe('incl. VAT');
+});
+
+test('unknown tax display values and an empty suffix read as absent', async () => {
+  const info = await respond({
+    tax_total_display: 'both', tax_display_shop: 'yes', tax_display_cart: 1, price_display_suffix: '',
+  });
+  expect(info.taxTotalDisplay).toBeUndefined();
+  expect(info.taxDisplayShop).toBeUndefined();
+  expect(info.taxDisplayCart).toBeUndefined();
+  expect(info.priceDisplaySuffix).toBeUndefined();
+});
+
 test('maps the base address, the tax basis and Enable Taxes', async () => {
   const info = await respond({
     store_address: '1 Main St', store_address_2: 'Suite 2', store_city: 'Birmingham', store_state: 'AL',

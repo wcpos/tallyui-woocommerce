@@ -17,8 +17,10 @@ import { fetchCashierCapabilities, type CashierCapabilities } from '../auth/capa
 import { parkedCartSchema, parkedCartMigrationStrategies, type ParkedCartCollection } from '../sale/parked-carts';
 import { receiptEmailSchema, receiptEmailMigrationStrategies, type ReceiptEmailCollection } from '../receipts/receipt-emails';
 import { attachLogStore, logRecordMigrationStrategies, logRecordSchema, type LogCollection } from '../logs/log-store';
+import { logPulledBatches } from '../logs/pull-log';
 import { fetchStoreInfo } from './store-info';
 import type { StoreInfo } from './store-info';
+import { logCatalogueChecks } from '../logs/catalogue-check-log';
 
 // Reconcile is the coupons' only source: start at once so a coupon made in WooCommerce reaches the till within 15 minutes.
 const COUPON_RECONCILE_INTERVAL_MS = 15 * 60_000;
@@ -35,6 +37,8 @@ export interface Catalogue {
   cashier: CashierCapabilities;
   capabilities?: ServerCapabilities;
   replication: TallyReplicationState<any>;
+  // The coupons' replication; the Database page's Check for changes now resumes it.
+  couponReplication: TallyReplicationState<any>;
   // Hourly request buckets of this device.
   requestMetrics: RequestMetrics;
   // The sync_cadence collection; D10c writes it.
@@ -99,25 +103,28 @@ export async function startCatalogue(
   });
   const reconcile = startCatalogueReconcile({
     collection: db.products, adapter: connector.reconcile!.catalogue!, context,
-    reSync: () => replication.reSync(),
+    reSync: () => replication.reSync(), log: logCatalogueChecks('products'),
   });
   const couponReconcile = startCatalogueReconcile({
     collection: db.coupons, adapter: connector.reconcile!.coupons!, context,
     reSync: () => couponReplication.reSync(), stateId: 'coupons-reconcile',
-    startDelayMs: 0, intervalMs: COUPON_RECONCILE_INTERVAL_MS,
+    startDelayMs: 0, intervalMs: COUPON_RECONCILE_INTERVAL_MS, log: logCatalogueChecks('coupons'),
   });
   // Products only, one check per tick, so the page's "~60 requests per hour" holds; coupons keep their
   // 15-minute reconcile. No connectivity tracker: the app passes none to startReplication either.
+  // v2's apply.pull rows report each batch saved from the store.
+  const pullLogs = [logPulledBatches(replication, 'products'), logPulledBatches(couponReplication, 'coupons')];
   const cadence = startSyncCadence({ targets: [replication], cadence$: syncCadence$(syncCadence) });
   return {
     db, coupons: db.coupons, parkedCarts, receiptEmails, logs, printerProfiles,
-    connector, store, cashier, capabilities, replication, requestMetrics, syncCadence, cadence,
+    connector, store, cashier, capabilities, replication, couponReplication, requestMetrics, syncCadence, cadence,
     setAccessToken(token) {
       Object.assign(context.headers, connector.auth.getHeaders({ token }));
       void replication.resume();
       void couponReplication.resume();
     },
     async stop() {
+      for (const pullLog of pullLogs) pullLog.unsubscribe();
       await logStore.detach();
       cadence.stop();
       reconcile.stop();

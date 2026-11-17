@@ -54,6 +54,22 @@ test('maps a network error to unreachable', async () => {
   await expect(discoverSite(home, fetchImpl as unknown as typeof fetch)).rejects.toMatchObject({ code: 'unreachable' });
 });
 
+test.each(['challenge', ' Challenge '])('names a Cloudflare challenge (cf-mitigated: %j)', async value => {
+  const fetchImpl = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
+    .mockResolvedValue(new Response('<html>Just a moment...</html>', { status: 403, headers: { 'cf-mitigated': value } }));
+  const onStage = vi.fn();
+  await expect(discoverSite(home, fetchImpl as unknown as typeof fetch, onStage)).rejects.toMatchObject({
+    code: 'bot_challenge', message: "This store's hosting setup is blocking the app — the details page names the exact cause and fix.",
+  });
+  expect(onStage.mock.calls).toEqual([['finding-store']]);
+});
+
+test('a 403 without cf-mitigated: challenge stays not_wordpress', async () => {
+  const fetchImpl = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
+    .mockResolvedValue(new Response('<html>Forbidden</html>', { status: 403, headers: { 'cf-mitigated': 'block' } }));
+  await expect(discoverSite(home, fetchImpl as unknown as typeof fetch)).rejects.toMatchObject({ code: 'not_wordpress' });
+});
+
 test.each([new Response('<html>Store</html>'), Response.json({ name: 'Store' })])(
   'rejects a response without a WordPress index', async response => {
     const fetchImpl = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>().mockResolvedValue(response);

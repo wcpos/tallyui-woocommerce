@@ -6,9 +6,11 @@ import { StatusBar } from 'expo-status-bar';
 import { PortalHost } from '@tallyui/primitives';
 import { SessionProvider } from '../lib/auth/session-context';
 import { SessionOnlineStatusProvider } from '../lib/online/online-status';
+import { OnlineStatusLogger } from '../lib/online/online-status-logger';
 import { CatalogueProvider } from '../lib/catalogue/catalogue-context';
 import { OutboxProvider } from '../lib/sale/outbox-context';
 import { RegisterProvider } from '../lib/register/register-context';
+import { UnreadLogsProvider } from '../lib/logs/unread-errors';
 import { Toaster } from '../components/toaster';
 import { AppFrame } from '../components/app-rail';
 import { railNavigation } from '../lib/layout/rail-routes';
@@ -35,11 +37,14 @@ export default function RootLayout() {
       <StatusBar style="auto" />
       <SessionProvider>
         <SessionOnlineStatusProvider>
+          <OnlineStatusLogger />
           <CatalogueProvider>
             <OutboxProvider>
               <RegisterProvider>
-                <RailFrame><Stack screenOptions={{ headerShown: false }} /></RailFrame>
-                <PortalHost />
+                <UnreadLogsProvider>
+                  <RailFrame><Stack screenOptions={{ headerShown: false }} /></RailFrame>
+                  <PortalHost />
+                </UnreadLogsProvider>
               </RegisterProvider>
             </OutboxProvider>
           </CatalogueProvider>

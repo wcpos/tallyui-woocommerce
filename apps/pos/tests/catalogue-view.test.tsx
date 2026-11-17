@@ -61,6 +61,20 @@ test('the menu opens the drawer, and Orders closes it and opens orders', () => {
   expect(screen.queryByTestId('drawer-panel')).toBeNull();
 });
 
+test('the menu drawer opens Products and Coupons through their handlers', () => {
+  const onOpenProducts = vi.fn();
+  const onOpenCoupons = vi.fn();
+  render(<><CatalogueView {...props} onOpenProducts={onOpenProducts} onOpenCoupons={onOpenCoupons} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('pos-drawer-open-button'));
+  fireEvent.click(screen.getByTestId('drawer-item-products'));
+  expect(onOpenProducts).toHaveBeenCalledOnce();
+  expect(onOpenCoupons).not.toHaveBeenCalled();
+  expect(screen.queryByTestId('drawer-panel')).toBeNull();
+  fireEvent.click(screen.getByTestId('pos-drawer-open-button'));
+  fireEvent.click(screen.getByTestId('drawer-item-coupons'));
+  expect(onOpenCoupons).toHaveBeenCalledOnce();
+});
+
 test('Store health and Settings are in the drawer only when their handlers are supplied, and there is no Logs item', () => {
   const onOpenHealth = vi.fn();
   const onOpenSettings = vi.fn();

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
+import { Platform, ScrollView, View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { Path } from 'react-native-svg';
 import { createSvgIcon, IconButton, Text } from '@tallyui/components';
@@ -14,7 +14,7 @@ import { closuresCsv } from '../lib/reports/closures-csv';
 import { closuresScope, periodNow, salesPeriod } from '../lib/reports/report-scope';
 import { rangeBounds, salesRoom, type Compare } from '../lib/reports/sales-room';
 import { salesTableCsv } from '../lib/reports/sales-table-csv';
-import { ordersTable, paymentsTable, taxesTable } from '../lib/reports/sales-tables';
+import { ordersTable, paymentsTable, taxesTable, whereSoldTable } from '../lib/reports/sales-tables';
 import { useMinuteClock } from '../lib/reports/use-minute-clock';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { ordersDatabaseName } from '../lib/sale/order-store';
@@ -63,7 +63,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const [rows, setRows] = useState<Closure[]>([]);
   const [reprint, setReprint] = useState<Closure | 'x' | 'summary' | null>(null);
   const [openClosureId, setOpenClosureId] = useState<string | null>(null);
-  const [openTable, setOpenTable] = useState<'payments' | 'taxes' | 'orders' | null>(null);
+  const [openTable, setOpenTable] = useState<'payments' | 'taxes' | 'orders' | 'where-sold' | null>(null);
   const [printRequest, setPrintRequest] = useState(0);
   // The chart view is device state for the visit (v2 reports LEDGER 23): not persisted, in no query.
   const [chartView, setChartView] = useState<'hour' | 'run'>('hour');
@@ -109,6 +109,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   }).format(Math.round(minor / 10 ** exponent));
   const table = openTable === 'payments' ? paymentsTable(room.today, money)
     : openTable === 'taxes' ? taxesTable(room.today, money)
+    : openTable === 'where-sold' ? whereSoldTable(room.today, money)
     : openTable === 'orders' ? ordersTable(shown, { range, currency, money }) : null;
   const downloadCsv = (csv: string, filename: string) => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
@@ -180,7 +181,6 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
               currency={currency}
               locale={locale}
               resolveCashierName={resolveCashierName}
-              onReprint={reprintClosure}
               onOpen={closure => setOpenClosureId(closure.id)}
               filter={closureFilter}
               onFilterChange={setClosureFilter}
@@ -219,13 +219,6 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
           {room.today.count === 0 && <Text>{preset === 'today' ? 'No sales yet today.' : 'No sales in this period.'}</Text>}
         </ReportsHero>
         <ReportCards period={room.today} money={minor => money(minor) ?? ''} moneyWhole={moneyWhole} onOpenTable={setOpenTable} cashiers={reportCashierRows} />
-        {/* v2 cards/taxes.tsx:20 is a ReportCard, so v2's Card surface (card/index.tsx:18) as the other cards. */}
-        {room.today.taxMinor !== 0 && <View testID="sales-room-taxes" className="gap-2 rounded-lg border border-border bg-card p-4">
-          <Pressable testID="sales-room-taxes-open" accessibilityRole="button" accessibilityLabel="Open Taxes table" onPress={() => setOpenTable('taxes')}>
-            <Text accessibilityRole="header">Taxes ›</Text>
-          </Pressable>
-          {room.today.taxRates.map(row => <Text key={row.ratePpm}>{`${row.label} — Net ${money(row.netMinor)} — Tax ${money(row.taxMinor)} — Gross ${money(row.grossMinor)}`}</Text>)}
-        </View>}
         {openTable && table && <SalesTable table={table} scope={`${periodName} · ${registerName}`} onClose={() => setOpenTable(null)}
           onExport={() => downloadCsv(salesTableCsv(table), `sales-${openTable}-${range.from}-${range.to}.csv`)} />}
       </ScrollView>}

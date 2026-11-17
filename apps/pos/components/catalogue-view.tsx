@@ -53,7 +53,9 @@ export interface CatalogueViewProps {
   onScan?(code: string): 'clear' | 'search' | 'keep';
   message?: string;
   onSignOut(): void;
+  onOpenProducts?(): void;
   onOpenOrders?(): void;
+  onOpenCoupons?(): void;
   onOpenCustomers?(): void;
   onOpenReports?(): void;
   onOpenHealth?(): void;
@@ -72,12 +74,12 @@ export interface CatalogueViewProps {
 }
 
 export type PosBarProps = Pick<CatalogueViewProps, 'storeName' | 'cashierName' | 'cashierControl' | 'onSignOut'
-  | 'onOpenOrders' | 'onOpenCustomers' | 'onOpenReports' | 'onOpenHealth' | 'onOpenSettings'>;
+  | 'onOpenProducts' | 'onOpenOrders' | 'onOpenCoupons' | 'onOpenCustomers' | 'onOpenReports' | 'onOpenHealth' | 'onOpenSettings'>;
 
 /** The till's top bar and the drawer its menu button opens: the bar owns the drawer's open state. */
 export function PosBar({ storeName, cashierName, cashierControl, onSignOut,
-  onOpenOrders, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings }: PosBarProps): JSX.Element {
-  const areas = { onOpenOrders, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings };
+  onOpenProducts, onOpenOrders, onOpenCoupons, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings }: PosBarProps): JSX.Element {
+  const areas = { onOpenProducts, onOpenOrders, onOpenCoupons, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings };
   const [drawerOpen, setDrawerOpen] = useState(false);
   return <>
     <RegisterBarShell storeName={storeName} onOpenMenu={() => setDrawerOpen(true)}
@@ -90,7 +92,7 @@ export function PosBar({ storeName, cashierName, cashierControl, onSignOut,
 }
 
 export function CatalogueView({
-  connector, currency, products, storeName, cashierName, cashierControl, status, notice, onSignOut, onOpenOrders, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings, onSelect, onAddEntry, onScan, message,
+  connector, currency, products, storeName, cashierName, cashierControl, status, notice, onSignOut, onOpenProducts, onOpenOrders, onOpenCoupons, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings, onSelect, onAddEntry, onScan, message,
   viewState: controlledViewState, onViewStateChange,
   tax, inCartCounts, onSync, hideBar,
 }: CatalogueViewProps): JSX.Element {
@@ -286,7 +288,7 @@ export function CatalogueView({
     <ConnectorProvider connector={connector} traitContext={{ currency }}>
       <View className="flex-1 bg-background">
         {hideBar ? null : <PosBar storeName={storeName} cashierName={cashierName} cashierControl={cashierControl}
-          onSignOut={onSignOut} onOpenOrders={onOpenOrders} onOpenCustomers={onOpenCustomers}
+          onSignOut={onSignOut} onOpenProducts={onOpenProducts} onOpenOrders={onOpenOrders} onOpenCoupons={onOpenCoupons} onOpenCustomers={onOpenCustomers}
           onOpenReports={onOpenReports} onOpenHealth={onOpenHealth} onOpenSettings={onOpenSettings} />}
         {/* No inset of its own: the search row, the chips and the grid sit in TallyUI's px-3, v2's 12 px page gutter
             (monorepo apps/main/global.css:30 `--spacing-gutter: calc(var(--spacing) * 3)`; pos/products/index.tsx:551). */}

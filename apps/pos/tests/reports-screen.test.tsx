@@ -279,7 +279,7 @@ test('Today starts empty and observes an Espresso cash sale', async () => {
   expect(text('card-where-sold-donut-figure')).toBe('$3');
   expect(screen.queryByText(/^Split tenders/)).toBeNull();
   expect(today.queryByText('No sales yet today.')).toBeNull();
-  expect(screen.queryByTestId('sales-room-taxes')).toBeNull();
+  expect(text('card-taxes-figure')).toBe('$0.00');
   fireEvent.click(screen.getByTestId('reports-back'));
   expect(app.onBack).toHaveBeenCalledOnce();
 }, 20_000);
@@ -409,9 +409,15 @@ test('taxes by rate', async () => {
   await setup({ storeSettings: { ...noTaxSettings, taxRatesPpm: { default: 100000 } } });
   await payCash();
   await waitFor(() => expect(text('hero-total')).toBe('$3.30'));
-  expect(within(screen.getByTestId('sales-room-taxes')).getByText('Tax 10% — Net $3.00 — Tax $0.30 — Gross $3.30')).not.toBeNull();
-  // v2 cards/taxes.tsx:20 is a ReportCard: v2's Card surface, as the other cards.
-  expect(classesOf('sales-room-taxes')).toEqual(expect.arrayContaining(['rounded-lg', 'border', 'border-border', 'bg-card']));
+  expect(text('card-taxes-figure')).toBe('$0.30');
+  const row = within(screen.getByTestId('card-taxes-rate-100000'));
+  expect(row.getByText('Tax 10%')).not.toBeNull();
+  expect(row.getByText('$0.30')).not.toBeNull();
+  expect(row.getByText('on $3.00')).not.toBeNull();
+  expect(text('card-taxes-net')).toBe('$3.00');
+  expect(text('card-taxes-gross')).toBe('$3.30');
+  expect(screen.getByTestId('reports-period-section').contains(screen.getByTestId('card-taxes'))).toBe(true);
+  expect(screen.queryByTestId('sales-room-taxes')).toBeNull();
 }, 20_000);
 
 test('Closures lists real counted closures newest first, each stamped with the register name', async () => {
@@ -437,7 +443,7 @@ test('Closures lists real counted closures newest first, each stamped with the r
   await waitFor(() => expect(room.getAllByTestId(/^closure-title-/).map(row => row.textContent)).toEqual([`Closure 2 · ${name}`, `Closure 1 · ${name}`]));
 }, 20_000);
 
-test('Reprint prints the mounted Copy document once without changing the closure', async () => {
+test('Print closure in the panel prints the mounted Copy document without changing the closure', async () => {
   const app = await setup();
   await openRegister();
   await closeRegister('100.00');
@@ -452,7 +458,9 @@ test('Reprint prints the mounted Copy document once without changing the closure
     printedDocuments.push({ text: document?.textContent ?? null, dataPrint: document?.getAttribute('data-print'),
       todayHidden: screen.getByTestId('reports-closures').closest('[data-print="hide"]') !== null });
   });
-  fireEvent.click(await screen.findByTestId(`closure-reprint-${closure.id}`));
+  fireEvent.click(await screen.findByTestId(`closure-open-${closure.id}`));
+  await screen.findByTestId('closure-panel');
+  fireEvent.click(screen.getByTestId('closure-reprint'));
   await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
   expect(printedDocuments[0].dataPrint).toBe('closure');
   expect(printedDocuments[0].todayHidden).toBe(true);
@@ -460,7 +468,7 @@ test('Reprint prints the mounted Copy document once without changing the closure
   expect(printedDocuments[0].text).toContain('Copy');
   expect(printedDocuments[0].text).toContain('Counted: $100.00');
   expect(screen.getByTestId('closure-print-document').textContent).toContain('Copy');
-  fireEvent.click(screen.getByTestId(`closure-reprint-${closure.id}`));
+  fireEvent.click(screen.getByTestId('closure-reprint'));
   await waitFor(() => expect(print).toHaveBeenCalledTimes(2));
   expect(printedDocuments[1].dataPrint).toBe('closure');
   expect(printedDocuments[1].todayHidden).toBe(true);
@@ -904,11 +912,11 @@ test('an open table follows live data', async () => {
   expect(screen.getByTestId('sales-table')).not.toBeNull();
 }, 20_000);
 
-test('the Taxes tile opens a table of rates', async () => {
+test('the Taxes card opens a table of rates', async () => {
   await setup({ storeSettings: { ...noTaxSettings, taxRatesPpm: { default: 100000 } } });
   await payCash();
   await waitFor(() => expect(text('hero-total')).toBe('$3.30'));
-  fireEvent.click(screen.getByTestId('sales-room-taxes-open'));
+  fireEvent.click(screen.getByTestId('card-taxes-open'));
   const table = within(await screen.findByTestId('sales-table'));
   expect(table.getByText('Taxes collected')).not.toBeNull();
   expect(within(table.getByTestId('sales-table-row-100000')).getAllByText(/./).map(cell => cell.textContent)).toEqual([
@@ -918,6 +926,23 @@ test('the Taxes tile opens a table of rates', async () => {
     'Total', '$3.00', '$0.30', '$3.30',
   ]);
   fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+  await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
+}, 20_000);
+
+test('the Where sold card opens a table of channels', async () => {
+  await setup();
+  await payCash();
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+  fireEvent.click(screen.getByTestId('card-where-sold-open'));
+  const table = within(await screen.findByTestId('sales-table'));
+  expect(table.getByText('Channels')).not.toBeNull();
+  expect(within(table.getByTestId('sales-table-row-store')).getAllByText(/./).map(cell => cell.textContent)).toEqual([
+    'In store', '1', '$3.00', '100.0%',
+  ]);
+  expect(within(table.getByTestId('sales-table-total')).getAllByText(/./).map(cell => cell.textContent)).toEqual([
+    'Total', '1', '$3.00', '100.0%',
+  ]);
+  fireEvent.click(table.getByTestId('sales-table-close'));
   await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
 }, 20_000);
 
