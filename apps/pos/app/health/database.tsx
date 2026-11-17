@@ -19,7 +19,7 @@ export default function HealthDatabase() {
   return <><SessionHoldBanner /><HealthScreen receiptEmails={catalogue.receiptEmails}
     collections={[
       { key: 'products', label: 'Products', collection: catalogue.db.products, onSyncNow: () => catalogue.replication.resume() },
-      { key: 'coupons', label: 'Coupons', collection: catalogue.coupons },
+      { key: 'coupons', label: 'Coupons', collection: catalogue.coupons, onSyncNow: () => catalogue.couponReplication.resume() },
       { key: 'parked', label: 'Parked sales', collection: catalogue.parkedCarts },
     ]} /></>;
 }
