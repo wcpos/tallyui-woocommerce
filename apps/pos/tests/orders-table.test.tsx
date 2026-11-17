@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import type { StoreOrder } from '@tallyui/core';
 import type { PosOrder } from '@tallyui/pos';
@@ -8,6 +8,10 @@ import { CARD_CLASSES, classesOf } from './classes-of';
 import { dateTimeLabel, dayHeading, orderRowCells, orderTableItems, storeTone } from '../lib/orders/order-days';
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+
+const setWidth = (width: number) => vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width, height: 844, scale: 1, fontScale: 1 });
+// jsdom's window is narrower than NARROW_WIDTH, so every test starts on the wide table; the phone tests set 390.
+beforeEach(() => { setWidth(1280); });
 
 const at = (y: number, m: number, d: number, h: number, min: number) => new Date(y, m - 1, d, h, min).toISOString();
 const now = new Date(2026, 10, 10, 15, 0); // Tuesday 10 Nov 2026, 15:00 local
@@ -131,4 +135,59 @@ test("a body row is v2's 57 px order row with every cell centred on it; the day 
     expect(classesOf(`history-901-${cell}`)).not.toContain('py-4');
   }
   expect(classesOf('orders-day-heading-2026-11-10')).toContain('h-7');
+});
+
+test("at 390 each order is v2's two-line phone row: number and customer, then status, day and payment, and its total", () => {
+  setWidth(390);
+  render(<OrdersTable local={[]} store={[{ ...storeOrder, id: '1042', reference: '1042', customer: { name: 'Brenda Walsh' } as StoreOrder['customer'] }]}
+    onOpen={vi.fn()} now={() => now} />);
+  expect(screen.queryByTestId('orders-table')).toBeNull();
+  expect(screen.queryByText('Order Number')).toBeNull();
+  expect(screen.getByTestId('history-1042-number').textContent).toBe('#1042');
+  expect(screen.getByTestId('history-1042-customer').textContent).toBe('· Brenda Walsh');
+  expect(screen.getByTestId('history-1042-status').textContent).toContain('On hold');
+  expect(screen.getByTestId('history-1042-date').textContent).toBe('· Today · 10:00');
+  expect(screen.getByTestId('history-1042-payment').textContent).toBe('· Cash');
+  expect(screen.getByTestId('history-1042-total').textContent).toBe('$6.00');
+  expect(classesOf('history-1042-total')).toContain('tabular-nums');
+  expect(screen.getByTestId('orders-day-heading-2026-11-10').textContent).toBe('Today');
+  expect(screen.queryByTestId('history-open-1042')).toBeNull();
+  const line1 = screen.getByTestId('history-1042-number').parentElement;
+  const line2 = screen.getByTestId('history-1042-status').parentElement;
+  expect(screen.getByTestId('history-1042-customer').parentElement).toBe(line1);
+  expect(screen.getByTestId('history-1042-date').parentElement).toBe(line2);
+  expect(screen.getByTestId('history-1042-payment').parentElement).toBe(line2);
+  expect(line1).not.toBe(line2);
+});
+
+test("at 390 pressing the row opens the order, a store order and a till sale each with its own kind", () => {
+  setWidth(390);
+  const onOpen = vi.fn();
+  render(<OrdersTable local={[posOrder({ id: 'local-1' })]} store={[storeOrder]} onOpen={onOpen} now={() => now} />);
+  expect(screen.getByTestId('history-row-901').getAttribute('role')).toBe('button');
+  fireEvent.click(screen.getByTestId('history-row-901'));
+  expect(onOpen).toHaveBeenCalledTimes(1);
+  expect(onOpen).toHaveBeenNthCalledWith(1, expect.objectContaining({ kind: 'store', order: storeOrder }));
+  fireEvent.click(screen.getByTestId('order-row-local-1'));
+  expect(onOpen).toHaveBeenCalledTimes(2);
+  expect(onOpen).toHaveBeenNthCalledWith(2, expect.objectContaining({ kind: 'local', order: expect.objectContaining({ id: 'local-1' }) }));
+});
+
+test("at 390 a row with no payment skips that part of line 2", () => {
+  setWidth(390);
+  render(<OrdersTable local={[]} store={[{ ...storeOrder, payments: [] }]} onOpen={vi.fn()} now={() => now} />);
+  expect(screen.queryByTestId('history-901-payment')).toBeNull();
+  expect(screen.queryByTestId('history-901-date')).not.toBeNull();
+});
+
+test("at 1280 the table and its head stay, and only the chevron opens the order", () => {
+  setWidth(1280);
+  const onOpen = vi.fn();
+  render(<OrdersTable local={[]} store={[storeOrder]} onOpen={onOpen} now={() => now} />);
+  expect(screen.getByTestId('orders-table')).not.toBeNull();
+  expect(screen.getByText('Order Number')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('history-open-901'));
+  expect(onOpen).toHaveBeenCalledTimes(1);
+  expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ kind: 'store' }));
+  expect(screen.queryByTestId('orders-rows')).toBeNull();
 });
