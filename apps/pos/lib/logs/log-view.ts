@@ -3,8 +3,8 @@ import { SOFTWARE_NAME, SOFTWARE_VERSION } from '../software';
 import type { LogRecord } from './log-store';
 
 export type LogPreset = 'all' | 'actions' | 'errors' | 'sync';
-// The TallyUI outboxes that send to the store.
-export const SYNC_SCOPES = ['outbox', 'register-commands'];
+// The TallyUI outboxes that send to the store, plus the store pulls.
+export const SYNC_SCOPES = ['outbox', 'register-commands', 'sync'];
 // v2 readRecentErrorLogs keeps 10.
 export const RECENT_ERRORS_LIMIT = 10;
 // v2 buildDebugInfo lists the first 10 stuck records under their full count.

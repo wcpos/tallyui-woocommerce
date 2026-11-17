@@ -17,6 +17,7 @@ import { fetchCashierCapabilities, type CashierCapabilities } from '../auth/capa
 import { parkedCartSchema, parkedCartMigrationStrategies, type ParkedCartCollection } from '../sale/parked-carts';
 import { receiptEmailSchema, receiptEmailMigrationStrategies, type ReceiptEmailCollection } from '../receipts/receipt-emails';
 import { attachLogStore, logRecordMigrationStrategies, logRecordSchema, type LogCollection } from '../logs/log-store';
+import { logPulledBatches } from '../logs/pull-log';
 import { fetchStoreInfo } from './store-info';
 import type { StoreInfo } from './store-info';
 
@@ -110,6 +111,8 @@ export async function startCatalogue(
   });
   // Products only, one check per tick, so the page's "~60 requests per hour" holds; coupons keep their
   // 15-minute reconcile. No connectivity tracker: the app passes none to startReplication either.
+  // v2's apply.pull rows report each batch saved from the store.
+  const pullLogs = [logPulledBatches(replication, 'products'), logPulledBatches(couponReplication, 'coupons')];
   const cadence = startSyncCadence({ targets: [replication], cadence$: syncCadence$(syncCadence) });
   return {
     db, coupons: db.coupons, parkedCarts, receiptEmails, logs, printerProfiles,
@@ -120,6 +123,7 @@ export async function startCatalogue(
       void couponReplication.resume();
     },
     async stop() {
+      for (const pullLog of pullLogs) pullLog.unsubscribe();
       await logStore.detach();
       cadence.stop();
       reconcile.stop();
