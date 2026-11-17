@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { formatClosureDate, type Closure, type Correction } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
@@ -7,6 +7,11 @@ import { ClosurePanel } from '../components/closure-panel';
 import { classesOf } from './classes-of';
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+// The panel is a right sheet in a window and a page on a phone (useIsWide); the default test window is not wide.
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1280, height: 800, scale: 1, fontScale: 1 });
+});
 
 function closure(over: Partial<Closure> & Pick<Closure, 'id' | 'number' | 'business_day' | 'opened_at' | 'closed_at' | 'expected' | 'counted' | 'variance'>): Closure {
   return {
