@@ -4,17 +4,18 @@ import { isMultiDay, rangeBounds, storeDay, type Compare } from './sales-room';
 
 /** The Sales room's period: the preset's range from the day the screen opened, the comparison range (yesterday or the
  *  same weekday last week for one day; the period before for several days), and the comparison's name. */
-export function salesPeriod(preset: DatePreset, compare: Compare, opened: Date, locale: string): {
+export function salesPeriod(period: DatePreset | DayRange, compare: Compare, opened: Date, locale: string): {
   range: DayRange; multiDay: boolean; comparison: DayRange; bounds: ReturnType<typeof rangeBounds>;
   since: string; weekday: string; comparisonName: string;
 } {
-  const range = presetRange(preset, opened, 'device');
+  const preset = typeof period === 'string' ? period : undefined;
+  const range = typeof period === 'string' ? presetRange(period, opened, 'device') : period;
   const multiDay = isMultiDay(range, preset);
   const comparison = comparisonRange(range, !multiDay && compare === 'lastweek' ? 'week' : 'previous', preset);
   const bounds = rangeBounds(range);
   const since = rangeBounds(comparison).startIso;
   const weekday = new Date(bounds.startIso).toLocaleDateString(locale, { weekday: 'long' });
-  const comparisonName = multiDay ? (preset.endsWith('Month') ? 'month before' : 'week before')
+  const comparisonName = multiDay ? ((preset ? preset.endsWith('Month') : daysOf(range).length > 7) ? 'month before' : 'week before')
     : compare === 'yesterday' ? 'yesterday' : `last ${weekday}`;
   return { range, multiDay, comparison, bounds, since, weekday, comparisonName };
 }

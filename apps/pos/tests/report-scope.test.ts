@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import type { Closure, RegisterSession } from '@tallyui/pos';
+import { comparisonRange } from '@tallyui/pos';
 import { closuresScope, periodNow, salesPeriod } from '../lib/reports/report-scope';
 
 const now = new Date(2026, 10, 16, 14, 30);
@@ -69,4 +70,28 @@ test.each([
 test('the open session does not count for a different cashier or when absent', () => {
   expect(closuresScope([], { ...scope, cashier: '8' }).openSession).toBeNull();
   expect(closuresScope([], { ...scope, active: null }).openSession).toBeNull();
+});
+
+test('an eight-day custom range compares with the month before', () => {
+  const range = { from: '2026-11-02', to: '2026-11-09' };
+  const period = salesPeriod(range, 'yesterday', now, 'en-US');
+  expect(period.range).toBe(range);
+  expect(period.multiDay).toBe(true);
+  expect(period.comparison).toEqual(comparisonRange(range, 'previous'));
+  expect(period.comparisonName).toBe('month before');
+});
+
+test('a three-day custom range compares with the week before', () => {
+  const range = { from: '2026-11-03', to: '2026-11-05' };
+  const period = salesPeriod(range, 'yesterday', now, 'en-US');
+  expect(period.multiDay).toBe(true);
+  expect(period.comparison).toEqual(comparisonRange(range, 'previous'));
+  expect(period.comparisonName).toBe('week before');
+});
+
+test('a one-day custom range can compare with the same weekday last week', () => {
+  const period = salesPeriod({ from: '2026-11-11', to: '2026-11-11' }, 'lastweek', now, 'en-US');
+  expect(period.multiDay).toBe(false);
+  expect(period.comparison).toEqual({ from: '2026-11-04', to: '2026-11-04' });
+  expect(period.comparisonName).toBe('last Wednesday');
 });

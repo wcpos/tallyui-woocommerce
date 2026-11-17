@@ -1,4 +1,5 @@
 import { cleanup, render, screen } from '@testing-library/react';
+import { fireEvent } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import { presetRange } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
@@ -9,7 +10,7 @@ afterEach(cleanup);
 
 // Wednesday 11 November 2026, mid-morning.
 const now = new Date(2026, 10, 11, 10, 0);
-const label = (preset: Parameters<typeof periodLabel>[1], at = now) => periodLabel(presetRange(preset, at, 'device'), preset, 'en-US');
+const label = (preset: Parameters<typeof presetRange>[0], at = now) => periodLabel(presetRange(preset, at, 'device'), preset, 'en-US');
 
 test('Today and Yesterday read one day', () => {
   expect(label('today')).toEqual({ label: 'Today', dates: 'Wed 11 Nov' });
@@ -40,4 +41,66 @@ test('the period label takes v2\'s Button label rank, text-base, not text-sm', (
   expect(screen.getByTestId('reports-period-label').textContent).toBe('Today · Wed 11 Nov');
   expect(classesOf('reports-period-label')).toContain('text-base');
   expect(classesOf('reports-period-label')).not.toContain('text-sm');
+});
+
+test('a custom period label is its dates alone', () => {
+  expect(periodLabel({ from: '2026-11-02', to: '2026-11-09' }, 'custom', 'en-US')).toEqual({ label: null, dates: '2–9 Nov' });
+});
+
+test('a custom period trigger keeps the dates and trailing chevron without a separator', () => {
+  render(<><ReportsPeriod preset="custom" range={{ from: '2026-11-02', to: '2026-11-09' }} locale="en-US" now={now} onPreset={vi.fn()} /><PortalHost /></>);
+  const button = screen.getByTestId('reports-period');
+  expect(button.textContent).toBe('2–9 Nov');
+  expect(button.lastElementChild).toBe(screen.getByTestId('reports-period-chevron'));
+});
+
+test('the calendar applies a custom range with Done', () => {
+  const onPreset = vi.fn(), onCustom = vi.fn();
+  render(<><ReportsPeriod preset="today" range={presetRange('today', now, 'device')} locale="en-US" now={now} onPreset={onPreset} onCustom={onCustom} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('reports-period'));
+  expect(screen.getByTestId('reports-period-calendar')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('reports-period-calendar-day-2026-11-03'));
+  fireEvent.click(screen.getByTestId('reports-period-calendar-day-2026-11-05'));
+  fireEvent.click(screen.getByTestId('reports-period-apply'));
+  expect(onCustom).toHaveBeenCalledExactlyOnceWith({ from: '2026-11-03', to: '2026-11-05' });
+  expect(onPreset).not.toHaveBeenCalled();
+  expect(screen.queryByTestId('reports-period-menu')).toBeNull();
+});
+
+test('the calendar disables future days and pressing one leaves today unchanged', () => {
+  const onPreset = vi.fn(), onCustom = vi.fn();
+  render(<><ReportsPeriod preset="today" range={presetRange('today', now, 'device')} locale="en-US" now={now} onPreset={onPreset} onCustom={onCustom} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('reports-period'));
+  expect(screen.getByTestId('reports-period-calendar-day-2026-11-12').getAttribute('aria-disabled')).toBe('true');
+  expect(screen.getByTestId('reports-period-calendar-day-2026-11-11').getAttribute('aria-disabled')).not.toBe('true');
+  fireEvent.click(screen.getByTestId('reports-period-calendar-day-2026-11-12'));
+  fireEvent.click(screen.getByTestId('reports-period-apply'));
+  expect(onPreset).not.toHaveBeenCalled();
+  expect(onCustom).not.toHaveBeenCalled();
+});
+
+test('reopening the menu resets an unfinished draft to the current period', () => {
+  const onPreset = vi.fn(), onCustom = vi.fn();
+  render(<><ReportsPeriod preset="today" range={presetRange('today', now, 'device')} locale="en-US" now={now} onPreset={onPreset} onCustom={onCustom} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('reports-period'));
+  fireEvent.click(screen.getByTestId('reports-period-calendar-day-2026-11-03'));
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(screen.queryByTestId('reports-period-menu')).toBeNull();
+  fireEvent.click(screen.getByTestId('reports-period'));
+  fireEvent.click(screen.getByTestId('reports-period-apply'));
+  expect(onPreset).not.toHaveBeenCalled();
+  expect(onCustom).not.toHaveBeenCalled();
+});
+
+test.each([['09', 'thisWeek'], ['11', 'today']] as const)('Done recognises %s–11 Nov as %s', (from, preset) => {
+  const onPreset = vi.fn(), onCustom = vi.fn();
+  render(<><ReportsPeriod preset="today" range={presetRange('today', now, 'device')} locale="en-US" now={now} onPreset={onPreset} onCustom={onCustom} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('reports-period'));
+  fireEvent.click(screen.getByTestId(`reports-period-calendar-day-2026-11-${from}`));
+  fireEvent.click(screen.getByTestId('reports-period-calendar-day-2026-11-11'));
+  fireEvent.click(screen.getByTestId('reports-period-apply'));
+  if (preset === 'today') expect(onPreset).not.toHaveBeenCalled();
+  else expect(onPreset).toHaveBeenCalledExactlyOnceWith('thisWeek');
+  expect(onCustom).not.toHaveBeenCalled();
+  expect(screen.queryByTestId('reports-period-menu')).toBeNull();
 });

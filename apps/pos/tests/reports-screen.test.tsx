@@ -718,6 +718,27 @@ test('the Closures date menu scopes the list: Today shows only today, a wider pe
   expect((await screen.findByTestId('reports-period')).textContent).toContain('Today · ');
 }, 20_000);
 
+test('the Closures date menu scopes the list to a custom one-day range', async () => {
+  const app = await setup();
+  await openRegister();
+  await closeRegister('100.00');
+  const today = app.register.lastClosure!;
+  const earlier = dayBefore(3);
+  const at = new Date(`${earlier}T12:00:00`).toISOString();
+  await copyClosure(app, 'earlier', { number: 0, business_day: earlier, opened_at: at, closed_at: at });
+  await enterClosures();
+  fireEvent.click(screen.getByTestId('reports-period'));
+  if (!screen.queryByTestId(`reports-period-calendar-day-${earlier}`)) {
+    fireEvent.click(screen.getByTestId('reports-period-calendar-prev'));
+  }
+  fireEvent.click(screen.getByTestId(`reports-period-calendar-day-${earlier}`));
+  fireEvent.click(screen.getByTestId(`reports-period-calendar-day-${earlier}`));
+  fireEvent.click(screen.getByTestId('reports-period-apply'));
+  await waitFor(() => expect(screen.getByTestId('closure-row-earlier')).not.toBeNull());
+  expect(screen.queryByTestId(`closure-row-${today.id}`)).toBeNull();
+  expect(text('reports-period')).not.toContain('·');
+}, 20_000);
+
 test('the Closures cashier chip narrows the list to one closer; All cashiers lists both', async () => {
   const app = await setup();
   await openRegister();
@@ -1235,6 +1256,23 @@ test("This month, live late in the month, runs the line to today's day", async (
     await waitFor(() => expect(text('hero-chart-total')).toBe('$3.00 now'));
     expect(runPoints()).toHaveLength(28);
     expect(screen.queryAllByTestId(/^sales-day-.*-future$/)).toHaveLength(0);
+  } finally {
+    vi.useRealTimers();
+  }
+}, 40_000);
+
+test('Sales shows the picked custom dates without a preset separator', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 9, 6, 14, 30));
+  try {
+    await setup();
+    fireEvent.click(screen.getByTestId('reports-period'));
+    await screen.findByTestId('reports-period-calendar');
+    fireEvent.click(screen.getByTestId('reports-period-calendar-day-2026-10-02'));
+    fireEvent.click(screen.getByTestId('reports-period-calendar-day-2026-10-04'));
+    fireEvent.click(screen.getByTestId('reports-period-apply'));
+    expect(text('reports-period')).toContain('2–4 Oct');
+    expect(text('reports-period')).not.toContain('·');
   } finally {
     vi.useRealTimers();
   }
