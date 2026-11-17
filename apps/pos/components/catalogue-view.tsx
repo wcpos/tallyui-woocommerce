@@ -264,9 +264,13 @@ export function CatalogueView({
     : total === 1 ? '1 product' : `${total.toLocaleString()} products`;
   // One level back from a level: the crumb's previous step and the parent tile's. The browse is flat, so that is the root.
   const backToRoot = () => dispatch({ type: 'open', place: null });
-  const crumbOf = (className?: string) => drilled ? <BrowseCrumb place={level} onRoot={() => { setDrill(null); dispatch({ type: 'open', place: null }); }}
+  // v2 mounts a crumb per pane with autoFocus (drill-in.tsx:64, term-grid.tsx:303): the key makes each step a new crumb.
+  // It stands outside the level wrappers here, so its own LevelBack goes back one step, as v2's pane wrapper does.
+  const crumbOf = (className?: string) => drilled || level !== null ? <LevelBack testID="catalogue-crumb-back" onBack={drilled ? () => setDrill(null) : backToRoot}>
+    {drilled ? <BrowseCrumb key={`drill-${traits.getId(drilled)}`} autoFocus place={level} onRoot={() => { setDrill(null); dispatch({ type: 'open', place: null }); }}
       product={{ name: traits.getName(drilled), onBack: () => setDrill(null) }} className={className} />
-    : level === null ? undefined : <BrowseCrumb place={level} onRoot={backToRoot} className={className} />;
+    : <BrowseCrumb key={level?.kind === 'term' ? `term-${level.id}` : 'all'} autoFocus place={level} onRoot={backToRoot} className={className} />}
+  </LevelBack> : undefined;
   const crumb = crumbOf();
   // v2's LevelBack (level-back.tsx) round the variations (drill-in.tsx:70) and a browse level (term-grid.tsx:295-296):
   // Escape inside goes back one step, the drill before the level. The root has no wrapper.

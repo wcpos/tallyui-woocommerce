@@ -338,3 +338,50 @@ test('at the root there is no level wrapper and Escape changes nothing', () => {
   expect(screen.getByTestId('browse-root')).not.toBeNull();
   expect(productTiles()).toEqual([]);
 });
+
+// v2's Breadcrumb autoFocus (breadcrumb/index.tsx:30-41, drill-in.tsx:64, term-grid.tsx:303): each step mounts a crumb
+// whose back control takes focus, so Escape walks back one step per press with no click.
+const focusedCrumb = () => {
+  const focused = document.activeElement as HTMLElement;
+  expect(focused.getAttribute('data-testid')).toBe('products-breadcrumb-back');
+  return focused.getAttribute('aria-label');
+};
+const drillInLevel = () => {
+  view({ browseBy: 'categories' });
+  renderView();
+  fireEvent.click(screen.getByTestId('browse-term-27'));
+  drillIn();
+};
+
+test('the drill-in crumb takes focus: its back button is the level', () => {
+  drillInLevel();
+  expect(focusedCrumb()).toBe('Merch');
+});
+
+test('Escape on the focused drill crumb closes the drill and focuses the level crumb', () => {
+  drillInLevel();
+  fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+  expect(screen.queryByTestId('drill-back')).toBeNull();
+  expect(productTiles()).toEqual(['product-tile-102']);
+  expect(focusedCrumb()).toBe('Categories');
+});
+
+test('a second Escape on the focused crumb returns to the root, with no click', () => {
+  drillInLevel();
+  fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+  fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+  expect(screen.getByTestId('browse-root')).not.toBeNull();
+  expect(screen.queryByTestId('products-breadcrumb')).toBeNull();
+});
+
+test('the crumb focuses once on mount, without scrolling; a search in the level does not refocus it', () => {
+  const focus = vi.spyOn(HTMLElement.prototype, 'focus');
+  view({ browseBy: 'categories' });
+  renderView();
+  fireEvent.click(screen.getByTestId('browse-term-27'));
+  expect(focus).toHaveBeenCalledTimes(1);
+  expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+  fireEvent.change(screen.getByPlaceholderText('Search products'), { target: { value: 'shirt' } });
+  expect(screen.getByTestId('products-breadcrumb').textContent).toBe('CategoriesMerch');
+  expect(focus).toHaveBeenCalledTimes(1);
+});
