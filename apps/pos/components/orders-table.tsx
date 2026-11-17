@@ -1,11 +1,12 @@
 import type { JSX, ReactNode } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { Path, Polyline } from 'react-native-svg';
 import { createSvgIcon, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Text } from '@tallyui/components';
 import type { StoreOrder } from '@tallyui/core';
 import type { PosOrder } from '@tallyui/pos';
 import type { AreaColumn } from '../lib/area-columns';
-import { orderRowCells, orderTableItems, type OrderTableRow, type OrderTone } from '../lib/orders/order-days';
+import { NARROW_WIDTH } from '../lib/layout/wide';
+import { orderRowCells, orderTableItems, type OrderRowCells, type OrderTableItem, type OrderTableRow, type OrderTone } from '../lib/orders/order-days';
 import { CaptionRowInset, TableCount, TableSurface } from './table-surface';
 
 const ChevronRightIcon = createSvgIcon('ChevronRightIcon', () => <Polyline points="9 18 15 12 9 6" />);
@@ -39,14 +40,17 @@ export const ORDERS_COLUMNS: readonly AreaColumn<OrdersColumnId>[] = [
 ];
 const ALL_COLUMNS = ORDERS_COLUMNS.map(column => column.id);
 
+/** The status cell's tone dot and label (v2 cells/status.tsx), in the table and on the phone row. */
+function OrderStatus({ cells }: { cells: OrderRowCells }) {
+  return <View className="flex-row items-center gap-1.5">
+    <View className={`size-2 rounded-full ${TONE_DOT[cells.tone]}`} />
+    <Text className="text-sm text-foreground">{cells.statusLabel}</Text>
+  </View>;
+}
+
 function orderCell(id: OrdersColumnId, cells: ReturnType<typeof orderRowCells>, rowId: string): JSX.Element {
   switch (id) {
-    case 'status': return <TableCell key={id} testID={`${rowId}-status`} className={CELL}>
-      <View className="flex-row items-center gap-1.5">
-        <View className={`size-2 rounded-full ${TONE_DOT[cells.tone]}`} />
-        <Text className="text-sm text-foreground">{cells.statusLabel}</Text>
-      </View>
-    </TableCell>;
+    case 'status': return <TableCell key={id} testID={`${rowId}-status`} className={CELL}><OrderStatus cells={cells} /></TableCell>;
     case 'number': return <TableCell key={id} testID={`${rowId}-number`} className={`${CELL} ${ALIGN.number}`}><Text>{cells.number}</Text></TableCell>;
     // v2's Customer cell (components/order/customer.tsx:32) is a `size="sm"` Chip with no avatar: h-8 (32 px), px-2.5,
     // and a one-line text-sm (13 px) label (components chip/index.tsx:125, 158).
@@ -59,6 +63,39 @@ function orderCell(id: OrdersColumnId, cells: ReturnType<typeof orderRowCells>, 
     case 'payment_method': return <TableCell key={id} testID={`${rowId}-payment`} className={CELL}><Text>{cells.payment}</Text></TableCell>;
     case 'total': return <TableCell key={id} testID={`${rowId}-total`} className={`${CELL} ${ALIGN.total}`}><Text className="tabular-nums">{cells.total}</Text></TableCell>;
   }
+}
+
+// v2 orders/row.tsx:15-65 and index.tsx:241-242: the phone row ignores `visible` (the column choice)
+// because v2's phone row is fixed. TallyUI has no ListRow, so this row carries v2 ListRow's classes
+// (list-row/index.tsx:52-63).
+function OrderPhoneRow({ item, cells, prefix, onOpen }: {
+  item: OrderTableRow; cells: OrderRowCells; prefix: 'history' | 'order'; onOpen(row: OrderTableRow): void;
+}) {
+  const rowId = `${prefix}-${item.order.id}`;
+  return <Pressable accessibilityRole="button" testID={`${prefix}-row-${item.order.id}`} onPress={() => onOpen(item)}
+    className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2 active:bg-muted web:hover:bg-muted">
+    <View className="min-w-0 flex-1 gap-1">
+      <View className="flex-row items-center gap-1">
+        <Text testID={`${rowId}-number`}>#{cells.number}</Text>
+        <Text testID={`${rowId}-customer`} numberOfLines={1} className="min-w-0 shrink">· {cells.customer}</Text>
+      </View>
+      <View className="flex-row items-center gap-1">
+        <View testID={`${rowId}-status`}><OrderStatus cells={cells} /></View>
+        {cells.date ? <Text testID={`${rowId}-date`} numberOfLines={1} className="min-w-0 shrink text-sm text-muted-foreground">· {cells.date}</Text> : null}
+        {cells.payment ? <Text testID={`${rowId}-payment`} numberOfLines={1} className="min-w-0 shrink text-sm text-muted-foreground">· {cells.payment}</Text> : null}
+      </View>
+    </View>
+    <Text testID={`${rowId}-total`} className="text-right tabular-nums">{cells.total}</Text>
+    <ChevronRightIcon size={16} className="text-muted-foreground" />
+  </Pressable>;
+}
+
+function dayHeadingView(item: Extract<OrderTableItem, { type: 'day' }>) {
+  return (
+    <View key={item.id} testID={`orders-day-heading-${item.day}`} className="h-7 justify-center border-b border-border bg-background px-3">
+      <Text className="text-xs uppercase tracking-wide text-muted-foreground">{item.label}</Text>
+    </View>
+  );
 }
 
 /** v2's DataTableHeader (data-table/header.tsx:62-79): the sorted column shows its SortIcon after the label. The list
@@ -88,6 +125,8 @@ export function OrdersTable({ local, store, onOpen, footer, active = false, onSy
   footer?: ReactNode;
   now?: () => Date;
 }) {
+  const { width } = useWindowDimensions();
+  const narrow = width < NARROW_WIDTH;
   const today = now();
   const items = orderTableItems(local, store, today);
   const columns = ORDERS_COLUMNS.filter(column => visible.includes(column.id));
@@ -95,6 +134,12 @@ export function OrdersTable({ local, store, onOpen, footer, active = false, onSy
     <>
       <TableSurface testID="orders-table-surface">
         <ScrollView className="flex-1">
+          {narrow ? <View testID="orders-rows">
+            {items.map(item => item.type === 'day' ? dayHeadingView(item) : (
+              <OrderPhoneRow key={item.id} item={item} cells={orderRowCells(item, today)}
+                prefix={item.kind === 'store' ? 'history' : 'order'} onOpen={onOpen} />
+            ))}
+          </View> : (
           <Table testID="orders-table">
             <TableHeader>
               <TableRow>
@@ -104,13 +149,7 @@ export function OrdersTable({ local, store, onOpen, footer, active = false, onSy
             </TableHeader>
             <TableBody>
               {items.map(item => {
-                if (item.type === 'day') {
-                  return (
-                    <View key={item.id} testID={`orders-day-heading-${item.day}`} className="h-7 justify-center border-b border-border bg-background px-3">
-                      <Text className="text-xs uppercase tracking-wide text-muted-foreground">{item.label}</Text>
-                    </View>
-                  );
-                }
+                if (item.type === 'day') return dayHeadingView(item);
                 const cells = orderRowCells(item, today);
                 const prefix = item.kind === 'store' ? 'history' : 'order';
                 return (
@@ -127,6 +166,7 @@ export function OrdersTable({ local, store, onOpen, footer, active = false, onSy
               })}
             </TableBody>
           </Table>
+          )}
           {footer ? <View className="gap-3 p-3">{footer}</View> : null}
         </ScrollView>
       </TableSurface>
