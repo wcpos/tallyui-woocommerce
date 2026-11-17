@@ -11,6 +11,7 @@ import { Portal } from '@tallyui/primitives';
 import { useSession } from '../lib/auth/session-context';
 import { useRegister } from '../lib/register/register-context';
 import { closuresCsv } from '../lib/reports/closures-csv';
+import { productFigures } from '../lib/reports/product-figures';
 import { closuresScope, periodNow, salesPeriod } from '../lib/reports/report-scope';
 import { rangeBounds, salesRoom, type Compare } from '../lib/reports/sales-room';
 import { salesTableCsv } from '../lib/reports/sales-table-csv';
@@ -218,7 +219,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
           {room.today.rejected > 0 && <Text>{`Not accepted by the store: ${room.today.rejected}`}</Text>}
           {room.today.count === 0 && <Text>{preset === 'today' ? 'No sales yet today.' : 'No sales in this period.'}</Text>}
         </ReportsHero>
-        <ReportCards period={room.today} money={minor => money(minor) ?? ''} moneyWhole={moneyWhole} onOpenTable={setOpenTable} cashiers={reportCashierRows} />
+        <ReportCards period={room.today} money={minor => money(minor) ?? ''} moneyWhole={moneyWhole} onOpenTable={setOpenTable} cashiers={reportCashierRows} products={productFigures(shown, { currency, range })} />
         {openTable && table && <SalesTable table={table} scope={`${periodName} · ${registerName}`} onClose={() => setOpenTable(null)}
           onExport={() => downloadCsv(salesTableCsv(table), `sales-${openTable}-${range.from}-${range.to}.csv`)} />}
       </ScrollView>}

@@ -2,7 +2,8 @@ import { useState, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
 import { useCSSVariable } from 'uniwind';
-import { Text } from '@tallyui/components';
+import { Progress, Text } from '@tallyui/components';
+import type { ProductFigure } from '../lib/reports/product-figures';
 import type { Period } from '../lib/reports/sales-room';
 import type { ReportCashier } from './report-chips';
 
@@ -165,6 +166,30 @@ export function WhereSoldCard({ period, money, moneyWhole, onOpen }: CardProps &
   );
 }
 
+/** v2 reports/cards/top-products.tsx: the four best sellers with their share of the period and units sold. */
+export function TopProductsCard({ period, money, products }: { period: Period; money: Money; products: readonly ProductFigure[] }) {
+  return (
+    <ReportCard testID="card-products" name="Top products" figure={String(period.items)}>
+      {products.length === 0
+        ? <Text testID="card-products-empty">No sales in this period.</Text>
+        : products.slice(0, 4).map((row, index) => {
+          const share = period.totalMinor ? row.amountMinor / period.totalMinor : 0;
+          return (
+            <View key={row.key} testID={`card-products-row-${index}`} className="gap-1">
+              <View className="flex-row justify-between gap-2">
+                <Text numberOfLines={1} className="min-w-0 flex-1">{row.name || 'Unknown'}</Text>
+                <Text className="font-semibold tabular-nums">{money(row.amountMinor)}</Text>
+              </View>
+              <Progress testID={`card-products-row-${index}-bar`} className="h-2 bg-muted"
+                value={share > 0 ? Math.max(0.02, Math.min(1, share)) * 100 : 0} />
+              <Text className="text-sm text-muted-foreground">{`${shareText(row.amountMinor, period.totalMinor)} · ${row.quantity} sold`}</Text>
+            </View>
+          );
+        })}
+    </ReportCard>
+  );
+}
+
 /** v2 reports/cards/cashiers.tsx: the period's takings by cashier. */
 export function CashiersCard({ period, money, moneyWhole, cashiers }: CardProps & { cashiers: readonly ReportCashier[] }) {
   const n = period.byCashier.length;
@@ -220,9 +245,9 @@ export function TaxesCard({ period, money, onOpen }: Omit<CardProps, 'moneyWhole
 const THREE_COLUMNS_MIN_WIDTH = 1000;
 const TWO_COLUMNS_MIN_WIDTH = 600;
 
-/** v2 reports/cards/index.tsx PeriodSection: Orders, Payments, Where sold, Cashiers and Taxes in columns that follow the measured width. */
-export function ReportCards({ period, money, moneyWhole, onOpenTable, cashiers = [] }: CardProps & {
-  onOpenTable(table: ReportTable): void; cashiers?: readonly ReportCashier[];
+/** v2 reports/cards/index.tsx PeriodSection: Orders, Payments, Where sold, Top products, Cashiers and Taxes in columns that follow the measured width. */
+export function ReportCards({ period, money, moneyWhole, onOpenTable, cashiers = [], products = [] }: CardProps & {
+  onOpenTable(table: ReportTable): void; cashiers?: readonly ReportCashier[]; products?: readonly ProductFigure[];
 }) {
   const [width, setWidth] = useState<number | null>(null);
   const columns = width === null ? 1 : width >= THREE_COLUMNS_MIN_WIDTH ? 3 : width >= TWO_COLUMNS_MIN_WIDTH ? 2 : 1;
@@ -230,6 +255,7 @@ export function ReportCards({ period, money, moneyWhole, onOpenTable, cashiers =
     <OrdersCard key="orders" period={period} money={money} onOpen={() => onOpenTable('orders')} />,
     <PaymentsCard key="payments" period={period} money={money} moneyWhole={moneyWhole} onOpen={() => onOpenTable('payments')} />,
     <WhereSoldCard key="where-sold" period={period} money={money} moneyWhole={moneyWhole} onOpen={() => onOpenTable('where-sold')} />,
+    <TopProductsCard key="products" period={period} money={money} products={products} />,
     <CashiersCard key="cashiers" period={period} money={money} moneyWhole={moneyWhole} cashiers={cashiers} />,
     <TaxesCard key="taxes" period={period} money={money} onOpen={() => onOpenTable('taxes')} />,
   ];
