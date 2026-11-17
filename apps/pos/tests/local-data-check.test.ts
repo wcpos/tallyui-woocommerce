@@ -133,3 +133,14 @@ test('a database whose count fails is closed and named', async () => {
     .toEqual({ unsent: 0, localOnly: 0, unchecked: ['Corner Café · Ann'] });
   expect(opened.map(handle => handle.db.closed)).toEqual([true]);
 });
+
+test('a register session row with no opened_at_gmt stays out of localOnly; once one is opened it counts', async () => {
+  const a = cashier(1, 'Ann');
+  const row = (id: string, opened_at_gmt: string) => ({ id, register_id: 'register-1', status: 'open', opened_at_gmt, counted_float_minor: 0 });
+  await seed(a, ({ orders }) => orders.database.register_sessions.insert(row('s1', '')));
+  expect(await checkLocalData({ active: null, storage: roster(a, []), open: spyOpen().open }))
+    .toEqual({ unsent: 0, localOnly: 0, unchecked: [] });
+  await seed(a, ({ orders }) => orders.database.register_sessions.insert(row('s2', '2026-11-17T09:00:00.000Z')));
+  expect(await checkLocalData({ active: null, storage: roster(a, []), open: spyOpen().open }))
+    .toEqual({ unsent: 0, localOnly: 1, unchecked: [] });
+});

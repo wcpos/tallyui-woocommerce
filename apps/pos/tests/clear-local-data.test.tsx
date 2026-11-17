@@ -4,11 +4,12 @@ import * as ReactNative from 'react-native';
 import { PortalHost } from '@tallyui/primitives';
 import { ClearLocalData } from '../components/settings/clear-local-data';
 import { GeneralSettings } from '../components/settings/general-settings';
-import type { LocalDataCheck } from '../lib/local-data-check';
+import { checkLocalData, type LocalDataCheck } from '../lib/local-data-check';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { dismissToast, getToasts } from '../lib/toast/toast';
 
 vi.mock('../lib/sale/outbox-context', () => ({ useOutbox: vi.fn() }));
+vi.mock('../lib/local-data-check', () => ({ checkLocalData: vi.fn() }));
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
   vi.mocked(useOutbox).mockReturnValue({ enabled: false });
@@ -107,4 +108,18 @@ test('a reset that cannot be scheduled shows the failure and does not reload', a
   expect(getToasts()).toEqual([expect.objectContaining({
     title: 'Could not clear local data. Close the app completely, open it again, and retry.', type: 'error',
   })]);
+});
+
+test.each([
+  ['with the outbox enabled, the default check is given the open orders database', true],
+  ['with the outbox disabled, the default check is given no active database', false],
+])('%s', async (_name, enabled) => {
+  const database = { name: 'orders-db' };
+  vi.mocked(useOutbox).mockReturnValue({ enabled, orders: { database } } as unknown as ReturnType<typeof useOutbox>);
+  vi.mocked(checkLocalData).mockClear().mockResolvedValue(clean);
+  render(<><ClearLocalData /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('settings-general-clear-local-data'));
+  await screen.findByTestId('clear-all-local-data-description');
+  expect(vi.mocked(checkLocalData).mock.calls).toEqual([[{ active: enabled ? database : null }]]);
+  expect(vi.mocked(checkLocalData).mock.calls[0]?.[0].active).toBe(enabled ? database : null);
 });
