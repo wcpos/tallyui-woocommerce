@@ -33,13 +33,14 @@ export function SettingsSection({ title, description, first, testID, children }:
  * muted key in a 256 / 288 column, the value in one 320 column. On a phone (v2 `useIsPhone`, the app's `!useIsWide`)
  * the key stacks above the value and the trailing words wrap under it.
  */
-export function SettingsField({ testID, label, help, trailing, children }: {
-  testID: string; label: string; help?: string; trailing?: ReactNode; children?: ReactNode;
+export function SettingsField({ testID, label, help, trailing, indent, children }: {
+  testID: string; label: string; help?: string; trailing?: ReactNode; indent?: boolean; children?: ReactNode;
 }): JSX.Element {
   const line = useIsWide();
   return (
     <View testID={testID} className={line ? 'min-h-11 flex-row items-center gap-3 py-1' : 'min-h-11 gap-1 py-1'}>
-      <View testID={`${testID}-key`} className={line ? 'min-h-9 w-64 shrink-0 justify-center lg:w-72' : 'min-h-9 justify-center'}>
+      {/* v2 property-row/index.tsx:166: indent adds pl-4 to the key column. */}
+      <View testID={`${testID}-key`} className={(line ? 'min-h-9 w-64 shrink-0 justify-center lg:w-72' : 'min-h-9 justify-center') + (indent ? ' pl-4' : '')}>
         <Text testID={`${testID}-label`} className={SETTINGS_KEY_CLASS}>{label}</Text>
         {help ? <Text className={SETTINGS_HELP_CLASS}>{help}</Text> : null}
       </View>
