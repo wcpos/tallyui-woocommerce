@@ -1,12 +1,16 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
+import * as ReactNative from 'react-native';
 import { Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
 import type { Closure } from '@tallyui/pos';
-import { ClosureList, ClosuresExportButton, resultText, resultWord, signedMoney } from '../components/closure-list';
+import { ClosureList, ClosuresExportButton, resultText, resultTone, resultWord, signedMoney } from '../components/closure-list';
 import { CARD_CLASSES } from './classes-of';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 function closure(over: Partial<Closure> & Pick<Closure, 'id' | 'number' | 'business_day' | 'opened_at' | 'closed_at' | 'expected' | 'counted' | 'variance'>): Closure {
   return {
@@ -40,7 +44,7 @@ const c1 = closure({
 const rows = [c4, c3, c2, c1];
 const props = {
   today: '2026-11-10', currency: 'USD', locale: 'en-US', blind: false, openSessions: 0,
-  resolveCashierName: (id: string) => id === 'u1' ? 'Paul' : id, onReprint: () => {},
+  resolveCashierName: (id: string) => id === 'u1' ? 'Paul' : id,
 };
 
 test('result words and signed differences', () => {
@@ -94,6 +98,75 @@ test('a corrected closure carries the Corrected badge', () => {
   render(<ClosureList {...props} rows={rows} />);
   expect(screen.getByTestId('closure-badge-c2').textContent).toBe('Corrected');
   expect(screen.queryByTestId('closure-badge-c4')).toBeNull();
+});
+
+test('the result is a tinted badge in v2 tones', () => {
+  render(<ClosureList {...props} rows={rows} />);
+  const short = screen.getByTestId('closure-result-c4');
+  const over = screen.getByTestId('closure-result-c3');
+  const exact = screen.getByTestId('closure-result-c2');
+  expect(classesOf(short)).toEqual(expect.arrayContaining(['bg-destructive/15', 'rounded-full', 'h-6', 'px-2']));
+  expect(classesOf(over)).toContain('bg-success/15');
+  expect(classesOf(exact)).toContain('bg-muted');
+  expect(classesOf(exact)).not.toContain('bg-secondary');
+  expect(classesOf(within(short).getByText('Short'))).toEqual(expect.arrayContaining(['text-sm', 'font-bold', 'text-foreground']));
+  expect(classesOf(within(over).getByText('Over'))).toEqual(expect.arrayContaining(['text-sm', 'font-bold']));
+  expect(classesOf(within(exact).getByText('Exact'))).toEqual(expect.arrayContaining(['text-sm', 'font-bold', 'text-muted-foreground']));
+});
+
+test('the Corrected badge is a tinted warning badge', () => {
+  render(<ClosureList {...props} rows={rows} />);
+  const badge = screen.getByTestId('closure-badge-c2');
+  expect(classesOf(badge)).toEqual(expect.arrayContaining(['bg-warning/15', 'h-6']));
+  expect(badge.textContent).toBe('Corrected');
+});
+
+test('each row ends in a chevron and has no Reprint button', () => {
+  render(<ClosureList {...props} rows={rows} />);
+  for (const id of ['c4', 'c1']) {
+    const row = screen.getByTestId(`closure-open-${id}`);
+    expect(within(row).getByTestId(`closure-chevron-${id}`)).toBe(row.lastElementChild);
+  }
+  expect(screen.queryByText('Reprint')).toBeNull();
+  expect(screen.queryByTestId('closure-reprint-c4')).toBeNull();
+});
+
+test('the heads use v2 widths and leave room for the chevron', () => {
+  render(<ClosureList {...props} rows={rows} />);
+  const heads = within(screen.getByTestId('closures-head'));
+  for (const label of ['Expected', 'Counted', 'Difference']) {
+    expect(classesOf(heads.getByText(label))).toContain('w-28');
+  }
+  expect(classesOf(heads.getByText('Result'))).toContain('w-20');
+  expect(classesOf(heads.getByTestId('closures-head-chevron'))).toContain('w-4.5');
+});
+
+test('on a phone a figures line and the badges sit under the subline', () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  render(<ClosureList {...props} rows={rows} />);
+  expect(screen.queryByTestId('closures-head')).toBeNull();
+  expect(screen.queryByTestId('closure-expected-c4')).toBeNull();
+  expect(screen.queryByTestId('closure-counted-c4')).toBeNull();
+  expect(screen.queryByTestId('closure-difference-c4')).toBeNull();
+  expect(screen.getByTestId('closure-figures-c4').textContent).toBe('Expected $120.00 · Counted $119.00 · Difference −$1.00');
+  expect(screen.getByTestId('closure-figures-c3').textContent).toBe('Expected $105.00 · Counted $105.50 · Difference +$0.50');
+  expect(within(screen.getByTestId('closure-open-c4')).getByTestId('closure-result-c4').textContent).toBe('Short');
+  expect(screen.getByTestId('closure-badge-c2').textContent).toBe('Corrected');
+  expect(screen.getByTestId('closure-chevron-c4')).not.toBeNull();
+});
+
+test('on a phone a blind till shows only Counted', () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  render(<ClosureList {...props} rows={rows} blind />);
+  expect(screen.getByTestId('closure-figures-c4').textContent).toBe('Counted $119.00');
+  expect(screen.queryByTestId('closure-result-c4')).toBeNull();
+  expect(screen.getByTestId('closure-badge-c2').textContent).toBe('Corrected');
+});
+
+test('the result tone follows the variance', () => {
+  expect(resultTone(-1)).toBe('bad');
+  expect(resultTone(1)).toBe('ok');
+  expect(resultTone(0)).toBe('muted');
 });
 
 test('the count includes the open session', () => {
@@ -218,24 +291,11 @@ test('no closures and no session shows the empty line', () => {
   expect(screen.queryAllByTestId(/^closure-day-/)).toHaveLength(0);
 });
 
-test('Reprint hands the closure back', () => {
-  const onReprint = vi.fn();
-  render(<ClosureList {...props} rows={rows} onReprint={onReprint} />);
-  fireEvent.click(screen.getByTestId('closure-reprint-c3'));
-  expect(onReprint).toHaveBeenCalledOnce();
-  expect(onReprint).toHaveBeenCalledWith(c3);
-});
-
-test('tapping a closure row opens it; Reprint does not', () => {
+test('tapping a closure row opens it', () => {
   const onOpen = vi.fn();
-  const onReprint = vi.fn();
-  render(<ClosureList {...props} rows={rows} onOpen={onOpen} onReprint={onReprint} />);
+  render(<ClosureList {...props} rows={rows} onOpen={onOpen} />);
   expect(screen.getByRole('button', { name: 'Open closure 4' })).toBe(screen.getByTestId('closure-open-c4'));
   fireEvent.click(screen.getByTestId('closure-open-c4'));
   expect(onOpen).toHaveBeenCalledTimes(1);
   expect(onOpen).toHaveBeenCalledWith(c4);
-  fireEvent.click(screen.getByTestId('closure-reprint-c4'));
-  expect(onReprint).toHaveBeenCalledTimes(1);
-  expect(onReprint).toHaveBeenCalledWith(c4);
-  expect(onOpen).toHaveBeenCalledTimes(1);
 });
