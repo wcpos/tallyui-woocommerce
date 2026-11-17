@@ -1,9 +1,17 @@
 import type { ProductTraits } from '@tallyui/core';
 import type { CatalogueEntry } from '@tallyui/pos';
-import { scanOutcome, scanMissText } from './lookup';
+import { scanOutcome } from './lookup';
 import { scanFeedback } from './scan-sound';
 import { toast } from '../toast/toast';
 import { showAddedToCartToast } from '../toast/added-to-cart-toast';
+
+// v2 use-scan-feedback.ts:14 sets the scan alert duration.
+export const SCAN_ALERT_TOAST_ID = 'pos-scan-alert';
+export const SCAN_ALERT_DURATION = 6000;
+
+function scanAlert(type: 'warning' | 'error', title: string, description: string): void {
+  toast({ id: SCAN_ALERT_TOAST_ID, type, title, description, duration: SCAN_ALERT_DURATION });
+}
 
 export interface SaleScanDeps<Doc> {
   products: Doc[];
@@ -13,8 +21,6 @@ export interface SaleScanDeps<Doc> {
   add(entry: CatalogueEntry<Doc>): boolean;
   /** Opens the variant choice for a parent product. */
   choose(product: Doc): void;
-  /** The screen's message line. */
-  say(message: string | undefined): void;
 }
 export interface SaleScanHandlers {
   onScan(code: string): 'clear' | 'search' | 'keep';
@@ -23,67 +29,49 @@ export interface SaleScanHandlers {
 
 /** The sale's scan protocol: look the code up, sound the result, add or choose, and report it. */
 export function saleScanHandlers<Doc>(deps: SaleScanDeps<Doc>): SaleScanHandlers {
-  function onScan(code: string): 'clear' | 'search' | 'keep' {
+  function scan(code: string, choose: boolean): 'clear' | 'search' | 'keep' {
     try {
       const result = scanOutcome(deps.products, deps.traits, code, { currency: deps.currency });
       if (result.kind === 'add' || result.kind === 'out-of-stock') {
         const { label } = result;
         if (result.kind === 'out-of-stock') {
           scanFeedback('failure');
-          deps.say(`${label} out of stock`);
+          scanAlert('warning', `${label} out of stock`, code);
           return 'keep';
         }
         if (deps.add(result.entry)) {
           scanFeedback('success');
           showAddedToCartToast(label);
-        } else scanFeedback('failure');
+        } else {
+          scanFeedback('failure');
+          scanAlert('error', 'Couldn’t add to cart', label);
+        }
         return 'clear';
       }
       if (result.kind === 'choose') {
         // v2's chooseVariation plays the failure tone: the scan did not add a line.
         scanFeedback('failure');
-        deps.choose(result.product);
+        if (choose) deps.choose(result.product);
+        scanAlert('warning', 'Choose a variation', `${deps.traits.getName(result.product)} — ${code}`);
         return 'clear';
       }
       scanFeedback('failure');
-      deps.say(scanMissText(result, code));
+      if (result.kind === 'several') {
+        scanAlert('warning', 'Several matches', `${result.count} products found locally — ${code}`);
+      } else {
+        scanAlert('warning', 'Barcode not found', `${code} — not in this store`);
+      }
       return 'search';
     } catch (error) {
       scanFeedback('failure');
-      deps.say(error instanceof Error ? error.message : String(error));
+      scanAlert('error', 'Couldn’t add to cart', error instanceof Error ? error.message : String(error));
       return 'keep';
     }
   }
 
+  const onScan = (code: string) => scan(code, true);
   // v2 pos-columns.tsx:147 / tender-scans.tsx (#1438): checkout owns scans while the catalogue is absent.
-  function onTenderScan(code: string): void {
-    try {
-      const result = scanOutcome(deps.products, deps.traits, code, { currency: deps.currency });
-      if (result.kind === 'add' || result.kind === 'out-of-stock') {
-        const { label } = result;
-        if (result.kind === 'out-of-stock') {
-          scanFeedback('failure');
-          toast({ type: 'warning', title: `${label} out of stock` });
-        } else if (deps.add(result.entry)) {
-          scanFeedback('success');
-          showAddedToCartToast(label);
-        } else {
-          scanFeedback('failure');
-          toast({ type: 'error', title: `${label} was not added` });
-        }
-        return;
-      }
-      scanFeedback('failure');
-      if (result.kind === 'choose') {
-        toast({ type: 'info', title: `${deps.traits.getName(result.product)}: choose a variant in the products column` });
-      } else {
-        toast({ type: 'info', title: scanMissText(result, code) });
-      }
-    } catch (error) {
-      scanFeedback('failure');
-      toast({ type: 'error', title: error instanceof Error ? error.message : String(error) });
-    }
-  }
+  const onTenderScan = (code: string) => { scan(code, false); };
 
   return { onScan, onTenderScan };
 }

@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
-import { lookupCode, scanMissText, scanOutcome } from '../lib/scan/lookup';
+import { lookupCode, scanOutcome } from '../lib/scan/lookup';
 import products from './fixtures/products.json';
 import variations from './fixtures/variations.json';
 
@@ -71,10 +71,4 @@ test('scan outcome returns none for an unmatched code', () => {
 test('scan outcome rejects out-of-stock Espresso', () => {
   const outOfStock = [{ ...catalogue[0], stock_status: 'outofstock' }, ...catalogue.slice(1)];
   expect(scanOutcome(outOfStock, traits, '2000000000015', context)).toEqual({ kind: 'out-of-stock', label: 'Espresso' });
-});
-
-test('scan miss text preserves the several-matches and no-match messages', () => {
-  expect(scanMissText({ kind: 'several', count: 2 }, '2000000000015'))
-    .toBe('Several matches: 2 products found — 2000000000015');
-  expect(scanMissText({ kind: 'none' }, '999')).toBe('Barcode not found — 999');
 });
