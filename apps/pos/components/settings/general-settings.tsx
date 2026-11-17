@@ -1,4 +1,4 @@
-import { useState, type JSX } from 'react';
+import { useState, type JSX, type ReactNode } from 'react';
 import { Linking, Pressable, View } from 'react-native';
 import { Button, Switch, Text } from '@tallyui/components';
 import type { CustomerSummary } from '@tallyui/pos';
@@ -15,8 +15,8 @@ export function wooSettingsUrl(siteHome: string): string {
   return `${siteHome.replace(/\/+$/, '')}/wp-admin/admin.php?page=wc-settings`;
 }
 
-export function LockedRow({ testID, label, value, href }: {
-  testID: string; label: string; value: string | boolean | undefined; href: string;
+export function LockedRow({ testID, label, value, href, control }: {
+  testID: string; label: string; value: string | boolean | undefined; href: string; control?: ReactNode;
 }) {
   // v2 property-row/index.tsx:114-118: the trailing slot is where it is set, in the key rank, then Open.
   return (
@@ -32,7 +32,7 @@ export function LockedRow({ testID, label, value, href }: {
       </Button>
     </>}>
       {/* v2 PropertyRow (l.125-135): a locked boolean is a disabled switch, an empty locked value a dash. */}
-      {typeof value === 'boolean'
+      {control !== undefined ? control : typeof value === 'boolean'
         ? <Switch size="sm" testID={`${testID}-switch`} accessibilityLabel={label} checked={value} onCheckedChange={() => {}} disabled />
         : <Text testID={`${testID}-value`}>{value || '—'}</Text>}
     </SettingsField>

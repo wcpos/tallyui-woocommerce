@@ -16,7 +16,7 @@ const store = { id: 1, name: 'Corner Café', currency: 'AUD', locale: 'en_AU' };
 const siteHome = 'https://shop.example/';
 
 test('the nav lists General, Tax, Printing, Card readers, Barcode Scanning then Theme, with the v2 test ids and hrefs', () => {
-  expect(SETTINGS_NAV_ITEMS).toEqual([{ href: '/settings/general', label: 'General', testID: 'settings-nav-general' }, { href: '/settings/tax', label: 'Tax', testID: 'settings-nav-tax' }, { href: '/settings/printing', label: 'Printing', testID: 'settings-nav-printing' }, { href: '/settings/card-readers', label: 'Card readers', testID: 'settings-nav-card-readers', description: 'Readers this till can take card payments with.' }, { href: '/settings/barcode-scanning', label: 'Barcode Scanning', testID: 'settings-nav-barcode-scanning' }, { href: '/settings/theme', label: 'Theme', testID: 'settings-nav-theme' }]);
+  expect(SETTINGS_NAV_ITEMS).toEqual([{ href: '/settings/general', label: 'General', testID: 'settings-nav-general' }, { href: '/settings/tax', label: 'Tax', testID: 'settings-nav-tax' }, { href: '/settings/printing', label: 'Printing', testID: 'settings-nav-printing' }, { href: '/settings/card-readers', label: 'Card readers', testID: 'settings-nav-card-readers' }, { href: '/settings/barcode-scanning', label: 'Barcode Scanning', testID: 'settings-nav-barcode-scanning' }, { href: '/settings/theme', label: 'Theme', testID: 'settings-nav-theme' }]);
   expect(SETTINGS_DEFAULT_HREF).toBe('/settings/general');
   render(
     <SettingsArea wide items={SETTINGS_NAV_ITEMS} currentHref="/settings/general" onNavigate={vi.fn()} onBack={vi.fn()}>
@@ -92,6 +92,14 @@ test('each page is one card titled by its nav item, with the body under a hairli
   expect(classesOf('settings-page-body')).toContain('border-t');
   expect(classesOf('settings-page')).toEqual(expect.arrayContaining(['border', 'rounded-lg']));
   expect(classesAbove('settings-page')).toContain('max-w-4xl');
+});
+
+test('the Card readers page draws no description in its head', () => {
+  render(
+    <SettingsArea wide items={SETTINGS_NAV_ITEMS} currentHref="/settings/card-readers" onNavigate={vi.fn()} onBack={vi.fn()}><Text>body</Text></SettingsArea>
+  );
+  expect(screen.getByTestId('settings-page-title').textContent).toBe('Card readers');
+  expect(screen.queryByTestId('settings-page-description')).toBeNull();
 });
 
 test('the open page description is small and muted inside its heading, above the body', () => {
