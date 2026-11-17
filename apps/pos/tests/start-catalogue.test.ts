@@ -199,29 +199,6 @@ test('keeps a local logs collection that the TallyUI loggers write to until stop
   }
 });
 
-test('passes each catalogue check a log that writes its rows', async () => {
-  vi.stubGlobal('fetch', fakeStore({}));
-  vi.mocked(startCatalogueReconcile).mockClear();
-  const catalogue = await startCatalogue(session, { storage: getRxStorageMemory() });
-  try {
-    const products = vi.mocked(startCatalogueReconcile).mock.calls[0][0];
-    const coupons = vi.mocked(startCatalogueReconcile).mock.calls[1][0];
-    expect(products.collection).toBe(catalogue.db.products);
-    expect(coupons.collection).toBe(catalogue.db.coupons);
-    products.log!({ type: 'tombstoned', count: 2, keys: ['1', '2'] });
-    coupons.log!({ type: 'refetched', count: 3, keys: ['a', 'b', 'c'] });
-    await vi.waitFor(async () => {
-      const rows = await catalogue.logs.find({ selector: { scope: 'sync' } }).exec();
-      expect(rows.find(row => row.message === 'Removed items deleted in your store · 2')?.detail)
-        .toContain('"collection":"products"');
-      expect(rows.find(row => row.message === 'Fetched records again for missing details · 3')?.detail)
-        .toContain('"collection":"coupons"');
-    });
-  } finally {
-    await catalogue.stop();
-  }
-});
-
 function productRequests(fetchImpl: ReturnType<typeof fakeStore>) {
   return fetchImpl.mock.calls.map(([input]) => new URL(String(input))).filter(url => url.pathname.endsWith('/products'));
 }
@@ -287,4 +264,27 @@ test.each([401, 403])('surfaces a capability read refused with HTTP %s', async s
   await expect(startCatalogue(session, { storage: getRxStorageMemory() })).rejects.toMatchObject({
     code: status === 401 ? 'unauthorized' : 'forbidden', status,
   });
+});
+
+test('passes each catalogue check a log that writes its rows', async () => {
+  vi.stubGlobal('fetch', fakeStore({}));
+  vi.mocked(startCatalogueReconcile).mockClear();
+  const catalogue = await startCatalogue(session, { storage: getRxStorageMemory() });
+  try {
+    const products = vi.mocked(startCatalogueReconcile).mock.calls[0][0];
+    const coupons = vi.mocked(startCatalogueReconcile).mock.calls[1][0];
+    expect(products.collection).toBe(catalogue.db.products);
+    expect(coupons.collection).toBe(catalogue.db.coupons);
+    products.log!({ type: 'tombstoned', count: 2, keys: ['1', '2'] });
+    coupons.log!({ type: 'refetched', count: 3, keys: ['a', 'b', 'c'] });
+    await vi.waitFor(async () => {
+      const rows = await catalogue.logs.find({ selector: { scope: 'sync' } }).exec();
+      expect(rows.find(row => row.message === 'Removed items deleted in your store · 2')?.detail)
+        .toContain('"collection":"products"');
+      expect(rows.find(row => row.message === 'Fetched records again for missing details · 3')?.detail)
+        .toContain('"collection":"coupons"');
+    });
+  } finally {
+    await catalogue.stop();
+  }
 });
