@@ -16,12 +16,16 @@ function SaleScreen(props: SaleScreenProps) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
 }
 
+// A tap on a product whose variants are all full drills in, in the grid and the table alike
+// (catalogue-drill-in.test), so the shirt carries a fourth variant, L in any colour, and opens the picker.
 const attributes = [
-  { id: 0, name: 'Size', position: 0, visible: true, variation: true, options: ['S', 'M'] },
+  { id: 0, name: 'Size', position: 0, visible: true, variation: true, options: ['S', 'M', 'L'] },
   { id: 0, name: 'Colour', position: 1, visible: true, variation: true, options: ['Black', 'White'] },
 ];
-const docs = variations.documents.filter(doc => doc.parent_id === products[2].id)
+const fullDocs = variations.documents.filter(doc => doc.parent_id === products[2].id)
   .map(doc => ({ ...doc.payload, barcode: doc.payload.global_unique_id }));
+const docs = [...fullDocs, { ...fullDocs[2], id: 107, name: 'L', sku: 'MER-TEE-L', barcode: undefined, global_unique_id: '',
+  attributes: [{ id: 0, name: 'Size', slug: 'size', option: 'L' }] }];
 const shirt = { ...products[2], attributes, variation_docs: docs };
 
 const props: SaleScreenProps = {
@@ -35,8 +39,7 @@ beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 600, height: 800, scale: 1, fontScale: 1 });
 });
 
-// Browse by now opens on category tiles, so these tests browse All products; and a grid tap on a product with
-// full variants drills in (catalogue-drill-in.test), so they open the picker from the table.
+// Browse by now opens on category tiles, so these tests browse All products, in the table.
 beforeEach(() => {
   const data = new Map([[CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all', view: 'table' })]]);
   vi.stubGlobal('localStorage', { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => { data.set(key, value); }, removeItem: (key: string) => { data.delete(key); } });

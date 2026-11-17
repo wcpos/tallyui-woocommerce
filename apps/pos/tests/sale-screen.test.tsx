@@ -14,6 +14,7 @@ import { catalogueEntries, TaxProvider, useSale } from '@tallyui/pos';
 import type { OutboxState } from '@tallyui/pos';
 import { SaleScreen as SaleScreenWithoutHost, syncLineShown } from '../components/sale-screen';
 import { Toaster } from '../components/toaster';
+import { VariantChooser } from '../components/variant-chooser';
 import { dismissToast } from '../lib/toast/toast';
 import { PortalHost } from '@tallyui/primitives';
 import type { SaleScreenProps } from '../components/sale-screen';
@@ -91,6 +92,13 @@ addRxPlugin(RxDBMigrationSchemaPlugin);
 
 const shirt = { ...products[2], variation_docs: variations.documents.filter(doc => doc.parent_id === products[2].id)
   .map(doc => ({ ...doc.payload, barcode: doc.payload.global_unique_id })) };
+// A tap on a product whose variants are all full drills in, in the table too (catalogue-drill-in.test), so the
+// chooser's cancel test adds a fourth variant, L in any colour, which keeps a table click on the chooser path.
+const anyShirt = { ...shirt, attributes: [
+  { id: 0, name: 'Size', position: 0, visible: true, variation: true, options: ['S', 'M', 'L'] },
+  { id: 0, name: 'Colour', position: 1, visible: true, variation: true, options: ['Black', 'White'] },
+], variation_docs: [...shirt.variation_docs, { ...shirt.variation_docs[2], id: 107, name: 'L', sku: 'MER-TEE-L',
+  barcode: undefined, global_unique_id: '', attributes: [{ id: 0, name: 'Size', slug: 'size', option: 'L' }] }] };
 
 const props: SaleScreenProps = {
   storeSettings: noTaxSettings,
@@ -280,11 +288,11 @@ test('variable products without options add nothing; adding a simple product cle
   expect(cartTabCount()).toBe('1');
 });
 
-test.each([600, 900])('variants at %spx: lists synced titles, prices and stock, then adds the selected variant', width => {
-  vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width, height: 800, scale: 1, fontScale: 1 });
-  tableView();
-  render(<SaleScreen {...props} products={[shirt]} />);
-  fireEvent.click(screen.getByText('T-Shirt'));
+// Since B10 the till drills into a product without option groups, so a tap no longer reaches the flat list.
+test('variants: lists synced titles, prices and stock, then adds the selected variant', () => {
+  const traits = props.connector.traits.product, onSelect = vi.fn();
+  render(<VariantChooser entries={catalogueEntries([shirt], traits, { currency: props.currency })} currency={props.currency}
+    traits={traits} onSelect={onSelect} onClose={() => {}} />);
   for (const title of ['S / Black', 'S / White', 'M / Black']) {
     const option = screen.getByRole('button', { name: new RegExp(title) });
     expect(within(option).getByText(title)).not.toBeNull();
@@ -292,11 +300,8 @@ test.each([600, 900])('variants at %spx: lists synced titles, prices and stock, 
     expect(within(option).getByText('In stock · 10')).not.toBeNull();
   }
   fireEvent.click(screen.getByRole('button', { name: /M \/ Black/ }));
-  expect(screen.queryByText('Choose an option')).toBeNull();
-  if (width < 900) openCartTab();
-  expect(screen.getByText('T-Shirt · M / Black')).not.toBeNull();
-  expect(cartLine('T-Shirt · M / Black')).toEqual({ quantity: '1', unitPrice: width < 900 ? undefined : '$25.00', total: '$25.00' });
-  expect(within(screen.getByText('Subtotal').parentElement!).getByText('$25.00')).not.toBeNull();
+  expect(onSelect).toHaveBeenCalledTimes(1);
+  expect(onSelect.mock.calls[0][0].variant.title).toBe('M / Black');
 });
 
 test('one purchasable variant adds immediately', () => {
@@ -310,7 +315,7 @@ test('one purchasable variant adds immediately', () => {
 
 test('cancelling the variant chooser adds nothing', () => {
   tableView();
-  render(<SaleScreen {...props} products={[shirt]} />);
+  render(<SaleScreen {...props} products={[anyShirt]} />);
   fireEvent.click(screen.getByText('T-Shirt'));
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(screen.getByText('T-Shirt')).not.toBeNull();

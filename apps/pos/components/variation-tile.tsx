@@ -22,11 +22,8 @@ export function ParentTile({ doc, fields, tax, onBack }: { doc: any; fields: Cat
   </View>;
 }
 
-/**
- * v2's VariationTile: the parent's picture, its name small and muted, the variation's values as v2's OptionChips,
- * then its price in bold, or Sold out over a greyed picture. The tile is the add control.
- */
-export function VariationTile({ entry, onPress }: { entry: CatalogueEntry<any>; onPress(): void }): JSX.Element {
+/** What a variation's tile and its row both show: its name, its values as v2's OptionChips, its price or Sold out. */
+function useVariationParts(entry: CatalogueEntry<any>) {
   const traits = useProductTraits();
   const context = useTraitContext();
   const { product, variant } = entry;
@@ -36,17 +33,39 @@ export function VariationTile({ entry, onPress }: { entry: CatalogueEntry<any>; 
   const options = Object.entries(variant.options ?? {});
   const chips = options.length > 0 ? options : variant.title ? [['title', variant.title] as const] : [];
   const name = traits.getName(product);
-  const lines = [
-    <Text key="name" className="text-xs text-muted-foreground" numberOfLines={1}>{name}</Text>,
-    chips.length > 0 && <View key="chips" className="flex-row flex-wrap gap-1">
+  return {
+    id, out, name,
+    label: variant.title ? `${name} · ${variant.title}` : name,
+    chips: chips.length > 0 && <View key="chips" className="flex-row flex-wrap gap-1">
       {chips.map(([group, value]) => <Text key={group} testID={`variation-chip-${id}-${group}`}
         className="rounded bg-muted px-1.5 py-px text-xs font-semibold" numberOfLines={1}>{value}</Text>)}
     </View>,
-    out ? <Text key="money" testID={`variation-sold-out-${id}`} className="text-base font-bold">Sold out</Text>
+    money: out ? <Text key="money" testID={`variation-sold-out-${id}`} className="text-base font-bold">Sold out</Text>
       : price && <Text key="money" testID={`variation-price-${id}`} className="text-base font-bold">{formatTileMoney(price.current)}</Text>,
+  };
+}
+
+/**
+ * v2's VariationTile: the parent's picture, its name small and muted, the variation's values as v2's OptionChips,
+ * then its price in bold, or Sold out over a greyed picture. The tile is the add control.
+ */
+export function VariationTile({ entry, onPress }: { entry: CatalogueEntry<any>; onPress(): void }): JSX.Element {
+  const { id, out, name, label, chips, money } = useVariationParts(entry);
+  const lines = [
+    <Text key="name" className="text-xs text-muted-foreground" numberOfLines={1}>{name}</Text>, chips, money,
   ].filter(Boolean);
-  return <Pressable accessibilityRole="button" accessibilityLabel={variant.title ? `${name} · ${variant.title}` : name}
+  return <Pressable accessibilityRole="button" accessibilityLabel={label}
     testID={`variation-tile-${id}`} onPress={onPress}>
-    <TilePoster doc={product} testKey={`variation-${id}`} soldOut={out} lines={lines} />
+    <TilePoster doc={entry.product} testKey={`variation-${id}`} soldOut={out} lines={lines} />
+  </Pressable>;
+}
+
+/** v2's drilled-in table (drill-in.tsx): one row per variation, its values then its price or Sold out. The row adds it. */
+export function VariationRow({ entry, onPress }: { entry: CatalogueEntry<any>; onPress(): void }): JSX.Element {
+  const { id, label, chips, money } = useVariationParts(entry);
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} testID={`variation-row-${id}`} onPress={onPress}
+    className="min-h-11 flex-row items-center gap-3 border-b border-border px-3 py-2">
+    <View className="flex-1">{chips}</View>
+    {money}
   </Pressable>;
 }

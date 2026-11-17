@@ -128,12 +128,72 @@ test('a variant that leaves a group open ("Any") keeps the chooser path', () => 
   expect(screen.queryByTestId('drill-back')).toBeNull();
 });
 
-test('in the table a variable product keeps the chooser path', () => {
+// v2's variable-product-row.tsx and drill-in.tsx: in the table the row, or its trailing chevron, drills in too.
+const variationRows = () => screen.queryAllByTestId(/^variation-row-\d+$/).map(node => node.getAttribute('data-testid'));
+const expectTableDrill = (onSelect: ReturnType<typeof vi.fn>) => {
+  expect(onSelect).not.toHaveBeenCalled();
+  expect(screen.getByTestId('products-breadcrumb-here').textContent).toBe('T-Shirt');
+  expect(screen.getByTestId('catalogue-variations-table')).not.toBeNull();
+  expect(variationRows()).toEqual(['variation-row-104', 'variation-row-105', 'variation-row-106']);
+  expect(screen.getByTestId('data-table-count').textContent).toBe('3 options');
+};
+
+test('in the table a click on a variable product drills into its variations as rows', () => {
   view({ browseBy: 'all', view: 'table' });
   const { onSelect } = renderView();
   fireEvent.click(screen.getByText('T-Shirt'));
+  expectTableDrill(onSelect);
+  expect(screen.getByTestId('variation-chip-106-Size').textContent).toBe('M');
+  expect(screen.getByTestId('variation-price-106').textContent).toBe('$25.00');
+});
+
+test('in the table a variation row adds that entry, and the drill-in stays', () => {
+  view({ browseBy: 'all', view: 'table' });
+  const { onAddEntry, onSelect } = renderView();
+  fireEvent.click(screen.getByText('T-Shirt'));
+  fireEvent.click(screen.getByTestId('variation-row-106'));
+  expect(onAddEntry).toHaveBeenCalledTimes(1);
+  expect(onAddEntry.mock.calls[0][0].variant.id).toBe('106');
+  expect(onAddEntry.mock.calls[0][0].product.id).toBe(102);
+  expect(onSelect).not.toHaveBeenCalled();
+  expect(variationRows()).toEqual(['variation-row-104', 'variation-row-105', 'variation-row-106']);
+});
+
+test('in the table the trailing chevron drills in the same way', () => {
+  view({ browseBy: 'all', view: 'table' });
+  const { onSelect } = renderView();
+  const chevron = screen.getByTestId('variable-product-drill-102');
+  expect(chevron.getAttribute('aria-label')).toBe('T-Shirt');
+  fireEvent.click(chevron);
+  expectTableDrill(onSelect);
+});
+
+test('in the table a variable product\'s name cell counts its options; a simple product\'s does not', () => {
+  view({ browseBy: 'all', view: 'table' });
+  renderView();
+  expect(screen.getByTestId('product-options-102').textContent).toBe('3 options');
+  expect(screen.queryAllByTestId(/^product-options-/).map(node => node.getAttribute('data-testid'))).toEqual(['product-options-102']);
+});
+
+test('in the table a product with an "Any" variant keeps the chooser path and has no chevron', () => {
+  view({ browseBy: 'all', view: 'table' });
+  const anySize = { ...shirt, variation_docs: [docs[0], { ...docs[1], attributes: [{ id: 0, name: 'Colour', slug: 'colour', option: 'White' }] }] };
+  const { onSelect } = renderView([anySize]);
+  expect(screen.queryAllByTestId(/^variable-product-drill-/)).toEqual([]);
+  fireEvent.click(screen.getByText('T-Shirt'));
   expect(onSelect).toHaveBeenCalledTimes(1);
+  expect(variationRows()).toEqual([]);
+});
+
+test('switching the view after a table drill-in leaves the drill-in', () => {
+  view({ browseBy: 'all', view: 'table' });
+  renderView();
+  fireEvent.click(screen.getByText('T-Shirt'));
+  expect(variationRows()).toHaveLength(3);
+  fireEvent.click(screen.getByTestId('view-mode-toggle'));
   expect(screen.queryByTestId('drill-back')).toBeNull();
+  expect(variationTiles()).toEqual([]);
+  expect(productTiles()).toEqual(['product-tile-80', 'product-tile-102']);
 });
 
 test('on the till a variation tile adds its variant to the cart, with no picker', () => {

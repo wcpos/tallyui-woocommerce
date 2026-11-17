@@ -1,6 +1,6 @@
 import { useMemo, useReducer, useState } from 'react';
 import type { JSX, ReactNode } from 'react';
-import { ScrollView, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { Path } from 'react-native-svg';
 import { ConnectorProvider } from '@tallyui/core';
 import type { TallyConnector } from '@tallyui/core';
@@ -24,11 +24,12 @@ import { CatalogueDisplayOptions, CatalogueSettingsButton } from './catalogue-di
 import { CatalogueFilterChips } from './catalogue-filter-chips';
 import { DrawerSheet } from './drawer-content';
 import { FilterBarDialog } from './filter-bar-dialog';
+import { ChevronRightIcon } from './icons';
 import { InCartBadge } from './in-cart-badge';
 import { ProductTile } from './product-tile';
 import { QuickFilterBar } from './quick-filter-bar';
 import { RegisterBarShell } from './register-bar-shell';
-import { ParentTile, VariationTile } from './variation-tile';
+import { ParentTile, VariationRow, VariationTile } from './variation-tile';
 import { ViewModeToggle } from './view-mode-toggle';
 
 const SyncIcon = createSvgIcon('SyncIcon', () => <><Path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><Path d="M21 3v5h-5" />
@@ -47,7 +48,7 @@ export interface CatalogueViewProps {
   status: 'idle' | 'starting' | 'syncing' | 'ready' | 'error';
   notice?: { code: string; message?: string };
   onSelect?(doc: any): void;
-  /** Adds one variation from the grid's drill-in (v2's useAddVariation); without it a variable tile calls onSelect. */
+  /** Adds one variation from the drill-in (v2's useAddVariation); without it a variable product calls onSelect. */
   onAddEntry?(entry: CatalogueEntry<any>): void;
   onScan?(code: string): 'clear' | 'search' | 'keep';
   message?: string;
@@ -151,30 +152,50 @@ export function CatalogueView({
   const drillEntries = useMemo(() => drilled
     ? catalogueEntries([drilled], traits, { currency }).filter(entry => variantMatchesStock(entry.variant, filters.stock_status))
     : [], [drilled, traits, currency, filters.stock_status]);
-  // A grid tap drills in when there are variations to choose between and none of them waits on an "Any" pick;
-  // anything else, and every table row, keeps onSelect's path (VariantChooser).
-  function tap(doc: any) {
+  // A tap, on a tile or a table row (v2's default `variationsStyle: 'drill'`), drills in when there are variations
+  // to choose between and none of them waits on an "Any" pick; anything else keeps onSelect's path (VariantChooser).
+  function drillable(doc: any): boolean {
     try {
-      const entries = onAddEntry && viewState.view === 'grid' && traits.hasVariants(doc) ? catalogueEntries([doc], traits, { currency }) : [];
-      if (entries.length > 1 && !needsAnyPick(traits.getVariantOptions?.(doc) ?? [], entries.map(entry => entry.variant))) {
-        setDrill({ id: traits.getId(doc), from: drillFrom });
-        return;
-      }
-    } catch { /* onSelect reports what it cannot sell */ }
-    onSelect?.(doc);
+      const entries = onAddEntry && traits.hasVariants(doc) ? catalogueEntries([doc], traits, { currency }) : [];
+      return entries.length > 1 && !needsAnyPick(traits.getVariantOptions?.(doc) ?? [], entries.map(entry => entry.variant));
+    } catch { return false; /* onSelect reports what it cannot sell */ }
   }
-  const columns = useMemo(() => {
+  function tap(doc: any) {
+    if (drillable(doc)) setDrill({ id: traits.getId(doc), from: drillFrom });
+    else onSelect?.(doc);
+  }
+  function optionCount(doc: any): number {
+    try { return traits.hasVariants(doc) ? catalogueEntries([doc], traits, { currency }).length : 0; } catch { return 0; }
+  }
+  // v2's variable-product-row.tsx: a trailing chevron drills in, as the row press does.
+  const drillChevron = (doc: any) => drillable(doc) ? <Pressable testID={`variable-product-drill-${traits.getId(doc)}`} accessibilityRole="button"
+    accessibilityLabel={traits.getName(doc)} className="min-h-11 min-w-11 items-center justify-center" onPress={() => tap(doc)}>
+    <ChevronRightIcon size={20} className="text-muted-foreground" />
+  </Pressable> : null;
+  // Not memoised: the cells close over tap, whose drill records this render's search, filters and view.
+  const columns = (() => {
     const byId = new Map(defaultProductColumns(connector.traits.product, { currency }).map(column => [column.id, column]));
     const visible: ProductTableColumn[] = viewState.columns.filter(c => c.visible).flatMap(c => {
       const column = byId.get(c.id);
-      return column ? [column] : [];
+      if (column?.id !== 'name') return column ? [column] : [];
+      // v2's name cell (cells/name.tsx): a variable product's option count, muted, under its name.
+      return [{ ...column, render: (doc: any) => {
+        const n = optionCount(doc);
+        return n < 1 ? column.render(doc) : <View>{column.render(doc)}
+          <Text testID={`product-options-${traits.getId(doc)}`} className="text-sm text-muted-foreground">{optionsLabel(n)}</Text>
+        </View>;
+      } }];
     });
     if (inCartCounts) visible.push({ id: 'in_cart', header: '', flex: 0.5, render: doc => {
       const id = connector.traits.product.getId(doc);
-      return <InCartBadge count={inCartCounts.get(id) ?? 0} testID={`in-cart-row-${id}`} />;
+      const badge = <InCartBadge count={inCartCounts.get(id) ?? 0} testID={`in-cart-row-${id}`} />;
+      const chevron = drillChevron(doc);
+      return chevron ? <View className="flex-row items-center justify-end">{badge}{chevron}</View> : badge;
     } });
+    // Without onAddEntry nothing drills, so the column would stay empty.
+    else if (onAddEntry) visible.push({ id: 'drill', header: '', flex: 0.4, render: drillChevron });
     return visible;
-  }, [connector.traits.product, currency, viewState.columns, inCartCounts]);
+  })();
   const queryState = { filters, search: term, sort };
   const isActive = (qf: QuickFilter) => isQuickFilterActive(qf, queryState, viewState.sort, baseline);
   // Like v2, a press replaces the whole filter state, and pressing the active button restores the baseline.
@@ -275,7 +296,11 @@ export function CatalogueView({
         {message ? <Text>{message}</Text> : null}
         {/* TallyUI's slot spacing (`py-2` over the search, `pb-2` under the crumb) at v2's phone gutter. */}
         {wide ? tileGrid ? windowHead : null : <View testID="catalogue-phone-head" className="gap-2 px-4 py-2">{searchSlot}{crumb}</View>}
-        {drilled ? <ProductGrid
+        {/* v2's drill-in.tsx in the table: the variations as rows under the crumb. */}
+        {drilled && viewState.view === 'table' ? <ScrollView testID="catalogue-variations-table" className="flex-1">
+          {drillEntries.map(entry => <VariationRow key={entry.variant.id} entry={entry} onPress={() => onAddEntry?.(entry)} />)}
+        </ScrollView>
+        : drilled ? <ProductGrid
           className={gridGutter}
           items={[drilled, ...drillEntries.map(entry => ({ id: `variation-${entry.variant.id}`, entry }))]}
           numColumns={numColumns}
@@ -313,7 +338,7 @@ export function CatalogueView({
           columns={columns}
           sort={sort}
           onSortChange={next => { dispatch({ type: 'sortSettingChanged' }); setViewState({ ...viewState, sort: next }); }}
-          onSelect={onSelect}
+          onSelect={onSelect || onAddEntry ? tap : undefined}
           {...slots(crumb)}
           emptyState={emptyState}
         />}
