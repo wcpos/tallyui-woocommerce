@@ -27,6 +27,22 @@ export function paymentsTable(period: Period, money: (minor: number) => string |
   };
 }
 
+// v2 panels/specs.ts:293-334 channels view: every Tally sale is in store.
+export function whereSoldTable(period: Period, money: (minor: number) => string | undefined): SalesTable {
+  const format = (minor: number) => money(minor) ?? '';
+  const share = period.totalMinor === 0 ? '—' : '100.0%';
+  return {
+    title: 'Channels',
+    head: ['Channel', 'Orders', 'Amount', 'Share'],
+    align: ['left', 'right', 'right', 'right'],
+    rows: period.count === 0 ? [] : [{
+      key: 'store', cells: ['In store', String(period.count), format(period.totalMinor), share],
+    }],
+    total: ['Total', String(period.count), format(period.totalMinor), period.count === 0 ? '' : share],
+    status: `${period.count} ${period.count === 1 ? 'order' : 'orders'} · ${format(period.totalMinor)}`,
+  };
+}
+
 export function taxesTable(period: Period, money: (minor: number) => string | undefined): SalesTable {
   const format = (minor: number) => money(minor) ?? '';
   return {
