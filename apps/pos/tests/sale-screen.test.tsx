@@ -263,11 +263,11 @@ test('a document wedge burst adds Espresso and shows feedback', () => {
 
 test('tapping tiles shows one added-to-cart toast that counts quick adds', () => {
   render(<><SaleScreen {...props} /><Toaster /></>);
-  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(productsPane().getByText('Espresso'));
   expect(screen.getAllByTestId('success-toast')).toHaveLength(1);
   expect(within(screen.getByTestId('success-toast')).getByText('Espresso added to cart')).not.toBeNull();
-  fireEvent.click(screen.getByText('Cold Brew'));
-  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(productsPane().getByText('Cold Brew'));
+  fireEvent.click(productsPane().getByText('Espresso'));
   expect(screen.getAllByTestId('success-toast')).toHaveLength(1);
   expect(within(screen.getByTestId('success-toast')).getByText('3 items added to cart')).not.toBeNull();
 });
