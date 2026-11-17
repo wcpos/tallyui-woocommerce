@@ -13,6 +13,7 @@ import { PortalHost } from '@tallyui/primitives';
 import { SaleScreen, type SaleScreenProps } from '../components/sale-screen';
 import { Toaster } from '../components/toaster';
 import { dismissToast } from '../lib/toast/toast';
+import { ADDED_TO_CART_TOAST_ID } from '../lib/toast/added-to-cart-toast';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
@@ -195,6 +196,7 @@ test('(e) Void empties the cart at once and offers Undo, which brings every line
   fireEvent.click(screen.getByText('Espresso'));
   setLineQuantity('Espresso', 2);
   fireEvent.click(screen.getByText('Cold Brew'));
+  act(() => dismissToast(ADDED_TO_CART_TOAST_ID));
   chooseVoid();
   expect(screen.queryByText('Void this sale?')).toBeNull();
   expect(screen.queryByLabelText('Edit quantity of Espresso')).toBeNull();
