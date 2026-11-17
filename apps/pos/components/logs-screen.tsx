@@ -11,6 +11,7 @@ import { IDLE_OUTBOX_STATE, buildDebugInfo, formatDurationMs, formatLogTime, log
 import { useVerboseDiagnostics } from '../lib/logs/verbose';
 import { useSearchTerm } from '../lib/search-term';
 import { chipInkClassName, chipToneClassName } from './catalogue-filter-chips';
+import { EmptyState } from './empty-state';
 
 // v2 logs/index.tsx:44: the status line's clock.
 const NOW_TICK_MS = 5_000;
@@ -141,7 +142,8 @@ export function LogsScreen({ collection, storeName, siteUrl,
   const searched = counted.filter(row => matchesSearch(row, search));
   const stats = logStats(counted, now());
   const next = nextDueAtMs === undefined ? null : formatCadence(nextDueAtMs - nowMs);
-  const label = next ? `Watching for changes · next check ~${next.value} ${next.unit}` : 'Watching for changes';
+  // v2 logs/index.tsx:85-89 reads First check pending… before a last tick; Tally has none, so a runner with nothing due stands in.
+  const label = nextDueAtMs === undefined ? 'First check pending…' : next ? `Watching for changes · next check ~${next.value} ${next.unit}` : 'Watching for changes';
   async function copyDebugInfo() {
     if (!copyText) return;
     try {
@@ -235,11 +237,12 @@ export function LogsScreen({ collection, storeName, siteUrl,
         {expanded[row.id] && <RowDetail row={row} phone={phone} />}
       </View>;
       })}
-      {filtered.length === 0 && <Text testID="logs-empty">No logs found</Text>}
+      {/* v2 ledger.tsx:418-424. */}
+      {filtered.length === 0 && <View testID="logs-empty"><EmptyState title="No logs found" /></View>}
       {/* v2 logs/index.tsx:70-110 and ledger.tsx:475; "last check X ago" waits on a last-tick value from @tallyui/database. */}
       <View className="mt-4 flex-row flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-border/50 py-2">
         <Text testID="logs-footer" className="text-muted-foreground">{`Showing ${filtered.length} of ${searched.length}`}</Text>
-        {runner && nextDueAtMs !== undefined && <View testID="logs-status-line" className="flex-row items-center gap-1.5">
+        {runner && <View testID="logs-status-line" className="flex-row items-center gap-1.5">
           <View testID="logs-status-line-dot" aria-hidden className="size-1.5 shrink-0 rounded-full bg-success" />
           <Text testID="logs-status-line-label" className="shrink text-xs text-muted-foreground">{label}</Text>
         </View>}

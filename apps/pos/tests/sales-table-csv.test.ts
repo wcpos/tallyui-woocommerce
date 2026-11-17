@@ -33,6 +33,7 @@ const table: SalesTable = {
   ],
   total: ['Total', '2', '$9.00', ''],
   status: '2 orders',
+  empty: 'No payments in this period',
 };
 
 test('salesTableCsv writes head, rows and total with CRLF', () => {

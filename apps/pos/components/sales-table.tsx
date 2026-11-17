@@ -13,7 +13,7 @@ export function SalesTable({ table, scope, onClose, onExport }: { table: SalesTa
         </DialogHeader>
         <ScrollView>
           {width < 600 ? <>
-            {table.rows.length === 0 ? <Text>No sales yet today.</Text> : table.rows.map(row =>
+            {table.rows.length === 0 ? <Text>{table.empty}</Text> : table.rows.map(row =>
               <View key={row.key} testID={`sales-table-row-${row.key}`} className="gap-2 border-b border-border py-3">
                 <Text className="font-semibold">{row.cells[0]}</Text>
                 {row.cells.slice(1).map((cell, index) =>
@@ -39,7 +39,7 @@ export function SalesTable({ table, scope, onClose, onExport }: { table: SalesTa
               </TableRow>
             </TableHeader>
             <TableBody>
-              {table.rows.length === 0 ? <Text>No sales yet today.</Text> : table.rows.map(row =>
+              {table.rows.length === 0 ? <Text>{table.empty}</Text> : table.rows.map(row =>
                 <TableRow key={row.key} testID={`sales-table-row-${row.key}`}>
                   {row.cells.map((cell, index) => <TableCell key={index}>
                     <Text className={table.align[index] === 'right' ? 'text-right tabular-nums' : undefined}>{cell}</Text>
