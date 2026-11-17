@@ -246,7 +246,8 @@ export function CatalogueView({
   const conditionsOn = searching || !filtersAtBaseline(filters, baseline) || quickFilters.some(isActive);
   // v2's clearConditions: the search, the filters and a quick filter's sort go back to the baseline; the level stays.
   const clearFilters = () => dispatch({ type: 'appliedQuickFilterGone', baseline });
-  const emptyStore = products.length === 0 && level === null && !conditionsOn;
+  // v2 counts no products: nothing narrows the baseline (pos/products/index.tsx:361, `!browsePlace && !conditionsOn`).
+  const emptyStore = level === null && !conditionsOn;
   const emptyState = <EmptyState title={emptyStore ? 'No products yet' : 'Nothing here matches the filters'}
     description={emptyStore ? 'Products you add to the store will appear here.' : undefined}
     action={conditionsOn ? { label: 'Clear filters', onPress: clearFilters } : undefined} />;

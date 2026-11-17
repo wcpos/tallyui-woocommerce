@@ -181,6 +181,22 @@ test('a search with no matches shows Nothing here matches the filters, and Clear
   expect(screen.queryByTestId('no-data-message')).toBeNull();
 });
 
+test('an empty store with a search shows Nothing here matches the filters, and Clear filters clears the search', () => {
+  render(<CatalogueView {...props} products={[]} />);
+  fireEvent.change(screen.getByPlaceholderText('Search products'), { target: { value: 'missing' } });
+  expect(emptyTitle()).toBe('Nothing here matches the filters');
+  expect(screen.queryByTestId('no-data-message-description')).toBeNull();
+  fireEvent.click(screen.getByTestId('no-data-message-action'));
+  expect((screen.getByPlaceholderText('Search products') as HTMLInputElement).value).toBe('');
+});
+
+test('products the baseline hides, with nothing on, show No products yet with its description and no Clear filters', () => {
+  render(<CatalogueView {...props} products={products.map(doc => ({ ...doc, stock_status: 'outofstock' }))} />);
+  expect(emptyTitle()).toBe('No products yet');
+  expect(screen.getByTestId('no-data-message-description').textContent).toBe('Products you add to the store will appear here.');
+  expect(screen.queryByTestId('no-data-message-action')).toBeNull();
+});
+
 test('Clear filters in a category level turns the quick filter off and keeps the level open', () => {
   browseCategories();
   localStorage.setItem(QUICK_FILTERS_KEY, JSON.stringify([
