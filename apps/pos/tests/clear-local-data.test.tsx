@@ -17,6 +17,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); dismissToast(); vi.restoreAllMocks(); });
 
 const row = 'Products, customers and orders are downloaded again from your server.';
+const signsOut = "You will be signed out, and the saved cashiers and this device's settings are removed.";
 const clean: LocalDataCheck = { unsent: 0, localOnly: 0, unchecked: [] };
 async function openConfirm(props: { schedule?: () => boolean; reload?: () => void; check?: LocalDataCheck } = {}) {
   const result = props.check ?? clean;
@@ -36,28 +37,28 @@ test('General ends with the Clear All Local Data row in v2 copy', () => {
 
 test('the confirm counts unsent changes across every cashier', async () => {
   await openConfirm({ check: { unsent: 3, localOnly: 0, unchecked: [] } });
-  expect(description()).toBe(`3 changes on this device have never reached your server and will be permanently lost. They may include completed sales that exist only on this device. ${row}`);
+  expect(description()).toBe(`3 changes on this device have never reached your server and will be permanently lost. They may include completed sales that exist only on this device. ${signsOut} ${row}`);
   expect(screen.getByText('Clear all local data?')).not.toBeNull();
 });
 
 test('one unsent sale reads in the singular', async () => {
   await openConfirm({ check: { unsent: 1, localOnly: 0, unchecked: [] } });
-  expect(description()).toBe(`1 change on this device has never reached your server and will be permanently lost. It may be a completed sale that exists only on this device. ${row}`);
+  expect(description()).toBe(`1 change on this device has never reached your server and will be permanently lost. It may be a completed sale that exists only on this device. ${signsOut} ${row}`);
 });
 
 test('nothing unsent says the server already has the sales', async () => {
   await openConfirm();
-  expect(description()).toBe(`Nothing is waiting to be sent, so your server already has your sales. ${row}`);
+  expect(description()).toBe(`Nothing is waiting to be sent, so your server already has your sales. ${signsOut} ${row}`);
 });
 
 test('a database that could not be checked is named in place of "Nothing is waiting"', async () => {
   await openConfirm({ check: { unsent: 0, localOnly: 0, unchecked: ['Corner Café · Ann'] } });
-  expect(description()).toBe(`The app could not check Corner Café · Ann for changes waiting to be sent, so this may include completed sales that never reached your server. They cannot be recovered. ${row}`);
+  expect(description()).toBe(`The app could not check Corner Café · Ann for changes waiting to be sent, so this may include completed sales that never reached your server. They cannot be recovered. ${signsOut} ${row}`);
 });
 
 test('till sessions, cash counts and closures are counted as deleted for good', async () => {
   await openConfirm({ check: { unsent: 0, localOnly: 5, unchecked: [] } });
-  expect(description()).toBe(`Nothing is waiting to be sent, so your server already has your sales. Till sessions, cash counts and closures on this device are not stored on your server and will be deleted (5 records). ${row}`);
+  expect(description()).toBe(`Nothing is waiting to be sent, so your server already has your sales. Till sessions, cash counts and closures on this device are not stored on your server and will be deleted (5 records). ${signsOut} ${row}`);
 });
 
 test('the button is disabled while the check runs, and the confirm opens when it ends', async () => {

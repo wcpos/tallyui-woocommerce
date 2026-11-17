@@ -27,18 +27,19 @@ function memoryStorage(): Storage {
 const a = { site: { home: 'https://shop.example/' }, tokens: { user: { id: 1 } } } as Session;
 const b = { site: { home: 'https://other.example/' }, tokens: { user: { id: 2 } } } as Session;
 const row = 'Products, customers and orders are downloaded again from your server.';
+const signsOut = "You will be signed out, and the saved cashiers and this device's settings are removed.";
 const none = 'Nothing is waiting to be sent, so your server already has your sales.';
 const three = '3 changes on this device have never reached your server and will be permanently lost. They may include completed sales that exist only on this device.';
 const unchecked = 'The app could not check Shop · Ann, Other for changes waiting to be sent, so this may include completed sales that never reached your server. They cannot be recovered.';
 const stays = (n: string) => `Till sessions, cash counts and closures on this device are not stored on your server and will be deleted (${n}).`;
 
-test('describeResetConfirm puts the warning first, then what stays local, then what the clear downloads again', () => {
-  expect(describeResetConfirm({ unsent: 0, localOnly: 0, unchecked: [] })).toBe(`${none} ${row}`);
-  expect(describeResetConfirm({ unsent: 1, localOnly: 0, unchecked: [] })).toBe(`1 change on this device has never reached your server and will be permanently lost. It may be a completed sale that exists only on this device. ${row}`);
-  expect(describeResetConfirm({ unsent: 3, localOnly: 0, unchecked: [] })).toBe(`${three} ${row}`);
-  expect(describeResetConfirm({ unsent: 0, localOnly: 0, unchecked: ['Shop · Ann', 'Other'] })).toBe(`${unchecked} ${row}`);
-  expect(describeResetConfirm({ unsent: 3, localOnly: 1, unchecked: ['Shop · Ann', 'Other'] })).toBe(`${three} ${unchecked} ${stays('1 record')} ${row}`);
-  expect(describeResetConfirm({ unsent: 0, localOnly: 4, unchecked: [] })).toBe(`${none} ${stays('4 records')} ${row}`);
+test('describeResetConfirm puts the warning first, then what stays local, then the sign-out, then what the clear downloads again', () => {
+  expect(describeResetConfirm({ unsent: 0, localOnly: 0, unchecked: [] })).toBe(`${none} ${signsOut} ${row}`);
+  expect(describeResetConfirm({ unsent: 1, localOnly: 0, unchecked: [] })).toBe(`1 change on this device has never reached your server and will be permanently lost. It may be a completed sale that exists only on this device. ${signsOut} ${row}`);
+  expect(describeResetConfirm({ unsent: 3, localOnly: 0, unchecked: [] })).toBe(`${three} ${signsOut} ${row}`);
+  expect(describeResetConfirm({ unsent: 0, localOnly: 0, unchecked: ['Shop · Ann', 'Other'] })).toBe(`${unchecked} ${signsOut} ${row}`);
+  expect(describeResetConfirm({ unsent: 3, localOnly: 1, unchecked: ['Shop · Ann', 'Other'] })).toBe(`${three} ${unchecked} ${stays('1 record')} ${signsOut} ${row}`);
+  expect(describeResetConfirm({ unsent: 0, localOnly: 4, unchecked: [] })).toBe(`${none} ${stays('4 records')} ${signsOut} ${row}`);
 });
 
 test.each(['null', '"x"', '[1]'])('a cashier roster of %s cannot stop the reset or leave the flag set', async roster => {

@@ -17,6 +17,7 @@ export function describeResetConfirm({ unsent, localOnly, unchecked }: LocalData
   else if (unchecked.length === 0) parts.push('Nothing is waiting to be sent, so your server already has your sales.');
   if (unchecked.length > 0) parts.push(`The app could not check ${unchecked.join(', ')} for changes waiting to be sent, so this may include completed sales that never reached your server. They cannot be recovered.`);
   if (localOnly > 0) parts.push(`Till sessions, cash counts and closures on this device are not stored on your server and will be deleted (${localOnly === 1 ? '1 record' : `${localOnly} records`}).`);
+  parts.push("You will be signed out, and the saved cashiers and this device's settings are removed.");
   parts.push('Products, customers and orders are downloaded again from your server.');
   return parts.join(' ');
 }
