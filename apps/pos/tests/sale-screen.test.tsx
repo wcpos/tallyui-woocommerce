@@ -15,7 +15,8 @@ import type { OutboxState } from '@tallyui/pos';
 import { SaleScreen as SaleScreenWithoutHost, syncLineShown } from '../components/sale-screen';
 import { Toaster } from '../components/toaster';
 import { VariantChooser } from '../components/variant-chooser';
-import { dismissToast } from '../lib/toast/toast';
+import { dismissToast, getToasts } from '../lib/toast/toast';
+import { ADDED_TO_CART_TOAST_ID } from '../lib/toast/added-to-cart-toast';
 import { PortalHost } from '@tallyui/primitives';
 import type { SaleScreenProps } from '../components/sale-screen';
 import { parkedCartSchema, parkedCartMigrationStrategies, type ParkedCartCollection } from '../lib/sale/parked-carts';
@@ -132,7 +133,7 @@ test('barcode Enter adds Espresso, shows feedback and clears search', () => {
   fireEvent.change(input, { target: { value: '2000000000015' } });
   fireEvent.keyDown(input, { key: 'Enter' });
   expect(cartTabCount()).toBe('1');
-  expect(productsPane().getByText('Espresso added to cart')).not.toBeNull();
+  expect(getToasts()).toEqual([expect.objectContaining({ id: 'pos-added-to-cart', type: 'success', title: 'Espresso added to cart' })]);
   expect(input.value).toBe('');
 });
 
@@ -144,6 +145,7 @@ test('submitting the same barcode twice adds two items', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
   }
   expect(cartTabCount()).toBe('2');
+  expect(getToasts()).toEqual([expect.objectContaining({ id: 'pos-added-to-cart', title: '2 items added to cart' })]);
 });
 
 test('a variation barcode adds the exact option without opening the chooser', () => {
@@ -152,7 +154,7 @@ test('a variation barcode adds the exact option without opening the chooser', ()
   fireEvent.change(input, { target: { value: '2000000000138' } });
   fireEvent.keyDown(input, { key: 'Enter' });
   expect(screen.queryByText('Choose an option')).toBeNull();
-  expect(productsPane().getByText('T-Shirt · S / Black added to cart')).not.toBeNull();
+  expect(getToasts()).toEqual([expect.objectContaining({ id: 'pos-added-to-cart', type: 'success', title: 'T-Shirt · S / Black added to cart' })]);
   expect(cartTabCount()).toBe('1');
 });
 
@@ -206,7 +208,7 @@ test('with scan sound on, an added product plays success and a parent or unknown
   render(<SaleScreen {...props} products={[products[0], products[1], shirt]} />);
   const input = screen.getByPlaceholderText('Search products');
   scanInto(input, '2000000000015');
-  expect(productsPane().getByText('Espresso added to cart')).not.toBeNull();
+  expect(getToasts()).toEqual([expect.objectContaining({ id: 'pos-added-to-cart', type: 'success', title: 'Espresso added to cart' })]);
   expect(tones()).toEqual(['sine 880', 'sine 1320']);
   installFakeAudio();
   scanInto(input, '999999999');
@@ -227,6 +229,7 @@ test('with scan sound on, a scanned product the cart refuses plays failure, not 
   scanInto(screen.getByPlaceholderText('Search products'), '2000000000015');
   expect(productsPane().getByText('Price must be integer minor units')).not.toBeNull();
   expect(screen.queryByText('Espresso added to cart')).toBeNull();
+  expect(getToasts()).toEqual([]);
   expect(tones()).toEqual(['square 330', 'square 220']);
 });
 
@@ -251,11 +254,28 @@ test('a document wedge burst adds Espresso and shows feedback', () => {
       }
     });
     expect(cartTabCount()).toBe('1');
-    expect(productsPane().getByText('Espresso added to cart')).not.toBeNull();
+    expect(getToasts()).toEqual([expect.objectContaining({ id: 'pos-added-to-cart', type: 'success', title: 'Espresso added to cart' })]);
   } finally {
     cleanup();
     vi.useRealTimers();
   }
+});
+
+test('tapping tiles shows one added-to-cart toast that counts quick adds', () => {
+  render(<><SaleScreen {...props} /><Toaster /></>);
+  fireEvent.click(productsPane().getByText('Espresso'));
+  expect(screen.getAllByTestId('success-toast')).toHaveLength(1);
+  expect(within(screen.getByTestId('success-toast')).getByText('Espresso added to cart')).not.toBeNull();
+  fireEvent.click(productsPane().getByText('Cold Brew'));
+  fireEvent.click(productsPane().getByText('Espresso'));
+  expect(screen.getAllByTestId('success-toast')).toHaveLength(1);
+  expect(within(screen.getByTestId('success-toast')).getByText('3 items added to cart')).not.toBeNull();
+});
+
+test('a variant added from a tap is named by its parent product', () => {
+  render(<><SaleScreen {...props} products={[{ ...shirt, variation_docs: shirt.variation_docs.slice(2) }]} /><Toaster /></>);
+  fireEvent.click(screen.getByText('T-Shirt'));
+  expect(within(screen.getByTestId('success-toast')).getByText('T-Shirt added to cart')).not.toBeNull();
 });
 
 test('narrow: adds, opens, changes quantity, removes and returns to products', () => {
@@ -1087,6 +1107,7 @@ test('Void empties the cart at once; Undo on the toast brings the sale back', as
     });
     render(<><SaleScreen {...props} parkedCarts={parkedCarts} /><Toaster /></>);
     fireEvent.click(screen.getByText('Espresso'));
+    act(() => dismissToast(ADDED_TO_CART_TOAST_ID));
     openCartTab();
     fireEvent.click(cartPane().getByTestId('cart-foot-more'));
     fireEvent.click(screen.getByText('Order details'));
@@ -1108,12 +1129,14 @@ test('Void empties the cart at once; Undo on the toast brings the sale back', as
 test('Undo while the next sale is at checkout restores nothing and says why', async () => {
   render(<><SaleScreen {...props} /><Toaster /></>);
   fireEvent.click(screen.getByText('Espresso'));
+  act(() => dismissToast(ADDED_TO_CART_TOAST_ID));
   openCartTab();
   fireEvent.click(cartPane().getByTestId('cart-foot-more'));
   fireEvent.click(screen.getByText('Order details'));
   fireEvent.click(screen.getByTestId('order-details-void'));
   openProductsTab();
   fireEvent.click(screen.getByText('Cold Brew'));
+  act(() => dismissToast(ADDED_TO_CART_TOAST_ID));
   openCartTab();
   fireEvent.click(screen.getByTestId('cart-checkout'));
   expect(screen.getByText('Taking payment arrives in the next update')).not.toBeNull();
@@ -1134,6 +1157,7 @@ test('a failed Undo of a void leaves the cart empty and says why', async () => {
     });
     render(<><SaleScreen {...props} parkedCarts={parkedCarts} /><Toaster /></>);
     fireEvent.click(screen.getByText('Espresso'));
+    act(() => dismissToast(ADDED_TO_CART_TOAST_ID));
     openCartTab();
     fireEvent.click(cartPane().getByTestId('cart-foot-more'));
     fireEvent.click(screen.getByText('Order details'));
@@ -1151,12 +1175,14 @@ test('a failed Undo of a void leaves the cart empty and says why', async () => {
 test('Undo after a new sale was started parks that sale and brings the voided one back', async () => {
   render(<><SaleScreen {...props} /><Toaster /></>);
   fireEvent.click(screen.getByText('Espresso'));
+  act(() => dismissToast(ADDED_TO_CART_TOAST_ID));
   openCartTab();
   fireEvent.click(cartPane().getByTestId('cart-foot-more'));
   fireEvent.click(screen.getByText('Order details'));
   fireEvent.click(screen.getByTestId('order-details-void'));
   openProductsTab();
   fireEvent.click(screen.getByText('Cold Brew'));
+  act(() => dismissToast(ADDED_TO_CART_TOAST_ID));
   openCartTab();
   fireEvent.click(screen.getByTestId('toast-action'));
   await waitFor(() => expect(queryCartItem('Espresso')).not.toBeNull());

@@ -1,11 +1,13 @@
 vi.mock('../lib/scan/scan-sound', () => ({ scanFeedback: vi.fn() }));
 vi.mock('../lib/toast/toast', () => ({ toast: vi.fn() }));
+vi.mock('../lib/toast/added-to-cart-toast', () => ({ showAddedToCartToast: vi.fn() }));
 
 import { beforeEach, expect, test, vi } from 'vitest';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { saleScanHandlers, type SaleScanDeps } from '../lib/scan/sale-scan';
 import { scanFeedback } from '../lib/scan/scan-sound';
 import { toast } from '../lib/toast/toast';
+import { showAddedToCartToast } from '../lib/toast/added-to-cart-toast';
 import products from './fixtures/products.json';
 import variations from './fixtures/variations.json';
 
@@ -24,7 +26,8 @@ test('onScan adds Espresso and clears the search field', () => {
   const d = deps();
   expect(saleScanHandlers(d).onScan('2000000000015')).toBe('clear');
   expect(scanFeedback).toHaveBeenCalledWith('success');
-  expect(d.say).toHaveBeenCalledWith('Espresso added to cart');
+  expect(showAddedToCartToast).toHaveBeenCalledWith('Espresso');
+  expect(d.say).not.toHaveBeenCalled();
   expect(d.add).toHaveBeenCalledTimes(1);
   expect(d.add).toHaveBeenCalledWith(expect.objectContaining({ product: expect.objectContaining({ id: 80 }) }));
   expect(d.choose).not.toHaveBeenCalled();
@@ -34,6 +37,7 @@ test('onScan adds Espresso and clears the search field', () => {
 test('onScan sounds failure when the sale refuses Espresso', () => {
   const d = deps({ add: vi.fn(() => false) });
   expect(saleScanHandlers(d).onScan('2000000000015')).toBe('clear');
+  expect(showAddedToCartToast).not.toHaveBeenCalled();
   expect(scanFeedback).toHaveBeenCalledWith('failure');
   expect(d.say).not.toHaveBeenCalled();
   expect(d.add).toHaveBeenCalledTimes(1);
@@ -88,7 +92,8 @@ test('onTenderScan adds Espresso and reports through toast', () => {
   const d = deps();
   saleScanHandlers(d).onTenderScan('2000000000015');
   expect(scanFeedback).toHaveBeenCalledWith('success');
-  expect(toast).toHaveBeenCalledWith({ type: 'success', title: 'Espresso added to cart' });
+  expect(showAddedToCartToast).toHaveBeenCalledWith('Espresso');
+  expect(toast).not.toHaveBeenCalled();
   expect(d.add).toHaveBeenCalledTimes(1);
   expect(d.add).toHaveBeenCalledWith(expect.objectContaining({ product: expect.objectContaining({ id: 80 }) }));
   expect(d.choose).not.toHaveBeenCalled();
@@ -98,6 +103,7 @@ test('onTenderScan adds Espresso and reports through toast', () => {
 test('onTenderScan reports when the sale refuses Espresso', () => {
   const d = deps({ add: vi.fn(() => false) });
   saleScanHandlers(d).onTenderScan('2000000000015');
+  expect(showAddedToCartToast).not.toHaveBeenCalled();
   expect(scanFeedback).toHaveBeenCalledWith('failure');
   expect(toast).toHaveBeenCalledWith({ type: 'error', title: 'Espresso was not added' });
   expect(d.add).toHaveBeenCalledTimes(1);
