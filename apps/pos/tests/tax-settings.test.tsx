@@ -27,7 +27,7 @@ test('Tax shows the calculation rows read-only, each set in WooCommerce', () => 
   expect(screen.getByText('Prices Entered with Tax')).not.toBeNull();
   expect(screen.getByText('Shipping Tax Class')).not.toBeNull();
   expect(screen.getByText('Round Tax at Subtotal Level')).not.toBeNull();
-  expect(screen.getAllByText('Set in WooCommerce')).toHaveLength(5);
+  expect(screen.getAllByText('Set in WooCommerce')).toHaveLength(9);
   expect(screen.getByTestId('settings-tax-locked-prices_include_tax-switch').getAttribute('aria-checked')).toBe('true');
   expect(screen.getByTestId('settings-tax-locked-prices_include_tax-switch').getAttribute('aria-disabled')).toBe('true');
   expect(screen.getByTestId('settings-tax-locked-tax_round_at_subtotal-switch').getAttribute('aria-checked')).toBe('false');
@@ -38,6 +38,61 @@ test('Tax shows the calculation rows read-only, each set in WooCommerce', () => 
   // Without the catalogue's store, the basis and Enable Taxes read the dash, not an off switch.
   expect(screen.getByTestId('settings-tax-locked-tax_based_on-value').textContent).toBe('—');
   expect(screen.getByTestId('settings-tax-locked-calc_taxes-value').textContent).toBe('—');
+});
+
+test('the Display section shows WooCommerce\'s display options read-only, each set in WooCommerce', () => {
+  render(<TaxSettings settings={settings} siteHome={siteHome} store={{
+    taxTotalDisplay: 'itemized', taxDisplayShop: 'excl', taxDisplayCart: 'incl', priceDisplaySuffix: 'incl. VAT',
+  }} />);
+  const display = within(screen.getByTestId('settings-tax-display'));
+  expect(display.getByText('Display')).not.toBeNull();
+  expect(display.getAllByText('Set in WooCommerce')).toHaveLength(4);
+  const labels = display.getAllByText(
+    /^(Display Tax Totals|Display Prices in the Shop|Display Prices During Cart and Checkout|Price Display Suffix)$/);
+  expect(labels.map(node => node.textContent)).toEqual([
+    'Display Tax Totals', 'Display Prices in the Shop', 'Display Prices During Cart and Checkout', 'Price Display Suffix',
+  ]);
+  for (const [field, value, label, checked] of [
+    ['tax_total_display', 'single', 'As a single total', 'false'],
+    ['tax_total_display', 'itemized', 'Itemized', 'true'],
+    ['tax_display_shop', 'incl', 'Including tax', 'false'],
+    ['tax_display_shop', 'excl', 'Excluding tax', 'true'],
+    ['tax_display_cart', 'incl', 'Including tax', 'true'],
+    ['tax_display_cart', 'excl', 'Excluding tax', 'false'],
+  ]) {
+    const segment = display.getByTestId(`settings-tax-locked-${field}-segments-segment-${value}`);
+    expect(segment.textContent).toBe(label);
+    expect(segment.getAttribute('aria-checked')).toBe(checked);
+    expect(segment.getAttribute('aria-disabled')).toBe('true');
+  }
+  expect(display.getByTestId('settings-tax-locked-price_display_suffix-value').textContent).toBe('incl. VAT');
+});
+
+test('a locked display segment does not change when pressed', () => {
+  render(<TaxSettings settings={settings} siteHome={siteHome} store={{ taxDisplayShop: 'excl' }} />);
+  fireEvent.click(screen.getByTestId('settings-tax-locked-tax_display_shop-segments-segment-incl'));
+  expect(screen.getByTestId('settings-tax-locked-tax_display_shop-segments-segment-excl').getAttribute('aria-checked')).toBe('true');
+  expect(screen.getByTestId('settings-tax-locked-tax_display_shop-segments-segment-incl').getAttribute('aria-checked')).toBe('false');
+});
+
+test('before the store says, the Display rows read the dash', () => {
+  render(<TaxSettings settings={settings} siteHome={siteHome} />);
+  for (const field of ['tax_total_display', 'tax_display_shop', 'tax_display_cart', 'price_display_suffix']) {
+    expect(screen.getByTestId(`settings-tax-locked-${field}-value`).textContent).toBe('—');
+  }
+  expect(screen.queryAllByRole('radio')).toHaveLength(0);
+});
+
+test('the sections read Calculation, Display, Tax Rates', () => {
+  render(<TaxSettings settings={settings} siteHome={siteHome} />);
+  expect(screen.getAllByRole('heading').map(h => h.textContent)).toEqual(['Calculation', 'Display', 'Tax Rates']);
+});
+
+test('Open on a Display row opens the WooCommerce tax settings tab', () => {
+  const open = vi.spyOn(ReactNative.Linking, 'openURL').mockResolvedValue(true);
+  render(<TaxSettings settings={settings} siteHome={siteHome} />);
+  fireEvent.click(screen.getByTestId('settings-tax-locked-tax_display_cart-open'));
+  expect(open).toHaveBeenCalledExactlyOnceWith('https://shop.example/wp-admin/admin.php?page=wc-settings&tab=tax');
 });
 
 test('the Calculation rows read in the demo order and labels', () => {
