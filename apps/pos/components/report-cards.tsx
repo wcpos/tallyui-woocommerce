@@ -3,6 +3,7 @@ import { Pressable, View } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
 import { useCSSVariable } from 'uniwind';
 import { Progress, Text } from '@tallyui/components';
+import type { CategoryFigures } from '../lib/reports/category-figures';
 import type { ProductFigure } from '../lib/reports/product-figures';
 import type { Period } from '../lib/reports/sales-room';
 import type { ReportCashier } from './report-chips';
@@ -190,6 +191,26 @@ export function TopProductsCard({ period, money, products }: { period: Period; m
   );
 }
 
+/** v2 reports/cards/categories.tsx: the period's gross by category, with units sold and missing local products. */
+export function CategoriesCard({ period, money, moneyWhole, categories }: CardProps & { categories: CategoryFigures }) {
+  const n = categories.parts.filter(row => row.key !== 'unknown' && row.key !== 'uncategorised').length;
+  return (
+    <ReportCard testID="card-categories" name="Categories" figure={money(period.totalMinor)}>
+      {categories.parts.length === 0
+        ? <Text testID="card-categories-empty">No sales in this period.</Text>
+        : <Donut testID="card-categories-donut" total={period.totalMinor} money={money}
+          centre={{ figure: moneyWhole(period.totalMinor), label: `${n} ${n === 1 ? 'category' : 'categories'}` }}
+          parts={categories.parts.map(row => ({
+            key: row.key, label: row.label, value: row.amountMinor, valueText: money(row.amountMinor),
+            shareText: shareText(row.amountMinor, period.totalMinor), note: `${row.quantity} sold`,
+          }))} />}
+      {categories.unknownLines > 0 && <Text testID="card-categories-unknown" className="text-sm text-muted-foreground">
+        {`${categories.unknownLines} of ${categories.totalLines} lines have no local product`}
+      </Text>}
+    </ReportCard>
+  );
+}
+
 /** v2 reports/cards/cashiers.tsx: the period's takings by cashier. */
 export function CashiersCard({ period, money, moneyWhole, cashiers }: CardProps & { cashiers: readonly ReportCashier[] }) {
   const n = period.byCashier.length;
@@ -245,9 +266,11 @@ export function TaxesCard({ period, money, onOpen }: Omit<CardProps, 'moneyWhole
 const THREE_COLUMNS_MIN_WIDTH = 1000;
 const TWO_COLUMNS_MIN_WIDTH = 600;
 
-/** v2 reports/cards/index.tsx PeriodSection: Orders, Payments, Where sold, Top products, Cashiers and Taxes in columns that follow the measured width. */
-export function ReportCards({ period, money, moneyWhole, onOpenTable, cashiers = [], products = [] }: CardProps & {
+/** v2 reports/cards/index.tsx PeriodSection: Orders, Payments, Where sold, Top products, Categories, Cashiers and Taxes in columns that follow the measured width. */
+export function ReportCards({ period, money, moneyWhole, onOpenTable, cashiers = [], products = [],
+  categories = { parts: [], unknownLines: 0, totalLines: 0 } }: CardProps & {
   onOpenTable(table: ReportTable): void; cashiers?: readonly ReportCashier[]; products?: readonly ProductFigure[];
+  categories?: CategoryFigures;
 }) {
   const [width, setWidth] = useState<number | null>(null);
   const columns = width === null ? 1 : width >= THREE_COLUMNS_MIN_WIDTH ? 3 : width >= TWO_COLUMNS_MIN_WIDTH ? 2 : 1;
@@ -256,6 +279,7 @@ export function ReportCards({ period, money, moneyWhole, onOpenTable, cashiers =
     <PaymentsCard key="payments" period={period} money={money} moneyWhole={moneyWhole} onOpen={() => onOpenTable('payments')} />,
     <WhereSoldCard key="where-sold" period={period} money={money} moneyWhole={moneyWhole} onOpen={() => onOpenTable('where-sold')} />,
     <TopProductsCard key="products" period={period} money={money} products={products} />,
+    <CategoriesCard key="categories" period={period} money={money} moneyWhole={moneyWhole} categories={categories} />,
     <CashiersCard key="cashiers" period={period} money={money} moneyWhole={moneyWhole} cashiers={cashiers} />,
     <TaxesCard key="taxes" period={period} money={money} onOpen={() => onOpenTable('taxes')} />,
   ];

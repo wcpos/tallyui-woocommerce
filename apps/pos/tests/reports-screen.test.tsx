@@ -26,6 +26,7 @@ import stores from './fixtures/stores.json';
 import { takeCash, takeLeg } from './tender-helpers';
 import { openRegisterPanel, sessionsOff, toggleRegisterSessions } from './cart-head-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { CatalogueContext } from '../lib/catalogue/catalogue-context';
 import { classesOf } from './classes-of';
 
 beforeEach(() => {
@@ -58,7 +59,8 @@ async function choose(name: 'cashier' | 'compare', value: string) {
   expect(screen.queryByTestId(`hero-${name}-menu`)).toBeNull();
 }
 
-async function setup({ multiplePayments, storeSettings = noTaxSettings, rail = false }: { multiplePayments?: boolean; storeSettings?: StoreSettings; rail?: boolean } = {}) {
+/** `synced` stands in for the catalogue's synced products; without it ReportsScreen reads the default empty catalogue. */
+async function setup({ multiplePayments, storeSettings = noTaxSettings, rail = false, synced }: { multiplePayments?: boolean; storeSettings?: StoreSettings; rail?: boolean; synced?: any[] } = {}) {
   let register!: ReturnType<typeof useRegister>;
   let outbox!: ReturnType<typeof useOutbox>;
   function Probe() { register = useRegister(); outbox = useOutbox(); return null; }
@@ -66,6 +68,7 @@ async function setup({ multiplePayments, storeSettings = noTaxSettings, rail = f
     kind: 'results', results: batch.map(envelope => ({ id: envelope.id, status: 'applied', serverRefs: { orderId: '115', totalMinor: 300 } })),
   }));
   const onBack = vi.fn();
+  const reports = <ReportsScreen storeName={stores[0].name} currency={stores[0].currency} locale={stores[0].locale} onBack={onBack} />;
   const view = render(
     <SessionProvider>
       <OutboxProvider transportFor={() => ({ send })} storage={getRxStorageMemory()}>
@@ -75,7 +78,9 @@ async function setup({ multiplePayments, storeSettings = noTaxSettings, rail = f
             storeName={stores[0].name} locale={stores[0].locale} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}}
             onSwitchCashier={async () => null} cashiers={[]} />
           <AppRailShown.Provider value={rail}>
-            <ReportsScreen storeName={stores[0].name} currency={stores[0].currency} locale={stores[0].locale} onBack={onBack} />
+            {synced
+              ? <CatalogueContext.Provider value={{ catalogue: null, products: synced, status: 'ready' }}>{reports}</CatalogueContext.Provider>
+              : reports}
           </AppRailShown.Provider>
           <PortalHost />
         </RegisterProvider>
@@ -296,6 +301,17 @@ test('the Top products card lists the product the sale rang up', async () => {
   expect(product.getByText('$3.00')).not.toBeNull();
   expect(product.getByText('100% · 1 sold')).not.toBeNull();
   expect(screen.queryByTestId('card-products-row-1')).toBeNull();
+});
+
+test("the Categories card names the synced product's category for a sale in the period", async () => {
+  // The fixture's Espresso (id 80) is in Coffee (id 25); the screen must hand the synced products to the card.
+  await setup({ synced: products });
+  await payCash();
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+  const coffee = within(await screen.findByTestId('card-categories-donut-row-25'));
+  expect(coffee.getByText('Coffee')).not.toBeNull();
+  expect(screen.queryByTestId('card-categories-donut-row-unknown')).toBeNull();
+  expect(screen.queryByTestId('card-categories-unknown')).toBeNull();
 });
 
 test('the Cashiers card names the signed-in cashier who made the sale', async () => {

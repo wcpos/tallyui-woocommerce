@@ -14,7 +14,7 @@ interface CatalogueContextValue {
   error?: string;
 }
 
-const CatalogueContext = createContext<CatalogueContextValue>({ catalogue: null, products: [], status: 'idle' });
+export const CatalogueContext = createContext<CatalogueContextValue>({ catalogue: null, products: [], status: 'idle' });
 
 export function CatalogueProvider({ children }: { children: ReactNode }): JSX.Element {
   const { session, hold, ready } = useSession();
