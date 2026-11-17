@@ -164,23 +164,64 @@ test('Where sold reads an empty period', () => {
   expect(text('card-where-sold-empty')).toBe('No sales in this period.');
 });
 
+test('the Taxes card reads the tax collected, a legend per rate and Net / Tax / Gross, and opens the Taxes table', () => {
+  const onOpenTable = cards({ period: { ...period, taxMinor: 196, taxRates: [
+    { ratePpm: 13750, label: 'Tax 1.375%', netMinor: 1600, taxMinor: 22, grossMinor: 1622 },
+    { ratePpm: 72500, label: 'Tax 7.25%', netMinor: 2400, taxMinor: 174, grossMinor: 2574 },
+  ] } });
+  expect(text('card-taxes-figure')).toBe('$1.96');
+  expect(screen.getAllByTestId(/^card-taxes-rate-\d+$/).map(row => row.getAttribute('data-testid')))
+    .toEqual(['card-taxes-rate-13750', 'card-taxes-rate-72500']);
+  const row = within(screen.getByTestId('card-taxes-rate-72500'));
+  expect(row.getByText('Tax 7.25%')).not.toBeNull();
+  expect(row.getByText('$1.74')).not.toBeNull();
+  expect(row.getByText('on $24.00')).not.toBeNull();
+  expect(screen.getByTestId('card-taxes-bar').children).toHaveLength(2);
+  expect(text('card-taxes-net')).toBe('$1574.44');
+  expect(text('card-taxes-tax')).toBe('$1.96');
+  expect(text('card-taxes-gross')).toBe('$1576.40');
+  expect(within(screen.getByTestId('card-taxes')).getByText('›')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('card-taxes-open'));
+  expect(onOpenTable).toHaveBeenCalledOnce();
+  expect(onOpenTable).toHaveBeenCalledWith('taxes');
+});
+
+test('the Taxes card reads an empty period', () => {
+  cards({ period: empty });
+  expect(text('card-taxes-figure')).toBe('$0.00');
+  expect(screen.queryAllByTestId(/^card-taxes-rate-/)).toHaveLength(0);
+  expect(screen.getByTestId('card-taxes-bar').children).toHaveLength(1);
+  expect(text('card-taxes-tax')).toBe('$0.00');
+});
+
+test('the Taxes bar draws only the rates that collected tax, and the legend lists every rate', () => {
+  cards({ period: { ...period, taxMinor: 174, taxRates: [
+    { ratePpm: 0, label: 'Zero rate', netMinor: 500, taxMinor: 0, grossMinor: 500 },
+    { ratePpm: 72500, label: 'Tax 7.25%', netMinor: 2400, taxMinor: 174, grossMinor: 2574 },
+  ] } });
+  expect(screen.getByTestId('card-taxes-bar').children).toHaveLength(1);
+  expect(screen.getAllByTestId(/^card-taxes-rate-\d+$/).map(row => row.getAttribute('data-testid')))
+    .toEqual(['card-taxes-rate-0', 'card-taxes-rate-72500']);
+  expect(within(screen.getByTestId('card-taxes-rate-0')).getByText('$0.00')).not.toBeNull();
+});
+
 const rows = () => screen.getAllByTestId(/^reports-period-row-\d$/).map(row =>
   Array.from(row.children).map(cell => cell.firstElementChild?.getAttribute('data-testid') ?? null));
 
 test('the grid follows the measured width: three, two or one column', () => {
   cards();
-  expect(rows()).toEqual([['card-orders'], ['card-payments'], ['card-where-sold']]);
+  expect(rows()).toEqual([['card-orders'], ['card-payments'], ['card-where-sold'], ['card-taxes']]);
   layout('reports-period-section', 1200);
-  expect(rows()).toEqual([['card-orders', 'card-payments', 'card-where-sold']]);
+  expect(rows()).toEqual([['card-orders', 'card-payments', 'card-where-sold'], ['card-taxes', null, null]]);
   layout('reports-period-section', 700);
-  expect(rows()).toEqual([['card-orders', 'card-payments'], ['card-where-sold', null]]);
+  expect(rows()).toEqual([['card-orders', 'card-payments'], ['card-where-sold', 'card-taxes']]);
   layout('reports-period-section', 400);
-  expect(rows()).toEqual([['card-orders'], ['card-payments'], ['card-where-sold']]);
+  expect(rows()).toEqual([['card-orders'], ['card-payments'], ['card-where-sold'], ['card-taxes']]);
 });
 
 test('each card is v2\'s Card: the card fill on the page, its border and radius (cards/card.tsx:25)', () => {
   cards();
-  for (const id of ['card-orders', 'card-payments', 'card-where-sold']) {
+  for (const id of ['card-orders', 'card-payments', 'card-where-sold', 'card-taxes']) {
     expect(classesOf(id)).toEqual(expect.arrayContaining([...CARD_CLASSES, 'border-border', 'p-4']));
   }
 });
