@@ -25,8 +25,41 @@ test('the header shows v2\'s order title, its status and when it was placed', ()
   expect(screen.getByTestId('order-modal-title').textContent).toBe('Order #901');
   expect(classesOf('order-modal-title')).toEqual(expect.arrayContaining(['text-lg', 'leading-none'])); // v2's dialog rank
   expect(screen.getByTestId('order-modal-status').textContent).toBe('Completed');
-  expect(screen.getByTestId('order-modal-identity').textContent).toBe(
-    new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date('2026-10-15T10:00:00Z')));
+});
+
+// v2's OrderIdentity `dateTime` (orders/edit/view.tsx:33-70, hooks/use-store-day-label.ts:20-26), on a fixed local clock.
+function placedOn(placed: Date) {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 9, 15, 12, 0));
+  try {
+    show(make({ placedAt: placed.toISOString() }));
+    return screen.getByTestId('order-modal-identity').textContent;
+  } finally {
+    vi.useRealTimers();
+  }
+}
+
+test('the identity line reads Today · HH:MM for an order placed today', () => {
+  expect(placedOn(new Date(2026, 9, 15, 10, 51))).toBe('Today · 10:51');
+  expect(classesOf('order-modal-identity')).toEqual(expect.arrayContaining(['text-sm', 'text-muted-foreground'])); // v2's key rank
+});
+
+test('the identity line reads Yesterday · HH:MM for an order placed yesterday', () => {
+  expect(placedOn(new Date(2026, 9, 14, 9, 5))).toBe('Yesterday · 09:05');
+});
+
+test("an older order's identity line shows its weekday, date and time", () => {
+  expect(placedOn(new Date(2026, 9, 12, 8, 0))).toBe('Mon 12 Oct · 08:00');
+});
+
+test("the item heads are v2's caption rank: QTY ITEM PRICE TOTAL", () => {
+  show(make());
+  for (const [key, word] of [['qty', 'Qty'], ['item', 'Item'], ['price', 'Price'], ['total', 'Total']]) {
+    expect(screen.getByTestId(`order-modal-head-${key}`).textContent).toBe(word);
+    const classes = classesOf(`order-modal-head-${key}`);
+    expect(classes).toEqual(expect.arrayContaining(['text-xs', 'uppercase', 'tracking-wide', 'text-muted-foreground']));
+    expect(classes).not.toContain('font-semibold');
+  }
 });
 
 test('an unknown status word is capitalised', () => {
