@@ -10,9 +10,13 @@ function setup() {
   const open = vi.fn();
   const scroll = vi.fn();
   const hook = renderHook(() => useRowKeyboard(ids, open, scroll));
-  const key = (key: string) => act(() => hook.result.current.onKeyDown?.({
-    key, target: document.body, preventDefault: vi.fn(),
-  } as unknown as Parameters<NonNullable<typeof hook.result.current.onKeyDown>>[0]));
+  const key = (key: string) => {
+    const preventDefault = vi.fn();
+    act(() => hook.result.current.onKeyDown?.({
+      key, target: document.body, preventDefault,
+    } as unknown as Parameters<NonNullable<typeof hook.result.current.onKeyDown>>[0]));
+    return preventDefault;
+  };
   return { ...hook, key, open, scroll };
 }
 
@@ -32,6 +36,20 @@ test('moves focus, scrolls and opens on Enter; Escape is not the list key', () =
   expect(open).toHaveBeenLastCalledWith('a');
   key('Escape');
   expect(open).toHaveBeenCalledTimes(2);
+});
+
+test('keys other than the arrows and Enter leave the focused row alone', () => {
+  const { key, result, scroll } = setup();
+  key('ArrowDown');
+  key('ArrowDown');
+  expect(result.current.focusIndex).toBe(1);
+  const scrolls = scroll.mock.calls.length;
+  for (const k of ['Escape', 'a', 'Home']) {
+    const preventDefault = key(k);
+    expect(result.current.focusIndex).toBe(1);
+    expect(scroll).toHaveBeenCalledTimes(scrolls);
+    expect(preventDefault).not.toHaveBeenCalled();
+  }
 });
 
 test('rings the row after a keyboard move, never after a click', () => {
