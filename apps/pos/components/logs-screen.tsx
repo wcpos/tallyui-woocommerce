@@ -1,13 +1,18 @@
 import { useEffect, useState, type JSX } from 'react';
 import { Pressable, View } from 'react-native';
 import { Button, SearchInput, Text } from '@tallyui/components';
+import type { SyncCadenceRunner } from '@tallyui/database';
 import type { LogLevel } from '@tallyui/pos';
+import { formatCadence } from '../lib/health/performance';
 import type { LogCollection, LogRecord } from '../lib/logs/log-store';
 import { IDLE_OUTBOX_STATE, buildDebugInfo, formatDurationMs, formatLogTime, logStats, matchesLogFilter, outboxSyncStats,
   type LogPreset, type OutboxSyncStats } from '../lib/logs/log-view';
 import { useVerboseDiagnostics } from '../lib/logs/verbose';
 import { useSearchTerm } from '../lib/search-term';
 import { chipInkClassName, chipToneClassName } from './catalogue-filter-chips';
+
+// v2 logs/index.tsx:44: the status line's clock.
+const NOW_TICK_MS = 5_000;
 
 // v2's Stat (packages/components/src/stat): the number above a muted label, pressable as a filter when it has onPress.
 // v2's tones: bad reads destructive, good reads success.
@@ -73,23 +78,33 @@ function RowDetail({ row }: { row: LogRecord }): JSX.Element {
 
 export function LogsScreen({ collection, storeName, siteUrl,
   copyText = typeof navigator !== 'undefined' && navigator.clipboard?.writeText
-    ? text => navigator.clipboard.writeText(text) : null, now = Date.now, sync,
+    ? text => navigator.clipboard.writeText(text) : null, now = Date.now, sync, runner,
 }: {
   collection: LogCollection; storeName: string; siteUrl: string;
   copyText?: ((text: string) => Promise<void>) | null; now?: () => number;
   /** The outboxes' stuck records and changes waiting to send (outboxSyncStats); both stats are drawn only when given. */
   sync?: OutboxSyncStats;
+  /** The catalogue polling runner's next check time, when available. */
+  runner?: Pick<SyncCadenceRunner, 'nextDueAtMs$'>;
 }): JSX.Element {
   const [rows, setRows] = useState<LogRecord[]>([]);
   const [preset, setPreset] = useState<LogPreset>('all');
   const [level, setLevel] = useState<LogLevel>();
   const [copyStatus, setCopyStatus] = useState<string>();
+  const [nextDueAtMs, setNextDueAtMs] = useState<number | undefined>(undefined);
+  const [nowMs, setNowMs] = useState(now);
   const { verbose, setVerbose } = useVerboseDiagnostics(now);
   useEffect(() => {
     const subscription = collection.find({ sort: [{ id: 'desc' }] }).$.subscribe(
       docs => setRows(docs.map(doc => doc.toJSON())));
     return () => subscription.unsubscribe();
   }, [collection]);
+  useEffect(() => {
+    if (!runner) return;
+    const subscription = runner.nextDueAtMs$.subscribe(next => { setNextDueAtMs(next); setNowMs(now()); });
+    const interval = setInterval(() => setNowMs(now()), NOW_TICK_MS);
+    return () => { subscription.unsubscribe(); clearInterval(interval); };
+  }, [runner, now]);
   const { term, query: search, type } = useSearchTerm();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggle = (id: string) => setExpanded(previous => ({ ...previous, [id]: !previous[id] }));
@@ -100,6 +115,8 @@ export function LogsScreen({ collection, storeName, siteUrl,
   // The footer's total is what All shows for the search, as v2's count follows its search.
   const searched = counted.filter(row => matchesSearch(row, search));
   const stats = logStats(counted, now());
+  const next = nextDueAtMs === undefined ? null : formatCadence(nextDueAtMs - nowMs);
+  const label = next ? `Watching for changes · next check ~${next.value} ${next.unit}` : 'Watching for changes';
   async function copyDebugInfo() {
     if (!copyText) return;
     try {
@@ -183,7 +200,14 @@ export function LogsScreen({ collection, storeName, siteUrl,
         {expanded[row.id] && <RowDetail row={row} />}
       </View>)}
       {filtered.length === 0 && <Text testID="logs-empty">No logs found</Text>}
-      <Text testID="logs-footer" className="mt-4 text-muted-foreground">{`Showing ${filtered.length} of ${searched.length}`}</Text>
+      {/* v2 logs/index.tsx:70-110 and ledger.tsx:475; "last check X ago" waits on a last-tick value from @tallyui/database. */}
+      <View className="mt-4 flex-row flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-border/50 py-2">
+        <Text testID="logs-footer" className="text-muted-foreground">{`Showing ${filtered.length} of ${searched.length}`}</Text>
+        {runner && nextDueAtMs !== undefined && <View testID="logs-status-line" className="flex-row items-center gap-1.5">
+          <View testID="logs-status-line-dot" aria-hidden className="size-1.5 shrink-0 rounded-full bg-success" />
+          <Text testID="logs-status-line-label" className="shrink text-xs text-muted-foreground">{label}</Text>
+        </View>}
+      </View>
     </View>
   );
 }

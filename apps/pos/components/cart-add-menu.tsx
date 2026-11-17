@@ -57,7 +57,7 @@ export function CartAddMenu({ sale, taxClasses, coupons, couponsOffered, custome
           <Text>Add Miscellaneous Product</Text></DropdownMenuItem>}
         {chargesOffered && <DropdownMenuItem testID="cart-add-menu-fee" onPress={() => setDialog('fee')}>
           <Text>Add Fee</Text></DropdownMenuItem>}
-        <DropdownMenuItem testID="cart-add-menu-discount" disabled={!sale.order.lineItems.length}
+        <DropdownMenuItem testID="cart-add-menu-discount"
           onPress={() => { setKind('quick'); setDialog('discount'); }}><Text>Add Discount</Text></DropdownMenuItem>
         {chargesOffered && <DropdownMenuItem testID="cart-add-menu-shipping" onPress={() => setDialog('shipping')}>
           <Text>Add Shipping</Text></DropdownMenuItem>}

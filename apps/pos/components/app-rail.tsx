@@ -7,7 +7,7 @@
 // Products sits between POS and Orders as in v2, with v2's `gift` glyph (a wrapped box with a bow); Coupons sits
 // between Orders and Customers as in v2, with v2's `discount` glyph (a circle with a percent sign).
 // Logs is a Store health page (/health/logs), as in v2, not a rail item.
-// Deviations: no Support item (this app has no such area); no hover tooltip; the version does not open an About dialog.
+// Deviations: no Support item (this app has no such area); no hover tooltip. The version opens the About dialog (about-dialog.tsx).
 // Colours are the app's rail tokens (global.css / themes.css, v2's --rail* in apps/main/global.css l.104-109):
 // the rail and its border, `rail-foreground` items, and the selected item on `rail-selected` (nav-item/index.tsx:54-71),
 // the version in `rail-foreground` at half opacity as v2's version.tsx draws it. No rail-accent hover wash yet.
@@ -18,7 +18,9 @@ import { Circle, Line, Path, Rect } from 'react-native-svg';
 import { createSvgIcon, IconButton, Text } from '@tallyui/components';
 import { RAIL_FOOT, RAIL_LABEL, RAIL_TOP, railKeyForPath } from '../lib/layout/rail-routes';
 import type { RailKey } from '../lib/layout/rail-routes';
-import { SOFTWARE_VERSION } from '../lib/software';
+import { useUnreadLogsCount } from '../lib/logs/unread-errors';
+import { VersionAbout } from './about-dialog';
+import { UnreadBadge } from './unread-badge';
 
 const RegisterIcon = createSvgIcon('RegisterIcon', () => <><Rect x={3} y={9} width={18} height={12} rx={2} /><Line x1={7} y1={4} x2={17} y2={4} /><Line x1={12} y1={4} x2={12} y2={9} /><Line x1={7} y1={15} x2={17} y2={15} /></>);
 const ProductsIcon = createSvgIcon('ProductsIcon', () => <><Rect x={3} y={7} width={18} height={4} rx={1} /><Path d="M5 11v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9" /><Line x1={12} y1={7} x2={12} y2={22} /><Path d="M12 7H8.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" /><Path d="M12 7h3.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" /></>);
@@ -46,6 +48,7 @@ export const RAIL_WIDTH = 'w-16';
 export const BESIDE_RAIL = 'left-16';
 
 export function AppRail({ active, onNavigate }: { active: RailKey; onNavigate(to: RailKey): void }): JSX.Element {
+  const unread = useUnreadLogsCount();
   const item = (key: RailKey) => {
     const Glyph = GLYPH[key];
     return (
@@ -55,7 +58,11 @@ export function AppRail({ active, onNavigate }: { active: RailKey; onNavigate(to
         className={key === active ? 'rounded-lg bg-rail-selected text-rail-selected-foreground' : 'rounded-lg text-rail-foreground'}
         onPress={() => { if (key !== active) onNavigate(key); }}>
         {/* react-native-svg's web Svg forwards `data-testid` to the DOM as is (it does not map `testID`). */}
-        <Glyph size={24} data-testid={`drawer-glyph-${key}`} />
+        {/* v2 icon/index.tsx:150-167: the badge sits on the glyph's shoulder. */}
+        {key === 'health' ? <View className="relative size-6"><Glyph size={24} data-testid={`drawer-glyph-${key}`} />
+          <View testID="drawer-badge-health-shoulder" pointerEvents="none" className="absolute bottom-3/4 left-full -ml-1 w-16 -translate-x-8 items-center">
+            <UnreadBadge count={unread} testID="drawer-badge-health" />
+          </View></View> : <Glyph size={24} data-testid={`drawer-glyph-${key}`} />}
       </IconButton>
     );
   };
@@ -63,7 +70,7 @@ export function AppRail({ active, onNavigate }: { active: RailKey; onNavigate(to
     <View testID="drawer-panel-permanent" className={`${RAIL_WIDTH} items-center border-r border-rail-border bg-rail px-2 py-2`}>
       <View testID="drawer-top-group" className="items-center gap-2">{RAIL_TOP.map(item)}</View>
       <View testID="drawer-bottom-group" className="mt-auto items-center gap-2">{RAIL_FOOT.map(item)}</View>
-      <Text testID="drawer-version" className="py-2 text-center text-xs text-rail-foreground opacity-50">{`v ${SOFTWARE_VERSION}`}</Text>
+      <VersionAbout presentation="rail" />
     </View>
   );
 }

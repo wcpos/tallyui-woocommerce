@@ -19,13 +19,14 @@ export const CONNECT_STAGE_COPY: Record<ConnectStage, string> = {
 
 // The WCPOS error code v2 raises for each cause (monorepo
 // packages/utils/src/logger/generated/error-codes.generated.ts). v2's URL
-// discovery failures carry no code, so unreachable and not_wordpress have none.
+// discovery failures for unreachable and not_wordpress carry no code.
 const SITE_ERROR_CODES: Record<SiteError['code'], string | null> = {
   invalid_url: 'AUTH411',   // STORE_URL_INVALID
   unreachable: null,
   not_wordpress: null,
   no_wcpos: 'AUTH311',      // REST_ROUTE_MISSING
   wcpos_outdated: 'AUTH331', // WCPOS_PLUGIN_OUTDATED
+  bot_challenge: 'HOST121', // BOT_CHALLENGE_BLOCKING_API
 };
 
 export type StartSignIn = (siteInput: string, onStage: (stage: ConnectStage) => void) => Promise<void>;

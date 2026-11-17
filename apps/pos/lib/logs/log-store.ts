@@ -1,6 +1,7 @@
 import { callbackSink, createLogger, hasActor, outboxLogger, saleLogger, taxLogger, posOrdersLogger, registerSessionsLogger,
   registerFactsLogger, registerCommandsLogger, type LogEntry, type LogLevel, type Logger } from '@tallyui/pos';
 import type { RxCollection, RxJsonSchema } from 'rxdb';
+import { connectivityLogger } from '../online/connectivity-logger';
 import { isVerboseDiagnostics } from './verbose';
 
 // v2 caps its log store at 25 MB; we cap rows because the Logs page loads them all.
@@ -14,7 +15,7 @@ export const LOG_DETAIL_MAX_CHARS = 4_000;
 // v2's apply.pull rows report saved updates from the store.
 export const syncLogger = createLogger('sync');
 export const TALLYUI_LOGGERS: Logger[] = [outboxLogger, saleLogger, taxLogger, posOrdersLogger,
-  registerSessionsLogger, registerFactsLogger, registerCommandsLogger, syncLogger];
+  registerSessionsLogger, registerFactsLogger, registerCommandsLogger, connectivityLogger, syncLogger];
 
 // RxDB appends "--------------------\nParameters:\n" and the full JSON of the write (whole documents, customer
 // details included) to its error messages (rxdb/src/rx-error.ts parametersToString), so logs keep only the text before it.

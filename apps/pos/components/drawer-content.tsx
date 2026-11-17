@@ -8,7 +8,9 @@
 import type { JSX } from 'react';
 import { View } from 'react-native';
 import { Button, Dialog, DialogContent, Text } from '@tallyui/components';
-import { SOFTWARE_VERSION } from '../lib/software';
+import { useUnreadLogsCount } from '../lib/logs/unread-errors';
+import { VersionAbout } from './about-dialog';
+import { UnreadBadge } from './unread-badge';
 
 // v2's phone front drawer is 200 wide and flush left: full height, no rounding, a right border, on the window rail's
 // surface (apps/main/app/(app)/(drawer)/_layout.tsx:84-107 `--color-sidebar` / `--color-sidebar-border`, aliases of
@@ -27,11 +29,13 @@ export interface DrawerAreaHandlers {
 }
 
 /** The drawer's body: one item per area, the top group and the bottom group, then the version. */
-export function DrawerContent(props: DrawerAreaHandlers & { onClose(): void }): JSX.Element {
-  const { onClose } = props;
+export function DrawerContent(props: DrawerAreaHandlers & { onClose(): void; unreadErrors?: number }): JSX.Element {
+  const { onClose, unreadErrors } = props;
   const item = (key: string, label: string, open?: () => void) => open && (
     <Button key={key} variant="ghost" testID={`drawer-item-${key}`} className={ITEM} onPress={() => { onClose(); open(); }}>
       <Text testID={`drawer-label-${key}`} className="text-rail-foreground">{label}</Text>
+      {/* v2 drawer-content/index.tsx:80 and _layout.tsx:128: the phone drawer has no icons, so the badge trails the label. */}
+      {key === 'health' && <UnreadBadge count={unreadErrors ?? 0} testID="drawer-badge-health" />}
     </Button>
   );
   return <>
@@ -48,17 +52,18 @@ export function DrawerContent(props: DrawerAreaHandlers & { onClose(): void }): 
       {item('settings', 'Settings', props.onOpenSettings)}
     </View>
     {/* v2's drawer-content/version.tsx:118-121: `text-sidebar-foreground` (the rail's ink) at half opacity. */}
-    <Text testID="drawer-version" className="px-3 py-2 text-xs text-rail-foreground opacity-50">{`Version ${SOFTWARE_VERSION}`}</Text>
+    <VersionAbout presentation="front" />
   </>;
 }
 
 /** The front drawer: a left side sheet holding DrawerContent. Renders nothing while closed. */
 export function DrawerSheet({ open, onOpenChange, ...handlers }: DrawerAreaHandlers & { open: boolean; onOpenChange(open: boolean): void }): JSX.Element | null {
+  const unreadErrors = useUnreadLogsCount();
   if (!open) return null;
   return (
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent testID="drawer-panel" accessibilityLabel="Menu" className={FRONT_DRAWER}>
-        <DrawerContent {...handlers} onClose={() => onOpenChange(false)} />
+        <DrawerContent {...handlers} unreadErrors={unreadErrors} onClose={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
   );

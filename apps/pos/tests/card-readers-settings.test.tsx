@@ -4,6 +4,7 @@ import { defaultPaymentMethods, type PaymentMethodDescriptor } from '@tallyui/co
 import { CardReadersSettings } from '../components/settings/card-readers-settings';
 import { useChosenReaders, type ServerHardware } from '../lib/card-readers/smart-readers';
 import { memoryStorage } from './memory-storage';
+import { classesOf } from './classes-of';
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -20,6 +21,30 @@ const readers: ServerHardware['readers'] = [
 ];
 const methods = [serverMethod('stripe', 'Stripe Terminal', readers),
   serverMethod('sumup', 'SumUp Terminal', [{ id: 's1', label: 'WCPOS Virtual Solo', status: 'online', default: false }])];
+
+test("the till line is the body's first line, muted, above Smart readers", () => {
+  render(<CardReadersSettings load={{ status: 'ready', methods }} chosen={{}} onChoose={vi.fn()} />);
+  const description = screen.getByTestId('card-readers-description');
+  const smart = screen.getByTestId('card-readers-smart');
+  const page = screen.getByTestId('card-readers-page');
+  expect(description.textContent).toBe('Readers this till can take card payments with.');
+  expect(classesOf('card-readers-description')).toContain('text-muted-foreground');
+  expect(classesOf('card-readers-description')).not.toContain('text-xs');
+  expect(description.compareDocumentPosition(smart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(page.contains(description)).toBe(true);
+  expect(page.contains(smart)).toBe(true);
+  expect(page.firstElementChild).toBe(description);
+  expect(classesOf('card-readers-page')).toContain('gap-5');
+});
+
+test('the till line shows in the loading, error and empty states too', () => {
+  const { rerender } = render(<CardReadersSettings load={{ status: 'loading' }} chosen={{}} onChoose={vi.fn()} />);
+  expect(screen.getByTestId('card-readers-description').textContent).toBe('Readers this till can take card payments with.');
+  rerender(<CardReadersSettings load={{ status: 'error', message: 'x' }} chosen={{}} onChoose={vi.fn()} />);
+  expect(screen.getByTestId('card-readers-description').textContent).toBe('Readers this till can take card payments with.');
+  rerender(<CardReadersSettings load={{ status: 'ready', methods: defaultPaymentMethods() }} chosen={{}} onChoose={vi.fn()} />);
+  expect(screen.getByTestId('card-readers-description').textContent).toBe('Readers this till can take card payments with.');
+});
 
 test('lists every reader with its status and its method as the tag', () => {
   render(<CardReadersSettings load={{ status: 'ready', methods }} chosen={{}} onChoose={vi.fn()} />);

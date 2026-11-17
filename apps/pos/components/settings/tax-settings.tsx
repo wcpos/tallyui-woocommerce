@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { Button, Text } from '@tallyui/components';
 import type { StoreSettings } from '@tallyui/core';
 import type { StoreInfo, TaxBasedOn } from '../../lib/catalogue/store-info';
+import { Segmented } from '../segmented';
 import { LockedRow, wooSettingsUrl } from './general-settings';
 import { SettingsSection } from './settings-form';
 import { TaxRatesDialog } from './tax-rates-dialog';
@@ -24,6 +25,24 @@ const TAX_BASED_ON_LABELS: Record<TaxBasedOn, string> = {
   base: 'Shop base address', billing: 'Customer billing address', shipping: 'Customer shipping address',
 };
 
+const TAX_TOTAL_SEGMENTS = [
+  { value: 'single', label: 'As a single total' }, { value: 'itemized', label: 'Itemized' },
+];
+const INCL_EXCL_SEGMENTS = [
+  { value: 'incl', label: 'Including tax' }, { value: 'excl', label: 'Excluding tax' },
+];
+
+// v2 tax.tsx:185-225 edits these per POS store; here they are WooCommerce's own options, so each row
+// is locked like Calculation's, its choice drawn in v2's two-way segments, disabled.
+// self-stretch fills the 320 value column as v2's segments do.
+function LockedSegments({ testID, label, value, segments, href }: {
+  testID: string; label: string; value: string | undefined; segments: { value: string; label: string }[]; href: string;
+}) {
+  return <LockedRow testID={testID} label={label} href={href} value={undefined} control={value === undefined ? undefined :
+    <View className="self-stretch"><Segmented testID={`${testID}-segments`} label={label} value={value}
+      segments={segments.map(segment => ({ ...segment, disabled: true }))} onChange={() => {}} /></View>} />;
+}
+
 // v2 settings/tax.tsx:227-236: the section holds only the button; the rates are in the dialog it opens.
 function TaxRates({ settings }: { settings: Pick<StoreSettings, 'allTaxRates' | 'taxClassSlugs'> }) {
   const [open, setOpen] = useState(false);
@@ -41,7 +60,7 @@ function TaxRates({ settings }: { settings: Pick<StoreSettings, 'allTaxRates' | 
 
 export function TaxSettings(props: {
   settings: Pick<StoreSettings, 'pricesIncludeTax' | 'taxRoundAtSubtotal' | 'shippingTaxClass' | 'allTaxRates' | 'taxClassSlugs'>;
-  store?: Pick<StoreInfo, 'taxBasedOn' | 'calcTaxes'>;
+  store?: Pick<StoreInfo, 'taxBasedOn' | 'calcTaxes' | 'taxTotalDisplay' | 'taxDisplayShop' | 'taxDisplayCart' | 'priceDisplaySuffix'>;
   siteHome: string;
 }): JSX.Element {
   const href = wooTaxSettingsUrl(props.siteHome);
@@ -56,6 +75,15 @@ export function TaxSettings(props: {
         <LockedRow testID="settings-tax-locked-prices_include_tax" label="Prices Entered with Tax" value={props.settings.pricesIncludeTax} href={href} />
         <LockedRow testID="settings-tax-locked-shipping_tax_class" label="Shipping Tax Class" value={shippingTaxClassLabel(props.settings.shippingTaxClass)} href={href} />
         <LockedRow testID="settings-tax-locked-tax_round_at_subtotal" label="Round Tax at Subtotal Level" value={props.settings.taxRoundAtSubtotal === true} href={href} />
+      </SettingsSection>
+      <SettingsSection title="Display" testID="settings-tax-display">
+        <LockedSegments testID="settings-tax-locked-tax_total_display" label="Display Tax Totals"
+          value={props.store?.taxTotalDisplay} segments={TAX_TOTAL_SEGMENTS} href={href} />
+        <LockedSegments testID="settings-tax-locked-tax_display_shop" label="Display Prices in the Shop"
+          value={props.store?.taxDisplayShop} segments={INCL_EXCL_SEGMENTS} href={href} />
+        <LockedSegments testID="settings-tax-locked-tax_display_cart" label="Display Prices During Cart and Checkout"
+          value={props.store?.taxDisplayCart} segments={INCL_EXCL_SEGMENTS} href={href} />
+        <LockedRow testID="settings-tax-locked-price_display_suffix" label="Price Display Suffix" value={props.store?.priceDisplaySuffix} href={href} />
       </SettingsSection>
       <TaxRates settings={props.settings} />
     </View>
