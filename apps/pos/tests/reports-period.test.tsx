@@ -67,6 +67,31 @@ test('the calendar applies a custom range with Done', () => {
   expect(screen.queryByTestId('reports-period-menu')).toBeNull();
 });
 
+test('the calendar disables future days and pressing one leaves today unchanged', () => {
+  const onPreset = vi.fn(), onCustom = vi.fn();
+  render(<><ReportsPeriod preset="today" range={presetRange('today', now, 'device')} locale="en-US" now={now} onPreset={onPreset} onCustom={onCustom} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('reports-period'));
+  expect(screen.getByTestId('reports-period-calendar-day-2026-11-12').getAttribute('aria-disabled')).toBe('true');
+  expect(screen.getByTestId('reports-period-calendar-day-2026-11-11').getAttribute('aria-disabled')).not.toBe('true');
+  fireEvent.click(screen.getByTestId('reports-period-calendar-day-2026-11-12'));
+  fireEvent.click(screen.getByTestId('reports-period-apply'));
+  expect(onPreset).not.toHaveBeenCalled();
+  expect(onCustom).not.toHaveBeenCalled();
+});
+
+test('reopening the menu resets an unfinished draft to the current period', () => {
+  const onPreset = vi.fn(), onCustom = vi.fn();
+  render(<><ReportsPeriod preset="today" range={presetRange('today', now, 'device')} locale="en-US" now={now} onPreset={onPreset} onCustom={onCustom} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('reports-period'));
+  fireEvent.click(screen.getByTestId('reports-period-calendar-day-2026-11-03'));
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(screen.queryByTestId('reports-period-menu')).toBeNull();
+  fireEvent.click(screen.getByTestId('reports-period'));
+  fireEvent.click(screen.getByTestId('reports-period-apply'));
+  expect(onPreset).not.toHaveBeenCalled();
+  expect(onCustom).not.toHaveBeenCalled();
+});
+
 test.each([['09', 'thisWeek'], ['11', 'today']] as const)('Done recognises %s–11 Nov as %s', (from, preset) => {
   const onPreset = vi.fn(), onCustom = vi.fn();
   render(<><ReportsPeriod preset="today" range={presetRange('today', now, 'device')} locale="en-US" now={now} onPreset={onPreset} onCustom={onCustom} /><PortalHost /></>);
