@@ -43,11 +43,11 @@ function LockedSegments({ testID, label, value, segments, href }: {
       segments={segments.map(segment => ({ ...segment, disabled: true }))} onChange={() => {}} /></View>} />;
 }
 
-// v2 settings/tax.tsx:227-236: the section holds only the button; the rates are in the dialog it opens.
+// v2 settings/tax.tsx:156-234 labels are sentence case. v2 settings/tax.tsx:227-236: the section holds only the button; the rates are in the dialog it opens.
 function TaxRates({ settings }: { settings: Pick<StoreSettings, 'allTaxRates' | 'taxClassSlugs'> }) {
   const [open, setOpen] = useState(false);
   return (
-    <SettingsSection title="Tax Rates" testID="settings-tax-rates">
+    <SettingsSection title="Tax rates" testID="settings-tax-rates">
       <View className="flex-row py-2">
         <Button testID="settings-tax-view-all-rates" variant="outline" size="sm" onPress={() => setOpen(true)}>
           <Text>View all tax rates</Text>
@@ -71,19 +71,19 @@ export function TaxSettings(props: {
       <SettingsSection first title="Calculation" testID="settings-tax-calculation">
         <LockedRow testID="settings-tax-locked-tax_based_on" label="Calculate tax based on" value={taxBasedOn && TAX_BASED_ON_LABELS[taxBasedOn]} href={href} />
         {/* A locked switch; before the catalogue is up the store has not said, so the row reads the dash. */}
-        <LockedRow testID="settings-tax-locked-calc_taxes" label="Enable Taxes" value={props.store?.calcTaxes} href={href} />
-        <LockedRow testID="settings-tax-locked-prices_include_tax" label="Prices Entered with Tax" value={props.settings.pricesIncludeTax} href={href} />
-        <LockedRow testID="settings-tax-locked-shipping_tax_class" label="Shipping Tax Class" value={shippingTaxClassLabel(props.settings.shippingTaxClass)} href={href} />
-        <LockedRow testID="settings-tax-locked-tax_round_at_subtotal" label="Round Tax at Subtotal Level" value={props.settings.taxRoundAtSubtotal === true} href={href} />
+        <LockedRow testID="settings-tax-locked-calc_taxes" label="Enable taxes" value={props.store?.calcTaxes} href={href} />
+        <LockedRow testID="settings-tax-locked-prices_include_tax" label="Prices entered with tax" value={props.settings.pricesIncludeTax} href={href} />
+        <LockedRow testID="settings-tax-locked-shipping_tax_class" label="Shipping tax class" value={shippingTaxClassLabel(props.settings.shippingTaxClass)} href={href} />
+        <LockedRow testID="settings-tax-locked-tax_round_at_subtotal" label="Round tax at subtotal level" value={props.settings.taxRoundAtSubtotal === true} href={href} />
       </SettingsSection>
       <SettingsSection title="Display" testID="settings-tax-display">
-        <LockedSegments testID="settings-tax-locked-tax_total_display" label="Display Tax Totals"
+        <LockedSegments testID="settings-tax-locked-tax_total_display" label="Display tax totals"
           value={props.store?.taxTotalDisplay} segments={TAX_TOTAL_SEGMENTS} href={href} />
-        <LockedSegments testID="settings-tax-locked-tax_display_shop" label="Display Prices in the Shop"
+        <LockedSegments testID="settings-tax-locked-tax_display_shop" label="Display prices in the shop"
           value={props.store?.taxDisplayShop} segments={INCL_EXCL_SEGMENTS} href={href} />
-        <LockedSegments testID="settings-tax-locked-tax_display_cart" label="Display Prices During Cart and Checkout"
+        <LockedSegments testID="settings-tax-locked-tax_display_cart" label="Display prices during cart and checkout"
           value={props.store?.taxDisplayCart} segments={INCL_EXCL_SEGMENTS} href={href} />
-        <LockedRow testID="settings-tax-locked-price_display_suffix" label="Price Display Suffix" value={props.store?.priceDisplaySuffix} href={href} />
+        <LockedRow testID="settings-tax-locked-price_display_suffix" label="Price display suffix" value={props.store?.priceDisplaySuffix} href={href} />
       </SettingsSection>
       <TaxRates settings={props.settings} />
     </View>
