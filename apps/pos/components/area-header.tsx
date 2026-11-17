@@ -7,12 +7,14 @@ import { View } from 'react-native';
 import { Button, Text } from '@tallyui/components';
 import { useSession } from '../lib/auth/session-context';
 import { useIsWide } from '../lib/layout/wide';
+import { useIsOnline } from '../lib/online/online-status';
 import { runBeforeLeave } from '../lib/sale/before-leave';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { toast } from '../lib/toast/toast';
 import { AppRailShown } from './app-rail';
 import { CashierSheet } from './cashier-sheet';
 import { NotificationBell } from './notification-bell';
+import { BarStatusPill } from './register-bar-shell';
 
 export function AreaHeader({ title, backTestID, onBack, gap = true, controls }: {
   title: string;
@@ -68,7 +70,7 @@ export function useAreaGutter(): 'px-3' | 'px-4' {
  *  row carries the cluster and the search takes a row of its own, as v2's phone bar does. An area passes its
  *  display options (v2's `DisplayOptions` settings icon, area-display-options.tsx) as a child, so they sit before the bell. */
 export function AreaToolbar({ area, title, onBack, titleSlot, search, children }: {
-  /** The testID stem: `<area>-bar`, `<area>-back`, `<area>-bar-bell`, `<area>-bar-avatar`. */
+  /** The testID stem: `<area>-bar`, `<area>-back`, `<area>-bar-offline`, `<area>-bar-bell`, `<area>-bar-avatar`. */
   area: string;
   title: string;
   onBack(): void;
@@ -79,10 +81,12 @@ export function AreaToolbar({ area, title, onBack, titleSlot, search, children }
   /** The area's own actions, drawn before the bell. */
   children?: ReactNode;
 }): JSX.Element {
+  const online = useIsOnline();
   const railShown = useContext(AppRailShown);
   const px = useAreaGutter();
   const controls = <View testID={`${area}-bar-controls`} className="flex-row items-center gap-1">
     {children}
+    {!online && <BarStatusPill testID={`${area}-bar-offline`} label="Offline" />}
     <NotificationBell testID={`${area}-bar-bell`} />
     <AreaAvatar testID={`${area}-bar-avatar`} />
   </View>;

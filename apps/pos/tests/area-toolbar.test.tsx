@@ -16,6 +16,7 @@ import { OrdersScreen } from '../components/orders-screen';
 import { ProductsScreen } from '../components/products-screen';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
+import { OnlineStatusContext } from '../lib/online/online-status';
 import { OutboxProvider } from '../lib/sale/outbox-context';
 import { classesOf } from './classes-of';
 
@@ -49,6 +50,34 @@ function renderArea(screenUnderTest: ReactNode, rail = true) {
     </OutboxProvider>
   </SessionProvider>);
 }
+
+test.each([true, false])('the offline badge sits in the controls before the bell (rail shown: %s)', rail => {
+  const status = 'offline';
+  renderArea(<OnlineStatusContext.Provider value={{ status }}>
+    <AreaToolbar area="orders" title="Orders" onBack={vi.fn()} />
+  </OnlineStatusContext.Provider>, rail);
+  const badge = screen.getByTestId('orders-bar-offline');
+  expect(badge.textContent).toBe('Offline');
+  expect(screen.getByTestId('orders-bar-controls').contains(badge)).toBe(true);
+  expect(badge.compareDocumentPosition(screen.getByTestId('orders-bar-bell')) & Node.DOCUMENT_POSITION_FOLLOWING)
+    .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+});
+
+test('an unreachable website shows the offline badge', () => {
+  const status = 'online-website-unavailable';
+  renderArea(<OnlineStatusContext.Provider value={{ status }}>
+    <AreaToolbar area="orders" title="Orders" onBack={vi.fn()} />
+  </OnlineStatusContext.Provider>);
+  expect(screen.getByTestId('orders-bar-offline')).not.toBeNull();
+});
+
+test('an available website shows no offline badge', () => {
+  const status = 'online-website-available';
+  renderArea(<OnlineStatusContext.Provider value={{ status }}>
+    <AreaToolbar area="orders" title="Orders" onBack={vi.fn()} />
+  </OnlineStatusContext.Provider>);
+  expect(screen.queryByTestId('orders-bar-offline')).toBeNull();
+});
 
 const areas: [string, () => ReactNode][] = [
   ['orders', () => <OrdersScreen onBack={vi.fn()} history={{ list: async () => ({ orders: [], hasMore: false }) }} storeName="Shop" cashierName="Paul" />],
