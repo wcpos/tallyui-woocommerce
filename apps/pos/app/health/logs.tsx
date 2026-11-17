@@ -14,5 +14,5 @@ export default function HealthLogs() {
   if (!session) return <Redirect href="/connect" />;
   if (!catalogue) return <CatalogueUnavailable message={error ?? `Connecting to ${session.site.name}…`} />;
   return <LogsScreen collection={catalogue.logs} storeName={catalogue.store.name} siteUrl={session.site.home}
-    sync={outboxSyncStats(outbox.enabled ? outbox.state : IDLE_OUTBOX_STATE)} />;
+    sync={outboxSyncStats(outbox.enabled ? outbox.state : IDLE_OUTBOX_STATE)} runner={catalogue.cadence} />;
 }
