@@ -9,6 +9,7 @@ import { useRegister } from '../../lib/register/register-context';
 import { CustomerPicker } from '../customer-picker';
 import { OpenExternalIcon } from '../docs-link';
 import { RegisterSwitch } from '../register-controls';
+import { ClearLocalData } from './clear-local-data';
 import { SETTINGS_KEY_CLASS, SettingsField, SettingsSection } from './settings-form';
 
 export function wooSettingsUrl(siteHome: string): string {
@@ -141,6 +142,8 @@ export function GeneralSettings(props: {
       {/* The same switch as Cart Settings, read from the one RegisterProvider at the root layout, so the two agree. It
           is here because a closed register replaces the cart, and Cart Settings with it. Open or closed, it shows. */}
       {register && <SettingsSection title="Register sessions" testID="settings-general-register"><RegisterSwitch inset={false} /></SettingsSection>}
+      {/* v2 general.tsx:425-434: General ends with the local-data danger zone. */}
+      <ClearLocalData />
     </View>
   );
 }
