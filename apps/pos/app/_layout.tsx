@@ -12,6 +12,7 @@ import { OutboxProvider } from '../lib/sale/outbox-context';
 import { RegisterProvider } from '../lib/register/register-context';
 import { UnreadLogsProvider } from '../lib/logs/unread-errors';
 import { Toaster } from '../components/toaster';
+import { LocalDataResetGate } from '../components/local-data-reset-gate';
 import { AppFrame } from '../components/app-rail';
 import { railNavigation } from '../lib/layout/rail-routes';
 import { useIsWide } from '../lib/layout/wide';
@@ -32,8 +33,9 @@ function RailFrame({ children }: { children: ReactNode }) {
 }
 
 export default function RootLayout() {
+  // v2 clears before hydration, before any provider opens a database.
   return (
-    <>
+    <LocalDataResetGate>
       <StatusBar style="auto" />
       <SessionProvider>
         <SessionOnlineStatusProvider>
@@ -51,6 +53,6 @@ export default function RootLayout() {
         </SessionOnlineStatusProvider>
       </SessionProvider>
       <Toaster />
-    </>
+    </LocalDataResetGate>
   );
 }
