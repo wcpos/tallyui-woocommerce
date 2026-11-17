@@ -43,6 +43,10 @@ test("shows the saved store and its users in v2's words", () => {
   expect(document.querySelector('[data-testid^="saved-user-reauth-"]')).toBeNull();
 });
 
+test('says signed-out users stay saved until removed', () => {
+  expect(screen.getByTestId('saved-users-note').textContent).toBe('Signed-out users stay saved on this device until you remove them.');
+});
+
 test('Open POS signs in the first user, or the one picked', async () => {
   expect(screen.getByTestId(`saved-user-select-${aUuid}`).getAttribute('aria-checked')).toBe('true');
   expect(screen.getByTestId(`saved-user-select-${bUuid}`).getAttribute('aria-checked')).toBe('false');

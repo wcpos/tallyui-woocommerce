@@ -186,7 +186,8 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
     const previous = current.current;
     saveSession(next);
     updateSession(next);
-    const updated = rosterAfterSwitch(loadCashiers(), home, uuid, previous);
+    let updated = rosterAfterSwitch(loadCashiers(), home, uuid, previous?.site.home === home ? previous : null);
+    if (previous && previous.site.home !== home) updated = rosterAfterSignOut(updated, previous);
     saveCashiers(updated);
     setRoster(updated);
   }
