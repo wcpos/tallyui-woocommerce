@@ -5,7 +5,7 @@ export const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
   { href: '/settings/general', label: 'General', testID: 'settings-nav-general' },
   { href: '/settings/tax', label: 'Tax', testID: 'settings-nav-tax' },
   { href: '/settings/printing', label: 'Printing', testID: 'settings-nav-printing' },
-  { href: '/settings/card-readers', label: 'Card readers', testID: 'settings-nav-card-readers', description: 'Readers this till can take card payments with.' },
+  { href: '/settings/card-readers', label: 'Card readers', testID: 'settings-nav-card-readers' },
   { href: '/settings/barcode-scanning', label: 'Barcode Scanning', testID: 'settings-nav-barcode-scanning' },
   { href: '/settings/theme', label: 'Theme', testID: 'settings-nav-theme' },
 ];
