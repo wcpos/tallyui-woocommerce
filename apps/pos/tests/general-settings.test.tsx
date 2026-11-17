@@ -71,16 +71,41 @@ test('Default Customer and "is cashier" sit under Localization after Language, w
 
 test('the Default Customer select shows the stored customer, picks another, and keeps Guest choosable', async () => {
   const { onChange } = renderDefaultCustomer({ customerId: 3, isCashier: false }, { id: '3', name: 'Anna Bell' });
-  expect(defaultRow().getByRole('button', { name: 'Customer: Anna Bell' })).not.toBeNull();
-  fireEvent.click(defaultRow().getByTestId('cart-customer-name'));
+  expect(defaultRow().getByRole('button', { name: 'Default Customer: Anna Bell' })).not.toBeNull();
+  fireEvent.click(defaultRow().getByTestId('settings-general-default_customer-select'));
   fireEvent.change(screen.getByPlaceholderText('Search Customers'), { target: { value: 'gee' } });
   fireEvent.click(await screen.findByLabelText('Gee Four, gee@example.invalid'));
   expect(onChange).toHaveBeenLastCalledWith({ customerId: 7, isCashier: false });
-  expect(defaultRow().getByRole('button', { name: 'Customer: Gee Four' })).not.toBeNull();
-  fireEvent.click(defaultRow().getByTestId('cart-customer-name'));
+  expect(defaultRow().getByRole('button', { name: 'Default Customer: Gee Four' })).not.toBeNull();
+  fireEvent.click(defaultRow().getByTestId('settings-general-default_customer-select'));
   await act(async () => { fireEvent.click(screen.getByTestId('customer-option-guest')); });
   expect(onChange).toHaveBeenLastCalledWith({ customerId: 0, isCashier: false });
-  expect(defaultRow().getByRole('button', { name: 'Customer: Guest' })).not.toBeNull();
+  expect(defaultRow().getByRole('button', { name: 'Default Customer: Guest' })).not.toBeNull();
+});
+
+test('the Default Customer select is v2\'s field box with a chevron, not the cart chip', () => {
+  renderDefaultCustomer({ customerId: 0, isCashier: false }, null);
+  const select = defaultRow().getByTestId('settings-general-default_customer-select');
+  expect(select.textContent).toBe('Guest');
+  expect(classesOf('settings-general-default_customer-select')).toEqual(expect.arrayContaining(['h-11', 'w-full', 'rounded-lg', 'border-border']));
+  expect(classesOf('settings-general-default_customer-select')).not.toContain('rounded-full');
+  expect(within(select).getByTestId('settings-general-default_customer-select-chevron')).not.toBeNull();
+  expect(defaultRow().queryByTestId('cart-customer-name')).toBeNull();
+  expect(defaultRow().queryByTestId('cart-customer-initials')).toBeNull();
+  expect(defaultRow().queryByText('Customer', { exact: true })).toBeNull();
+});
+
+test('a disabled Default Customer select is the same field box, dimmed as v2\'s', () => {
+  renderDefaultCustomer({ customerId: 0, isCashier: true });
+  const select = defaultRow().getByTestId('settings-general-default_customer-select');
+  expect(select.textContent).toBe('Guest');
+  expect(classesOf('settings-general-default_customer-select')).toEqual(expect.arrayContaining(['h-11', 'w-full', 'opacity-45']));
+  expect(within(select).getByTestId('settings-general-default_customer-select-chevron')).not.toBeNull();
+});
+
+test('the enabled Default Customer select is not dimmed', () => {
+  renderDefaultCustomer({ customerId: 0, isCashier: false });
+  expect(classesOf('settings-general-default_customer-select')).not.toContain('opacity-45');
 });
 
 test('turning "is cashier" on saves it and disables the Default Customer select', () => {
