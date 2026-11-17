@@ -32,6 +32,7 @@ import { saleDiscountCodes } from '../lib/sale/discount-codes';
 import { taxClassOptions } from '../lib/sale/tax-classes';
 import { saleScanHandlers } from '../lib/scan/sale-scan';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
+import { showAddedToCartToast } from '../lib/toast/added-to-cart-toast';
 import type { TenderVoidCollection } from '../lib/sale/tender-voids';
 import type { ParkedCartCollection } from '../lib/sale/parked-carts';
 import { VariantChooser } from './variant-chooser';
@@ -189,7 +190,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     }
   }
 
-  function onAdd(entry: CatalogueEntry<any>): boolean {
+  function addEntry(entry: CatalogueEntry<any>): boolean {
     try {
       sale.add(entry, connector.traits.product);
       setVariants(undefined);
@@ -201,8 +202,14 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     }
   }
 
+  function onAdd(entry: CatalogueEntry<any>): boolean {
+    const added = addEntry(entry);
+    if (added) showAddedToCartToast(connector.traits.product.getName(entry.product));
+    return added;
+  }
+
   const { onScan, onTenderScan } = saleScanHandlers({
-    products: props.products, traits: connector.traits.product, currency, add: onAdd, choose: onSelect, say: setMessage,
+    products: props.products, traits: connector.traits.product, currency, add: addEntry, choose: onSelect, say: setMessage,
   });
 
   const drawerFigure = drawerFigureText(register, minor => sheetMoney(minor, currency, props.locale));

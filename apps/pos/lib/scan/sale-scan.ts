@@ -3,6 +3,7 @@ import type { CatalogueEntry } from '@tallyui/pos';
 import { scanOutcome, scanMissText } from './lookup';
 import { scanFeedback } from './scan-sound';
 import { toast } from '../toast/toast';
+import { showAddedToCartToast } from '../toast/added-to-cart-toast';
 
 export interface SaleScanDeps<Doc> {
   products: Doc[];
@@ -34,7 +35,7 @@ export function saleScanHandlers<Doc>(deps: SaleScanDeps<Doc>): SaleScanHandlers
         }
         if (deps.add(result.entry)) {
           scanFeedback('success');
-          deps.say(`${label} added to cart`);
+          showAddedToCartToast(label);
         } else scanFeedback('failure');
         return 'clear';
       }
@@ -65,7 +66,7 @@ export function saleScanHandlers<Doc>(deps: SaleScanDeps<Doc>): SaleScanHandlers
           toast({ type: 'warning', title: `${label} out of stock` });
         } else if (deps.add(result.entry)) {
           scanFeedback('success');
-          toast({ type: 'success', title: `${label} added to cart` });
+          showAddedToCartToast(label);
         } else {
           scanFeedback('failure');
           toast({ type: 'error', title: `${label} was not added` });
