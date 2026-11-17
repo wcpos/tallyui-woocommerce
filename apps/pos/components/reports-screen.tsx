@@ -11,6 +11,7 @@ import { Portal } from '@tallyui/primitives';
 import { useSession } from '../lib/auth/session-context';
 import { useRegister } from '../lib/register/register-context';
 import { closuresCsv } from '../lib/reports/closures-csv';
+import { productFigures } from '../lib/reports/product-figures';
 import { closuresScope, periodNow, salesPeriod } from '../lib/reports/report-scope';
 import { rangeBounds, salesRoom, type Compare } from '../lib/reports/sales-room';
 import { salesTableCsv } from '../lib/reports/sales-table-csv';
@@ -218,7 +219,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
           {room.today.rejected > 0 && <Text>{`Not accepted by the store: ${room.today.rejected}`}</Text>}
           {room.today.count === 0 && <Text>{preset === 'today' ? 'No sales yet today.' : 'No sales in this period.'}</Text>}
         </ReportsHero>
-        <ReportCards period={room.today} money={minor => money(minor) ?? ''} moneyWhole={moneyWhole} onOpenTable={setOpenTable} />
+        <ReportCards period={room.today} money={minor => money(minor) ?? ''} moneyWhole={moneyWhole} onOpenTable={setOpenTable} products={productFigures(shown, { currency, range })} />
         {/* v2 cards/taxes.tsx:20 is a ReportCard, so v2's Card surface (card/index.tsx:18) as the other cards. */}
         {room.today.taxMinor !== 0 && <View testID="sales-room-taxes" className="gap-2 rounded-lg border border-border bg-card p-4">
           <Pressable testID="sales-room-taxes-open" accessibilityRole="button" accessibilityLabel="Open Taxes table" onPress={() => setOpenTable('taxes')}>

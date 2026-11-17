@@ -3,6 +3,7 @@ vi.mock('uniwind', () => ({ useCSSVariable: (names: string[]) => names.map(() =>
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import { Donut, ReportCards, type DonutPart } from '../components/report-cards';
+import type { ProductFigure } from '../lib/reports/product-figures';
 import type { Period } from '../lib/reports/sales-room';
 import { CARD_CLASSES, classesOf } from './classes-of';
 
@@ -22,6 +23,13 @@ const period: Period = {
     { method: 'external', label: 'Card terminal', count: 5, totalMinor: 59115 },
   ],
 };
+const products: ProductFigure[] = [
+  { key: 'p1', productId: 'p1', name: 'Espresso', quantity: 10, amountMinor: 59115 },
+  { key: 'p2', productId: 'p2', name: 'Latte', quantity: 6, amountMinor: 39410 },
+  { key: 'p3', productId: 'p3', name: 'Muffin', quantity: 4, amountMinor: 31528 },
+  { key: 'p4', productId: 'p4', name: 'Bagel', quantity: 2, amountMinor: 15764 },
+  { key: 'p5', productId: 'p5', name: 'Tea', quantity: 1, amountMinor: 11823 },
+];
 const text = (testID: string) => screen.getByTestId(testID).textContent;
 type LayoutNode = HTMLElement & { __reactLayoutHandler(event: { nativeEvent: { layout: { width: number } } }): void };
 // RNW attaches onLayout to the node; jsdom has no ResizeObserver, so the test reports the size.
@@ -161,23 +169,55 @@ test('Where sold reads an empty period', () => {
   expect(text('card-where-sold-empty')).toBe('No sales in this period.');
 });
 
+test('the Top products card lists the four best sellers with amount, share bar and units sold', () => {
+  cards({ products });
+  expect(text('card-products-figure')).toBe('23');
+  expect(screen.getAllByTestId(/^card-products-row-\d$/).map(row => row.getAttribute('data-testid'))).toEqual([
+    'card-products-row-0', 'card-products-row-1', 'card-products-row-2', 'card-products-row-3',
+  ]);
+  expect(screen.queryByTestId('card-products-row-4')).toBeNull();
+  const first = within(screen.getByTestId('card-products-row-0'));
+  expect(first.getByText('Espresso')).not.toBeNull();
+  expect(first.getByText('$591.15')).not.toBeNull();
+  expect(first.getByText('37.5% · 10 sold')).not.toBeNull();
+  const fourth = within(screen.getByTestId('card-products-row-3'));
+  expect(fourth.getByText('Bagel')).not.toBeNull();
+  expect(fourth.getByText('$157.64')).not.toBeNull();
+  expect(fourth.getByText('10% · 2 sold')).not.toBeNull();
+  expect((screen.getByTestId('card-products-row-0-bar').firstElementChild as HTMLElement).style.transform).toBe('translateX(-62.5%)');
+  expect(screen.queryByTestId('card-products-open')).toBeNull();
+});
+
+test('a product with no name reads Unknown, and a tiny share still draws a sliver', () => {
+  cards({ products: [{ key: 'x', productId: '', name: '', quantity: 1, amountMinor: 10 }] });
+  expect(within(screen.getByTestId('card-products-row-0')).getByText('Unknown')).not.toBeNull();
+  expect((screen.getByTestId('card-products-row-0-bar').firstElementChild as HTMLElement).style.transform).toBe('translateX(-98%)');
+});
+
+test('the Top products card reads an empty period', () => {
+  cards({ period: empty });
+  expect(text('card-products-figure')).toBe('0');
+  expect(text('card-products-empty')).toBe('No sales in this period.');
+  expect(screen.queryByTestId('card-products-row-0')).toBeNull();
+});
+
 const rows = () => screen.getAllByTestId(/^reports-period-row-\d$/).map(row =>
   Array.from(row.children).map(cell => cell.firstElementChild?.getAttribute('data-testid') ?? null));
 
 test('the grid follows the measured width: three, two or one column', () => {
   cards();
-  expect(rows()).toEqual([['card-orders'], ['card-payments'], ['card-where-sold']]);
+  expect(rows()).toEqual([['card-orders'], ['card-payments'], ['card-where-sold'], ['card-products']]);
   layout('reports-period-section', 1200);
-  expect(rows()).toEqual([['card-orders', 'card-payments', 'card-where-sold']]);
+  expect(rows()).toEqual([['card-orders', 'card-payments', 'card-where-sold'], ['card-products', null, null]]);
   layout('reports-period-section', 700);
-  expect(rows()).toEqual([['card-orders', 'card-payments'], ['card-where-sold', null]]);
+  expect(rows()).toEqual([['card-orders', 'card-payments'], ['card-where-sold', 'card-products']]);
   layout('reports-period-section', 400);
-  expect(rows()).toEqual([['card-orders'], ['card-payments'], ['card-where-sold']]);
+  expect(rows()).toEqual([['card-orders'], ['card-payments'], ['card-where-sold'], ['card-products']]);
 });
 
 test('each card is v2\'s Card: the card fill on the page, its border and radius (cards/card.tsx:25)', () => {
   cards();
-  for (const id of ['card-orders', 'card-payments', 'card-where-sold']) {
+  for (const id of ['card-orders', 'card-payments', 'card-where-sold', 'card-products']) {
     expect(classesOf(id)).toEqual(expect.arrayContaining([...CARD_CLASSES, 'border-border', 'p-4']));
   }
 });
