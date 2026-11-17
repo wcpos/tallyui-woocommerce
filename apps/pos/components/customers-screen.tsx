@@ -129,7 +129,7 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
   ) : searching ? (
     <Text testID="customers-searching" className={`py-4 text-muted-foreground ${gutter}`}>Searching…</Text>
   ) : results.length === 0 ? (
-    <EmptyState title={asked ? 'No customers match your search' : 'No customers found'} action={asked ? { label: 'Clear search', onPress: clear } : undefined} />
+    <EmptyState title={asked ? 'No customers match your search' : 'No customers yet'} description={asked ? undefined : 'Customers you add, and anyone who buys from you, will appear here.'} action={asked ? { label: 'Clear search', onPress: clear } : undefined} />
   ) : (
       <ScrollView testID="customers-body">
         {width < NARROW_WIDTH ? shown.map(c => (

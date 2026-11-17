@@ -126,11 +126,11 @@ test('two characters search and replace the rows; clearing the box goes back to 
   expect(search.mock.calls).toEqual([[''], ['ad'], ['']]);
 });
 
-test('an empty default list says No customers found without Clear search', async () => {
+test("an empty default list says No customers yet with v2's description and no Clear search", async () => {
   renderScreen(vi.fn<CustomerSource['search']>().mockResolvedValue([]));
-  await vi.waitFor(() => expect(screen.getByTestId('no-data-message-title').textContent).toBe('No customers found'));
+  await vi.waitFor(() => expect(screen.getByTestId('no-data-message-title').textContent).toBe('No customers yet'));
   expect(screen.queryByTestId('no-data-message-action')).toBeNull();
-  expect(screen.queryByTestId('no-data-message-description')).toBeNull();
+  expect(screen.getByTestId('no-data-message-description').textContent).toBe('Customers you add, and anyone who buys from you, will appear here.');
   expect(screen.queryByTestId('data-table-count')).toBeNull();
 });
 
@@ -232,7 +232,7 @@ test('with nothing matching it says so and Clear search empties the box', async 
   expect(clear.textContent).toBe('Clear search');
   fireEvent.click(clear);
   expect((box as HTMLInputElement).value).toBe('');
-  await vi.waitFor(() => expect(screen.getByTestId('no-data-message-title').textContent).toBe('No customers found'));
+  await vi.waitFor(() => expect(screen.getByTestId('no-data-message-title').textContent).toBe('No customers yet'));
   expect(search.mock.calls).toEqual([[''], ['zzz'], ['']]);
 });
 

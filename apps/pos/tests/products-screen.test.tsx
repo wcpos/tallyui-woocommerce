@@ -246,10 +246,10 @@ test('search: a SKU match narrows the list and the footer counts shown against t
   expect(text('data-table-count')).toBe('Showing 1 of 3');
 });
 
-test('no match: "No products found", and Clear filters brings the rows back', async () => {
+test('no match: "Nothing here matches the filters", and Clear filters brings the rows back', async () => {
   renderScreen(fixtureProducts);
   typeSearch('no such product');
-  await waitFor(() => expect(text('no-data-message-title')).toBe('No products found'));
+  await waitFor(() => expect(text('no-data-message-title')).toBe('Nothing here matches the filters'));
   expect(rowIds()).toHaveLength(0);
   fireEvent.click(within(screen.getByTestId('no-data-message')).getByRole('button', { name: 'Clear filters' }));
   expect(rowIds()).toHaveLength(3);
@@ -329,11 +329,11 @@ test('Category leaves that category, and with a search only products that match 
   expect(text('data-table-count')).toBe('Showing 1 of 3');
 });
 
-test('a chip and a search that leave nothing: "No products found", and Clear filters clears both', async () => {
+test('a chip and a search that leave nothing: "Nothing here matches the filters", and Clear filters clears both', async () => {
   renderScreen(fixtureProducts);
   fireEvent.click(onSalePill());
   typeSearch(espresso.sku);
-  await waitFor(() => expect(text('no-data-message-title')).toBe('No products found'));
+  await waitFor(() => expect(text('no-data-message-title')).toBe('Nothing here matches the filters'));
   fireEvent.click(within(screen.getByTestId('no-data-message')).getByRole('button', { name: 'Clear filters' }));
   expect(rowIds()).toHaveLength(3);
   expect(text('data-table-count')).toBe('Showing 3 of 3');
