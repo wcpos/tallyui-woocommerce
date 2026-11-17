@@ -88,7 +88,7 @@ async function setup({ multiplePayments, storeSettings = noTaxSettings, rail = f
 }
 
 async function payCash() {
-  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(within(screen.getByTestId('product-tile-80')).getByText('Espresso'));
   fireEvent.click(screen.getByTestId('cart-checkout'));
   await takeCash(1000);
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
