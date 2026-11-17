@@ -126,6 +126,7 @@ test('the receipt stage holds auto print until the store template has loaded', a
   let resolve!: (t: ReceiptTemplate[]) => void;
   const pending = new Promise<ReceiptTemplate[]>(r => { resolve = r; });
   await sellEspresso(() => pending);
+  await screen.findByTestId('receipt-order');
   expect(print).not.toHaveBeenCalled();
   resolve([marked]);
   const frame = await screen.findByTestId('store-receipt-frame');
