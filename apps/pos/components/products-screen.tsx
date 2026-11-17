@@ -331,7 +331,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   const body = total === 0 ? (
     <EmptyState title="No products yet" description="Products you add to the store will appear here." />
   ) : shown.length === 0 ? (
-    <EmptyState title="No products found" action={{ label: 'Clear filters', onPress: clear }} />
+    <EmptyState title="Nothing here matches the filters" action={{ label: 'Clear filters', onPress: clear }} />
   ) : narrow ? (
         <ScrollView testID="products-body">
           {listed.map(doc => (

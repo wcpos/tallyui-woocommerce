@@ -61,7 +61,7 @@ export function QuickFilterEditor({ initial, products, connector, currency, base
     <Text>Button name</Text>
     <Input><Input.Field testID="quick-filter-name" placeholder="e.g. Sale wines" accessibilityLabel="Button name"
       value={draft.label} onChangeText={label => setDraft({ ...draft, label })} /></Input>
-    <Text>Show products where</Text>
+    <Text>Show products that are…</Text>
     {draft.conditions.map((condition, index) => {
       const update = (next: QuickFilterCondition) => setDraft({ ...draft, conditions: draft.conditions.map((row, i) => i === index ? next : row) });
       let editor: JSX.Element;
@@ -161,7 +161,7 @@ export function QuickFilterEditor({ initial, products, connector, currency, base
       setDraft({ ...draft, conditions: [...draft.conditions, createCondition(firstUnusedField)] });
     }}><Text>Add condition</Text></Button>
     <Text>Order by</Text>
-    <Select value={draft.sort ? { value: draft.sort.field, label: sortLabels[draft.sort.field] } : { value: 'default', label: 'Default order' }}
+    <Select value={draft.sort ? { value: draft.sort.field, label: sortLabels[draft.sort.field] } : { value: 'default', label: "The grid's usual order" }}
       onValueChange={option => {
         if (!option) return;
         if (option.value === 'default') {
@@ -171,7 +171,7 @@ export function QuickFilterEditor({ initial, products, connector, currency, base
       }}>
       <SelectTrigger testID="quick-filter-sort-field"><SelectValue /></SelectTrigger>
       <SelectContent><SelectGroup>
-        <SelectItem value="default" label="Default order" testID="quick-filter-sort-option-default"><Text>Default order</Text></SelectItem>
+        <SelectItem value="default" label="The grid's usual order" testID="quick-filter-sort-option-default"><Text>The grid's usual order</Text></SelectItem>
         {QUICK_FILTER_SORT_FIELDS.map(field => <SelectItem key={field} value={field} label={sortLabels[field]}
           testID={`quick-filter-sort-option-${field}`}><Text>{sortLabels[field]}</Text></SelectItem>)}
       </SelectGroup></SelectContent>

@@ -80,7 +80,21 @@ test('a sort alone is enough to save', () => {
   });
 });
 
-test('choosing Default order removes the sort', () => {
+test('the conditions heading reads v2\'s "Show products that are…"', () => {
+  renderEditor();
+  expect(screen.getByText('Show products that are…')).not.toBeNull();
+  expect(screen.queryByText('Show products where')).toBeNull();
+});
+
+test('the default sort reads "The grid\'s usual order" on the trigger and in the list', () => {
+  renderEditor();
+  expect(screen.getByTestId('quick-filter-sort-field').textContent).toContain("The grid's usual order");
+  fireEvent.click(screen.getByTestId('quick-filter-sort-field'));
+  expect(screen.getByTestId('quick-filter-sort-option-default').textContent).toContain("The grid's usual order");
+  expect(screen.queryByText('Default order')).toBeNull();
+});
+
+test("choosing the grid's usual order removes the sort", () => {
   const { onSave } = renderEditor({
     id: 'sale', type: 'quick', label: 'Sale', conditions: [{ field: 'on_sale', value: true }], sort: { field: 'price', dir: 'desc' },
   });
