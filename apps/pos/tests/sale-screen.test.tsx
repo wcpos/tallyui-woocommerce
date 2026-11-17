@@ -164,6 +164,7 @@ test('a variable parent barcode opens the chooser without adding', () => {
   fireEvent.change(input, { target: { value: '2000000000121' } });
   fireEvent.keyDown(input, { key: 'Enter' });
   expect(screen.getByText('Choose an option')).not.toBeNull();
+  expect(getToasts()).toEqual([expect.objectContaining({ id: 'pos-scan-alert', type: 'warning', title: 'Choose a variation', description: 'T-Shirt — 2000000000121' })]);
   expect(cartTabCount()).toBe('New');
 });
 
@@ -172,7 +173,8 @@ test('an unknown barcode stays in search and reports no match', () => {
   const input = screen.getByPlaceholderText('Search products') as HTMLInputElement;
   fireEvent.change(input, { target: { value: '999999999' } });
   fireEvent.keyDown(input, { key: 'Enter' });
-  expect(productsPane().getByText('Barcode not found — 999999999')).not.toBeNull();
+  expect(getToasts()).toEqual([expect.objectContaining({ id: 'pos-scan-alert', type: 'warning', title: 'Barcode not found', description: '999999999 — not in this store' })]);
+  expect(productsPane().queryByText('Barcode not found — 999999999')).toBeNull();
   expect(input.value).toBe('999999999');
   expect(cartTabCount()).toBe('New');
 });
@@ -182,7 +184,8 @@ test('an out-of-stock barcode reports stock and adds nothing', () => {
   const input = screen.getByPlaceholderText('Search products') as HTMLInputElement;
   fireEvent.change(input, { target: { value: '2000000000015' } });
   fireEvent.keyDown(input, { key: 'Enter' });
-  expect(productsPane().getByText('Espresso out of stock')).not.toBeNull();
+  expect(getToasts()).toEqual([expect.objectContaining({ id: 'pos-scan-alert', type: 'warning', title: 'Espresso out of stock', description: '2000000000015' })]);
+  expect(productsPane().queryByText('Espresso out of stock')).toBeNull();
   expect(input.value).toBe('2000000000015');
   expect(cartTabCount()).toBe('New');
 });
@@ -192,7 +195,8 @@ test('several barcode matches report the count and keep the code in search', () 
   const input = screen.getByPlaceholderText('Search products') as HTMLInputElement;
   fireEvent.change(input, { target: { value: '2000000000015' } });
   fireEvent.keyDown(input, { key: 'Enter' });
-  expect(productsPane().getByText('Several matches: 2 products found — 2000000000015')).not.toBeNull();
+  expect(getToasts()).toEqual([expect.objectContaining({ id: 'pos-scan-alert', type: 'warning', title: 'Several matches', description: '2 products found locally — 2000000000015' })]);
+  expect(productsPane().queryByText('Several matches: 2 products found — 2000000000015')).toBeNull();
   expect(input.value).toBe('2000000000015');
   expect(cartTabCount()).toBe('New');
 });
@@ -212,7 +216,8 @@ test('with scan sound on, an added product plays success and a parent or unknown
   expect(tones()).toEqual(['sine 880', 'sine 1320']);
   installFakeAudio();
   scanInto(input, '999999999');
-  expect(productsPane().getByText('Barcode not found — 999999999')).not.toBeNull();
+  expect(getToasts()).toContainEqual(expect.objectContaining({ id: 'pos-scan-alert', description: '999999999 — not in this store' }));
+  expect(productsPane().queryByText('Barcode not found — 999999999')).toBeNull();
   expect(tones()).toEqual(['square 330', 'square 220']);
   installFakeAudio();
   scanInto(input, '2000000000121');
@@ -229,7 +234,7 @@ test('with scan sound on, a scanned product the cart refuses plays failure, not 
   scanInto(screen.getByPlaceholderText('Search products'), '2000000000015');
   expect(productsPane().getByText('Price must be integer minor units')).not.toBeNull();
   expect(screen.queryByText('Espresso added to cart')).toBeNull();
-  expect(getToasts()).toEqual([]);
+  expect(getToasts()).toEqual([expect.objectContaining({ id: 'pos-scan-alert', type: 'error', title: 'Couldn’t add to cart', description: 'Espresso' })]);
   expect(tones()).toEqual(['square 330', 'square 220']);
 });
 
@@ -239,7 +244,8 @@ test('with scan sound off, a scan plays nothing', () => {
   const input = screen.getByPlaceholderText('Search products');
   scanInto(input, '2000000000015');
   scanInto(input, '999999999');
-  expect(productsPane().getByText('Barcode not found — 999999999')).not.toBeNull();
+  expect(getToasts()).toContainEqual(expect.objectContaining({ id: 'pos-scan-alert', description: '999999999 — not in this store' }));
+  expect(productsPane().queryByText('Barcode not found — 999999999')).toBeNull();
   expect(tones()).toEqual([]);
 });
 

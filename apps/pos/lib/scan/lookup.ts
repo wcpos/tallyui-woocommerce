@@ -45,10 +45,3 @@ export function scanOutcome<Doc>(products: Doc[], traits: ProductTraits<Doc>, co
   if (result.kind === 'product') return { kind: 'choose', product: result.product };
   return result;
 }
-
-/** v2's scan-miss copy: several matches, or none. */
-export function scanMissText(outcome: { kind: 'several'; count: number } | { kind: 'none' }, code: string): string {
-  return outcome.kind === 'several'
-    ? `Several matches: ${outcome.count} products found — ${code}`
-    : `Barcode not found — ${code}`;
-}
