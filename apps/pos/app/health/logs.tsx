@@ -1,4 +1,6 @@
 import { Redirect } from 'expo-router';
+import { useEffect } from 'react';
+import { markLogsRead } from '../../lib/logs/unread-errors';
 import { CatalogueUnavailable } from '../../components/catalogue-unavailable';
 import { LogsScreen } from '../../components/logs-screen';
 import { useSession } from '../../lib/auth/session-context';
@@ -10,6 +12,9 @@ export default function HealthLogs() {
   const { session, ready } = useSession();
   const { catalogue, error } = useCatalogue();
   const outbox = useOutbox();
+  const site = session?.site.home;
+  // v2 unread-logs.tsx: the Logs screen calls markAsRead when it opens.
+  useEffect(() => { if (site) markLogsRead(site); }, [site]);
   if (!ready) return null;
   if (!session) return <Redirect href="/connect" />;
   if (!catalogue) return <CatalogueUnavailable message={error ?? `Connecting to ${session.site.name}…`} />;

@@ -9,6 +9,7 @@ import { SessionOnlineStatusProvider } from '../lib/online/online-status';
 import { CatalogueProvider } from '../lib/catalogue/catalogue-context';
 import { OutboxProvider } from '../lib/sale/outbox-context';
 import { RegisterProvider } from '../lib/register/register-context';
+import { UnreadLogsProvider } from '../lib/logs/unread-errors';
 import { Toaster } from '../components/toaster';
 import { AppFrame } from '../components/app-rail';
 import { railNavigation } from '../lib/layout/rail-routes';
@@ -38,8 +39,10 @@ export default function RootLayout() {
           <CatalogueProvider>
             <OutboxProvider>
               <RegisterProvider>
-                <RailFrame><Stack screenOptions={{ headerShown: false }} /></RailFrame>
-                <PortalHost />
+                <UnreadLogsProvider>
+                  <RailFrame><Stack screenOptions={{ headerShown: false }} /></RailFrame>
+                  <PortalHost />
+                </UnreadLogsProvider>
               </RegisterProvider>
             </OutboxProvider>
           </CatalogueProvider>
