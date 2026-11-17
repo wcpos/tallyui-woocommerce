@@ -292,6 +292,9 @@ test('Escape on a tile in a level returns to the root; another key does not', ()
   fireEvent.keyDown(screen.getByTestId('product-tile-102'), { key: 'Enter' });
   expect(screen.queryByTestId('browse-root')).toBeNull();
   expect(screen.getByTestId('products-breadcrumb').textContent).toBe('CategoriesMerch');
+  fireEvent.keyDown(screen.getByTestId('product-tile-102'), { key: 'a' });
+  expect(screen.queryByTestId('browse-root')).toBeNull();
+  expect(screen.getByTestId('products-breadcrumb').textContent).toBe('CategoriesMerch');
   fireEvent.keyDown(screen.getByTestId('product-tile-102'), { key: 'Escape' });
   expect(screen.getByTestId('browse-root')).not.toBeNull();
   expect(screen.queryByTestId('catalogue-level-back')).toBeNull();
