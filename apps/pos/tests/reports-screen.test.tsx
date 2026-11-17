@@ -1239,3 +1239,20 @@ test("This month, live late in the month, runs the line to today's day", async (
     vi.useRealTimers();
   }
 }, 40_000);
+
+test('Sales shows the picked custom dates without a preset separator', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 9, 6, 14, 30));
+  try {
+    await setup();
+    fireEvent.click(screen.getByTestId('reports-period'));
+    await screen.findByTestId('reports-period-calendar');
+    fireEvent.click(screen.getByTestId('reports-period-calendar-day-2026-10-02'));
+    fireEvent.click(screen.getByTestId('reports-period-calendar-day-2026-10-04'));
+    fireEvent.click(screen.getByTestId('reports-period-apply'));
+    expect(text('reports-period')).toContain('2–4 Oct');
+    expect(text('reports-period')).not.toContain('·');
+  } finally {
+    vi.useRealTimers();
+  }
+}, 40_000);

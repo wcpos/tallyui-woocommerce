@@ -5,7 +5,7 @@ import { Path } from 'react-native-svg';
 import { createSvgIcon, IconButton, Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
 import {
-  formatClosureDate, presetRange, type Closure, type DatePreset, type PosOrder,
+  formatClosureDate, presetRange, type Closure, type DatePreset, type DayRange, type PosOrder,
 } from '@tallyui/pos';
 import { Portal } from '@tallyui/primitives';
 import { useSession } from '../lib/auth/session-context';
@@ -54,7 +54,8 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const register = useRegister();
   // The presets are read from the day the screen opened, as today's range was.
   const [opened] = useState(() => new Date());
-  const [preset, setPreset] = useState<DatePreset>('today');
+  const [period, setPeriod] = useState<DatePreset | DayRange>('today');
+  const preset = typeof period === 'string' ? period : undefined;
   const [compare, setCompare] = useState<Compare>('yesterday');
   const [cashierId, setCashierId] = useState<string | null>(null);
   const now = useMinuteClock();
@@ -68,17 +69,18 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const [chartView, setChartView] = useState<'hour' | 'run'>('hour');
   // v2 reports/index.tsx `room`: Closures replaces Sales in the same screen; device state for the visit, not persisted.
   const [reportsRoom, setReportsRoom] = useState<'sales' | 'closures'>('sales');
-  const [closuresPreset, setClosuresPreset] = useState<DatePreset>('today');
-  const closuresRange = useMemo(() => presetRange(closuresPreset, opened, 'device'), [closuresPreset, opened]);
+  const [closuresPeriod, setClosuresPeriod] = useState<DatePreset | DayRange>('today');
+  const closuresRange = useMemo(() => typeof closuresPeriod === 'string' ? presetRange(closuresPeriod, opened, 'device') : closuresPeriod, [closuresPeriod, opened]);
   const [closuresCashier, setClosuresCashier] = useState<string | null>(null);
   const [closureFilter, setClosureFilter] = useState<ClosureFilter>('all');
   const wide = useWindowDimensions().width >= 600;
   const gutter = useAreaGutter();
   locale = locale.replaceAll('_', '-');
   const { range, multiDay, comparison, bounds, since, weekday, comparisonName } = useMemo(
-    () => salesPeriod(preset, compare, opened, locale), [preset, compare, opened, locale]);
+    () => salesPeriod(period, compare, opened, locale), [period, compare, opened, locale]);
   const shown = cashierId === null ? sales : sales.filter(order => order.cashierRef === cashierId);
-  const { label: periodName } = periodLabel(range, preset, locale);
+  const { label, dates } = periodLabel(range, preset ?? 'custom', locale);
+  const periodName = label ?? dates;
   const { live, nowKey } = periodNow(range, multiDay, now);
   const today = formatClosureDate(new Date().toISOString(), { timezone: 'device', locale }).date_ymd;
   const storeKey = session ? ordersDatabaseName(session) : '';
@@ -95,7 +97,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const registerName = register.registerName ?? 'This till';
   const scopeTitle = `${storeName} · ${registerName}`;
   const room = salesRoom(shown, { now, currency, range, preset, comparison });
-  const periodButton = <ReportsPeriod preset={preset} range={range} locale={locale} onPreset={setPreset} />;
+  const periodButton = <ReportsPeriod preset={preset ?? 'custom'} range={range} locale={locale} now={opened} onPreset={setPeriod} onCustom={setPeriod} />;
   const chips = <ReportChips cashiers={reportCashierRows} cashierId={cashierId} onCashier={setCashierId} />;
   const printButton = <PrintSummaryButton wide={wide} onPress={printSummary} />;
   const printDate = (day: string) => formatClosureDate(rangeBounds({ from: day, to: day }).startIso, { timezone: 'device', locale }).date;
@@ -158,7 +160,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
         <ScrollView testID="reports-closures-room" contentContainerClassName={ROOM[gutter]}>
           {/* v2 reports/index.tsx `renderScopeRow`: the date and the cashier chip, then Export CSV at the right. */}
           <View testID="closures-scope-row" className="flex-row flex-wrap items-center gap-2">
-            <View className="shrink-0"><ReportsPeriod preset={closuresPreset} range={closuresRange} locale={locale} onPreset={setClosuresPreset} /></View>
+            <View className="shrink-0"><ReportsPeriod preset={typeof closuresPeriod === 'string' ? closuresPeriod : 'custom'} range={closuresRange} locale={locale} now={opened} onPreset={setClosuresPeriod} onCustom={setClosuresPeriod} /></View>
             <View className="min-w-0 flex-1">
               <ReportChips testID="closures-cashier" allLabel="All cashiers" cashiers={reportCashierRows} cashierId={closuresCashier} onCashier={setClosuresCashier} />
             </View>
