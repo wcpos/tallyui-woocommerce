@@ -14,6 +14,7 @@ import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import { pickReceiptTemplate, renderedStoreReceipt } from '../lib/receipts/store-receipt';
+import { saveReceiptSettings } from '../lib/receipts/receipt-settings';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
@@ -117,6 +118,19 @@ test("the receipt stage shows the store's template in a sandboxed frame, and its
   fireEvent.click(screen.getByTestId('store-receipt-done'));
   await waitFor(() => expect(screen.queryByTestId('store-receipt-frame')).toBeNull());
   expect(screen.getByText(EMPTY_CART_TEXT)).not.toBeNull();
+}, 20_000);
+
+test('the receipt stage holds auto print until the store template has loaded', async () => {
+  saveReceiptSettings({ autoPrint: true, autoShow: true });
+  const print = vi.spyOn(window, 'print').mockImplementation(() => {});
+  let resolve!: (t: ReceiptTemplate[]) => void;
+  const pending = new Promise<ReceiptTemplate[]>(r => { resolve = r; });
+  await sellEspresso(() => pending);
+  expect(print).not.toHaveBeenCalled();
+  resolve([marked]);
+  const frame = await screen.findByTestId('store-receipt-frame');
+  fireEvent.load(frame);
+  await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
 }, 20_000);
 
 test('when the templates cannot be read, the receipt stage keeps the built-in receipt', async () => {
