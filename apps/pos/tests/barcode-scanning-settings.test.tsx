@@ -1,14 +1,16 @@
 import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import * as ReactNative from 'react-native';
 import { BarcodeScanningSettings } from '../components/settings/barcode-scanning-settings';
 import { readScanSettings, SCAN_SETTINGS_KEY, writeScanSettings } from '../lib/scan/scan-settings';
 import { readScanSoundSettings, SCAN_SOUND_KEY, writeScanSoundSettings } from '../lib/scan/scan-sound';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { installFakeAudio, tones } from './fake-audio-context';
 import { memoryStorage } from './memory-storage';
+import { classesOf } from './classes-of';
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
-afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 function burst(keys: string, gapMs: number) {
   act(() => {
@@ -146,4 +148,63 @@ test('a preview plays its row theme even with that kind switched off', () => {
   installFakeAudio();
   fireEvent.click(screen.getByTestId('sound-preview-failure-checkout'));
   expect(tones()).toEqual(['square 240', 'square 240']);
+});
+
+test('the sections sit flat on the page: Scanning first, every later section under a rule', () => {
+  render(<BarcodeScanningSettings />);
+  expect(classesOf('settings-barcode-scanning-group')).not.toContain('border-t');
+  for (const id of ['settings-barcode-sound-group', 'barcode-input-sources', 'settings-barcode-test']) {
+    expect(classesOf(id)).toEqual(expect.arrayContaining(['border-t', 'pt-4']));
+  }
+  expect(classesOf('settings-barcode-scanning-group')).not.toContain('rounded-lg');
+  expect(classesOf('settings-barcode-sound-group')).not.toContain('rounded-lg');
+});
+
+test("each Scanning row is v2's muted key in the 256 / 288 column, with its field in the value column", () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
+  render(<BarcodeScanningSettings />);
+  for (const [row, label] of [
+    ['settings-barcode-threshold-row', 'Barcode Average Time Input Threshold (ms)'],
+    ['settings-barcode-min-chars-row', 'Barcode Minimum Length'],
+    ['settings-barcode-prefix-row', 'Barcode Scanner Prefix'],
+    ['settings-barcode-suffix-row', 'Barcode Scanner Suffix'],
+  ]) {
+    expect(screen.getByTestId(`${row}-label`).textContent).toBe(label);
+    expect(classesOf(`${row}-label`)).toEqual(expect.arrayContaining(['text-muted-foreground', 'text-sm']));
+  }
+  expect(classesOf('settings-barcode-threshold-row-key')).toEqual(expect.arrayContaining(['w-64', 'lg:w-72']));
+  expect(screen.getByTestId('settings-barcode-threshold-row').contains(screen.getByTestId('settings-barcode-threshold'))).toBe(true);
+});
+
+test('the Sound options are indented rows under Play a sound on scan', () => {
+  writeScanSoundSettings({ enabled: true });
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
+  render(<BarcodeScanningSettings />);
+  expect(classesOf('settings-barcode-sound-row-key')).not.toContain('pl-4');
+  for (const id of ['settings-barcode-sound-volume-row', 'settings-barcode-sound-success-row', 'settings-barcode-sound-failure-row']) {
+    expect(classesOf(`${id}-key`)).toContain('pl-4');
+  }
+  expect(classesOf('settings-barcode-sound-theme-row')).toContain('pl-4');
+  const volume = screen.getByTestId('settings-barcode-sound-volume-row');
+  expect(volume.contains(screen.getByTestId('settings-barcode-sound-volume'))).toBe(true);
+  expect(volume.contains(screen.getByTestId('sound-preview-volume'))).toBe(true);
+});
+
+test('Scanner sits between Sound and the Test, with the keyboard copy', () => {
+  render(<BarcodeScanningSettings />);
+  const titles = ['Sound', 'Scanner', 'Barcode Scanning Test'].map(title => screen.getByText(title));
+  expect(titles[0].compareDocumentPosition(titles[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(titles[1].compareDocumentPosition(titles[2]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.getByTestId('barcode-input-sources-description').textContent).toBe('Almost all barcode scanners pair as a Bluetooth or USB keyboard. Pair it in your device’s settings, then scan into the POS — the app recognises the scan automatically.');
+  expect(screen.getByTestId('scanner-no-setup-needed').textContent).toBe('No setup needed for most scanners.');
+  expect(screen.getByTestId('barcode-input-sources').textContent).not.toContain('WCPOS');
+});
+
+test('Scanner setup guide opens the scanner docs', () => {
+  const open = vi.spyOn(ReactNative.Linking, 'openURL').mockResolvedValue(true);
+  render(<BarcodeScanningSettings />);
+  const link = screen.getByTestId('scanner-setup-guide-link');
+  expect(link.textContent).toBe('Scanner setup guide');
+  fireEvent.click(link);
+  expect(open).toHaveBeenCalledExactlyOnceWith('https://docs.wcpos.com/hardware/scanners/setup-wizard');
 });

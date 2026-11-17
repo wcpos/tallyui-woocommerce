@@ -1,6 +1,6 @@
 import { useState, type JSX } from 'react';
 import { Pressable, View } from 'react-native';
-import { Badge, Button, Input, RadioGroup, RadioGroupItem, SettingsGroup, SettingsRow, Slider, Switch, Text } from '@tallyui/components';
+import { Badge, Button, Input, RadioGroup, RadioGroupItem, Slider, Switch, Text } from '@tallyui/components';
 import { useScanSettings } from '../../lib/scan/scan-settings';
 import {
   MAX_SCAN_SOUND_VOLUME, MIN_SCAN_SOUND_VOLUME, normalizeScanSoundTheme, playScanTone, SCAN_SOUND_THEMES, useScanSoundSettings,
@@ -8,6 +8,8 @@ import {
 } from '../../lib/scan/scan-sound';
 import { useWedgeScanner } from '../../lib/scan/use-wedge-scanner';
 import type { WedgeAttempt, WedgeResult } from '../../lib/scan/wedge';
+import { SettingsField, SettingsSection, SETTINGS_KEY_CLASS } from './settings-form';
+import { DocsLink, SCANNER_DOCS_URL } from '../docs-link';
 
 // v2 settings.barcode_test_result_*; badge tones follow v2's History (ok, warning, muted).
 const RESULT_WORDS: Record<WedgeResult, string> = { scan: 'scan', too_short: 'too short', typing: 'typing' };
@@ -25,7 +27,7 @@ function verdict(attempt: WedgeAttempt | null): string {
 function CountField({ testID, label, value, onChange }: { testID: string; label: string; value: number; onChange(next: number): void }) {
   const [text, setText] = useState(String(value));
   return (
-    <Input><Input.Field testID={testID} accessibilityLabel={label} keyboardType="number-pad" value={text}
+    <Input className="w-full"><Input.Field testID={testID} accessibilityLabel={label} keyboardType="number-pad" value={text}
       onChangeText={next => {
         setText(next);
         // v2's formSchema: a whole number, 0 or more; anything else stays on screen unsaved.
@@ -36,7 +38,7 @@ function CountField({ testID, label, value, onChange }: { testID: string; label:
 
 function TextField({ testID, label, value, onChange }: { testID: string; label: string; value: string; onChange(next: string): void }) {
   return (
-    <Input><Input.Field testID={testID} accessibilityLabel={label} autoCapitalize="none" autoCorrect={false}
+    <Input className="w-full"><Input.Field testID={testID} accessibilityLabel={label} autoCapitalize="none" autoCorrect={false}
       value={value} onChangeText={onChange} /></Input>
   );
 }
@@ -46,7 +48,7 @@ function ScanTestPanel(): JSX.Element {
   // Claims the wedge while the page is open, so a test scan never rings up on the till underneath.
   useWedgeScanner(() => {}, true, setAttempt);
   return (
-    <View className="gap-3 px-4 py-3">
+    <View className="gap-3 pt-1">
       <View className="gap-1">
         <Text className="text-sm font-medium text-foreground">Keypress Event</Text>
         <Text testID="barcode-test-keys">{attempt?.raw || '—'}</Text>
@@ -80,15 +82,15 @@ function SoundSettings(): JSX.Element {
   // Previews ignore the success/failure switches, as v2's do.
   const preview = (kind: 'success' | 'failure', theme: ScanSoundTheme) => playScanTone(kind, { theme, volume: sound.volume });
   return (
-    <SettingsGroup title="Sound" testID="settings-barcode-sound-group">
-      <SettingsRow label="Play a sound on scan" action={
+    <SettingsSection title="Sound" testID="settings-barcode-sound-group">
+      <SettingsField testID="settings-barcode-sound-row" label="Play a sound on scan">
         <Switch size="sm" testID="settings-barcode-sound" accessibilityLabel="Play a sound on scan" checked={sound.enabled}
           onCheckedChange={enabled => update({ enabled })} />
-      } />
+      </SettingsField>
       {sound.enabled && (
         <View testID="scan-sound-options">
-          <View className="gap-2 px-4 py-3">
-            <Text className="text-sm font-medium text-foreground">Sound theme</Text>
+          <View testID="settings-barcode-sound-theme-row" className="gap-1 py-1 pl-4">
+            <Text className={SETTINGS_KEY_CLASS}>Sound theme</Text>
             <RadioGroup value={sound.theme} onValueChange={theme => update({ theme: normalizeScanSoundTheme(theme) })}>
               {SCAN_SOUND_THEMES.map(theme => (
                 <View key={theme} className="min-h-11 flex-row items-center gap-2">
@@ -105,26 +107,40 @@ function SoundSettings(): JSX.Element {
               ))}
             </RadioGroup>
           </View>
-          <View className="flex-row items-center gap-3 px-4 py-3">
-            <Text className="text-sm font-medium text-foreground">Volume</Text>
-            <View className="flex-1 px-2">
+          <SettingsField indent testID="settings-barcode-sound-volume-row" label="Volume" trailing={
+            <PreviewButton testID="sound-preview-volume" label="Preview success sound" glyph="▶"
+              onPress={() => preview('success', sound.theme)} />
+          }>
+            <View className="w-full px-2">
               <Slider testID="settings-barcode-sound-volume" aria-label="Volume" value={sound.volume}
                 min={MIN_SCAN_SOUND_VOLUME} max={MAX_SCAN_SOUND_VOLUME} step={0.05} onValueChange={volume => update({ volume })} />
             </View>
-            <PreviewButton testID="sound-preview-volume" label="Preview success sound" glyph="▶"
-              onPress={() => preview('success', sound.theme)} />
-          </View>
-          <SettingsRow label="Success sound" action={
+          </SettingsField>
+          <SettingsField indent testID="settings-barcode-sound-success-row" label="Success sound">
             <Switch size="sm" testID="settings-barcode-sound-success" accessibilityLabel="Success sound" checked={sound.success}
               onCheckedChange={success => update({ success })} />
-          } />
-          <SettingsRow label="Failure sound" action={
+          </SettingsField>
+          <SettingsField indent testID="settings-barcode-sound-failure-row" label="Failure sound">
             <Switch size="sm" testID="settings-barcode-sound-failure" accessibilityLabel="Failure sound" checked={sound.failure}
               onCheckedChange={failure => update({ failure })} />
-          } />
+          </SettingsField>
         </View>
       )}
-    </SettingsGroup>
+    </SettingsSection>
+  );
+}
+
+// v2 input-sources.tsx:326-362 with no saved scanner profile (the keyboard lane); "Direct connection" (HID-POS, serial, BLE pairing) waits for TallyUI #682.
+function ScannerSection(): JSX.Element {
+  return (
+    <SettingsSection title="Scanner" testID="barcode-input-sources"
+      description="Almost all barcode scanners pair as a Bluetooth or USB keyboard. Pair it in your device’s settings, then scan into the POS — the app recognises the scan automatically.">
+      <View className="gap-2 pt-1">
+        {/* v2's `subheading` rank (text/ladder.ts:12, text-base font-ui). */}
+        <Text testID="scanner-no-setup-needed" className="text-base font-medium text-foreground">No setup needed for most scanners.</Text>
+        <DocsLink testID="scanner-setup-guide-link" href={SCANNER_DOCS_URL}>Scanner setup guide</DocsLink>
+      </View>
+    </SettingsSection>
   );
 }
 
@@ -132,26 +148,27 @@ export function BarcodeScanningSettings(): JSX.Element {
   const [settings, update] = useScanSettings();
   return (
     <View testID="screen-settings-barcode-scanning" className="gap-5">
-      <SettingsGroup title="Scanning" testID="settings-barcode-scanning-group">
-        <SettingsRow label="Barcode Average Time Input Threshold (ms)" action={
+      <SettingsSection first title="Scanning" testID="settings-barcode-scanning-group">
+        <SettingsField testID="settings-barcode-threshold-row" label="Barcode Average Time Input Threshold (ms)">
           <CountField testID="settings-barcode-threshold" label="Barcode Average Time Input Threshold (ms)"
             value={settings.threshold} onChange={threshold => update({ threshold })} />
-        } />
-        <SettingsRow label="Barcode Minimum Length" action={
+        </SettingsField>
+        <SettingsField testID="settings-barcode-min-chars-row" label="Barcode Minimum Length">
           <CountField testID="settings-barcode-min-chars" label="Barcode Minimum Length"
             value={settings.minChars} onChange={minChars => update({ minChars })} />
-        } />
-        <SettingsRow label="Barcode Scanner Prefix" action={
+        </SettingsField>
+        <SettingsField testID="settings-barcode-prefix-row" label="Barcode Scanner Prefix">
           <TextField testID="settings-barcode-prefix" label="Barcode Scanner Prefix"
             value={settings.prefix} onChange={prefix => update({ prefix })} />
-        } />
-        <SettingsRow label="Barcode Scanner Suffix" action={
+        </SettingsField>
+        <SettingsField testID="settings-barcode-suffix-row" label="Barcode Scanner Suffix">
           <TextField testID="settings-barcode-suffix" label="Barcode Scanner Suffix"
             value={settings.suffix} onChange={suffix => update({ suffix })} />
-        } />
-      </SettingsGroup>
+        </SettingsField>
+      </SettingsSection>
       <SoundSettings />
-      <SettingsGroup title="Barcode Scanning Test" testID="settings-barcode-test"><ScanTestPanel /></SettingsGroup>
+      <ScannerSection />
+      <SettingsSection title="Barcode Scanning Test" testID="settings-barcode-test"><ScanTestPanel /></SettingsSection>
     </View>
   );
 }
