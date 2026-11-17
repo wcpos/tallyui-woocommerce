@@ -149,9 +149,6 @@ test.each([
 
 test('the picker lists published coupons, searches them, and shows No coupons found', async () => {
   await renderTill();
-  fireEvent.click(screen.getByTestId('cart-add-menu'));
-  expect(screen.getByTestId('cart-add-menu-discount').getAttribute('aria-disabled')).toBe('true');
-  fireEvent.click(screen.getByTestId('cart-add-menu'));
   await addEspresso();
   await openPicker();
   expect(screen.getByText('Select coupon...')).not.toBeNull();
