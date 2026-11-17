@@ -17,6 +17,10 @@ function product(id: number, name: string, fields: Record<string, unknown> = {})
   };
 }
 
+function variation(id: number, fields: Record<string, unknown> = {}) {
+  return { id, status: 'publish', price: '10.00', regular_price: '10.00', sale_price: '', ...fields };
+}
+
 function setWidth(width: number) {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width, height: 800, scale: 1, fontScale: 1 });
 }
@@ -123,6 +127,78 @@ test('prices: price, regular and sale price as money in the store currency; an e
   expect(text('product-sale_price-1')).toBe('$15.00');
   expect(text('product-regular_price-2')).toBe('$4.50');
   expect(text('product-sale_price-2')).toBe('');
+});
+
+test('a variable product shows its variations\' range in Price, Regular Price and Sale Price as "min - max"', () => {
+  renderScreen([product(1, 'Hoodie', {
+    type: 'variable', price: '99', regular_price: '99', sale_price: '', variations: [11, 12, 13],
+    variation_docs: [
+      variation(11, { price: '25', regular_price: '25', sale_price: '' }),
+      variation(12, { price: '57', regular_price: '60', sale_price: '57' }),
+      variation(13, { status: 'draft', price: '5', regular_price: '5', sale_price: '5' }),
+    ],
+  })]);
+  expect(text('product-price-1')).toBe('$25.00 - $57.00');
+  expect(text('product-regular_price-1')).toBe('$25.00 - $60.00');
+  expect(text('product-sale_price-1')).toBe('$57.00');
+});
+
+test('a variable product whose variations share a price shows one price', () => {
+  renderScreen([product(1, 'Hoodie', {
+    type: 'variable', price: '99', regular_price: '99', sale_price: '', variations: [11, 12],
+    variation_docs: [
+      variation(11, { price: '30', regular_price: '30', sale_price: '' }),
+      variation(12, { price: '30', regular_price: '30', sale_price: '' }),
+    ],
+  })]);
+  expect(text('product-price-1')).toBe('$30.00');
+  expect(text('product-regular_price-1')).toBe('$30.00');
+});
+
+test('a variable product with no variation on sale shows an empty Sale Price, as v2 omits that range', () => {
+  renderScreen([product(1, 'Hoodie', {
+    type: 'variable', price: '99', regular_price: '99', sale_price: '', variations: [11, 12],
+    variation_docs: [
+      variation(11, { price: '20', regular_price: '20', sale_price: '' }),
+      variation(12, { price: '40', regular_price: '40', sale_price: '' }),
+    ],
+  })]);
+  expect(text('product-sale_price-1')).toBe('');
+  expect(text('product-price-1')).toBe('$20.00 - $40.00');
+});
+
+test('sorting by Price puts a variable product by its lowest variation price', () => {
+  renderScreen([
+    product(1, 'Americano', { price: '30' }),
+    product(2, 'Beanie', {
+      type: 'variable', price: '99', regular_price: '99', sale_price: '', variations: [21, 22],
+      variation_docs: [
+        variation(21, { price: '20', regular_price: '20' }),
+        variation(22, { price: '80', regular_price: '80' }),
+      ],
+    }),
+    product(3, 'Cortado', { price: '50' }),
+  ]);
+  fireEvent.click(screen.getByTestId('product-table-sort-price'));
+  expect(rowIds()).toEqual(['product-row-2', 'product-row-1', 'product-row-3']);
+});
+
+test('a simple product keeps its own prices, and a narrow row shows a variable product\'s range', () => {
+  renderScreen([product(1, 'Beans', { price: '15', regular_price: '20', sale_price: '15' })]);
+  expect(text('product-price-1')).toBe('$15.00');
+  expect(text('product-regular_price-1')).toBe('$20.00');
+  expect(text('product-sale_price-1')).toBe('$15.00');
+  cleanup();
+  setWidth(390);
+  renderScreen([product(2, 'Hoodie', {
+    type: 'variable', price: '99', regular_price: '99', sale_price: '', variations: [21, 22],
+    variation_docs: [
+      variation(21, { price: '25', regular_price: '25' }),
+      variation(22, { price: '57', regular_price: '57' }),
+    ],
+  })]);
+  expect(screen.getByTestId('products-row-2').textContent).toContain('$25.00 - $57.00');
+  expect(screen.getByTestId('products-row-2').textContent).not.toContain('$99.00');
 });
 
 test('out-of-stock, unpurchasable and unpublished products still list', () => {

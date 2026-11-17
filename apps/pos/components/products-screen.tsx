@@ -126,6 +126,35 @@ function money(value: string | undefined, currency: string, locale: string | und
   return (parsed && formatMoney(parsed, locale)) ?? value;
 }
 
+type PriceField = 'price' | 'regular_price' | 'sale_price';
+
+/** v2's variable price range (get-variable-prices.ts, the server's Variable_Prices.php): the lowest and highest of a
+ *  field over the published variations that carry it; none carrying it is no range, so the cell is empty. */
+function variationRange(doc: ProductDoc, field: PriceField): { min: string; max: string } | undefined {
+  let range: { min: string; max: string } | undefined;
+  for (const variation of doc.variation_docs ?? []) {
+    if (variation.status !== undefined && variation.status !== 'publish') continue;
+    const value = variation[field];
+    if (value === undefined || priceValue(value) === undefined) continue;
+    if (!range) range = { min: value, max: value };
+    else {
+      if (Number(value) < Number(range.min)) range.min = value;
+      if (Number(value) > Number(range.max)) range.max = value;
+    }
+  }
+  return range;
+}
+
+/** v2's VariableProductPrice (variable-price.tsx:39-71) for a variable product with variations: nothing without a
+ *  range, one price when min equals max, else "min - max"; any other product shows its own field. */
+function priceText(doc: ProductDoc, field: PriceField, currency: string, locale: string | undefined): string {
+  if (doc.type !== 'variable' || (doc.variation_docs?.length ?? 0) === 0) return money(doc[field], currency, locale);
+  const range = variationRange(doc, field);
+  if (!range) return '';
+  if (Number(range.min) === Number(range.max)) return money(range.max, currency, locale);
+  return `${money(range.min, currency, locale)} - ${money(range.max, currency, locale)}`;
+}
+
 function StockBadge({ doc }: { doc: ProductDoc | VariationDoc }): JSX.Element {
   const state = resolveStock(doc);
   return <StatusDot testID={`product-stock-status-${doc.id}`} tone={STOCK_TONE[state]} label={STOCK_LABEL[state]} />;
@@ -164,10 +193,11 @@ function termNames(terms: { name?: string }[] | undefined): string {
 
 /** Every column of PRODUCTS_COLUMNS, in its order; the screen hands ProductTable the ones left on. */
 function productColumns(currency: string, locale: string | undefined, onDrill: OnDrill): (ProductTableColumn<ProductDoc> & { id: ProductsColumnId })[] {
-  const priceColumn = (id: 'price' | 'regular_price' | 'sale_price') => ({
+  const priceColumn = (id: PriceField) => ({
     id, header: LABEL[id], flex: 1,
-    render: (doc: ProductDoc) => <Text testID={`product-${id}-${doc.id}`}>{money(doc[id], currency, locale)}</Text>,
-    sortValue: (doc: ProductDoc) => priceValue(doc[id]),
+    render: (doc: ProductDoc) => <Text testID={`product-${id}-${doc.id}`}>{priceText(doc, id, currency, locale)}</Text>,
+    sortValue: (doc: ProductDoc) => doc.type === 'variable' && (doc.variation_docs?.length ?? 0) > 0
+      ? priceValue(variationRange(doc, id)?.min) : priceValue(doc[id]),
   });
   // v2's plain cells (no cell renderer: the field's text); sortable where v2's column has no `disableSort`.
   const textColumn = (id: 'type' | 'sku' | 'barcode', flex: number) => ({
@@ -306,7 +336,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
               <ProductImage doc={doc} size={IMAGE_SIZE} />
               <View className="flex-1 gap-1">
                 <NameCell doc={doc} onDrill={drillTo} numberOfLines={1} />
-                <Text numberOfLines={1} className="text-muted-foreground">{money(doc.price, currency, locale)}</Text>
+                <Text numberOfLines={1} className="text-muted-foreground">{priceText(doc, 'price', currency, locale)}</Text>
               </View>
               <StockBadge doc={doc} />
             </View>
