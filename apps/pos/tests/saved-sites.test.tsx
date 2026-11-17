@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { PortalHost } from '@tallyui/primitives';
 import { SavedSites, type SavedSitesProps } from '../components/saved-sites';
@@ -6,6 +6,10 @@ import { SessionExpiredError, type Session } from '../lib/auth/session';
 
 const home = 'https://shop.example';
 const site = { name: 'Store', home, wpApiUrl: `${home}/wp-json`, wcposApiUrl: `${home}/wp-json/wcpos/v2`, authUrl: `${home}/wcpos-auth/` };
+const second = {
+  name: 'Second', home: 'https://second.example', wpApiUrl: 'https://second.example/wp-json',
+  wcposApiUrl: 'https://second.example/wp-json/wcpos/v2', authUrl: 'https://second.example/wcpos-auth/',
+};
 const a: Session = {
   site,
   tokens: {
@@ -21,6 +25,14 @@ const b: Session = {
   },
 };
 const aUuid = a.tokens.user.uuid, bUuid = b.tokens.user.uuid;
+const c: Session = {
+  site: second,
+  tokens: {
+    accessToken: 'access-c', refreshToken: 'refresh-c', expiresAt: 1791239000 + 86400,
+    user: { id: 3, uuid: '12345678-1234-1234-1234-123456789ccc', displayName: 'Cashier C' },
+  },
+};
+const cUuid = c.tokens.user.uuid;
 const onOpenPos = vi.fn<SavedSitesProps['onOpenPos']>();
 const onSignInAt = vi.fn(), onRemoveUser = vi.fn(), onRemoveSite = vi.fn();
 beforeEach(() => {
@@ -29,6 +41,12 @@ beforeEach(() => {
     onSignInAt={onSignInAt} onRemoveUser={onRemoveUser} onRemoveSite={onRemoveSite} /><PortalHost /></>);
 });
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
+
+function renderTwo() {
+  cleanup();
+  render(<><SavedSites sites={[{ site, cashiers: [a, b] }, { site: second, cashiers: [c] }]} onOpenPos={onOpenPos}
+    onSignInAt={onSignInAt} onRemoveUser={onRemoveUser} onRemoveSite={onRemoveSite} /><PortalHost /></>);
+}
 
 test("shows the saved store and its users in v2's words", () => {
   expect(screen.getByTestId('saved-site-name').textContent).toBe('Store');
@@ -105,4 +123,49 @@ test('removing the site asks first', () => {
 test('Add another user starts a sign-in at the saved store', () => {
   fireEvent.click(screen.getByTestId('saved-add-user'));
   expect(onSignInAt).toHaveBeenCalledExactlyOnceWith(site);
+});
+
+test('one site shows no heading, fold or users badge', () => {
+  expect(screen.queryByTestId('saved-sites-heading')).toBeNull();
+  expect(screen.queryByTestId('saved-site-trigger')).toBeNull();
+  expect(screen.queryByTestId('saved-site-users')).toBeNull();
+});
+
+test('several sites fold under Your sites with the first open', () => {
+  renderTwo();
+  expect(screen.getByTestId('saved-sites-heading').textContent).toBe('Your sites');
+  const cards = screen.getAllByTestId('saved-site');
+  expect(cards).toHaveLength(2);
+  expect(within(cards[0]).getByTestId('open-pos-button')).not.toBeNull();
+  expect(within(cards[1]).queryByTestId('open-pos-button')).toBeNull();
+  expect(screen.getAllByTestId('saved-site-users').map(badge => badge.textContent)).toEqual(['2 users', '1 user']);
+  const triggers = screen.getAllByTestId('saved-site-trigger');
+  expect(triggers.map(trigger => trigger.getAttribute('aria-expanded'))).toEqual(['true', 'false']);
+  expect(within(triggers[0]).getByText('Store')).not.toBeNull();
+  expect(within(triggers[0]).getByText(home)).not.toBeNull();
+  expect(within(triggers[1]).getByText('Second')).not.toBeNull();
+  expect(within(triggers[1]).getByText('https://second.example')).not.toBeNull();
+});
+
+test('opening the second site folds the first', async () => {
+  renderTwo();
+  const triggers = screen.getAllByTestId('saved-site-trigger');
+  fireEvent.click(triggers[1]);
+  const cards = screen.getAllByTestId('saved-site');
+  expect(within(cards[1]).getByTestId('open-pos-button')).not.toBeNull();
+  expect(within(cards[0]).queryByTestId('open-pos-button')).toBeNull();
+  expect(triggers.map(trigger => trigger.getAttribute('aria-expanded'))).toEqual(['false', 'true']);
+  await act(async () => { fireEvent.click(within(cards[1]).getByTestId('open-pos-button')); });
+  expect(onOpenPos).toHaveBeenCalledWith('https://second.example', cUuid);
+});
+
+test('a fold keeps the picked cashier', () => {
+  renderTwo();
+  fireEvent.click(screen.getByTestId(`saved-user-select-${bUuid}`));
+  fireEvent.click(screen.getAllByTestId('saved-site-trigger')[0]);
+  expect(screen.queryByTestId('open-pos-button')).toBeNull();
+  expect(screen.queryByTestId(`saved-user-select-${bUuid}`)).toBeNull();
+  fireEvent.click(screen.getAllByTestId('saved-site-trigger')[0]);
+  expect(screen.getByTestId(`saved-user-select-${bUuid}`).getAttribute('aria-checked')).toBe('true');
+  expect(screen.getByTestId(`saved-user-select-${aUuid}`).getAttribute('aria-checked')).toBe('false');
 });
