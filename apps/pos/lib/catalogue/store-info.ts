@@ -6,6 +6,8 @@ export interface StoreAddress {
 }
 
 export type TaxBasedOn = 'base' | 'billing' | 'shipping';
+export type TaxTotalDisplay = 'single' | 'itemized';
+export type TaxDisplay = 'incl' | 'excl';
 
 export interface StoreInfo {
   id: number; name: string; currency: string; locale?: string;
@@ -13,6 +15,10 @@ export interface StoreInfo {
   address?: StoreAddress;
   taxBasedOn?: TaxBasedOn;
   calcTaxes?: boolean;
+  taxTotalDisplay?: TaxTotalDisplay; // woocommerce_tax_total_display
+  taxDisplayShop?: TaxDisplay; // woocommerce_tax_display_shop
+  taxDisplayCart?: TaxDisplay; // woocommerce_tax_display_cart
+  priceDisplaySuffix?: string; // woocommerce_price_display_suffix
   /** v2's `default_customer`: a WordPress user id, `0` for Guest. */
   defaultCustomerId?: number;
   defaultCustomerIsCashier?: boolean;
@@ -36,6 +42,14 @@ function text(value: unknown): string | undefined {
 
 function taxBasedOn(value: unknown): TaxBasedOn | undefined {
   return value === 'base' || value === 'billing' || value === 'shipping' ? value : undefined;
+}
+
+function taxTotalDisplay(value: unknown): TaxTotalDisplay | undefined {
+  return value === 'single' || value === 'itemized' ? value : undefined;
+}
+
+function taxDisplay(value: unknown): TaxDisplay | undefined {
+  return value === 'incl' || value === 'excl' ? value : undefined;
 }
 
 function yesNo(value: unknown): boolean | undefined {
@@ -90,6 +104,10 @@ export async function fetchStoreInfo(
     },
     taxBasedOn: taxBasedOn(store.tax_based_on),
     calcTaxes: yesNo(store.calc_taxes),
+    taxTotalDisplay: taxTotalDisplay(store.tax_total_display),
+    taxDisplayShop: taxDisplay(store.tax_display_shop),
+    taxDisplayCart: taxDisplay(store.tax_display_cart),
+    priceDisplaySuffix: text(store.price_display_suffix),
     defaultCustomerId: count(store.default_customer),
     defaultCustomerIsCashier: flag(store.default_customer_is_cashier),
     numberFormat: {
