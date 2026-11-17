@@ -313,6 +313,7 @@ test('with a drill inside a level, one Escape closes only the drill and a second
 });
 
 test('Escape in the search input inside a level changes nothing', () => {
+  // No guard of ours: react-native-web's TextInput stops the key (TextInput handleKeyDown, #612).
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1000, height: 800, scale: 1, fontScale: 1 });
   view({ browseBy: 'categories', view: 'table' });
   renderView();
