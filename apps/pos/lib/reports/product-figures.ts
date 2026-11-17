@@ -19,7 +19,8 @@ export function productFigures(orders: readonly PosOrder[], options: { currency:
       const inclusive = line.taxInclusive ?? order.pricesIncludeTax;
       row.quantity += line.quantity;
       row.amountMinor += inclusive ? line.netMinor : line.netMinor + roundMicrosToMinor(
-        line.taxLines.reduce((sum, tax) => sum + BigInt(tax.taxMicros), BigInt(0)), order.taxRounding?.mode);
+        line.taxLines.reduce((sum, tax) => sum + BigInt(tax.taxMicros), BigInt(0)),
+        order.taxRounding && 'mode' in order.taxRounding ? order.taxRounding.mode : undefined);
     }
   }
   return [...rows.values()].sort((a, b) => b.amountMinor - a.amountMinor || a.name.localeCompare(b.name));
