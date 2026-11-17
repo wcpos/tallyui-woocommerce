@@ -5,7 +5,7 @@ import { useCSSVariable } from 'uniwind';
 import { Text } from '@tallyui/components';
 import type { Period } from '../lib/reports/sales-room';
 
-export type ReportTable = 'orders' | 'payments' | 'taxes';
+export type ReportTable = 'orders' | 'payments' | 'where-sold' | 'taxes';
 type Money = (minor: number) => string;
 
 /** v2 reports/cards/card.tsx: a named card whose head carries its figure, and opens its table when it can. */
@@ -148,10 +148,10 @@ export function PaymentsCard({ period, money, moneyWhole, onOpen }: CardProps & 
   );
 }
 
-/** v2 reports/cards/where-sold.tsx, channels view only: every Tally order is an in-store POS sale. */
-export function WhereSoldCard({ period, money, moneyWhole }: CardProps) {
+/** v2 reports/cards/where-sold.tsx opens the channels table: every Tally order is an in-store POS sale. */
+export function WhereSoldCard({ period, money, moneyWhole, onOpen }: CardProps & { onOpen(): void }) {
   return (
-    <ReportCard testID="card-where-sold" name="Where sold" figure={money(period.totalMinor)}>
+    <ReportCard testID="card-where-sold" name="Where sold" figure={money(period.totalMinor)} onOpen={onOpen}>
       {period.count === 0
         ? <Text testID="card-where-sold-empty">No sales in this period.</Text>
         : <Donut testID="card-where-sold-donut" total={period.totalMinor} money={money}
@@ -207,7 +207,7 @@ export function ReportCards({ period, money, moneyWhole, onOpenTable }: CardProp
   const cards = [
     <OrdersCard key="orders" period={period} money={money} onOpen={() => onOpenTable('orders')} />,
     <PaymentsCard key="payments" period={period} money={money} moneyWhole={moneyWhole} onOpen={() => onOpenTable('payments')} />,
-    <WhereSoldCard key="where-sold" period={period} money={money} moneyWhole={moneyWhole} />,
+    <WhereSoldCard key="where-sold" period={period} money={money} moneyWhole={moneyWhole} onOpen={() => onOpenTable('where-sold')} />,
     <TaxesCard key="taxes" period={period} money={money} onOpen={() => onOpenTable('taxes')} />,
   ];
   return (

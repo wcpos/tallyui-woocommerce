@@ -32,7 +32,8 @@ test('lists refused orders newest first with their reason', async () => {
   await insertOrder('ro', { syncStatus: 'rejected', reopenedAt: '2026-10-07T09:40:00.000Z' });
   render(<RejectedOrdersPanel orders={orders} onRequeue={vi.fn(async () => 1)} now={() => new Date('2026-10-07T10:00:00.000Z')} />);
   expect(await screen.findByText('2 changes never reached your server')).not.toBeNull();
-  expect(screen.getByText('Your server refused these and nothing will retry them on its own. Send again rebuilds each one from what is on this device; discard drops the local change and keeps your server’s version.')).not.toBeNull();
+  expect(screen.getByText('Your server refused these and nothing will retry them on its own. Send again rebuilds each one from what is on this device.')).not.toBeNull();
+  expect(screen.queryByText(/discard/i)).toBeNull();
   expect(screen.getAllByTestId(/^db-rejected-row-/).map(row => row.getAttribute('data-testid')))
     .toEqual(['db-rejected-row-r2', 'db-rejected-row-r1']);
   for (const id of ['p1', 'a1', 'ro']) expect(screen.queryByTestId(`db-rejected-row-${id}`)).toBeNull();

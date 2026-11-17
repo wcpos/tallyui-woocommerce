@@ -1,11 +1,29 @@
 import { Fragment, type JSX } from 'react';
 import { ScrollView, View } from 'react-native';
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Text } from '@tallyui/components';
+import { Path } from 'react-native-svg';
+import { Button, createSvgIcon, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, IconButton, Text, XIcon } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
 import { buildClosureDocument, deriveSettled, formatClosureDate, type Closure, type Correction } from '@tallyui/pos';
+import { useIsWide } from '../lib/layout/wide';
 import { resultText, resultWord, signedMoney } from './closure-list';
 import { closureContext } from './closure-print';
+import { ChevronLeftIcon } from './icons';
+import { RIGHT_SHEET, SHEET_TITLE, SheetCloseButton } from './sheet';
 import { drawerResultClass } from './till-strip';
+
+// v2 report-panel.tsx:21-26 uses a full page on a phone.
+const PHONE_PAGE = 'left-0 right-0 top-0 h-full w-full max-w-full translate-x-0 translate-y-0 gap-4 rounded-none border-0 bg-card p-0 py-4';
+
+const CheckGlyph = createSvgIcon('CheckGlyph', () => <Path d="m5 12l5 5L20 7" />);
+const AlertGlyph = createSvgIcon('AlertGlyph', () => <Path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0-18 0m9-4v4m0 4h.01" />);
+const InfoGlyph = createSvgIcon('InfoGlyph', () => <><Path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0-18 0m9-3h.01" /><Path d="M11 12h1v4h1" /></>);
+
+// v2 closure-body.tsx:78 and tone-disc/index.tsx pair each result with a tinted disc and glyph.
+const TONES = {
+  ok: { disc: 'bg-success/15', ink: 'text-success', Glyph: CheckGlyph },
+  bad: { disc: 'bg-destructive/15', ink: 'text-destructive', Glyph: AlertGlyph },
+  muted: { disc: 'bg-muted', ink: 'text-muted-foreground', Glyph: InfoGlyph },
+} as const;
 
 export function ClosurePanel({ closure, corrections = [], storeName, currency, locale, blind, resolveCashierName, onReprint, onClose }: {
   closure: Closure;
@@ -19,6 +37,7 @@ export function ClosurePanel({ closure, corrections = [], storeName, currency, l
   onReprint(closure: Closure): void;
   onClose(): void;
 }): JSX.Element {
+  const wide = useIsWide();
   const money = (amount: number) => formatMoney({ amount, currency }, locale) ?? '';
   const minus = (minor: number) => minor ? `−${money(Math.abs(minor))}` : money(0);
   const { settled, touched } = deriveSettled(closure, corrections);
@@ -38,6 +57,8 @@ export function ClosurePanel({ closure, corrections = [], storeName, currency, l
   const expectedCash = settled.expected.cash ?? 0;
   const countedCash = settled.counted.cash ?? 0;
   const variance = countedCash - expectedCash;
+  const tone = blind ? 'muted' : variance < 0 ? 'bad' : 'ok';
+  const Glyph = TONES[tone].Glyph;
   const recounts = corrections.filter(c => c.type === 'recount').length;
   const others = report.tenders.filter(({ name }) => name !== 'cash' && (settled.expected[name] ?? 0) !== 0);
   const noSales = live.filter(m => m.type === 'no_sale').length;
@@ -59,12 +80,22 @@ export function ClosurePanel({ closure, corrections = [], storeName, currency, l
 
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent testID="closure-panel" className="max-h-[80%] overflow-hidden">
-        <DialogHeader>
-          <DialogTitle testID="closure-panel-title">{`Closure ${closure.number}`}</DialogTitle>
-          <DialogDescription testID="closure-panel-description">{[storeName, registerName, span, closer].filter(Boolean).join(' · ')}</DialogDescription>
+      <DialogContent testID="closure-panel" className={wide ? RIGHT_SHEET : PHONE_PAGE}>
+        <DialogHeader testID="closure-panel-header" className="flex-row items-center gap-3 pl-4 pr-11">
+          {!wide && <IconButton variant="ghost" className="h-11 w-11" testID="closure-back" accessibilityLabel="Back" onPress={onClose}><ChevronLeftIcon size={18} /></IconButton>}
+          <View testID={`closure-tone-${tone}`} className={`size-11 items-center justify-center rounded-full ${TONES[tone].disc}`}>
+            <Glyph size={18} strokeWidth={1.5} className={TONES[tone].ink} />
+          </View>
+          <View className="min-w-0 flex-1 gap-1">
+            <DialogTitle testID="closure-panel-title" className={SHEET_TITLE}>{`Closure ${closure.number}`}</DialogTitle>
+            <DialogDescription testID="closure-panel-description">
+              {[storeName, registerName, span].filter(Boolean).join(' · ')}{' · '}
+              <Text testID="closure-panel-closer" className="font-semibold text-foreground">{closer}</Text>
+            </DialogDescription>
+          </View>
         </DialogHeader>
-        <ScrollView testID="closure-panel-body" contentContainerClassName="gap-4">
+        {wide && <View className="absolute right-1 top-1"><IconButton variant="ghost" className="h-11 w-11" testID="closure-panel-x" accessibilityLabel="Close" onPress={onClose}><XIcon size={18} /></IconButton></View>}
+        <ScrollView testID="closure-panel-body" className="min-h-0 flex-1" contentContainerClassName="gap-4 px-4">
           {!blind && <View className="items-center gap-1">
             <Text testID="closure-result-word" className="text-sm text-muted-foreground">{`Variance · ${resultWord(variance)}`}</Text>
             <Text testID="closure-figure-result" className={`text-3xl font-semibold tabular-nums ${drawerResultClass(variance)}`}>{signedMoney(variance, money)}</Text>
@@ -118,10 +149,10 @@ export function ClosurePanel({ closure, corrections = [], storeName, currency, l
             </View>)}
           </>}
         </ScrollView>
-        <DialogFooter testID="closure-panel-footer">
-          <Button testID="closure-reprint" variant="outline" onPress={() => onReprint(closure)}><Text>Print closure</Text></Button>
-          <Button testID="closure-panel-close" onPress={onClose}><Text>Close</Text></Button>
-        </DialogFooter>
+        <View testID="closure-panel-footer" className={wide ? 'flex-row justify-end gap-2 border-t border-border px-4 pt-4' : 'flex-col gap-2 border-t border-border px-4 pt-4'}>
+          {wide && <SheetCloseButton testID="closure-panel-close" onPress={onClose} />}
+          <Button testID="closure-reprint" variant="outline" className={wide ? 'h-11 border-border' : 'h-11 w-full border-border'} onPress={() => onReprint(closure)}><Text>Print closure</Text></Button>
+        </View>
       </DialogContent>
     </Dialog>
   );

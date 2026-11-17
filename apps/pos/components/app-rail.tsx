@@ -18,7 +18,9 @@ import { Circle, Line, Path, Rect } from 'react-native-svg';
 import { createSvgIcon, IconButton, Text } from '@tallyui/components';
 import { RAIL_FOOT, RAIL_LABEL, RAIL_TOP, railKeyForPath } from '../lib/layout/rail-routes';
 import type { RailKey } from '../lib/layout/rail-routes';
+import { useUnreadLogsCount } from '../lib/logs/unread-errors';
 import { VersionAbout } from './about-dialog';
+import { UnreadBadge } from './unread-badge';
 
 const RegisterIcon = createSvgIcon('RegisterIcon', () => <><Rect x={3} y={9} width={18} height={12} rx={2} /><Line x1={7} y1={4} x2={17} y2={4} /><Line x1={12} y1={4} x2={12} y2={9} /><Line x1={7} y1={15} x2={17} y2={15} /></>);
 const ProductsIcon = createSvgIcon('ProductsIcon', () => <><Rect x={3} y={7} width={18} height={4} rx={1} /><Path d="M5 11v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9" /><Line x1={12} y1={7} x2={12} y2={22} /><Path d="M12 7H8.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" /><Path d="M12 7h3.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" /></>);
@@ -30,7 +32,8 @@ const HealthIcon = createSvgIcon('HealthIcon', () => <Path d="M22 12h-4l-3 9L9 3
 // v2's `settings` glyph from its default (tabler) set: packages/components/src/icon/components/tabler/settings.tsx.
 const GearIcon = createSvgIcon('GearIcon', () => <><Path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37 1 .608 2.296.07 2.572-1.065" /><Path d="M9 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0" /></>);
 
-const GLYPH: Record<RailKey, typeof RegisterIcon> = {
+// The phone drawer reads this glyph map too.
+export const RAIL_GLYPH: Record<RailKey, typeof RegisterIcon> = {
   pos: RegisterIcon, products: ProductsIcon, orders: ReceiptIcon, coupons: CouponsIcon, customers: CustomersIcon, reports: ReportsIcon,
   health: HealthIcon, settings: GearIcon,
 };
@@ -46,8 +49,9 @@ export const RAIL_WIDTH = 'w-16';
 export const BESIDE_RAIL = 'left-16';
 
 export function AppRail({ active, onNavigate }: { active: RailKey; onNavigate(to: RailKey): void }): JSX.Element {
+  const unread = useUnreadLogsCount();
   const item = (key: RailKey) => {
-    const Glyph = GLYPH[key];
+    const Glyph = RAIL_GLYPH[key];
     return (
       <IconButton key={key} size="lg" testID={`drawer-item-${key}`} accessibilityLabel={RAIL_LABEL[key]}
         // react-native-web reads aria-selected, not accessibilityState (as coupon-entry.tsx).
@@ -55,7 +59,11 @@ export function AppRail({ active, onNavigate }: { active: RailKey; onNavigate(to
         className={key === active ? 'rounded-lg bg-rail-selected text-rail-selected-foreground' : 'rounded-lg text-rail-foreground'}
         onPress={() => { if (key !== active) onNavigate(key); }}>
         {/* react-native-svg's web Svg forwards `data-testid` to the DOM as is (it does not map `testID`). */}
-        <Glyph size={24} data-testid={`drawer-glyph-${key}`} />
+        {/* v2 icon/index.tsx:150-167: the badge sits on the glyph's shoulder. */}
+        {key === 'health' ? <View className="relative size-6"><Glyph size={24} data-testid={`drawer-glyph-${key}`} />
+          <View testID="drawer-badge-health-shoulder" pointerEvents="none" className="absolute bottom-3/4 left-full -ml-1 w-16 -translate-x-8 items-center">
+            <UnreadBadge count={unread} testID="drawer-badge-health" />
+          </View></View> : <Glyph size={24} data-testid={`drawer-glyph-${key}`} />}
       </IconButton>
     );
   };

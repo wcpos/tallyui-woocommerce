@@ -142,10 +142,9 @@ test('each arc starts where the positive parts before it end', () => {
   expect(dashOffset('donut-arc-p2')).toBeCloseTo(-C * 300 / 400, 3);
 });
 
-test('Where sold shows one In store row with the total and no open button', () => {
-  cards();
+test('Where sold shows one In store row with the total, and opens the Where sold table', () => {
+  const onOpenTable = cards();
   expect(text('card-where-sold-figure')).toBe('$1576.40');
-  expect(screen.queryByTestId('card-where-sold-open')).toBeNull();
   expect(screen.getAllByTestId(/^card-where-sold-donut-row-[a-z]+$/).map(row => row.getAttribute('data-testid')))
     .toEqual(['card-where-sold-donut-row-store']);
   const row = within(screen.getByTestId('card-where-sold-donut-row-store'));
@@ -154,6 +153,10 @@ test('Where sold shows one In store row with the total and no open button', () =
   expect(text('card-where-sold-donut-row-store-value')).toBe('$1576.40');
   expect(text('card-where-sold-donut-figure')).toBe('$1,576');
   expect(within(screen.getByTestId('card-where-sold-donut')).getByText('1 channel')).not.toBeNull();
+  expect(within(screen.getByTestId('card-where-sold')).getByText('›')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('card-where-sold-open'));
+  expect(onOpenTable).toHaveBeenCalledWith('where-sold');
+  expect(onOpenTable).toHaveBeenCalledOnce();
 });
 
 test('Where sold reads an empty period', () => {

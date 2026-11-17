@@ -7,11 +7,12 @@ import { StoreAccessDeniedError } from '../lib/catalogue/store-info';
 import { memoryStorage } from './memory-storage';
 
 const message = new StoreAccessDeniedError().message;
+let home: string;
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
   vi.stubGlobal('sessionStorage', memoryStorage());
-  const home = `https://shop.example/${crypto.randomUUID()}`;
+  home = `https://shop.example/${crypto.randomUUID()}`;
   saveSession({
     site: { name: 'Store', home, wpApiUrl: `${home}/wp-json`, wcposApiUrl: `${home}/wp-json/wcpos/v2`, authUrl: `${home}/wcpos-auth/` },
     tokens: {
@@ -31,8 +32,9 @@ function Probe({ withSignOut }: { withSignOut: boolean }) {
 }
 
 test('Sign out leaves the error screen and keeps the till data that is not the session', async () => {
-  const kept = { 'tallywoo.device_id': 'device-1', 'tallywoo.held-cart.cashier-b': '{"lines":[]}', [CASHIERS_KEY]: '{"x":[]}' };
+  const kept = { 'tallywoo.device_id': 'device-1', 'tallywoo.held-cart.cashier-b': '{"lines":[]}' };
   Object.entries(kept).forEach(([key, value]) => localStorage.setItem(key, value));
+  localStorage.setItem(CASHIERS_KEY, '{"x":[]}');
   render(<SessionProvider><Probe withSignOut /></SessionProvider>);
   await screen.findByText(message);
   await act(async () => { fireEvent.click(screen.getByTestId('catalogue-error-sign-out')); });
@@ -40,6 +42,10 @@ test('Sign out leaves the error screen and keeps the till data that is not the s
   expect(screen.queryByText(message)).toBeNull();
   expect(localStorage.getItem(SESSION_KEY)).toBeNull();
   Object.entries(kept).forEach(([key, value]) => expect(localStorage.getItem(key)).toBe(value));
+  const roster = JSON.parse(localStorage.getItem(CASHIERS_KEY)!);
+  expect(roster.x).toEqual([]);
+  expect(roster[home]).toHaveLength(1);
+  expect(roster[home][0].tokens.user.uuid).toBe('12345678-1234-1234-1234-123456789abc');
 });
 
 test('without onSignOut there is no Sign out button', async () => {

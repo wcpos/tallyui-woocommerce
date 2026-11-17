@@ -14,7 +14,7 @@ import { closuresCsv } from '../lib/reports/closures-csv';
 import { closuresScope, periodNow, salesPeriod } from '../lib/reports/report-scope';
 import { rangeBounds, salesRoom, type Compare } from '../lib/reports/sales-room';
 import { salesTableCsv } from '../lib/reports/sales-table-csv';
-import { ordersTable, paymentsTable, taxesTable } from '../lib/reports/sales-tables';
+import { ordersTable, paymentsTable, taxesTable, whereSoldTable } from '../lib/reports/sales-tables';
 import { useMinuteClock } from '../lib/reports/use-minute-clock';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { ordersDatabaseName } from '../lib/sale/order-store';
@@ -63,7 +63,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const [rows, setRows] = useState<Closure[]>([]);
   const [reprint, setReprint] = useState<Closure | 'x' | 'summary' | null>(null);
   const [openClosureId, setOpenClosureId] = useState<string | null>(null);
-  const [openTable, setOpenTable] = useState<'payments' | 'taxes' | 'orders' | null>(null);
+  const [openTable, setOpenTable] = useState<'payments' | 'taxes' | 'orders' | 'where-sold' | null>(null);
   const [printRequest, setPrintRequest] = useState(0);
   // The chart view is device state for the visit (v2 reports LEDGER 23): not persisted, in no query.
   const [chartView, setChartView] = useState<'hour' | 'run'>('hour');
@@ -109,6 +109,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   }).format(Math.round(minor / 10 ** exponent));
   const table = openTable === 'payments' ? paymentsTable(room.today, money)
     : openTable === 'taxes' ? taxesTable(room.today, money)
+    : openTable === 'where-sold' ? whereSoldTable(room.today, money)
     : openTable === 'orders' ? ordersTable(shown, { range, currency, money }) : null;
   const downloadCsv = (csv: string, filename: string) => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
@@ -180,7 +181,6 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
               currency={currency}
               locale={locale}
               resolveCashierName={resolveCashierName}
-              onReprint={reprintClosure}
               onOpen={closure => setOpenClosureId(closure.id)}
               filter={closureFilter}
               onFilterChange={setClosureFilter}
