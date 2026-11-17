@@ -80,15 +80,21 @@ test('status tones follow v2', () => {
 
 test('a store row fills Status, Order Number, Customer, Date Created, Payment Method and Total', () => {
   expect(orderRowCells({ kind: 'store', order: storeOrder }, now)).toEqual({
-    statusLabel: 'On hold', tone: 'warning', number: '901', customer: 'Guest', date: 'Today · 10:00', payment: 'Cash', total: '$6.00',
+    statusLabel: 'On hold', tone: 'warning', number: '901', customer: 'Guest', date: 'Today · 10:00', day: 'Today', payment: 'Cash', total: '$6.00',
   });
 });
 
 test('a till row names its largest payment and its sync state', () => {
   expect(orderRowCells({ kind: 'local', order: posOrder({ syncStatus: 'rejected', customer: { name: 'Brenda Walsh' },
     payments: [{ id: 'p1', method: 'cash', amountMinor: 100 }, { id: 'p2', method: 'external', amountMinor: 200 }] as PosOrder['payments'] }) }, now))
-    .toEqual({ statusLabel: 'Not accepted', tone: 'bad', number: '23456789', customer: 'Brenda Walsh', date: 'Today · 14:41', payment: 'Card', total: '$3.00' });
+    .toEqual({ statusLabel: 'Not accepted', tone: 'bad', number: '23456789', customer: 'Brenda Walsh', date: 'Today · 14:41', day: 'Today', payment: 'Card', total: '$3.00' });
   expect(orderRowCells({ kind: 'local', order: posOrder({}) }, now).payment).toBe('');
+});
+
+test("a till row's day comes from its createdAt", () => {
+  const cells = orderRowCells({ kind: 'local', order: posOrder({ createdAt: at(2026, 11, 9, 9, 5) }) }, now);
+  expect(cells.day).toBe('Yesterday');
+  expect(cells.date).toBe('Yesterday · 09:05');
 });
 
 test("the table shows v2's columns, a day band and a count, and the chevron opens the order", () => {
@@ -153,7 +159,7 @@ test("at 390 each order is v2's two-line phone row: number and customer, then st
   expect(screen.getByTestId('history-1042-number').textContent).toBe('#1042');
   expect(screen.getByTestId('history-1042-customer').textContent).toBe('· Brenda Walsh');
   expect(screen.getByTestId('history-1042-status').textContent).toContain('On hold');
-  expect(screen.getByTestId('history-1042-date').textContent).toBe('· Today · 10:00');
+  expect(screen.getByTestId('history-1042-date').textContent).toBe('· Today');
   expect(screen.getByTestId('history-1042-payment').textContent).toBe('· Cash');
   expect(screen.getByTestId('history-1042-total').textContent).toBe('$6.00');
   expect(classesOf('history-1042-total')).toContain('tabular-nums');
@@ -185,6 +191,12 @@ test("at 390 a row with no payment skips that part of line 2", () => {
   render(<OrdersTable local={[]} store={[{ ...storeOrder, payments: [] }]} onOpen={vi.fn()} now={() => now} />);
   expect(screen.queryByTestId('history-901-payment')).toBeNull();
   expect(screen.queryByTestId('history-901-date')).not.toBeNull();
+});
+
+test("at 1280 the Date Created cell keeps the day and time", () => {
+  setWidth(1280);
+  render(<OrdersTable local={[]} store={[storeOrder]} onOpen={vi.fn()} now={() => now} />);
+  expect(screen.getByTestId('history-901-date').textContent).toBe('Today · 10:00');
 });
 
 test("at 1280 the table and its head stay, and only the chevron opens the order", () => {

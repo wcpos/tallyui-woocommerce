@@ -92,7 +92,7 @@ export function orderTableItems(local: readonly PosOrder[], store: readonly Stor
 }
 
 export interface OrderRowCells {
-  statusLabel: string; tone: OrderTone; number: string; customer: string; date: string; payment: string; total: string;
+  statusLabel: string; tone: OrderTone; number: string; customer: string; date: string; day: string; payment: string; total: string;
 }
 
 /** The v2 columns this connector can fill: Status, Order Number, Customer, Date Created, Payment Method, Total. */
@@ -102,6 +102,7 @@ export function orderRowCells(row: OrderTableRow, now: Date): OrderRowCells {
   const total = formatMoney({ amount: row.order.totalMinor, currency: row.order.currency }) ?? '';
   if (row.kind === 'store') {
     return { statusLabel: wooStatusLabel(row.order.status), tone: storeTone(row.order.status), number: row.order.reference,
+      day: dayLabel(row.order.placedAt, now),
       customer, date: dateTimeLabel(row.order.placedAt, now), payment: row.order.payments[0]?.title ?? '', total };
   }
   const status = LOCAL_STATUS[row.order.syncStatus];
@@ -109,5 +110,6 @@ export function orderRowCells(row: OrderTableRow, now: Date): OrderRowCells {
   const primary = row.order.payments.reduce<PosOrder['payments'][number] | undefined>(
     (largest, payment) => (!largest || payment.amountMinor > largest.amountMinor ? payment : largest), undefined);
   return { statusLabel: status.label, tone: status.tone, number: orderReference(row.order), customer,
+    day: dayLabel(row.order.createdAt, now),
     date: dateTimeLabel(row.order.createdAt, now), payment: primary ? (primary.method === 'cash' ? 'Cash' : 'Card') : '', total };
 }

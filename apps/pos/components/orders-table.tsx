@@ -81,7 +81,7 @@ function OrderPhoneRow({ item, cells, prefix, onOpen }: {
       </View>
       <View className="flex-row items-center gap-1">
         <View testID={`${rowId}-status`}><OrderStatus cells={cells} /></View>
-        {cells.date ? <Text testID={`${rowId}-date`} numberOfLines={1} className="min-w-0 shrink text-sm text-muted-foreground">· {cells.date}</Text> : null}
+        {cells.day ? <Text testID={`${rowId}-date`} numberOfLines={1} className="min-w-0 shrink text-sm text-muted-foreground">· {cells.day}</Text> : null}
         {cells.payment ? <Text testID={`${rowId}-payment`} numberOfLines={1} className="min-w-0 shrink text-sm text-muted-foreground">· {cells.payment}</Text> : null}
       </View>
     </View>
