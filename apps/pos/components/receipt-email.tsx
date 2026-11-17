@@ -71,9 +71,7 @@ export function ReceiptEmail({ collection, orderId, defaultEmail, localOnly = fa
   return (
     <View testID="receipt-email" className="gap-2 py-4">
       {request?.error ? <Text accessibilityRole="alert">{request.error}</Text> : null}
-      {request?.status !== 'queued'
-        ? <Button testID="receipt-email-button" variant="outline" onPress={show}><Text>Email Receipt</Text></Button>
-        : null}
+      <Button testID="receipt-email-button" variant="outline" onPress={show}><Text>Email Receipt</Text></Button>
       {open && <Dialog open onOpenChange={next => { if (!next) setOpen(false); }}>
         <DialogContent className="w-full max-w-lg">
           <DialogHeader><DialogTitle>Email Receipt</DialogTitle></DialogHeader>

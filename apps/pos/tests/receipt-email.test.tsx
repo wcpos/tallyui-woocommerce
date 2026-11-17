@@ -69,7 +69,7 @@ test('Send queues the trimmed address, closes the dialog and shows the queued to
   expect(screen.queryByText('Receipt email queued')).toBeNull();
   expect(screen.queryByText('It will send as soon as this device can reach your store.')).toBeNull();
   expect(screen.queryByLabelText('Email Address')).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Email Receipt' })).toBeNull();
+  screen.getByRole('button', { name: 'Email Receipt' });
   expect((await request())?.toJSON()).toMatchObject({ email: 'other@example.invalid', status: 'queued' });
 });
 
@@ -164,7 +164,7 @@ const failedRow = { status: 'failed', email: 'old@example.invalid', error: 'The 
 
 test.each([
   ['failed', failedRow, 'The store refused the email: Invalid order ID', true],
-  ['queued with a deferred reason', { status: 'queued', email, error: 'Could not reach the store' }, 'Could not reach the store', false],
+  ['queued with a deferred reason', { status: 'queued', email, error: 'Could not reach the store' }, 'Could not reach the store', true],
   ['sending', { status: 'sending', email }, 'Sending the receipt…', false],
 ] as const)('a %s row shows its state', async (_, row, text, button) => {
   await insert(row);
@@ -177,7 +177,8 @@ test('an already-sent request shows no toast on mount, then Email sent once when
   const row = await insert({ status: 'sent', email, sentAt: '2026-11-10T10:01:00.000Z', error: '' });
   show();
   await act(async () => { await row.getLatest().incrementalPatch({ status: 'queued' }); });
-  await vi.waitFor(() => expect(screen.queryByRole('button', { name: 'Email Receipt' })).toBeNull());
+  await vi.waitFor(async () => expect((await request())?.status).toBe('queued'));
+  screen.getByRole('button', { name: 'Email Receipt' });
   expect(screen.queryByText('Email sent')).toBeNull();
   expect(toasts()).toEqual([]);
   await act(async () => { await row.getLatest().incrementalPatch({ status: 'sent', sentAt: '2026-11-10T10:05:00.000Z' }); });
@@ -186,6 +187,19 @@ test('an already-sent request shows no toast on mount, then Email sent once when
   await act(async () => { await row.getLatest().incrementalPatch({ sentAt: '2026-11-10T10:06:00.000Z' }); });
   await vi.waitFor(async () => expect((await request())?.sentAt).toBe('2026-11-10T10:06:00.000Z'));
   expect(toasts()).toEqual([{ type: 'success', title: 'Email sent', description: undefined }]);
+});
+
+test('a queued row keeps Email Receipt; sending again queues the new address and toasts again', async () => {
+  await insert({ status: 'queued', email, error: '' });
+  show();
+  const field = await openDialog();
+  expect(field.value).toBe(email);
+  fireEvent.change(field, { target: { value: 'other@example.invalid' } });
+  fireEvent.click(screen.getByTestId('receipt-email-send'));
+  await waitForQueuedToast();
+  expect((await request())?.toJSON()).toMatchObject({ email: 'other@example.invalid', status: 'queued' });
+  expect(screen.queryByLabelText('Email Address')).toBeNull();
+  screen.getByRole('button', { name: 'Email Receipt' });
 });
 
 test('a failed email reopens the dialog with the address it was queued with', async () => {
