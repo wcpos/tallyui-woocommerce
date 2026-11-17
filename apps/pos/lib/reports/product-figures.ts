@@ -3,6 +3,14 @@ import { rangeBounds } from './sales-room';
 
 export type ProductFigure = { key: string; productId: string; name: string; quantity: number; amountMinor: number };
 
+/** A line's amount with its tax: an inclusive line's net already holds it; an exclusive line adds its rounded tax. */
+export function lineGrossMinor(order: PosOrder, line: PosOrder['lines'][number]): number {
+  const inclusive = line.taxInclusive ?? order.pricesIncludeTax;
+  return inclusive ? line.netMinor : line.netMinor + roundMicrosToMinor(
+    line.taxLines.reduce((sum, tax) => sum + BigInt(tax.taxMicros), BigInt(0)),
+    order.taxRounding && 'mode' in order.taxRounding ? order.taxRounding.mode : undefined);
+}
+
 /** v2 reports/cards/aggregate.ts topProducts: tax-inclusive amounts and units; productId is kept for the Categories card. */
 export function productFigures(orders: readonly PosOrder[], options: { currency: string; range: DayRange }): ProductFigure[] {
   const { startIso, endIso } = rangeBounds(options.range);
@@ -16,11 +24,8 @@ export function productFigures(orders: readonly PosOrder[], options: { currency:
         row = { key, productId: line.productId, name: line.name || '', quantity: 0, amountMinor: 0 };
         rows.set(key, row);
       }
-      const inclusive = line.taxInclusive ?? order.pricesIncludeTax;
       row.quantity += line.quantity;
-      row.amountMinor += inclusive ? line.netMinor : line.netMinor + roundMicrosToMinor(
-        line.taxLines.reduce((sum, tax) => sum + BigInt(tax.taxMicros), BigInt(0)),
-        order.taxRounding && 'mode' in order.taxRounding ? order.taxRounding.mode : undefined);
+      row.amountMinor += lineGrossMinor(order, line);
     }
   }
   return [...rows.values()].sort((a, b) => b.amountMinor - a.amountMinor || a.name.localeCompare(b.name));

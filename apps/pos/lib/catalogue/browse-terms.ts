@@ -8,7 +8,7 @@ export interface BrowseTerm { id: number; name: string; count: number }
 
 interface CategoryRef { id: number; name: string }
 
-function categoriesOf(doc: any): CategoryRef[] {
+export function categoriesOf(doc: any): CategoryRef[] {
   return Array.isArray(doc?.categories) ? doc.categories : [];
 }
 

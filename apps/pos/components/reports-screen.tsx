@@ -9,8 +9,10 @@ import {
 } from '@tallyui/pos';
 import { Portal } from '@tallyui/primitives';
 import { useSession } from '../lib/auth/session-context';
+import { useCatalogue } from '../lib/catalogue/catalogue-context';
 import { useRegister } from '../lib/register/register-context';
 import { closuresCsv } from '../lib/reports/closures-csv';
+import { categoryFigures } from '../lib/reports/category-figures';
 import { productFigures } from '../lib/reports/product-figures';
 import { closuresScope, periodNow, salesPeriod } from '../lib/reports/report-scope';
 import { rangeBounds, salesRoom, type Compare } from '../lib/reports/sales-room';
@@ -50,6 +52,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const outbox = useOutbox();
   const orders = outbox.enabled ? outbox.orders : null;
   const { session, cashiers } = useSession();
+  const { products: catalogueProducts } = useCatalogue();
   const user = session?.tokens.user;
   const resolveCashierName = (id: string) => user && id === String(user.id) ? user.displayName : id;
   const register = useRegister();
@@ -219,7 +222,8 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
           {room.today.rejected > 0 && <Text>{`Not accepted by the store: ${room.today.rejected}`}</Text>}
           {room.today.count === 0 && <Text>{preset === 'today' ? 'No sales yet today.' : 'No sales in this period.'}</Text>}
         </ReportsHero>
-        <ReportCards period={room.today} money={minor => money(minor) ?? ''} moneyWhole={moneyWhole} onOpenTable={setOpenTable} cashiers={reportCashierRows} products={productFigures(shown, { currency, range })} />
+        <ReportCards period={room.today} money={minor => money(minor) ?? ''} moneyWhole={moneyWhole} onOpenTable={setOpenTable} cashiers={reportCashierRows} products={productFigures(shown, { currency, range })}
+          categories={categoryFigures(shown, catalogueProducts, { currency, range })} />
         {openTable && table && <SalesTable table={table} scope={`${periodName} · ${registerName}`} onClose={() => setOpenTable(null)}
           onExport={() => downloadCsv(salesTableCsv(table), `sales-${openTable}-${range.from}-${range.to}.csv`)} />}
       </ScrollView>}
