@@ -136,6 +136,9 @@ function variationRange(doc: ProductDoc, field: PriceField): { min: string; max:
     if (variation.status !== undefined && variation.status !== 'publish') continue;
     const value = variation[field];
     if (value === undefined || priceValue(value) === undefined) continue;
+    // v2 counts a sale only while it is active (Variable_Price_Range.php:44-47,155-157): WooCommerce keeps
+    // sale_price after a scheduled sale ends, so it must differ from regular_price and equal price.
+    if (field === 'sale_price' && (Number(value) === Number(variation.regular_price) || Number(value) !== Number(variation.price))) continue;
     if (!range) range = { min: value, max: value };
     else {
       if (Number(value) < Number(range.min)) range.min = value;

@@ -167,6 +167,30 @@ test('a variable product with no variation on sale shows an empty Sale Price, as
   expect(text('product-price-1')).toBe('$20.00 - $40.00');
 });
 
+test('a variable product\'s Sale Price counts only variations whose sale is active, as v2 does', () => {
+  renderScreen([product(1, 'Hoodie', {
+    type: 'variable', price: '99', regular_price: '99', sale_price: '', variations: [11, 12],
+    variation_docs: [
+      variation(11, { price: '25', regular_price: '30', sale_price: '25' }),
+      // A scheduled sale that has ended: WooCommerce keeps sale_price, but price is back at regular.
+      variation(12, { price: '40', regular_price: '40', sale_price: '35' }),
+    ],
+  })]);
+  expect(text('product-sale_price-1')).toBe('$25.00');
+  expect(text('product-price-1')).toBe('$25.00 - $40.00');
+});
+
+test('a variable product with no variation on an active sale shows an empty Sale Price, not the parent\'s', () => {
+  renderScreen([product(1, 'Hoodie', {
+    type: 'variable', price: '20', regular_price: '20', sale_price: '9', variations: [11, 12],
+    variation_docs: [
+      variation(11, { price: '20', regular_price: '20', sale_price: '' }),
+      variation(12, { price: '40', regular_price: '40', sale_price: '35' }),
+    ],
+  })]);
+  expect(text('product-sale_price-1')).toBe('');
+});
+
 test('sorting by Price puts a variable product by its lowest variation price', () => {
   renderScreen([
     product(1, 'Americano', { price: '30' }),
