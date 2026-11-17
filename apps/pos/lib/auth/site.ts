@@ -10,7 +10,7 @@ export type DiscoveryStage = 'finding-store' | 'checking-wordpress' | 'checking-
 export type ConnectStage = DiscoveryStage | 'saving';
 
 export class SiteError extends Error {
-  constructor(readonly code: 'invalid_url' | 'unreachable' | 'not_wordpress' | 'no_wcpos' | 'wcpos_outdated', message: string) {
+  constructor(readonly code: 'invalid_url' | 'unreachable' | 'not_wordpress' | 'no_wcpos' | 'wcpos_outdated' | 'bot_challenge', message: string) {
     super(message);
   }
 }
@@ -39,6 +39,10 @@ export async function discoverSite(input: string, fetchImpl: typeof fetch = fetc
     });
   } catch {
     throw new SiteError('unreachable', 'Could not reach the store.');
+  }
+  // v2: screens/auth/hooks/bot-challenge.ts.
+  if (response.headers.get('cf-mitigated')?.trim().toLowerCase() === 'challenge') {
+    throw new SiteError('bot_challenge', "This store's hosting setup is blocking the app — the details page names the exact cause and fix.");
   }
   onStage?.('checking-wordpress');
   let index;
