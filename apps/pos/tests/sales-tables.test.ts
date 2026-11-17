@@ -4,7 +4,7 @@ process.env.TZ = 'America/Los_Angeles';
 import { afterAll, expect, test } from 'vitest';
 import { formatMoney } from '@tallyui/core';
 import type { PosOrder } from '@tallyui/pos';
-import { salesRoom } from '../lib/reports/sales-room';
+import { salesRoom, type Period } from '../lib/reports/sales-room';
 import { ordersTable, paymentsTable, taxesTable, whereSoldTable } from '../lib/reports/sales-tables';
 
 afterAll(() => {
@@ -85,6 +85,13 @@ test('where sold table has no rows in an empty period', () => {
   expect(table.rows).toEqual([]);
   expect(table.total).toEqual(['Total', '0', '$0.00', '']);
   expect(table.status).toBe('0 orders · $0.00');
+}, 20_000);
+
+test('where sold share is a dash when the orders total nothing', () => {
+  const period: Period = { ...today, count: 1, totalMinor: 0 };
+  const table = whereSoldTable(period, money);
+  expect(table.rows.map(row => row.cells)).toEqual([['In store', '1', '$0.00', '—']]);
+  expect(table.total[3]).toBe('—');
 }, 20_000);
 
 test('taxes table lists rates ascending and totals the period, not the rows', () => {
