@@ -10,6 +10,7 @@ import { PortalHost } from '@tallyui/primitives';
 import { ReceiptEmail } from '../components/receipt-email';
 import { receiptEmailSchema, receiptEmailMigrationStrategies } from '../lib/receipts/receipt-emails';
 import type { ReceiptEmail as ReceiptEmailRow, ReceiptEmailCollection } from '../lib/receipts/receipt-emails';
+import { dismissToast, getToasts } from '../lib/toast/toast';
 
 addRxPlugin(RxDBMigrationSchemaPlugin);
 
@@ -29,6 +30,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  act(() => dismissToast());
   cleanup();
   await db.close();
   vi.restoreAllMocks();
@@ -45,6 +47,9 @@ const saveSwitch = () => screen.getByRole('switch', { name: 'Save email to Billi
 const insert = (row: Partial<ReceiptEmailRow>) =>
   collection.insert({ id: 'sale', queuedAt: '2026-11-10T10:00:00.000Z', attempts: 1, ...row } as ReceiptEmailRow);
 const sendLabel = () => screen.getByTestId('receipt-email-send').textContent;
+const queuedToast = { type: 'success', title: 'Receipt email queued', description: 'It will send as soon as this device can reach your store.' };
+const toasts = () => getToasts().map(({ type, title, description }) => ({ type, title, description }));
+const waitForQueuedToast = () => vi.waitFor(() => expect(toasts()).toEqual([queuedToast]));
 
 test('opens the Email Receipt dialog with the sale\'s address, save to billing off, and Send', async () => {
   show();
@@ -56,12 +61,13 @@ test('opens the Email Receipt dialog with the sale\'s address, save to billing o
   expect(screen.queryByTestId('receipt-email-offline-notice')).toBeNull();
 });
 
-test('Send queues the trimmed address, closes the dialog and shows the queued copy', async () => {
+test('Send queues the trimmed address, closes the dialog and shows the queued toast', async () => {
   show();
   fireEvent.change(await openDialog(), { target: { value: ' other@example.invalid ' } });
   fireEvent.click(screen.getByTestId('receipt-email-send'));
-  await vi.waitFor(() => screen.getByText('Receipt email queued'));
-  expect(screen.getByText('It will send as soon as this device can reach your store.')).not.toBeNull();
+  await waitForQueuedToast();
+  expect(screen.queryByText('Receipt email queued')).toBeNull();
+  expect(screen.queryByText('It will send as soon as this device can reach your store.')).toBeNull();
   expect(screen.queryByLabelText('Email Address')).toBeNull();
   expect(screen.queryByRole('button', { name: 'Email Receipt' })).toBeNull();
   expect((await request())?.toJSON()).toMatchObject({ email: 'other@example.invalid', status: 'queued' });
@@ -84,7 +90,7 @@ test('correcting an invalid address sends, closes the dialog and queues the corr
   await vi.waitFor(() => expect(screen.getByTestId('receipt-email-error').textContent).toBe('Invalid email address'));
   fireEvent.change(field, { target: { value: 'gee@example.com' } });
   fireEvent.click(screen.getByTestId('receipt-email-send'));
-  await vi.waitFor(() => screen.getByText('Receipt email queued'));
+  await waitForQueuedToast();
   expect(screen.queryByLabelText('Email Address')).toBeNull();
   expect((await request())?.toJSON()).toMatchObject({ email: 'gee@example.com', status: 'queued' });
 });
@@ -125,7 +131,7 @@ test.each([
   expect(sendLabel()).toBe('Send when online');
   expect(screen.getByTestId('receipt-email-offline-notice').textContent).toBe(notice);
   fireEvent.click(screen.getByTestId('receipt-email-send'));
-  await vi.waitFor(() => screen.getByText('Receipt email queued'));
+  await waitForQueuedToast();
   expect((await request())?.status).toBe('queued');
 });
 
@@ -158,7 +164,6 @@ const failedRow = { status: 'failed', email: 'old@example.invalid', error: 'The 
 
 test.each([
   ['failed', failedRow, 'The store refused the email: Invalid order ID', true],
-  ['sent', { status: 'sent', email, sentAt: '2026-11-10T10:01:00.000Z', error: '' }, 'Email sent', true],
   ['queued with a deferred reason', { status: 'queued', email, error: 'Could not reach the store' }, 'Could not reach the store', false],
   ['sending', { status: 'sending', email }, 'Sending the receipt…', false],
 ] as const)('a %s row shows its state', async (_, row, text, button) => {
@@ -166,6 +171,21 @@ test.each([
   show();
   await vi.waitFor(() => screen.getByText(text));
   expect(screen.queryByRole('button', { name: 'Email Receipt' }) !== null).toBe(button);
+});
+
+test('an already-sent request shows no toast on mount, then Email sent once when a resend is sent', async () => {
+  const row = await insert({ status: 'sent', email, sentAt: '2026-11-10T10:01:00.000Z', error: '' });
+  show();
+  await act(async () => { await row.getLatest().incrementalPatch({ status: 'queued' }); });
+  await vi.waitFor(() => expect(screen.queryByRole('button', { name: 'Email Receipt' })).toBeNull());
+  expect(screen.queryByText('Email sent')).toBeNull();
+  expect(toasts()).toEqual([]);
+  await act(async () => { await row.getLatest().incrementalPatch({ status: 'sent', sentAt: '2026-11-10T10:05:00.000Z' }); });
+  await vi.waitFor(() => screen.getByRole('button', { name: 'Email Receipt' }));
+  expect(toasts()).toEqual([{ type: 'success', title: 'Email sent', description: undefined }]);
+  await act(async () => { await row.getLatest().incrementalPatch({ sentAt: '2026-11-10T10:06:00.000Z' }); });
+  await vi.waitFor(async () => expect((await request())?.sentAt).toBe('2026-11-10T10:06:00.000Z'));
+  expect(toasts()).toEqual([{ type: 'success', title: 'Email sent', description: undefined }]);
 });
 
 test('a failed email reopens the dialog with the address it was queued with', async () => {
@@ -180,6 +200,6 @@ test('switching Save to Billing on stores it on the queued row', async () => {
   await openDialog();
   fireEvent.click(saveSwitch());
   fireEvent.click(screen.getByTestId('receipt-email-send'));
-  await vi.waitFor(() => screen.getByText('Receipt email queued'));
+  await waitForQueuedToast();
   expect((await collection.findOne('sale').exec())?.saveToBilling).toBe(true);
 });

@@ -10,6 +10,7 @@ import { IDLE_OUTBOX_STATE, buildDebugInfo, formatDurationMs, formatLogTime, log
   type LogPreset, type OutboxSyncStats } from '../lib/logs/log-view';
 import { useVerboseDiagnostics } from '../lib/logs/verbose';
 import { useSearchTerm } from '../lib/search-term';
+import { toast } from '../lib/toast/toast';
 import { chipInkClassName, chipToneClassName } from './catalogue-filter-chips';
 
 // v2 logs/index.tsx:44: the status line's clock.
@@ -115,7 +116,6 @@ export function LogsScreen({ collection, storeName, siteUrl,
   const [rows, setRows] = useState<LogRecord[]>([]);
   const [preset, setPreset] = useState<LogPreset>('all');
   const [level, setLevel] = useState<LogLevel>();
-  const [copyStatus, setCopyStatus] = useState<string>();
   const [nextDueAtMs, setNextDueAtMs] = useState<number | undefined>(undefined);
   const [nowMs, setNowMs] = useState(now);
   const { verbose, setVerbose } = useVerboseDiagnostics(now);
@@ -147,9 +147,10 @@ export function LogsScreen({ collection, storeName, siteUrl,
     try {
       await copyText(buildDebugInfo({ now: now(), storeName, siteUrl, rows: counted, verbose,
         sync: sync ?? outboxSyncStats(IDLE_OUTBOX_STATE) }));
-      setCopyStatus('Debug info copied');
+      // v2 logs/index.tsx:308-316.
+      toast({ type: 'success', title: 'Debug info copied' });
     } catch {
-      setCopyStatus("Couldn't copy debug info");
+      toast({ type: 'error', title: "Couldn't copy debug info" });
     }
   }
   // The Store health area (app/health/_layout.tsx) draws the scroll, the page title and the way back.
@@ -179,7 +180,6 @@ export function LogsScreen({ collection, storeName, siteUrl,
         <Chip testID="logs-chip-verbose" label={`Verbose diagnostics: ${verbose ? 'on' : 'off'}`} on={verbose}
           pressed={verbose} onPress={() => setVerbose(!verbose)} />
       </View>
-      {copyStatus && <Text testID="logs-copy-status">{copyStatus}</Text>}
       {/* v2's ledger head (logs/ledger.tsx:391); the duration column keeps v2's testID, "took". */}
       {!phone && /* v2 logs/ledger.tsx:391: hide the head on a phone. */ <View className="h-9 flex-row items-center gap-3 border-b border-border">
         <Text testID="logs-heading-time" className={`w-20 ${HEAD}`}>Time</Text>

@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input, Switch, Text } from '@tallyui/components';
 import { queueReceiptEmail } from '../lib/receipts/receipt-emails';
 import type { ReceiptEmail as EmailRequest, ReceiptEmailCollection } from '../lib/receipts/receipt-emails';
+import { toast } from '../lib/toast/toast';
 
 // WCPOS v2's receipt/email.tsx dialog behind receipt-actions.tsx's Email Receipt button.
 export function ReceiptEmail({ collection, orderId, defaultEmail, localOnly = false }: {
@@ -18,7 +19,14 @@ export function ReceiptEmail({ collection, orderId, defaultEmail, localOnly = fa
   const [busy, setBusy] = useState(false);
   const [online, setOnline] = useState(() => navigator.onLine !== false);
   useEffect(() => {
-    const subscription = collection.findOne(orderId).$.subscribe(doc => setRequest(doc ? doc.toJSON() as EmailRequest : null));
+    let last: string | null | undefined;
+    const subscription = collection.findOne(orderId).$.subscribe(doc => {
+      const next = doc ? doc.toJSON() as EmailRequest : null;
+      // v2 email.tsx:144 toasts Email sent for a send it saw; a request already sent on mount stays quiet.
+      if (last !== undefined && last !== 'sent' && next?.status === 'sent') toast({ type: 'success', title: 'Email sent' });
+      last = next?.status ?? null;
+      setRequest(next);
+    });
     return () => subscription.unsubscribe();
   }, [collection, orderId]);
   useEffect(() => {
@@ -49,6 +57,8 @@ export function ReceiptEmail({ collection, orderId, defaultEmail, localOnly = fa
     try {
       // The switch rides on the queue row; the sender passes it to the store (v2 email.tsx saveToBilling).
       await queueReceiptEmail(collection, orderId, email, undefined, { saveToBilling });
+      // v2 email.tsx:98: receipt.email_queued and its detail.
+      toast({ type: 'success', title: 'Receipt email queued', description: 'It will send as soon as this device can reach your store.' });
       setOpen(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -60,11 +70,6 @@ export function ReceiptEmail({ collection, orderId, defaultEmail, localOnly = fa
   if (request?.status === 'sending') return <Text>Sending the receipt…</Text>;
   return (
     <View testID="receipt-email" className="gap-2 py-4">
-      {request?.status === 'queued' ? <>
-        <Text>Receipt email queued</Text>
-        <Text className="text-muted-foreground">It will send as soon as this device can reach your store.</Text>
-      </> : null}
-      {request?.status === 'sent' ? <Text>Email sent</Text> : null}
       {request?.error ? <Text accessibilityRole="alert">{request.error}</Text> : null}
       {request?.status !== 'queued'
         ? <Button testID="receipt-email-button" variant="outline" onPress={show}><Text>Email Receipt</Text></Button>

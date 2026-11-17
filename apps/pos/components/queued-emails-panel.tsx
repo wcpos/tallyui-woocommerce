@@ -4,6 +4,7 @@ import type { RxCollection } from 'rxdb';
 import { Badge, Button, Text } from '@tallyui/components';
 import type { PosOrder } from '@tallyui/pos';
 import { queueReceiptEmail, type ReceiptEmail, type ReceiptEmailCollection } from '../lib/receipts/receipt-emails';
+import { toast } from '../lib/toast/toast';
 
 export function queuedAgo(queuedAt: string, now: Date): string {
   const seconds = (new Date(queuedAt).getTime() - now.getTime()) / 1000;
@@ -20,7 +21,6 @@ export function QueuedEmailsPanel({ collection, orders, now = () => new Date() }
   const [rows, setRows] = useState<ReceiptEmail[]>([]);
   const [orderNumbers, setOrderNumbers] = useState<Record<string, string | undefined>>({});
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   useEffect(() => {
     const subscription = collection.find({ selector: { status: { $in: ['queued', 'sending', 'failed'] } },
       sort: [{ queuedAt: 'asc' }] }).$.subscribe(docs => setRows(docs.map(doc => doc.toJSON()).sort(
@@ -43,30 +43,29 @@ export function QueuedEmailsPanel({ collection, orders, now = () => new Date() }
 
   async function sendAgain(id: string) {
     setBusy(true);
-    setMessage(null);
     try {
       const latest = await collection.findOne(id).exec();
       if (latest?.status === 'failed') {
         await queueReceiptEmail(collection, id, latest.email, undefined, { saveToBilling: latest.saveToBilling === true });
       }
     } catch {
-      setMessage('Couldn’t send that email.');
+      // v2 queued-emails.tsx:82-112: each outcome is a toast of v2's type.
+      toast({ type: 'error', title: 'Couldn’t send that email.' });
     } finally { setBusy(false); }
   }
   async function remove(id: string) {
     setBusy(true);
-    setMessage(null);
     try {
       const latest = await collection.findOne(id).exec();
       if (!latest) return;
       if (latest.status === 'sending') {
-        setMessage('Delivery has already started and can’t be cancelled. The customer may still receive this email.');
+        toast({ type: 'warning', title: 'Delivery has already started and can’t be cancelled. The customer may still receive this email.' });
         return;
       }
       await latest.remove();
-      setMessage('Removed from the queue.');
+      toast({ type: 'success', title: 'Removed from the queue.' });
     } catch {
-      setMessage('Couldn’t remove that email.');
+      toast({ type: 'error', title: 'Couldn’t remove that email.' });
     } finally { setBusy(false); }
   }
 
@@ -97,7 +96,6 @@ export function QueuedEmailsPanel({ collection, orders, now = () => new Date() }
           </View>
         </View>)}
       </View>
-      {message && <Text testID="db-queued-emails-message">{message}</Text>}
     </View>
   );
 }
