@@ -15,7 +15,7 @@ import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import type { TenderVoidCollection } from '../lib/sale/tender-voids';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
-import { takeLeg } from './tender-helpers';
+import { takeCash, takeLeg } from './tender-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 
 let collection: TenderVoidCollection;
@@ -210,4 +210,37 @@ test('a void error from one sale is gone on the next sale tender', async () => {
   fireEvent.click(screen.getByTestId('cart-checkout'));
   expect(await screen.findByTestId('checkout-keypad')).not.toBeNull();
   expect(screen.queryByTestId('tender-void-error')).toBeNull();
+}, 20_000);
+
+test('Escape in the multi-payment tender with no payment returns to the cart with its lines', async () => {
+  await renderSale(true);
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(await screen.findByTestId('cart-checkout')).not.toBeNull();
+  expect(screen.getByLabelText('Edit quantity of Espresso')).not.toBeNull();
+}, 20_000);
+
+test('Escape after a payment opens the cancel view and voids nothing', async () => {
+  await renderSale(true);
+  addCash();
+  await screen.findByTestId(/^checkout-leg-/);
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(await screen.findByTestId('checkout-cancel-confirm')).not.toBeNull();
+  expect(screen.queryByTestId('cart-checkout')).toBeNull();
+  expect(await collection.find().exec()).toHaveLength(0);
+}, 20_000);
+
+test('Escape in the single-payment tender returns to the cart', async () => {
+  await renderSale();
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(await screen.findByTestId('cart-checkout')).not.toBeNull();
+  expect(screen.getByLabelText('Edit quantity of Espresso')).not.toBeNull();
+}, 20_000);
+
+test('Escape on the receipt leaves the receipt showing', async () => {
+  await renderSale();
+  await takeCash(1000);
+  await screen.findByTestId('receipt-order');
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(screen.getByTestId('receipt-order')).not.toBeNull();
+  expect(screen.queryByTestId('cart-checkout')).toBeNull();
 }, 20_000);

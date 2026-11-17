@@ -22,6 +22,7 @@ import { renderedStoreReceipt } from '../lib/receipts/store-receipt';
 import { useStoreTemplates } from '../lib/receipts/use-store-templates';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { useCartRestore } from '../lib/sale/use-cart-restore';
+import { useCheckoutBack } from '../lib/sale/use-checkout-back';
 import { useLeaveTill } from '../lib/sale/use-leave-till';
 import { useParkAndResume } from '../lib/sale/use-park-and-resume';
 import { useParkedCarts } from '../lib/sale/use-parked-carts';
@@ -148,6 +149,9 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     collection: () => (outbox.enabled && outbox.orders!.database.collections.tender_voids) as TenderVoidCollection,
     sessionId: register?.saleSession?.id, cashierRef: props.cashierRef,
   });
+  // WCPOS v2 checkout-column.tsx:32-34: Escape is the tender's own Back; in the cancel view the cashier picks Keep or Cancel.
+  useCheckoutBack(() => { if (outbox.enabled && props.multiplePayments === true) requestCancel(); else sale.cancelTender(); },
+    { enabled: sale.stage.kind === 'tender' && !cancelling });
   const [message, setMessage] = useState<string>();
   const cartRestore = useCartRestore(sale, props.products, connector.traits.product, currency, setMessage);
   const parkedStore = useParkedCarts(parkedCarts);
