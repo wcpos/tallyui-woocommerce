@@ -1,7 +1,8 @@
 import type { AuthTokens } from './login';
 import type { StoreSite } from './site';
 
-export interface Session { site: StoreSite; tokens: AuthTokens }
+// epoch ms when this cashier came onto this till (signed in or switched to); absent on sessions saved before it was recorded
+export interface Session { site: StoreSite; tokens: AuthTokens; signedInAt?: number }
 export const SESSION_KEY = 'tallywoo.session';
 export const PENDING_KEY = 'tallywoo.auth.pending';
 // The other cashiers signed in at this till, by site home; the active one stays under SESSION_KEY

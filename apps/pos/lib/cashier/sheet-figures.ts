@@ -6,6 +6,16 @@ import { dayRange } from '../reports/today-sales';
 
 export interface SalesTotal { count: number; totalMinor: number }
 
+export function tillSinceTime(signedInAtMs: number): string {
+  const date = new Date(signedInAtMs);
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+export function tillAgeLabel(fromMs: number, nowMs: number): string {
+  const minutes = Math.max(0, Math.floor((nowMs - fromMs) / 60000));
+  return minutes >= 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} m` : `${minutes} m`;
+}
+
 /** This cashier's orders in [startIso, endIso) and in `currency`; orders the store refused are not sales. */
 export function cashierSalesTotal(
   orders: readonly PosOrder[],

@@ -8,6 +8,7 @@ import { Button, Text } from '@tallyui/components';
 import { useSession } from '../lib/auth/session-context';
 import { useIsWide } from '../lib/layout/wide';
 import { runBeforeLeave } from '../lib/sale/before-leave';
+import { useOutbox } from '../lib/sale/outbox-context';
 import { toast } from '../lib/toast/toast';
 import { AppRailShown } from './app-rail';
 import { CashierSheet } from './cashier-sheet';
@@ -37,6 +38,7 @@ export function AreaHeader({ title, backTestID, onBack, gap = true, controls }: 
  *  first runs the till's before-leave handler, which parks its open cart, as the till's own sheet does. */
 function AreaAvatar({ testID }: { testID: string }): JSX.Element | null {
   const auth = useSession() as ReturnType<typeof useSession> | null;
+  const outbox = useOutbox();
   if (!auth?.session) return null;
   const { session, cashiers, switchCashier, startAddCashier, removeCashier, signOut } = auth;
   async function leaveThen(go: () => unknown) {
@@ -46,6 +48,7 @@ function AreaAvatar({ testID }: { testID: string }): JSX.Element | null {
   }
   return <View testID={testID}>
     <CashierSheet name={session.tokens.user.displayName} storeName={session.site.name} adminUrl={`${session.site.home}/wp-admin`}
+      signedInAt={session.signedInAt} awaitingStore={outbox.enabled ? outbox.state.pending : 0}
       cashiers={cashiers.map(c => ({ uuid: c.tokens.user.uuid, name: c.tokens.user.displayName }))}
       onSwitch={uuid => { void leaveThen(() => switchCashier(uuid)); }} onAddAnother={() => { void leaveThen(startAddCashier); }}
       onRemove={removeCashier} onSignOut={signOut} />
