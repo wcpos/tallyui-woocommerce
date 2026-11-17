@@ -8,6 +8,7 @@ import { formatMoney } from '@tallyui/core';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
 import type { CatalogueEntry, CustomerSummary, OutboxState } from '@tallyui/pos';
 import { createCustomersBlockedReason, type CashierCapabilities } from '../lib/auth/capabilities';
+import { useSession } from '../lib/auth/session-context';
 import { drawerFigureText, drawerVerbs, sheetMoney } from '../lib/cashier/sheet-figures';
 import { inCartCounts } from '../lib/catalogue/tile-words';
 import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
@@ -102,6 +103,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const [groupWidth, setGroupWidth] = useState(0);
   const effective: CashierCapabilities = props.cashier ?? { known: false, reason: 'Your permissions have not been read from the store.' };
   const outbox = useOutbox();
+  const auth = useSession() as ReturnType<typeof useSession> | null;
   const register = useRegister();
   useReceiptEmailSender({ collection: mailer ? receiptEmails ?? null : null, mailer: mailer ?? null,
     orders: outbox.enabled ? outbox.orders : null });
@@ -200,6 +202,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       onRemove={props.onRemoveCashier}
       blockedReason={sale.stage.kind === 'tender' || sale.saving ? 'Finish or cancel the payment first.' : undefined}
       storeName={props.storeName}
+      signedInAt={auth?.session?.signedInAt} awaitingStore={outbox.enabled ? outbox.state.pending : 0}
       sales={outboxOrders ? { orders: outboxOrders, cashierRef: props.cashierRef, currency, locale: props.locale } : null}
       drawer={drawerFigure ? { figure: drawerFigure,
         ...drawerVerbs(register, id => id === props.cashierRef ? props.cashierName : undefined) } : undefined}

@@ -6,8 +6,9 @@ import type { PosOrder } from '@tallyui/pos';
 import { Path } from 'react-native-svg';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, createSvgIcon, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, IconButton, Text, XIcon } from '@tallyui/components';
 import { getInitials } from '../lib/cashier/initials';
-import { sheetMoney, useCashierSalesToday } from '../lib/cashier/sheet-figures';
+import { sheetMoney, tillAgeLabel, tillSinceTime, useCashierSalesToday } from '../lib/cashier/sheet-figures';
 import type { SalesTotal } from '../lib/cashier/sheet-figures';
+import { useMinuteClock } from '../lib/reports/use-minute-clock';
 import { SheetCloseButton } from './sheet';
 import { OpenExternalIcon } from './docs-link';
 import { PlusIcon } from './icons';
@@ -28,6 +29,13 @@ const SIDE_SHEET = 'left-auto right-0 top-0 h-full max-w-lg translate-x-0 transl
 // (user-sheet.tsx:163,686; amount-figure/index.tsx:18-20).
 const KEY_LABEL = 'text-sm text-muted-foreground';
 const TILE_FIGURE = 'text-xl font-bold tabular-nums';
+
+function SheetDescription({ storeName, signedInAt }: { storeName?: string; signedInAt?: number }) {
+  const now = useMinuteClock();
+  const description = [storeName, signedInAt !== undefined && `since ${tillSinceTime(signedInAt)}`,
+    signedInAt !== undefined && tillAgeLabel(signedInAt, now.getTime())].filter(Boolean).join(' · ');
+  return description ? <DialogDescription testID="user-sheet-description">{description}</DialogDescription> : null;
+}
 
 function SalesTodayRow({ total, currency, locale }: {
   total: SalesTotal; currency: string; locale?: string;
@@ -82,6 +90,8 @@ export function CashierSheet(props: {
   cashiers: CashierOption[];
   blockedReason?: string;
   storeName?: string;
+  signedInAt?: number;
+  awaitingStore?: number;
   sales?: { orders: RxCollection<PosOrder>; cashierRef: string; currency: string; locale?: string } | null;
   drawer?: SheetDrawer;
   /** Given, the drawer block is v2's drawer door: pressing it closes the sheet and opens the register's drawer flows. */
@@ -94,6 +104,7 @@ export function CashierSheet(props: {
 }): JSX.Element {
   const [open, setOpen] = useState(false);
   const [removing, setRemoving] = useState<CashierOption | null>(null);
+  const n = props.awaitingStore ?? 0;
   // v2 user-sheet.tsx:496: counted while closed, so opening never flashes $0.00.
   const salesToday = useCashierSalesToday(props.sales?.orders, props.sales?.cashierRef ?? '', props.sales?.currency ?? '');
   return <>
@@ -117,7 +128,7 @@ export function CashierSheet(props: {
           </View>
           <View className="min-w-0 flex-1">
             <DialogTitle numberOfLines={1}>{props.name}</DialogTitle>
-            {props.storeName && <DialogDescription testID="user-sheet-description">{props.storeName}</DialogDescription>}
+            <SheetDescription storeName={props.storeName} signedInAt={props.signedInAt} />
           </View>
         </DialogHeader>
         {/* v2's DialogContent close (dialog/index.tsx:213-233): an absolute h-ctl square at top-1 right-1, an 18 px glyph. */}
@@ -135,6 +146,11 @@ export function CashierSheet(props: {
             <Text className={KEY_LABEL}>In the drawer</Text>
             <Text className={TILE_FIGURE}>{props.drawer.figure}</Text>
           </View>)}
+        {/* v2 user-sheet.tsx:228-242; ADR 0040 rule 1: show sales awaiting the store. */}
+        {n > 0 && <View testID="user-sheet-awaiting-store" role="alert" className="mt-2 rounded-lg border border-warning bg-warning/10 px-3 py-2.5">
+          <Text testID="user-sheet-awaiting-store-title" className="font-medium text-foreground">{`Awaiting store · ${n === 1 ? '1 sale' : `${n} sales`}`}</Text>
+          <Text className="text-muted-foreground">Sent when you are signed in online.</Text>
+        </View>}
         <View testID="user-sheet-switch-user">
           {/* v2's `caption` rank (user-sheet.tsx:703; text/ladder.ts:18): muted, text-xs, tracking-wide, uppercase, on an
               `h-band` row (user-sheet.tsx:702): seven spacing units, 28 px (apps/main/global.css:33). */}

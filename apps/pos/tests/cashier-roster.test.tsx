@@ -47,11 +47,11 @@ test('adding a cashier keeps the active cashier and lists the new one', async ()
   sessionStorage.setItem(PENDING_KEY, JSON.stringify({ state: 's', site, mode: 'add' }));
   const { result } = renderHook(useSession, { wrapper });
   await act(async () => {});
-  act(() => { expect(result.current.completeSignIn(bSearch)).toEqual(b); });
+  act(() => { expect(result.current.completeSignIn(bSearch)).toEqual({ ...b, signedInAt: expect.any(Number) }); });
   expect(result.current.session).toEqual(a);
-  expect(result.current.cashiers).toEqual([b]);
+  expect(result.current.cashiers).toEqual([{ ...b, signedInAt: expect.any(Number) }]);
   expect(loadSession()).toEqual(a);
-  expect(loadCashiers()[home]).toEqual([b]);
+  expect(loadCashiers()[home]).toEqual([{ ...b, signedInAt: expect.any(Number) }]);
   expect(sessionStorage.getItem(PENDING_KEY)).toBeNull();
   expect(fetch).not.toHaveBeenCalled();
 });
@@ -77,9 +77,9 @@ test('an add completed before the provider has mounted keeps the active cashier 
   render(createElement(SessionProvider, { children: createElement(Callback) }));
   await act(async () => {});
   expect(value!.session).toEqual(a);
-  expect(value!.cashiers).toEqual([c, b]);
+  expect(value!.cashiers).toEqual([c, { ...b, signedInAt: expect.any(Number) }]);
   expect(loadSession()).toEqual(a);
-  expect(loadCashiers()[home]).toEqual([c, b]);
+  expect(loadCashiers()[home]).toEqual([c, { ...b, signedInAt: expect.any(Number) }]);
 });
 
 test('adding the active cashier again renews them and lists no one', async () => {
@@ -91,9 +91,9 @@ test('adding the active cashier again renews them and lists no one', async () =>
     result.current.completeSignIn(`?state=s&access_token=renewed-a&refresh_token=refresh-a&expires_at=${a.tokens.expiresAt}&id=1&uuid=${a.tokens.user.uuid}&display_name=Cashier+A`);
   });
   const renewed = { ...a, tokens: { ...a.tokens, accessToken: 'renewed-a' } };
-  expect(result.current.session).toEqual(renewed);
+  expect(result.current.session).toEqual({ ...renewed, signedInAt: expect.any(Number) });
   expect(result.current.cashiers).toEqual([]);
-  expect(loadSession()).toEqual(renewed);
+  expect(loadSession()).toEqual({ ...renewed, signedInAt: expect.any(Number) });
   expect(loadCashiers()[home]).toEqual([]);
   expect(fetch).not.toHaveBeenCalled();
 });
@@ -103,10 +103,12 @@ test('switching makes the chosen cashier active and lists the previous one', asy
   saveCashiers({ [home]: [b] });
   const { result } = renderHook(useSession, { wrapper });
   await act(async () => {});
+  const beforeSwitch = Date.now();
   await act(() => result.current.switchCashier(b.tokens.user.uuid));
-  expect(result.current.session).toEqual(b);
+  expect(result.current.session).toEqual({ ...b, signedInAt: expect.any(Number) });
+  expect(result.current.session!.signedInAt).toBeGreaterThanOrEqual(beforeSwitch);
   expect(result.current.cashiers).toEqual([a]);
-  expect(loadSession()).toEqual(b);
+  expect(loadSession()).toEqual({ ...b, signedInAt: expect.any(Number) });
   expect(loadCashiers()[home]).toEqual([a]);
   expect(fetch).not.toHaveBeenCalled();
 });
@@ -161,9 +163,9 @@ test('signing out keeps the other cashiers, and signing one of them in again rem
   expect(loadCashiers()[home]).toEqual([b]);
   sessionStorage.setItem(PENDING_KEY, JSON.stringify({ state: 's2', site }));
   act(() => { result.current.completeSignIn(bSearch.replace('state=s&', 'state=s2&')); });
-  expect(result.current.session).toEqual(b);
+  expect(result.current.session).toEqual({ ...b, signedInAt: expect.any(Number) });
   expect(result.current.cashiers).toEqual([]);
-  expect(loadSession()).toEqual(b);
+  expect(loadSession()).toEqual({ ...b, signedInAt: expect.any(Number) });
   expect(loadCashiers()[home]).toEqual([]);
   expect(sessionStorage.getItem(PENDING_KEY)).toBeNull();
   expect(fetch).not.toHaveBeenCalled();

@@ -110,7 +110,7 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
       pending = JSON.parse(globalThis.sessionStorage.getItem(PENDING_KEY) ?? 'null');
     } catch {}
     if (!pending) throw new LoginError('no_pending', 'No sign-in is pending. Try again.');
-    const next = { site: pending.site, tokens: parseCallback(search, pending.state) };
+    const next = { site: pending.site, tokens: parseCallback(search, pending.state), signedInAt: Date.now() };
     const active = current.current ?? loadSession();
     const add = pending.mode === 'add' && active && active.site.home === next.site.home && active.tokens.user.uuid !== next.tokens.user.uuid;
     // A re-auth that comes back as someone else keeps the held cashier as another cashier, so their queued sales stay reachable.
@@ -135,7 +135,7 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
     if (!target) throw new Error('No such cashier');
     let next;
     try {
-      next = await refreshSession(target);
+      next = { ...(await refreshSession(target)), signedInAt: Date.now() };
     } catch (error) {
       if (error instanceof SessionExpiredError) {
         {
