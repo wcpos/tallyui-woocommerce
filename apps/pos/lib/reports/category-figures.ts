@@ -13,10 +13,11 @@ export function categoryFigures(orders: readonly PosOrder[], products: readonly 
   const { startIso, endIso } = rangeBounds(options.range);
   const rows = new Map<string, CategoryFigure>();
   let unknownLines = 0, totalLines = 0;
+  const directory = new Map(products.map(product => [String(product.id), product]));
   for (const order of orders) {
     if (order.currency !== options.currency || order.createdAt < startIso || order.createdAt >= endIso) continue;
     for (const line of order.lines) {
-      const product = products.find(product => String(product.id) === line.productId);
+      const product = directory.get(line.productId);
       const category = categoriesOf(product)[0];
       const key = !product ? 'unknown' : category ? String(category.id) : 'uncategorised';
       const label = !product ? 'Unknown product' : category ? category.name : 'Uncategorised';
