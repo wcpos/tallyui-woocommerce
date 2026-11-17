@@ -74,7 +74,7 @@ test('an empty level still shows the parent tile, with the empty state under it'
   rerender(<CatalogueView {...props} products={products.filter(doc => doc.id !== 102)} />);
   expect(slots()).toEqual(['browse-parent-tile']);
   expect(screen.getByTestId('browse-parent-tile').textContent).toBe('Merch');
-  expect(screen.getByTestId('browse-level-empty').textContent).toBe('No products match');
+  expect(within(screen.getByTestId('browse-level-empty')).getByTestId('no-data-message-title').textContent).toBe('Nothing here matches the filters');
   expect(footer()).toBe('0 products');
 });
 
@@ -83,7 +83,7 @@ test('a search with no match inside a level keeps the parent tile and shows the 
   fireEvent.click(screen.getByTestId('browse-term-25'));
   fireEvent.change(screen.getByPlaceholderText('Search products'), { target: { value: 'T-Shirt' } });
   expect(slots()).toEqual(['browse-parent-tile']);
-  expect(screen.getByTestId('browse-level-empty').textContent).toBe('No products match');
+  expect(within(screen.getByTestId('browse-level-empty')).getByTestId('no-data-message-title').textContent).toBe('Nothing here matches the filters');
 });
 
 test('a level with products shows no empty state', () => {

@@ -23,6 +23,7 @@ import { BrowseCrumb, BrowseRootGrid, BrowseRootTable, ParentTermTile } from './
 import { CatalogueDisplayOptions, CatalogueSettingsButton } from './catalogue-display-options';
 import { CatalogueFilterChips } from './catalogue-filter-chips';
 import { DrawerSheet } from './drawer-content';
+import { EmptyState } from './empty-state';
 import { FilterBarDialog } from './filter-bar-dialog';
 import { ChevronRightIcon } from './icons';
 import { InCartBadge } from './in-cart-badge';
@@ -241,10 +242,17 @@ export function CatalogueView({
     <FilterBarDialog open={filterBarOpen} onOpenChange={setFilterBarOpen} quickFilters={quickFilters} onChange={changeQuickFilters}
       products={products} connector={connector} currency={currency} baselineSort={viewState.sort} />
   </View>;
-  const emptyState = <Text>{searching || products.length > 0 ? 'No products match' : 'No products yet'}</Text>;
+  // v2's conditionsBeyond (browse/level-place.ts:53): what Clear filters can clear. The open level is the place, not a condition.
+  const conditionsOn = searching || !filtersAtBaseline(filters, baseline) || quickFilters.some(isActive);
+  // v2's clearConditions: the search, the filters and a quick filter's sort go back to the baseline; the level stays.
+  const clearFilters = () => dispatch({ type: 'appliedQuickFilterGone', baseline });
+  const emptyStore = products.length === 0 && level === null && !conditionsOn;
+  const emptyState = <EmptyState title={emptyStore ? 'No products yet' : 'Nothing here matches the filters'}
+    description={emptyStore ? 'Products you add to the store will appear here.' : undefined}
+    action={conditionsOn ? { label: 'Clear filters', onPress: clearFilters } : undefined} />;
   const syncing = status === 'syncing' || status === 'starting';
   // The term set shows at the root, until a search, a chip or a quick filter displaces it with the products they match.
-  const atRoot = browsing && level === null && !searching && filtersAtBaseline(filters, baseline) && !quickFilters.some(isActive);
+  const atRoot = browsing && level === null && !conditionsOn;
   // v2's footer count (`products/footer.tsx`): shown against total, after the sync state and any notice. At the
   // root it is v2's root tally (browse-root-footer.tsx); in a level, the level's products are the total.
   const shown = items.length, total = levelProducts.length;

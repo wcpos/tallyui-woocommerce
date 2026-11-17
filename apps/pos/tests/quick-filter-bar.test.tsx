@@ -100,7 +100,7 @@ test('typing in search turns the active quick filter off but keeps its filters',
   expect(screen.getByTestId('quick-filter-sale').getAttribute('aria-pressed')).toBe('false');
   expect(screen.getByText('Cold Brew')).not.toBeNull();
   fireEvent.change(search, { target: { value: 'Esp' } });
-  expect(screen.getByText('No products match')).not.toBeNull();
+  expect(screen.getByText('Nothing here matches the filters')).not.toBeNull();
 });
 
 test('the quick filter sort does not change the saved sort', () => {
@@ -121,11 +121,11 @@ test('a table header sort replaces the quick filter sort', () => {
   expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!).sort).toEqual({ field: 'name', dir: 'asc' });
 });
 
-test('a filter that matches nothing shows No products match', () => {
+test('a filter that matches nothing shows Nothing here matches the filters', () => {
   localStorage.setItem(QUICK_FILTERS_KEY, JSON.stringify([
     { id: 'ext', type: 'quick', label: 'External', conditions: [{ field: 'type', value: 'external' }] },
   ]));
   render(<CatalogueView {...props} />);
   fireEvent.click(screen.getByTestId('quick-filter-ext'));
-  expect(screen.getByText('No products match')).not.toBeNull();
+  expect(screen.getByText('Nothing here matches the filters')).not.toBeNull();
 });
