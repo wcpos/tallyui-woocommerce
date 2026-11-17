@@ -19,6 +19,7 @@ import { receiptEmailSchema, receiptEmailMigrationStrategies, type ReceiptEmailC
 import { attachLogStore, logRecordMigrationStrategies, logRecordSchema, type LogCollection } from '../logs/log-store';
 import { fetchStoreInfo } from './store-info';
 import type { StoreInfo } from './store-info';
+import { logCatalogueChecks } from '../logs/catalogue-check-log';
 
 // Reconcile is the coupons' only source: start at once so a coupon made in WooCommerce reaches the till within 15 minutes.
 const COUPON_RECONCILE_INTERVAL_MS = 15 * 60_000;
@@ -99,12 +100,12 @@ export async function startCatalogue(
   });
   const reconcile = startCatalogueReconcile({
     collection: db.products, adapter: connector.reconcile!.catalogue!, context,
-    reSync: () => replication.reSync(),
+    reSync: () => replication.reSync(), log: logCatalogueChecks('products'),
   });
   const couponReconcile = startCatalogueReconcile({
     collection: db.coupons, adapter: connector.reconcile!.coupons!, context,
     reSync: () => couponReplication.reSync(), stateId: 'coupons-reconcile',
-    startDelayMs: 0, intervalMs: COUPON_RECONCILE_INTERVAL_MS,
+    startDelayMs: 0, intervalMs: COUPON_RECONCILE_INTERVAL_MS, log: logCatalogueChecks('coupons'),
   });
   // Products only, one check per tick, so the page's "~60 requests per hour" holds; coupons keep their
   // 15-minute reconcile. No connectivity tracker: the app passes none to startReplication either.

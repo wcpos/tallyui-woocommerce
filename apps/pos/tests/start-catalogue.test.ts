@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { RxCollection } from 'rxdb';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { firstValueFrom, filter } from 'rxjs';
-import { setSyncCadence } from '@tallyui/database';
+import { setSyncCadence, startCatalogueReconcile } from '@tallyui/database';
 import { taxLogger } from '@tallyui/pos';
 import type { Session } from '../lib/auth/session';
 import { databaseName, startCatalogue } from '../lib/catalogue/start-catalogue';
@@ -10,6 +10,11 @@ import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import variations from './fixtures/variations.json';
 import { memoryStorage } from './memory-storage';
+
+vi.mock('@tallyui/database', async importOriginal => {
+  const actual = await importOriginal<typeof import('@tallyui/database')>();
+  return { ...actual, startCatalogueReconcile: vi.fn(options => actual.startCatalogueReconcile(options)) };
+});
 
 let session: Session;
 
@@ -191,6 +196,29 @@ test('keeps a local logs collection that the TallyUI loggers write to until stop
     expect(insert).not.toHaveBeenCalled();
   } finally {
     if (!stopped) await catalogue.stop();
+  }
+});
+
+test('passes each catalogue check a log that writes its rows', async () => {
+  vi.stubGlobal('fetch', fakeStore({}));
+  vi.mocked(startCatalogueReconcile).mockClear();
+  const catalogue = await startCatalogue(session, { storage: getRxStorageMemory() });
+  try {
+    const products = vi.mocked(startCatalogueReconcile).mock.calls[0][0];
+    const coupons = vi.mocked(startCatalogueReconcile).mock.calls[1][0];
+    expect(products.collection).toBe(catalogue.db.products);
+    expect(coupons.collection).toBe(catalogue.db.coupons);
+    products.log!({ type: 'tombstoned', count: 2, keys: ['1', '2'] });
+    coupons.log!({ type: 'refetched', count: 3, keys: ['a', 'b', 'c'] });
+    await vi.waitFor(async () => {
+      const rows = await catalogue.logs.find({ selector: { scope: 'sync' } }).exec();
+      expect(rows.find(row => row.message === 'Removed items deleted in your store · 2')?.detail)
+        .toContain('"collection":"products"');
+      expect(rows.find(row => row.message === 'Fetched records again for missing details · 3')?.detail)
+        .toContain('"collection":"coupons"');
+    });
+  } finally {
+    await catalogue.stop();
   }
 });
 
