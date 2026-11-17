@@ -35,6 +35,8 @@ export interface Catalogue {
   cashier: CashierCapabilities;
   capabilities?: ServerCapabilities;
   replication: TallyReplicationState<any>;
+  // The coupons' replication; the Database page's Check for changes now resumes it.
+  couponReplication: TallyReplicationState<any>;
   // Hourly request buckets of this device.
   requestMetrics: RequestMetrics;
   // The sync_cadence collection; D10c writes it.
@@ -111,7 +113,7 @@ export async function startCatalogue(
   const cadence = startSyncCadence({ targets: [replication], cadence$: syncCadence$(syncCadence) });
   return {
     db, coupons: db.coupons, parkedCarts, receiptEmails, logs, printerProfiles,
-    connector, store, cashier, capabilities, replication, requestMetrics, syncCadence, cadence,
+    connector, store, cashier, capabilities, replication, couponReplication, requestMetrics, syncCadence, cadence,
     setAccessToken(token) {
       Object.assign(context.headers, connector.auth.getHeaders({ token }));
       void replication.resume();

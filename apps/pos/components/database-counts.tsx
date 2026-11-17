@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { View } from 'react-native';
 import type { RxCollection } from 'rxdb';
-import { startWith, switchMap } from 'rxjs';
+import { catchError, debounceTime, from, of, startWith, switchMap } from 'rxjs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, IconButton,
   Text } from '@tallyui/components';
 import { countFresh } from '@tallyui/pos';
+import { estimateCollectionSize, formatBytes } from '../lib/health/database-stats';
 import { MoreIcon } from './icons';
 
 export interface DatabaseCountRow {
@@ -22,6 +23,10 @@ const HEAD = 'text-xs font-medium uppercase tracking-wide text-muted-foreground'
 const ROW = 'min-h-[61px] justify-center gap-1 border-b border-border py-2';
 // v2's on-device column (health/database.tsx:267, DB_COLUMN.local `w-20 flex-none items-end`).
 const LOCAL = 'w-20 text-right';
+// v2's size column (database.tsx:270).
+const SIZE = 'w-20 text-right';
+// v2 use-collection-sizes.ts:11.
+const SIZE_DEBOUNCE_MS = 2_000;
 // v2's actions column (health/database.tsx:271, DB_COLUMN.actions `w-ctl flex-none`): the ⋮'s own 44 px, kept on
 // every row and the head so the counts line up whether or not a row has a menu.
 const ACTIONS = 'w-11';
@@ -30,12 +35,13 @@ export function DatabaseCounts({ rows, onCount }: {
   rows: DatabaseCountRow[]; onCount?(key: string, count: number): void;
 }): JSX.Element {
   // v2 draws a flat Table, no inner box (health/database.tsx:719); its header row is a TableRow of h-9 heads
-  // (database.tsx:720-739; table/index.tsx:92 min-h-row 44 px, :112 h-9). On server, Coverage and Size wait on the connector.
+  // (database.tsx:720-739; table/index.tsx:92 min-h-row 44 px, :112 h-9). On server and Coverage wait on the connector.
   return (
     <View testID="db-table">
       <View testID="db-table-head" className="min-h-11 flex-row items-center gap-3 border-b border-border">
         <Text testID="db-head-collection" className={`flex-1 ${HEAD}`}>Collection</Text>
         <Text testID="db-head-local" className={`${LOCAL} ${HEAD}`}>On device</Text>
+        <Text testID="db-head-size" className={`${SIZE} ${HEAD}`}>Size</Text>
         <View className={ACTIONS} />
       </View>
       {rows.map(row => <CountRow key={row.key} row={row} onCount={onCount} />)}
@@ -45,6 +51,7 @@ export function DatabaseCounts({ rows, onCount }: {
 
 function CountRow({ row, onCount }: { row: DatabaseCountRow; onCount?(key: string, count: number): void }): JSX.Element {
   const [count, setCount] = useState<number | null>(null);
+  const [size, setSize] = useState<number | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [failed, setFailed] = useState(false);
   const guard = useRef(false);
@@ -60,6 +67,12 @@ function CountRow({ row, onCount }: { row: DatabaseCountRow; onCount?(key: strin
     });
     return () => subscription.unsubscribe();
   }, [row.collection]);
+  useEffect(() => {
+    const subscription = row.collection.eventBulks$.pipe(startWith(null), debounceTime(SIZE_DEBOUNCE_MS),
+      switchMap(() => from(estimateCollectionSize(row.collection)).pipe(catchError(() => of(null)))))
+      .subscribe(next => setSize(next));
+    return () => subscription.unsubscribe();
+  }, [row.collection]);
 
   async function sync() {
     if (guard.current) return;
@@ -70,12 +83,17 @@ function CountRow({ row, onCount }: { row: DatabaseCountRow; onCount?(key: strin
     catch { setFailed(true); }
     finally { guard.current = false; setSyncing(false); }
   }
+  const sizeText = formatBytes(size);
   return (
     <View testID={`db-row-${row.key}`} className={ROW}>
       <View className="flex-row items-center gap-3">
         {/* v2's collection label in font-medium, the count right-aligned in tabular figures (database.tsx:391, :413) */}
         <Text className="flex-1 font-medium">{row.label}</Text>
         <Text testID={`db-row-count-${row.key}`} className={`${LOCAL} tabular-nums`}>{count === null ? '…' : String(count)}</Text>
+        {/* v2 database.tsx:415-419, the key rank (text/ladder.ts:14). */}
+        <Text testID={`db-row-size-${row.key}`} className={`${SIZE} tabular-nums text-sm text-muted-foreground`}>
+          {sizeText !== null ? `≈ ${sizeText}` : '—'}
+        </Text>
         <View className={ACTIONS}>
           {/* v2's row menu (health/database.tsx:347-374): a ⋮ IconButton (`more`, size-ctl 44 px, 18 px muted glyph,
               "More actions"), disabled while busy, its content aligned to the end. Tally has no Clear & re-download. */}
