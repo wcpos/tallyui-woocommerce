@@ -47,6 +47,15 @@ export interface RegisterBarShellProps {
   avatar: ReactNode;
 }
 
+export function BarStatusPill({ testID, label }: { testID: string; label: string }): JSX.Element {
+  return (
+    <View testID={testID} className="flex-row items-center gap-1.5">
+      <View aria-hidden className="size-2 shrink-0 rounded-full bg-warning" />
+      <Text className="shrink text-sm">{label}</Text>
+    </View>
+  );
+}
+
 export function RegisterBarShell({ storeName, onOpenMenu, avatar }: RegisterBarShellProps): JSX.Element {
   const register = useRegister();
   const online = useIsOnline();
@@ -60,10 +69,7 @@ export function RegisterBarShell({ storeName, onOpenMenu, avatar }: RegisterBarS
       {/* v2 register-bar.helpers.ts `place` adds " · Register" only when the store has more than one register; a Tally till has one. */}
       {!railShown && <IconButton testID="pos-drawer-open-button" accessibilityLabel="Menu" onPress={onOpenMenu}><MenuIcon size={20} /></IconButton>}
       <View className="min-w-0 shrink"><Text testID="register-bar-place" className="text-base font-semibold" numberOfLines={1}>{storeName}</Text></View>
-      {pill && <View testID="register-bar-pill" className="flex-row items-center gap-1.5">
-        <View aria-hidden className="size-2 shrink-0 rounded-full bg-warning" />
-        <Text className="shrink text-sm">{pill}</Text>
-      </View>}
+      {pill && <BarStatusPill testID="register-bar-pill" label={pill} />}
       <View className="flex-1" />
       <NotificationBell />
       {avatar}
