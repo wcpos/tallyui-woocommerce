@@ -27,15 +27,12 @@ export function formatBytes(bytes: number | null): string | null {
 }
 
 // Ported from v2's database-logic.ts:120-129.
-export function estimateCollectionBytes(
-	count: number,
-	sampledJsonLengths: readonly number[]
-): number | null {
-	if (count <= 0 || sampledJsonLengths.length === 0) return null;
-	const valid = sampledJsonLengths.filter((n) => Number.isFinite(n) && n > 0);
-	if (valid.length === 0) return null;
-	const average = valid.reduce((sum, n) => sum + n, 0) / valid.length;
-	return Math.round(average * count);
+export function estimateCollectionBytes(count: number, sampledJsonLengths: readonly number[]): number | null {
+  if (count <= 0 || sampledJsonLengths.length === 0) return null;
+  const valid = sampledJsonLengths.filter((n) => Number.isFinite(n) && n > 0);
+  if (valid.length === 0) return null;
+  const average = valid.reduce((sum, n) => sum + n, 0) / valid.length;
+  return Math.round(average * count);
 }
 
 // v2 use-collection-sizes.ts:9.

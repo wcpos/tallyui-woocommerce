@@ -55,6 +55,18 @@ test('the size follows writes after the debounce', async () => {
   await waitFor(() => expect(screen.getByTestId('db-row-size-products').textContent).toMatch(/^≈ /), { timeout: 4000 });
 });
 
+test('a failed size sample shows — and the next write estimates again', async () => {
+  await products.bulkInsert([{ id: 'a' }, { id: 'b' }]);
+  const find = vi.spyOn(products, 'find').mockImplementation(() => { throw new Error('sample failed'); });
+  renderCounts();
+  await waitFor(() => expect(find).toHaveBeenCalled(), { timeout: 4000 });
+  expect(screen.getByTestId('db-row-size-products').textContent).toBe('—');
+  expect(screen.getByTestId('db-row-count-products').textContent).toBe('2');
+  find.mockRestore();
+  await act(async () => { await products.insert({ id: 'c' }); });
+  await waitFor(() => expect(screen.getByTestId('db-row-size-products').textContent).toMatch(/^≈ \d+ B$/), { timeout: 4000 });
+}, 10000);
+
 /** Open a row's ⋮ menu and press Check for changes now (v2 health/database.tsx:347-360). */
 function syncNow(key: string) {
   fireEvent.click(screen.getByTestId(`db-row-menu-${key}`));
