@@ -1,7 +1,10 @@
 import { cleanup, render, renderHook, screen, waitFor } from '@testing-library/react';
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
+import { createRxDatabase } from 'rxdb';
+import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
+import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { DatabaseStats } from '../components/database-stats';
-import { formatBytes, isReadyToSell, totalLocalRecords } from '../lib/health/database-stats';
+import { estimateCollectionBytes, estimateCollectionSize, formatBytes, isReadyToSell, totalLocalRecords } from '../lib/health/database-stats';
 import { useStorageEstimate } from '../lib/health/use-storage-estimate';
 
 const original = Object.getOwnPropertyDescriptor(navigator, 'storage');
@@ -31,6 +34,35 @@ test('formatBytes reads as v2 does', () => {
   expect(formatBytes(1536)).toBe('1.5 KB');
   expect(formatBytes(25 * 1024 * 1024)).toBe('25 MB');
   expect(formatBytes(9.5 * 1024 ** 3)).toBe('9.5 GB');
+});
+
+test('estimateCollectionBytes is v2\'s sample average times the count', () => {
+  expect(estimateCollectionBytes(0, [100])).toBeNull();
+  expect(estimateCollectionBytes(5, [])).toBeNull();
+  expect(estimateCollectionBytes(5, [NaN, 0, -3])).toBeNull();
+  expect(estimateCollectionBytes(10, [100, 300])).toBe(2000);
+  expect(estimateCollectionBytes(3, [100, NaN, 201])).toBe(452);
+});
+
+test('estimateCollectionSize samples at most 25 documents and multiplies by the count', async () => {
+  const db = await createRxDatabase({ name: `database_sizes_${crypto.randomUUID()}`, multiInstance: false,
+    storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }) });
+  try {
+    const schema = { version: 0, primaryKey: 'id', type: 'object', properties: {
+      id: { type: 'string', maxLength: 100 }, pad: { type: 'string' },
+    }, required: ['id'] };
+    const { products: col, empty } = await db.addCollections({ products: { schema }, empty: { schema } });
+    await col.bulkInsert(Array.from({ length: 30 }, (_, i) => ({ id: String(i).padStart(2, '0'), pad: 'x'.repeat(50) })));
+    const find = vi.spyOn(col, 'find');
+    expect(await estimateCollectionSize(col)).toBe(30 * JSON.stringify((await col.findOne().exec())!.toJSON()).length);
+    expect(find).toHaveBeenCalledWith({ limit: 25 });
+    const emptyFind = vi.spyOn(empty, 'find');
+    expect(await estimateCollectionSize(empty)).toBeNull();
+    expect(emptyFind).not.toHaveBeenCalled();
+  } finally {
+    vi.restoreAllMocks();
+    await db.close();
+  }
 });
 
 test('useStorageEstimate returns the usage the estimate resolves', async () => {

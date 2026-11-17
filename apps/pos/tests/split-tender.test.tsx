@@ -186,6 +186,7 @@ test('the existing outbox transport sees a catalogue capability that arrives lat
     document: { id: 115, status: 'completed', total: '6.000000' }, currentRevision: 'r1',
   }, { status: 201 }));
   vi.stubGlobal('fetch', fetchStub);
+  const posts = () => fetchStub.mock.calls.filter(([, init]) => init?.method === 'POST');
   const storage = getRxStorageMemory();
   const connector = createWooCommerceConnector();
   const view = (multiplePayments?: boolean) => (
@@ -211,8 +212,8 @@ test('the existing outbox transport sees a catalogue capability that arrives lat
   takeLeg(400, 'pos_card');
   await screen.findByTestId('receipt-order');
   await waitFor(() => expect(screen.queryByTestId('sync-status')).toBeNull());
-  expect(fetchStub).toHaveBeenCalledTimes(1);
-  const { payload } = JSON.parse(fetchStub.mock.calls[0][1]!.body as string);
+  expect(posts()).toHaveLength(1);
+  const { payload } = JSON.parse(posts()[0][1]!.body as string);
   expect(payload.payment_method).toBe('pos_card');
   expect(JSON.parse(payload.meta_data.find((entry: { key: string }) => entry.key === '_woocommerce_pos_payments').value)).toHaveLength(2);
 }, 20_000);

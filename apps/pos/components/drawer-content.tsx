@@ -8,9 +8,9 @@
 import type { JSX } from 'react';
 import { View } from 'react-native';
 import { Button, Dialog, DialogContent, Text } from '@tallyui/components';
-import { SOFTWARE_VERSION } from '../lib/software';
 import { useUnreadLogsCount } from '../lib/logs/unread-errors';
 import { RAIL_FOOT, RAIL_LABEL, RAIL_TOP, type RailKey } from '../lib/layout/rail-routes';
+import { VersionAbout } from './about-dialog';
 import { RAIL_GLYPH } from './app-rail';
 import { UnreadBadge } from './unread-badge';
 
@@ -61,7 +61,7 @@ export function DrawerContent(props: DrawerAreaHandlers & { onClose(): void; unr
       {RAIL_FOOT.map(item)}
     </View>
     {/* v2's drawer-content/version.tsx:118-121: `text-sidebar-foreground` (the rail's ink) at half opacity. */}
-    <Text testID="drawer-version" className="px-3 py-2 text-xs text-rail-foreground opacity-50">{`Version ${SOFTWARE_VERSION}`}</Text>
+    <VersionAbout presentation="front" />
   </>;
 }
 

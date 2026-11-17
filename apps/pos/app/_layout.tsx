@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { PortalHost } from '@tallyui/primitives';
 import { SessionProvider } from '../lib/auth/session-context';
 import { SessionOnlineStatusProvider } from '../lib/online/online-status';
+import { OnlineStatusLogger } from '../lib/online/online-status-logger';
 import { CatalogueProvider } from '../lib/catalogue/catalogue-context';
 import { OutboxProvider } from '../lib/sale/outbox-context';
 import { RegisterProvider } from '../lib/register/register-context';
@@ -36,6 +37,7 @@ export default function RootLayout() {
       <StatusBar style="auto" />
       <SessionProvider>
         <SessionOnlineStatusProvider>
+          <OnlineStatusLogger />
           <CatalogueProvider>
             <OutboxProvider>
               <RegisterProvider>
