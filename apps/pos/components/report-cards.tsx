@@ -5,7 +5,7 @@ import { useCSSVariable } from 'uniwind';
 import { Text } from '@tallyui/components';
 import type { Period } from '../lib/reports/sales-room';
 
-export type ReportTable = 'orders' | 'payments';
+export type ReportTable = 'orders' | 'payments' | 'taxes';
 type Money = (minor: number) => string;
 
 /** v2 reports/cards/card.tsx: a named card whose head carries its figure, and opens its table when it can. */
@@ -164,11 +164,43 @@ export function WhereSoldCard({ period, money, moneyWhole }: CardProps) {
   );
 }
 
+// v2 cards/taxes.tsx:10 cycles five hues; Tally's theme has no chart tokens, so these are the Donut's theme colours.
+const TAX_COLORS = ['bg-primary', 'bg-success', 'bg-warning', 'bg-info', 'bg-muted-foreground'];
+
+/** v2 reports/cards/taxes.tsx: tax collected, each rate's share and Net / Tax / Gross. */
+export function TaxesCard({ period, money, onOpen }: Omit<CardProps, 'moneyWhole'> & { onOpen(): void }) {
+  return (
+    <ReportCard testID="card-taxes" name="Taxes" figure={money(period.taxMinor)} onOpen={onOpen}>
+      <View testID="card-taxes-bar" className="h-2 w-full flex-row overflow-hidden rounded-md">
+        {period.taxRates.some(row => row.taxMinor > 0)
+          ? period.taxRates.map((row, index) => row.taxMinor > 0 &&
+            <View key={row.ratePpm} className={TAX_COLORS[index % 5]} style={{ flex: row.taxMinor }} />)
+          : <View className="bg-muted" style={{ flex: 1 }} />}
+      </View>
+      {period.taxRates.length > 0 && <View className="flex-row flex-wrap gap-x-4 gap-y-1">
+        {period.taxRates.map((row, index) => (
+          <View key={row.ratePpm} testID={`card-taxes-rate-${row.ratePpm}`} className="flex-row items-center gap-2">
+            <View className={`size-2.5 ${TAX_COLORS[index % 5]}`} />
+            <Text>{row.label}</Text>
+            <Text className="font-semibold tabular-nums">{money(row.taxMinor)}</Text>
+            <Text className="text-sm text-muted-foreground">{`on ${money(row.netMinor)}`}</Text>
+          </View>
+        ))}
+      </View>}
+      <StatGrid items={[
+        { label: 'Net', value: money(period.totalMinor - period.taxMinor), testID: 'card-taxes-net' },
+        { label: 'Tax', value: money(period.taxMinor), testID: 'card-taxes-tax' },
+        { label: 'Gross', value: money(period.totalMinor), testID: 'card-taxes-gross' },
+      ]} />
+    </ReportCard>
+  );
+}
+
 // Three cards need about 330 points each for their stat grids plus two gaps; two need 290 (v2 cards/index.tsx).
 const THREE_COLUMNS_MIN_WIDTH = 1000;
 const TWO_COLUMNS_MIN_WIDTH = 600;
 
-/** v2 reports/cards/index.tsx PeriodSection: Orders, Payments and Where sold in columns that follow the measured width. */
+/** v2 reports/cards/index.tsx PeriodSection: Orders, Payments, Where sold and Taxes in columns that follow the measured width. */
 export function ReportCards({ period, money, moneyWhole, onOpenTable }: CardProps & { onOpenTable(table: ReportTable): void }) {
   const [width, setWidth] = useState<number | null>(null);
   const columns = width === null ? 1 : width >= THREE_COLUMNS_MIN_WIDTH ? 3 : width >= TWO_COLUMNS_MIN_WIDTH ? 2 : 1;
@@ -176,6 +208,7 @@ export function ReportCards({ period, money, moneyWhole, onOpenTable }: CardProp
     <OrdersCard key="orders" period={period} money={money} onOpen={() => onOpenTable('orders')} />,
     <PaymentsCard key="payments" period={period} money={money} moneyWhole={moneyWhole} onOpen={() => onOpenTable('payments')} />,
     <WhereSoldCard key="where-sold" period={period} money={money} moneyWhole={moneyWhole} />,
+    <TaxesCard key="taxes" period={period} money={money} onOpen={() => onOpenTable('taxes')} />,
   ];
   return (
     <View testID="reports-period-section" className="gap-4" onLayout={event => setWidth(event.nativeEvent.layout.width)}>
