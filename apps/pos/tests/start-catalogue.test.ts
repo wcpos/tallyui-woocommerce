@@ -194,6 +194,23 @@ test('keeps a local logs collection that the TallyUI loggers write to until stop
   }
 });
 
+test('logs a store-sync row when the products pull', async () => {
+  vi.stubGlobal('fetch', fakeStore({}));
+  const catalogue = await startCatalogue(session, { storage: getRxStorageMemory() });
+  try {
+    await catalogue.replication.awaitInitialReplication();
+    await vi.waitFor(async () => {
+      const rows = await catalogue.logs.find({ selector: { scope: 'sync' } }).exec();
+      const row = rows.find(row => row.detail?.includes('"collection":"products"'));
+      expect(row).toBeDefined();
+      expect(row!.message).toMatch(/^Saved updates from your store · \d+ records?$/);
+      expect(row!.durationMs).toEqual(expect.any(Number));
+    });
+  } finally {
+    await catalogue.stop();
+  }
+});
+
 function productRequests(fetchImpl: ReturnType<typeof fakeStore>) {
   return fetchImpl.mock.calls.map(([input]) => new URL(String(input))).filter(url => url.pathname.endsWith('/products'));
 }
