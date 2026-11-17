@@ -81,7 +81,9 @@ export default function Catalogue() {
       notice={notice}
       onSync={catalogue ? async () => { catalogue.replication.reSync(); await catalogue.replication.awaitInSync(); } : undefined}
       onSignOut={() => { signOut(); router.replace('/connect'); }}
+      onOpenProducts={() => router.push('/products')}
       onOpenOrders={() => router.push('/orders')}
+      onOpenCoupons={() => router.push('/coupons')}
       onOpenCustomers={() => router.push('/customers')}
       onOpenReports={() => router.push('/reports')}
       onOpenHealth={() => router.push('/health/database' as Href)}
