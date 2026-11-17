@@ -211,6 +211,33 @@ test('logs a store-sync row when the products pull', async () => {
   }
 });
 
+test('logs a store-sync row when the coupons pull', async () => {
+  const fetchImpl = fakeStore({
+    coupons: [{
+      id: 7, code: 'save10', status: 'publish', discount_type: 'percent', amount: '10',
+      date_modified_gmt: '2026-10-01T00:00:00', usage_count: 0, used_by: [],
+      meta_data: [{ key: '_woocommerce_pos_uuid', value: 'c-7' }],
+    }],
+    site: Response.json({ wcpos_version: '1.10.20' }),
+  });
+  // No product documents: the sync row must come from the coupons replication.
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => new URL(String(input)).pathname.endsWith('/products')
+    ? Response.json([], { headers: { 'X-WP-Total': '0' } })
+    : fetchImpl(String(input))));
+  const catalogue = await startCatalogue(session, { storage: getRxStorageMemory() });
+  try {
+    await vi.waitFor(async () => {
+      const rows = await catalogue.logs.find({ selector: { scope: 'sync' } }).exec();
+      const row = rows.find(row => row.detail?.includes('"collection":"coupons"'));
+      expect(row).toBeDefined();
+      expect(row!.message).toMatch(/^Saved updates from your store · \d+ records?$/);
+      expect(row!.durationMs).toEqual(expect.any(Number));
+    });
+  } finally {
+    await catalogue.stop();
+  }
+});
+
 function productRequests(fetchImpl: ReturnType<typeof fakeStore>) {
   return fetchImpl.mock.calls.map(([input]) => new URL(String(input))).filter(url => url.pathname.endsWith('/products'));
 }
