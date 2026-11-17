@@ -38,6 +38,7 @@ test('does not connect while the address is empty', () => {
 
 test.each([
   ['no_wcpos', 'AUTH311'], ['wcpos_outdated', 'AUTH331'], ['invalid_url', 'AUTH411'],
+  ['bot_challenge', 'HOST121'],
 ] as const)('links %s to its error code docs', async (code, errorCode) => {
   const startSignIn = vi.fn<StartSignIn>().mockRejectedValue(new SiteError(code, `Message for ${code}`));
   render(<ConnectForm startSignIn={startSignIn} />);
