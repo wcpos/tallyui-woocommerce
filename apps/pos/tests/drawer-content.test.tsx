@@ -69,7 +69,8 @@ test('the drawer draws in the rail tokens, the selected item on rail-selected', 
 
 test('Store health carries the unread-error badge after its label, 99+ past 99, none at 0', () => {
   const drawer = (count: number) => <><UnreadLogsCount.Provider value={count}>
-    <DrawerSheet open onOpenChange={vi.fn()} onOpenHealth={vi.fn()} />
+    <DrawerSheet open onOpenChange={vi.fn()} onOpenOrders={vi.fn()} onOpenCustomers={vi.fn()} onOpenReports={vi.fn()}
+      onOpenHealth={vi.fn()} onOpenSettings={vi.fn()} />
   </UnreadLogsCount.Provider><PortalHost /></>;
   const { rerender } = render(drawer(3));
   const badge = screen.getByTestId('drawer-badge-health');
@@ -78,9 +79,11 @@ test('Store health carries the unread-error badge after its label, 99+ past 99, 
   expect(classesOf('drawer-badge-health')).toEqual(expect.arrayContaining(['bg-destructive', 'h-4', 'rounded-full']));
   expect(screen.getByTestId('drawer-label-health').textContent).toBe('Store health');
   expect(screen.getByTestId('drawer-label-health').nextElementSibling).toBe(badge);
+  expect(screen.getAllByTestId(/^drawer-item-/).length).toBeGreaterThanOrEqual(6);
   for (const item of screen.getAllByTestId(/^drawer-item-/)) {
     if (item.getAttribute('data-testid') !== 'drawer-item-health') expect(within(item).queryByTestId(/^drawer-badge-/)).toBeNull();
   }
+  expect(screen.getAllByTestId('drawer-badge-health')).toHaveLength(1);
   rerender(drawer(120));
   expect(screen.getByTestId('drawer-badge-health').textContent).toBe('99+');
   rerender(drawer(0));
