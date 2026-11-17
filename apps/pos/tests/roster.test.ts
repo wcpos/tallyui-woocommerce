@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { otherCashiers, rosterAfterSignIn, rosterAfterSwitch, withoutCashier } from '../lib/auth/roster';
+import { otherCashiers, rosterAfterSignIn, rosterAfterSignOut, rosterAfterSwitch, savedSites, withoutCashier, withoutSite } from '../lib/auth/roster';
 import type { Roster } from '../lib/auth/roster';
 import type { Session } from '../lib/auth/session';
 
@@ -11,6 +11,7 @@ const cashier = (uuid: string, home = 'https://shop.test'): Session => ({
 const a = cashier('a');
 const b = cashier('b');
 const c = cashier('c');
+const x = cashier('x', otherHome);
 
 test('withoutCashier drops only that uuid and keeps other stores', () => {
   const otherStore = [cashier('a', otherHome)];
@@ -49,6 +50,23 @@ test('switching without a previous cashier only removes the target', () => {
   expect(rosterAfterSwitch({ [home]: [a, b] }, home, 'a', null)).toEqual({ [home]: [b] });
 });
 
+test('rosterAfterSignOut appends the signed-out cashier last and keeps other stores', () => {
+  expect(rosterAfterSignOut({ [home]: [b, a], [otherHome]: [x] }, a)).toEqual({ [home]: [b, a], [otherHome]: [x] });
+  expect(rosterAfterSignOut({ [home]: [b] }, c)).toEqual({ [home]: [b, c] });
+  expect(rosterAfterSignOut({}, a)).toEqual({ [home]: [a] });
+});
+
+test('savedSites lists stores with saved cashiers and skips empty ones', () => {
+  expect(savedSites({ [home]: [a, b], [otherHome]: [] })).toEqual([{ site: a.site, cashiers: [a, b] }]);
+  expect(savedSites({})).toEqual([]);
+});
+
+test('withoutSite drops only that store', () => {
+  const result = withoutSite({ [home]: [a], [otherHome]: [x] }, home);
+  expect(result).toEqual({ [otherHome]: [x] });
+  expect(Object.keys(result)).not.toContain(home);
+});
+
 test('otherCashiers returns none without a session and excludes the current cashier', () => {
   const roster = { [home]: [a, b, c], [otherHome]: [cashier('b', otherHome)] };
   expect(otherCashiers(roster, null)).toEqual([]);
@@ -61,6 +79,9 @@ test.each([
   ['add', (roster: Roster) => rosterAfterSignIn(roster, c, true)],
   ['replace', (roster: Roster) => rosterAfterSignIn(roster, { ...a, tokens: { ...a.tokens, accessToken: 'renewed' } }, true)],
   ['sign in', (roster: Roster) => rosterAfterSignIn(roster, a, false)],
+  ['sign out', (roster: Roster) => rosterAfterSignOut(roster, c)],
+  ['saved sites', (roster: Roster) => savedSites(roster)],
+  ['without site', (roster: Roster) => withoutSite(roster, home)],
   ['re-auth', (roster: Roster) => rosterAfterSignIn(roster, a, false, b)],
   ['switch', (roster: Roster) => rosterAfterSwitch(roster, home, 'a', c)],
   ['switch without previous', (roster: Roster) => rosterAfterSwitch(roster, home, 'a', null)],

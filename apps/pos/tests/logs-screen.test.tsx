@@ -1,13 +1,15 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import * as ReactNative from 'react-native';
 import type { OutboxState } from '@tallyui/pos';
 import { addRxPlugin, createRxDatabase, type RxDatabase } from 'rxdb';
 import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
+import { BehaviorSubject } from 'rxjs';
 import { LogsScreen } from '../components/logs-screen';
 import { logRecordId, logRecordMigrationStrategies, logRecordSchema, type LogCollection, type LogRecord } from '../lib/logs/log-store';
-import { IDLE_OUTBOX_STATE, buildDebugInfo, formatDurationMs, logStats, matchesLogFilter, outboxSyncStats,
+import { IDLE_OUTBOX_STATE, buildDebugInfo, formatDurationMs, formatLogTime, logStats, matchesLogFilter, outboxSyncStats,
   type OutboxSyncStats } from '../lib/logs/log-view';
 import { setVerboseDiagnostics } from '../lib/logs/verbose';
 import { memoryStorage } from './memory-storage';
@@ -47,6 +49,7 @@ function classesOf(testID: string): string[] {
 }
 
 beforeEach(async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1280, height: 800, scale: 1, fontScale: 1 });
   vi.stubGlobal('localStorage', memoryStorage());
   db = await createRxDatabase({ name: `logs_screen_${crypto.randomUUID()}`, multiInstance: false,
     storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }) });
@@ -64,6 +67,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   cleanup();
+  vi.restoreAllMocks();
   await db.close();
   vi.unstubAllGlobals();
 });
@@ -86,6 +90,62 @@ test('shows the v2 columns with the newest row first', async () => {
   expect(screen.getByTestId(`logs-ok-${rows[2].id}`).textContent).toBe('✓ ok');
   expect(screen.getByTestId(`logs-took-${rows[0].id}`).textContent).toBe('—');
   expect(within(screen.getByTestId(`logs-row-${rows[0].id}`)).getAllByText('—')).toHaveLength(2);
+});
+
+test('on a phone the table head is hidden, and a row shows its time and level, then its event, then its scope and duration', async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  render(<LogsScreen {...props} collection={collection} />);
+  const id = rows[1].id;
+  await screen.findByTestId(`logs-row-sm-${id}`);
+  expect(screen.queryAllByTestId(/^logs-heading-/)).toHaveLength(0);
+  const time = screen.getByTestId(`logs-time-sm-${id}`);
+  const level = screen.getByTestId(`logs-level-sm-${id}`);
+  const line = screen.getByTestId(`logs-line-sm-${id}`);
+  const event = screen.getByTestId(`logs-event-sm-${id}`);
+  expect(time.textContent).toBe(formatLogTime(rows[1].timestamp, now()));
+  expect(level.textContent).toBe('warn');
+  expect(line.contains(time)).toBe(true);
+  expect(line.contains(level)).toBe(true);
+  expect(line.contains(event)).toBe(false);
+  expect(event.textContent).toBe('Order refused');
+  expect(screen.getByTestId(`logs-subline-sm-${id}`).textContent).toBe('outbox·1.5 s');
+  expect(screen.getByTestId(`logs-subline-sm-${rows[0].id}`).textContent).toBe('tax');
+  expect(screen.queryByTestId(`logs-took-sm-${rows[0].id}`)).toBeNull();
+  expect(screen.getByTestId(`logs-code-${id}`).textContent).toBe('refused');
+  expect(screen.getByTestId(`logs-ok-${rows[2].id}`)).not.toBeNull();
+  expect(screen.queryByTestId(`logs-toggle-${id}`)).toBeNull();
+  expect(screen.queryByTestId(`logs-took-${id}`)).toBeNull();
+});
+
+test('pressing a phone row opens its detail, indented as v2 does on a phone, and pressing again hides it', async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  render(<LogsScreen {...props} collection={collection} />);
+  const id = rows[1].id;
+  const row = await screen.findByTestId(`logs-row-sm-${id}`);
+  expect(screen.queryByTestId(`logs-detail-${id}`)).toBeNull();
+  fireEvent.click(row);
+  expect(screen.getByTestId(`logs-detail-${id}-code`).textContent).toBe('refused');
+  expect(row.getAttribute('aria-expanded')).toBe('true');
+  expect(classesOf(`logs-detail-${id}`)).toContain('pl-4');
+  expect(classesOf(`logs-detail-${id}`)).not.toContain('ml-42');
+  expect(screen.getByTestId(`logs-chevron-${id}`).textContent).toBe('⌄');
+  fireEvent.click(row);
+  expect(screen.queryByTestId(`logs-detail-${id}`)).toBeNull();
+});
+
+test('off a phone the table head and the table row stay, with no phone row', async () => {
+  render(<LogsScreen {...props} collection={collection} />);
+  const id = rows[1].id;
+  await screen.findByTestId(`logs-row-${id}`);
+  for (const heading of ['time', 'level', 'event', 'took', 'status']) {
+    expect(screen.getByTestId(`logs-heading-${heading}`)).not.toBeNull();
+  }
+  expect(screen.getByTestId(`logs-toggle-${id}`)).not.toBeNull();
+  expect(screen.getByTestId(`logs-pill-${id}`)).not.toBeNull();
+  expect(screen.getByTestId(`logs-took-${id}`)).not.toBeNull();
+  expect(screen.queryByTestId(`logs-row-sm-${id}`)).toBeNull();
+  fireEvent.click(screen.getByTestId(`logs-toggle-${id}`));
+  expect(classesOf(`logs-detail-${id}`)).toContain('ml-42');
 });
 
 test('shows a row logged after the page opened', async () => {
@@ -468,6 +528,54 @@ test('changes waiting to send shows sync.waiting, reads by its count, is not pre
   expect(screen.queryByTestId('logs-stat-stuck')).toBeNull();
 });
 
+
+test('the footer says when the next check is due, from the runner', async () => {
+  const runner = { nextDueAtMs$: new BehaviorSubject<number | undefined>(now() + 42_000) };
+  render(<LogsScreen {...props} collection={collection} runner={runner} />);
+  await screen.findByTestId(`logs-row-${rows[0].id}`);
+  expect(screen.getByTestId('logs-status-line-label').textContent).toBe('Watching for changes · next check ~42 s');
+  expect(classesOf('logs-status-line-dot')).toEqual(expect.arrayContaining(['bg-success', 'size-1.5']));
+  expect(screen.getByTestId('logs-footer').textContent).toBe('Showing 3 of 3');
+});
+
+test('a re-armed runner moves the line, in minutes past 90 s', () => {
+  const subject = new BehaviorSubject<number | undefined>(now() + 42_000);
+  render(<LogsScreen {...props} collection={collection} runner={{ nextDueAtMs$: subject }} />);
+  act(() => subject.next(now() + 180_000));
+  expect(screen.getByTestId('logs-status-line-label').textContent).toBe('Watching for changes · next check ~3 min');
+});
+
+test('an overdue check reads only Watching for changes', () => {
+  const runner = { nextDueAtMs$: new BehaviorSubject<number | undefined>(now() - 1) };
+  render(<LogsScreen {...props} collection={collection} runner={runner} />);
+  expect(screen.getByTestId('logs-status-line-label').textContent).toBe('Watching for changes');
+});
+
+test('no runner, or a runner with nothing due, draws no status line', () => {
+  const subject = new BehaviorSubject<number | undefined>(undefined);
+  const { rerender } = render(<LogsScreen {...props} collection={collection} />);
+  expect(screen.queryByTestId('logs-status-line')).toBeNull();
+  rerender(<LogsScreen {...props} collection={collection} runner={{ nextDueAtMs$: subject }} />);
+  expect(screen.queryByTestId('logs-status-line')).toBeNull();
+  act(() => subject.next(now() + 42_000));
+  expect(screen.getByTestId('logs-status-line')).not.toBeNull();
+});
+
+test('the countdown follows the 5 s clock', () => {
+  let t = now();
+  const clock = () => t;
+  const runner = { nextDueAtMs$: new BehaviorSubject<number | undefined>(t + 42_000) };
+  vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+  try {
+    render(<LogsScreen {...props} collection={collection} now={clock} runner={runner} />);
+    expect(screen.getByTestId('logs-status-line-label').textContent).toBe('Watching for changes · next check ~42 s');
+    t += 10_000;
+    act(() => { vi.advanceTimersByTime(5_000); });
+    expect(screen.getByTestId('logs-status-line-label').textContent).toBe('Watching for changes · next check ~32 s');
+  } finally {
+    vi.useRealTimers();
+  }
+});
 
 test('formatDurationMs follows v2', () => {
   expect(formatDurationMs(999)).toBe('999 ms');

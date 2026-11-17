@@ -1,12 +1,29 @@
 import { useState, type JSX, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import { Path } from 'react-native-svg';
-import { Button, createSvgIcon, Text } from '@tallyui/components';
+import { Badge, Button, createSvgIcon, Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
 import { formatClosureDate, type Closure } from '@tallyui/pos';
+import { useIsWide } from '../lib/layout/wide';
+import { ChevronRightIcon } from './icons';
 import { drawerResultClass } from './till-strip';
 
 export type ClosureFilter = 'all' | 'open' | 'closed';
+
+type Tone = 'bad' | 'ok' | 'muted' | 'warning';
+// v2 `Badge tinted size="lg"` (components/src/badge/index.tsx): the tone at 15% under foreground words; muted is solid.
+const TONE_BADGE: Record<Tone, { variant: 'destructive' | 'success' | 'secondary' | 'warning'; className: string; text: string }> = {
+  bad: { variant: 'destructive', className: 'bg-destructive/15', text: 'text-foreground' },
+  ok: { variant: 'success', className: 'bg-success/15', text: 'text-foreground' },
+  warning: { variant: 'warning', className: 'bg-warning/15', text: 'text-foreground' },
+  muted: { variant: 'secondary', className: 'bg-muted', text: 'text-muted-foreground' },
+};
+function ToneBadge({ testID, tone, children }: { testID: string; tone: Tone; children: string }): JSX.Element {
+  const badge = TONE_BADGE[tone];
+  return <Badge testID={testID} variant={badge.variant} className={`h-6 min-w-6 justify-center self-start px-2 py-0 ${badge.className}`}>
+    <Text className={`text-sm font-bold tabular-nums ${badge.text}`}>{children}</Text>
+  </Badge>;
+}
 
 // lucide `file-text`, for v2's `leftIcon="document"` on Export CSV.
 const DocumentIcon = createSvgIcon('DocumentIcon', () => <>
@@ -33,6 +50,10 @@ export function resultWord(varianceMinor: number): 'Short' | 'Over' | 'Exact' {
   return varianceMinor < 0 ? 'Short' : varianceMinor > 0 ? 'Over' : 'Exact';
 }
 
+export function resultTone(varianceMinor: number): 'bad' | 'ok' | 'muted' {
+  return varianceMinor < 0 ? 'bad' : varianceMinor > 0 ? 'ok' : 'muted';
+}
+
 /** `−$1.00` / `+$0.50`; zero has no sign: `$0.00`. Uses U+2212 for minus. */
 export function signedMoney(minor: number, money: (amount: number) => string): string {
   return `${minor < 0 ? '−' : minor > 0 ? '+' : ''}${money(Math.abs(minor))}`;
@@ -43,7 +64,7 @@ export function resultText(varianceMinor: number, money: (amount: number) => str
   return varianceMinor === 0 ? 'Exact' : `${money(Math.abs(varianceMinor))} ${varianceMinor < 0 ? 'short' : 'over'}`;
 }
 
-export function ClosureList({ rows, sessionRows, openSessions, blind, today, currency, locale, resolveCashierName, onReprint, onOpen, filter: held, onFilterChange }: {
+export function ClosureList({ rows, sessionRows, openSessions, blind, today, currency, locale, resolveCashierName, onOpen, filter: held, onFilterChange }: {
   rows: readonly Closure[];
   /** Rendered under the Today heading, at the head of the list (the open-session card). */
   sessionRows?: ReactNode;
@@ -55,13 +76,13 @@ export function ClosureList({ rows, sessionRows, openSessions, blind, today, cur
   currency: string;
   locale: string;
   resolveCashierName(id: string): string;
-  onReprint(closure: Closure): void;
   /** A tap on a closure row's figures opens its detail panel. */
   onOpen?(closure: Closure): void;
   /** The All / Open / Closed tab when the screen holds it (v2 lifts it to disable Export CSV on Open); else the list keeps its own. */
   filter?: ClosureFilter;
   onFilterChange?(next: ClosureFilter): void;
 }): JSX.Element {
+  const phone = !useIsWide();
   const [own, setOwn] = useState<ClosureFilter>('all');
   const filter = held ?? own;
   const setFilter = (next: ClosureFilter) => {
@@ -98,10 +119,11 @@ export function ClosureList({ rows, sessionRows, openSessions, blind, today, cur
         </View>
         <Text testID="closures-count" className="pb-2 text-muted-foreground">{`${n} ${n === 1 ? 'session' : 'sessions'}`}</Text>
       </View>
-      <View testID="closures-head" className="flex-row gap-2 px-4 py-2">
+      {!phone && <View testID="closures-head" className="flex-row gap-3 px-4 py-2">
         {(blind ? ['Closure', 'Counted'] : ['Closure', 'Expected', 'Counted', 'Difference', 'Result']).map(label =>
-          <Text key={label} className={`text-xs uppercase tracking-wide text-muted-foreground ${label === 'Closure' ? 'flex-1' : 'w-24 text-right'}`}>{label}</Text>)}
-      </View>
+          <Text key={label} className={`text-xs uppercase tracking-wide text-muted-foreground ${label === 'Closure' ? 'flex-1' : label === 'Result' ? 'w-20 text-right' : 'w-28 text-right'}`}>{label}</Text>)}
+        <View testID="closures-head-chevron" className="w-4.5" />
+      </View>}
       {visible.map(([day, closures]) => {
         const f = closures.length > 0 ? formatClosureDate(closures[0].opened_at, { timezone: 'device', locale }) : null;
         const label = day === today ? 'Today' : day === yesterday ? 'Yesterday' : `${f!.weekday_short} ${Number(f!.day)} ${f!.month_short}`;
@@ -122,23 +144,34 @@ export function ClosureList({ rows, sessionRows, openSessions, blind, today, cur
             const open = formatClosureDate(c.opened_at, { timezone: 'device', locale });
             const closed = formatClosureDate(c.closed_at, { timezone: 'device', locale });
             const v = c.variance.cash ?? 0;
+            const corrected = (c.corrections_count ?? 0) > 0;
             return <View key={c.id} testID={`closure-row-${c.id}`} className="flex-row items-center gap-2 border-t border-border px-4 py-2">
-              <Pressable testID={`closure-open-${c.id}`} accessibilityRole="button" accessibilityLabel={`Open closure ${c.number}`} className="flex-1 flex-row items-center gap-2" onPress={() => onOpen?.(c)}>
+              <Pressable testID={`closure-open-${c.id}`} accessibilityRole="button" accessibilityLabel={`Open closure ${c.number}`} className="flex-1 flex-row items-center gap-3" onPress={() => onOpen?.(c)}>
                 <View className="flex-1 gap-0.5">
                   <View className="flex-row flex-wrap items-center gap-2">
                     <Text testID={`closure-title-${c.id}`} className="font-medium">{`Closure ${c.number} · ${typeof c.breakdowns.register_name === 'string' ? c.breakdowns.register_name : 'This till'}`}</Text>
-                    {(c.corrections_count ?? 0) > 0 && <Text testID={`closure-badge-${c.id}`} className="text-xs font-semibold text-warning">Corrected</Text>}
                   </View>
                   <Text testID={`closure-subline-${c.id}`} className="text-sm text-muted-foreground">{`${open.time} → ${closed.time} · ${c.closed_by ? resolveCashierName(c.closed_by) : 'Cashier'}`}</Text>
+                  {phone && <Text testID={`closure-figures-${c.id}`} className="text-sm text-muted-foreground tabular-nums">
+                    {!blind && <>Expected <Text className="text-foreground">{money(c.expected.cash ?? 0)}</Text>{' · '}</>}
+                    Counted <Text className="text-foreground">{money(c.counted.cash ?? 0)}</Text>
+                    {!blind && <>{' · Difference '}<Text className={drawerResultClass(v)}>{signedMoney(v, money)}</Text></>}
+                  </Text>}
+                  {((phone && !blind) || corrected) && <View className="flex-row gap-2">
+                    {phone && !blind && <ToneBadge testID={`closure-result-${c.id}`} tone={resultTone(v)}>{resultWord(v)}</ToneBadge>}
+                    {corrected && <ToneBadge testID={`closure-badge-${c.id}`} tone="warning">Corrected</ToneBadge>}
+                  </View>}
                 </View>
-                {!blind && <Text testID={`closure-expected-${c.id}`} className="w-24 text-right tabular-nums">{money(c.expected.cash ?? 0)}</Text>}
-                <Text testID={`closure-counted-${c.id}`} className="w-24 text-right tabular-nums">{money(c.counted.cash ?? 0)}</Text>
-                {!blind && <>
-                  <Text testID={`closure-difference-${c.id}`} className={`w-24 text-right tabular-nums ${drawerResultClass(v)}`}>{signedMoney(v, money)}</Text>
-                  <Text testID={`closure-result-${c.id}`} className={`w-24 text-right font-semibold ${drawerResultClass(v)}`}>{resultWord(v)}</Text>
+                {!phone && <>
+                  {!blind && <Text testID={`closure-expected-${c.id}`} className="w-28 text-right tabular-nums text-muted-foreground">{money(c.expected.cash ?? 0)}</Text>}
+                  <Text testID={`closure-counted-${c.id}`} className="w-28 text-right tabular-nums">{money(c.counted.cash ?? 0)}</Text>
+                  {!blind && <>
+                    <Text testID={`closure-difference-${c.id}`} className={`w-28 text-right tabular-nums ${drawerResultClass(v)}`}>{signedMoney(v, money)}</Text>
+                    <View className="w-20 items-end"><ToneBadge testID={`closure-result-${c.id}`} tone={resultTone(v)}>{resultWord(v)}</ToneBadge></View>
+                  </>}
                 </>}
+                <ChevronRightIcon testID={`closure-chevron-${c.id}`} size={18} className="text-muted-foreground" />
               </Pressable>
-              <Button testID={`closure-reprint-${c.id}`} variant="outline" size="sm" onPress={() => onReprint(c)}><Text>Reprint</Text></Button>
             </View>;
           })}
         </View>;

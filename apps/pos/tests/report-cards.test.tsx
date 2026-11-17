@@ -14,10 +14,15 @@ const moneyWhole = (minor: number) => `$${Math.round(minor / 100).toLocaleString
 const empty: Period = {
   count: 0, totalMinor: 0, taxMinor: 0, averageMinor: 0, items: 0, medianMinor: 0, largestMinor: null, discountMinor: 0,
   pending: 0, rejected: 0, splitCount: 0, byMethod: [], taxRates: [],
+  byCashier: [],
 };
 const period: Period = {
   ...empty, count: 12, totalMinor: 157640, averageMinor: 13137, items: 23, medianMinor: 9850, largestMinor: 41000,
   discountMinor: 1250, splitCount: 0,
+  byCashier: [
+    { cashierRef: '7', count: 8, totalMinor: 98525 },
+    { cashierRef: '9', count: 4, totalMinor: 59115 },
+  ],
   byMethod: [
     { method: 'cash', label: 'Cash', count: 7, totalMinor: 98525 },
     { method: 'external', label: 'Card terminal', count: 5, totalMinor: 59115 },
@@ -150,10 +155,9 @@ test('each arc starts where the positive parts before it end', () => {
   expect(dashOffset('donut-arc-p2')).toBeCloseTo(-C * 300 / 400, 3);
 });
 
-test('Where sold shows one In store row with the total and no open button', () => {
-  cards();
+test('Where sold shows one In store row with the total, and opens the Where sold table', () => {
+  const onOpenTable = cards();
   expect(text('card-where-sold-figure')).toBe('$1576.40');
-  expect(screen.queryByTestId('card-where-sold-open')).toBeNull();
   expect(screen.getAllByTestId(/^card-where-sold-donut-row-[a-z]+$/).map(row => row.getAttribute('data-testid')))
     .toEqual(['card-where-sold-donut-row-store']);
   const row = within(screen.getByTestId('card-where-sold-donut-row-store'));
@@ -162,6 +166,10 @@ test('Where sold shows one In store row with the total and no open button', () =
   expect(text('card-where-sold-donut-row-store-value')).toBe('$1576.40');
   expect(text('card-where-sold-donut-figure')).toBe('$1,576');
   expect(within(screen.getByTestId('card-where-sold-donut')).getByText('1 channel')).not.toBeNull();
+  expect(within(screen.getByTestId('card-where-sold')).getByText('›')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('card-where-sold-open'));
+  expect(onOpenTable).toHaveBeenCalledWith('where-sold');
+  expect(onOpenTable).toHaveBeenCalledOnce();
 });
 
 test('Where sold reads an empty period', () => {
@@ -201,23 +209,103 @@ test('the Top products card reads an empty period', () => {
   expect(screen.queryByTestId('card-products-row-0')).toBeNull();
 });
 
+test('the Cashiers card shows a donut row per cashier with their name, amount, share and orders', () => {
+  cards({ cashiers: [{ id: '7', name: 'Alex' }, { id: '9', name: 'Sam' }] });
+  expect(text('card-cashiers-figure')).toBe('2');
+  const donut = within(screen.getByTestId('card-cashiers-donut'));
+  expect(donut.getAllByTestId(/^card-cashiers-donut-row-\d+$/).map(row => row.getAttribute('data-testid')))
+    .toEqual(['card-cashiers-donut-row-7', 'card-cashiers-donut-row-9']);
+  const alex = within(screen.getByTestId('card-cashiers-donut-row-7'));
+  for (const label of ['Alex', '$985.25', '62.5%', '8 orders']) expect(alex.getByText(label)).not.toBeNull();
+  const sam = within(screen.getByTestId('card-cashiers-donut-row-9'));
+  for (const label of ['Sam', '$591.15', '37.5%', '4 orders']) expect(sam.getByText(label)).not.toBeNull();
+  expect(text('card-cashiers-donut-figure')).toBe('$1,576');
+  expect(donut.getByText('2 cashiers')).not.toBeNull();
+  expect(screen.queryByTestId('card-cashiers-open')).toBeNull();
+});
+
+test('the Cashiers card names a cashier not on this device #id, and an order with none Unknown', () => {
+  cards({ period: { ...period, totalMinor: 400, byCashier: [
+    { cashierRef: '42', count: 1, totalMinor: 300 },
+    { cashierRef: '', count: 1, totalMinor: 100 },
+  ] } });
+  expect(within(screen.getByTestId('card-cashiers-donut-row-42')).getByText('#42')).not.toBeNull();
+  const unknown = within(screen.getByTestId('card-cashiers-donut-row-unknown'));
+  expect(unknown.getByText('Unknown')).not.toBeNull();
+  expect(unknown.getByText('1 order')).not.toBeNull();
+});
+
+test('one cashier reads 1 cashier', () => {
+  cards({ period: { ...period, totalMinor: 300, byCashier: [{ cashierRef: '7', count: 1, totalMinor: 300 }] } });
+  expect(within(screen.getByTestId('card-cashiers-donut')).getByText('1 cashier')).not.toBeNull();
+  expect(text('card-cashiers-figure')).toBe('1');
+});
+
+test('the Cashiers card reads an empty period', () => {
+  cards({ period: empty });
+  expect(text('card-cashiers-figure')).toBe('0');
+  expect(text('card-cashiers-empty')).toBe('No sales in this period.');
+  expect(screen.queryByTestId('card-cashiers-donut')).toBeNull();
+});
+
+test('the Taxes card reads the tax collected, a legend per rate and Net / Tax / Gross, and opens the Taxes table', () => {
+  const onOpenTable = cards({ period: { ...period, taxMinor: 196, taxRates: [
+    { ratePpm: 13750, label: 'Tax 1.375%', netMinor: 1600, taxMinor: 22, grossMinor: 1622 },
+    { ratePpm: 72500, label: 'Tax 7.25%', netMinor: 2400, taxMinor: 174, grossMinor: 2574 },
+  ] } });
+  expect(text('card-taxes-figure')).toBe('$1.96');
+  expect(screen.getAllByTestId(/^card-taxes-rate-\d+$/).map(row => row.getAttribute('data-testid')))
+    .toEqual(['card-taxes-rate-13750', 'card-taxes-rate-72500']);
+  const row = within(screen.getByTestId('card-taxes-rate-72500'));
+  expect(row.getByText('Tax 7.25%')).not.toBeNull();
+  expect(row.getByText('$1.74')).not.toBeNull();
+  expect(row.getByText('on $24.00')).not.toBeNull();
+  expect(screen.getByTestId('card-taxes-bar').children).toHaveLength(2);
+  expect(text('card-taxes-net')).toBe('$1574.44');
+  expect(text('card-taxes-tax')).toBe('$1.96');
+  expect(text('card-taxes-gross')).toBe('$1576.40');
+  expect(within(screen.getByTestId('card-taxes')).getByText('›')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('card-taxes-open'));
+  expect(onOpenTable).toHaveBeenCalledOnce();
+  expect(onOpenTable).toHaveBeenCalledWith('taxes');
+});
+
+test('the Taxes card reads an empty period', () => {
+  cards({ period: empty });
+  expect(text('card-taxes-figure')).toBe('$0.00');
+  expect(screen.queryAllByTestId(/^card-taxes-rate-/)).toHaveLength(0);
+  expect(screen.getByTestId('card-taxes-bar').children).toHaveLength(1);
+  expect(text('card-taxes-tax')).toBe('$0.00');
+});
+
+test('the Taxes bar draws only the rates that collected tax, and the legend lists every rate', () => {
+  cards({ period: { ...period, taxMinor: 174, taxRates: [
+    { ratePpm: 0, label: 'Zero rate', netMinor: 500, taxMinor: 0, grossMinor: 500 },
+    { ratePpm: 72500, label: 'Tax 7.25%', netMinor: 2400, taxMinor: 174, grossMinor: 2574 },
+  ] } });
+  expect(screen.getByTestId('card-taxes-bar').children).toHaveLength(1);
+  expect(screen.getAllByTestId(/^card-taxes-rate-\d+$/).map(row => row.getAttribute('data-testid')))
+    .toEqual(['card-taxes-rate-0', 'card-taxes-rate-72500']);
+  expect(within(screen.getByTestId('card-taxes-rate-0')).getByText('$0.00')).not.toBeNull();
+});
+
 const rows = () => screen.getAllByTestId(/^reports-period-row-\d$/).map(row =>
   Array.from(row.children).map(cell => cell.firstElementChild?.getAttribute('data-testid') ?? null));
 
 test('the grid follows the measured width: three, two or one column', () => {
   cards();
-  expect(rows()).toEqual([['card-orders'], ['card-payments'], ['card-where-sold'], ['card-products']]);
+  expect(rows()).toEqual([['card-orders'], ['card-payments'], ['card-where-sold'], ['card-products'], ['card-cashiers'], ['card-taxes']]);
   layout('reports-period-section', 1200);
-  expect(rows()).toEqual([['card-orders', 'card-payments', 'card-where-sold'], ['card-products', null, null]]);
+  expect(rows()).toEqual([['card-orders', 'card-payments', 'card-where-sold'], ['card-products', 'card-cashiers', 'card-taxes']]);
   layout('reports-period-section', 700);
-  expect(rows()).toEqual([['card-orders', 'card-payments'], ['card-where-sold', 'card-products']]);
+  expect(rows()).toEqual([['card-orders', 'card-payments'], ['card-where-sold', 'card-products'], ['card-cashiers', 'card-taxes']]);
   layout('reports-period-section', 400);
-  expect(rows()).toEqual([['card-orders'], ['card-payments'], ['card-where-sold'], ['card-products']]);
+  expect(rows()).toEqual([['card-orders'], ['card-payments'], ['card-where-sold'], ['card-products'], ['card-cashiers'], ['card-taxes']]);
 });
 
 test('each card is v2\'s Card: the card fill on the page, its border and radius (cards/card.tsx:25)', () => {
   cards();
-  for (const id of ['card-orders', 'card-payments', 'card-where-sold', 'card-products']) {
+  for (const id of ['card-orders', 'card-payments', 'card-where-sold', 'card-products', 'card-cashiers', 'card-taxes']) {
     expect(classesOf(id)).toEqual(expect.arrayContaining([...CARD_CLASSES, 'border-border', 'p-4']));
   }
 });

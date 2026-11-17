@@ -1,13 +1,19 @@
 import { useEffect, useState, type JSX } from 'react';
 import { Pressable, View } from 'react-native';
 import { Button, SearchInput, Text } from '@tallyui/components';
+import type { SyncCadenceRunner } from '@tallyui/database';
 import type { LogLevel } from '@tallyui/pos';
+import { formatCadence } from '../lib/health/performance';
+import { useIsWide } from '../lib/layout/wide';
 import type { LogCollection, LogRecord } from '../lib/logs/log-store';
 import { IDLE_OUTBOX_STATE, buildDebugInfo, formatDurationMs, formatLogTime, logStats, matchesLogFilter, outboxSyncStats,
   type LogPreset, type OutboxSyncStats } from '../lib/logs/log-view';
 import { useVerboseDiagnostics } from '../lib/logs/verbose';
 import { useSearchTerm } from '../lib/search-term';
 import { chipInkClassName, chipToneClassName } from './catalogue-filter-chips';
+
+// v2 logs/index.tsx:44: the status line's clock.
+const NOW_TICK_MS = 5_000;
 
 // v2's Stat (packages/components/src/stat): the number above a muted label, pressable as a filter when it has onPress.
 // v2's tones: bad reads destructive, good reads success.
@@ -53,8 +59,31 @@ const LEVEL_DOT: Record<LogLevel, string> = {
 // v2's table head text (TABLE_HEAD_TEXT, components/src/text/ladder.ts:18).
 const HEAD = 'text-xs uppercase tracking-wide text-muted-foreground';
 
+function LevelMark({ level }: { level: LogLevel }): JSX.Element {
+  return <>
+    <View aria-hidden className={`size-1.5 shrink-0 rounded-full ${LEVEL_DOT[level]}`} />
+    <Text className="text-sm text-muted-foreground">{level}</Text>
+  </>;
+}
+
+function StatusCell({ row, expanded, onToggle, className }: {
+  row: LogRecord; expanded: boolean; onToggle(): void; className: string;
+}): JSX.Element {
+  return <View className={className}>
+    {(row.level === 'warn' || row.level === 'error') && row.code
+      ? <Text testID={`logs-code-${row.id}`} className="text-xs">{row.code}</Text>
+      : row.level === 'info' && row.outcome === 'ok'
+        ? <Text testID={`logs-ok-${row.id}`} className="text-xs font-semibold text-success">✓ ok</Text>
+        : <Text className="text-xs text-muted-foreground/50">—</Text>}
+    <Pressable testID={`logs-chevron-${row.id}`} role="button" aria-label="Details" onPress={onToggle}
+      className="z-20 px-1">
+      <Text className="text-muted-foreground/60">{expanded ? '⌄' : '›'}</Text>
+    </Pressable>
+  </View>;
+}
+
 // v2's RowDetail (logs/row-detail.tsx:225): the row's facts as label and value, inline under the row.
-function RowDetail({ row }: { row: LogRecord }): JSX.Element {
+function RowDetail({ row, phone }: { row: LogRecord; phone: boolean }): JSX.Element {
   const { actor, syncRecord } = row;
   const facts: [string, string | undefined][] = [
     ['Code', row.code], ['Outcome', row.outcome], ['Duration', formatDurationMs(row.durationMs) ?? undefined],
@@ -62,7 +91,7 @@ function RowDetail({ row }: { row: LogRecord }): JSX.Element {
     ['Record', syncRecord && `${syncRecord.collection} ${syncRecord.recordId} · ${syncRecord.outcome}`],
     ['Reason', syncRecord?.reason], ['Details', row.detail], ['Log id', row.id],
   ];
-  return <View testID={`logs-detail-${row.id}`} className="ml-42 gap-1 py-2">
+  return <View testID={`logs-detail-${row.id}`} className={`${phone ? 'pl-4' : 'ml-42'} gap-1 py-2`}>
     {facts.filter(([, value]) => value).map(([label, value]) => <View key={label} className="flex-row items-baseline gap-3">
       <Text className="w-24 text-sm text-muted-foreground">{label}</Text>
       <Text testID={`logs-detail-${row.id}-${label.toLowerCase().replace(' ', '-')}`} selectable
@@ -73,23 +102,34 @@ function RowDetail({ row }: { row: LogRecord }): JSX.Element {
 
 export function LogsScreen({ collection, storeName, siteUrl,
   copyText = typeof navigator !== 'undefined' && navigator.clipboard?.writeText
-    ? text => navigator.clipboard.writeText(text) : null, now = Date.now, sync,
+    ? text => navigator.clipboard.writeText(text) : null, now = Date.now, sync, runner,
 }: {
   collection: LogCollection; storeName: string; siteUrl: string;
   copyText?: ((text: string) => Promise<void>) | null; now?: () => number;
   /** The outboxes' stuck records and changes waiting to send (outboxSyncStats); both stats are drawn only when given. */
   sync?: OutboxSyncStats;
+  /** The catalogue polling runner's next check time, when available. */
+  runner?: Pick<SyncCadenceRunner, 'nextDueAtMs$'>;
 }): JSX.Element {
+  const phone = !useIsWide();
   const [rows, setRows] = useState<LogRecord[]>([]);
   const [preset, setPreset] = useState<LogPreset>('all');
   const [level, setLevel] = useState<LogLevel>();
   const [copyStatus, setCopyStatus] = useState<string>();
+  const [nextDueAtMs, setNextDueAtMs] = useState<number | undefined>(undefined);
+  const [nowMs, setNowMs] = useState(now);
   const { verbose, setVerbose } = useVerboseDiagnostics(now);
   useEffect(() => {
     const subscription = collection.find({ sort: [{ id: 'desc' }] }).$.subscribe(
       docs => setRows(docs.map(doc => doc.toJSON())));
     return () => subscription.unsubscribe();
   }, [collection]);
+  useEffect(() => {
+    if (!runner) return;
+    const subscription = runner.nextDueAtMs$.subscribe(next => { setNextDueAtMs(next); setNowMs(now()); });
+    const interval = setInterval(() => setNowMs(now()), NOW_TICK_MS);
+    return () => { subscription.unsubscribe(); clearInterval(interval); };
+  }, [runner, now]);
   const { term, query: search, type } = useSearchTerm();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggle = (id: string) => setExpanded(previous => ({ ...previous, [id]: !previous[id] }));
@@ -100,6 +140,8 @@ export function LogsScreen({ collection, storeName, siteUrl,
   // The footer's total is what All shows for the search, as v2's count follows its search.
   const searched = counted.filter(row => matchesSearch(row, search));
   const stats = logStats(counted, now());
+  const next = nextDueAtMs === undefined ? null : formatCadence(nextDueAtMs - nowMs);
+  const label = next ? `Watching for changes · next check ~${next.value} ${next.unit}` : 'Watching for changes';
   async function copyDebugInfo() {
     if (!copyText) return;
     try {
@@ -139,17 +181,37 @@ export function LogsScreen({ collection, storeName, siteUrl,
       </View>
       {copyStatus && <Text testID="logs-copy-status">{copyStatus}</Text>}
       {/* v2's ledger head (logs/ledger.tsx:391); the duration column keeps v2's testID, "took". */}
-      <View className="h-9 flex-row items-center gap-3 border-b border-border">
+      {!phone && /* v2 logs/ledger.tsx:391: hide the head on a phone. */ <View className="h-9 flex-row items-center gap-3 border-b border-border">
         <Text testID="logs-heading-time" className={`w-20 ${HEAD}`}>Time</Text>
         <Text testID="logs-heading-level" className={`w-16 ${HEAD}`}>Level</Text>
         <Text testID="logs-heading-event" className={`flex-1 ${HEAD}`}>Event</Text>
         <Text testID="logs-heading-took" className={`w-16 text-right ${HEAD}`}>Duration</Text>
         <Text testID="logs-heading-status" className={`w-32 text-right ${HEAD}`}>Status</Text>
-      </View>
+      </View>}
       {/* v2's LedgerRow (logs/ledger.tsx:244): the whole row toggles its detail through an overlay under the
           level and chevron buttons, since a button inside a button is invalid on the web. */}
-      {filtered.map(row => <View key={row.id} testID={`logs-row-${row.id}`} className="border-b border-border">
-        <View className="relative flex-row items-baseline gap-3 py-2 web:hover:bg-accent/20">
+      {filtered.map(row => {
+        const took = formatDurationMs(row.durationMs);
+        return <View key={row.id} testID={`logs-row-${row.id}`} className="border-b border-border">
+        {/* v2 logs/ledger.tsx:296-320: the phone row, with status beside its first line. */}
+        {phone ? <View className="relative">
+          <Pressable testID={`logs-row-sm-${row.id}`} role="button" aria-expanded={!!expanded[row.id]}
+            aria-label={`${row.level} · ${row.message}`} onPress={() => toggle(row.id)} className="gap-0.5 py-2">
+            <View testID={`logs-line-sm-${row.id}`} className="flex-row items-center gap-2 pr-32">
+              <Text testID={`logs-time-sm-${row.id}`} className="font-mono text-sm tabular-nums text-muted-foreground">
+                {formatLogTime(row.timestamp, now())}</Text>
+              <View testID={`logs-level-sm-${row.id}`} className="flex-row items-center gap-1.5"><LevelMark level={row.level} /></View>
+            </View>
+            <Text testID={`logs-event-sm-${row.id}`} className="text-sm">{row.message}</Text>
+            <View testID={`logs-subline-sm-${row.id}`} className="flex-row flex-wrap items-center gap-x-1.5 gap-y-0.5 pt-0.5">
+              <Text className="font-mono text-xs text-muted-foreground/80">{row.scope}</Text>
+              {took && <Text className="text-xs text-muted-foreground/50">·</Text>}
+              {took && <Text testID={`logs-took-sm-${row.id}`} className="font-mono text-xs text-muted-foreground/80">{took}</Text>}
+            </View>
+          </Pressable>
+          <StatusCell row={row} expanded={!!expanded[row.id]} onToggle={() => toggle(row.id)}
+            className="absolute right-0 top-2 z-10 flex-row items-center justify-end gap-1.5" />
+        </View> : <View className="relative flex-row items-baseline gap-3 py-2 web:hover:bg-accent/20">
           <Pressable testID={`logs-toggle-${row.id}`} role="button" aria-expanded={!!expanded[row.id]}
             aria-label={`${row.level} · ${row.message}`} onPress={() => toggle(row.id)} className="absolute inset-0 z-10" />
           <Text className="w-20 font-mono text-sm tabular-nums text-muted-foreground">{formatLogTime(row.timestamp, now())}</Text>
@@ -158,8 +220,7 @@ export function LogsScreen({ collection, storeName, siteUrl,
               onPress={() => setLevel(level === row.level ? undefined : row.level)}
               className={`-mx-1.5 flex-row items-center gap-1.5 self-start rounded-full px-1.5 py-0.5 web:hover:bg-accent/60${
                 level === row.level ? ' bg-muted' : ''}`}>
-              <View aria-hidden className={`size-1.5 shrink-0 rounded-full ${LEVEL_DOT[row.level]}`} />
-              <Text className="text-sm text-muted-foreground">{row.level}</Text>
+              <LevelMark level={row.level} />
             </Pressable>
           </View>
           <View className="min-w-0 flex-1">
@@ -167,23 +228,22 @@ export function LogsScreen({ collection, storeName, siteUrl,
             <Text testID={`logs-scope-${row.id}`} className="pt-0.5 font-mono text-xs text-muted-foreground/80">{row.scope}</Text>
           </View>
           <Text testID={`logs-took-${row.id}`} className="w-16 text-right font-mono text-sm tabular-nums text-muted-foreground">
-            {formatDurationMs(row.durationMs) ?? '—'}</Text>
-          <View className="w-32 flex-row items-center justify-end gap-1.5">
-            {(row.level === 'warn' || row.level === 'error') && row.code
-              ? <Text testID={`logs-code-${row.id}`} className="text-xs">{row.code}</Text>
-              : row.level === 'info' && row.outcome === 'ok'
-                ? <Text testID={`logs-ok-${row.id}`} className="text-xs font-semibold text-success">✓ ok</Text>
-                : <Text className="text-xs text-muted-foreground/50">—</Text>}
-            <Pressable testID={`logs-chevron-${row.id}`} role="button" aria-label="Details" onPress={() => toggle(row.id)}
-              className="z-20 px-1">
-              <Text className="text-muted-foreground/60">{expanded[row.id] ? '⌄' : '›'}</Text>
-            </Pressable>
-          </View>
-        </View>
-        {expanded[row.id] && <RowDetail row={row} />}
-      </View>)}
+            {took ?? '—'}</Text>
+          <StatusCell row={row} expanded={!!expanded[row.id]} onToggle={() => toggle(row.id)}
+            className="w-32 flex-row items-center justify-end gap-1.5" />
+        </View>}
+        {expanded[row.id] && <RowDetail row={row} phone={phone} />}
+      </View>;
+      })}
       {filtered.length === 0 && <Text testID="logs-empty">No logs found</Text>}
-      <Text testID="logs-footer" className="mt-4 text-muted-foreground">{`Showing ${filtered.length} of ${searched.length}`}</Text>
+      {/* v2 logs/index.tsx:70-110 and ledger.tsx:475; "last check X ago" waits on a last-tick value from @tallyui/database. */}
+      <View className="mt-4 flex-row flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-border/50 py-2">
+        <Text testID="logs-footer" className="text-muted-foreground">{`Showing ${filtered.length} of ${searched.length}`}</Text>
+        {runner && nextDueAtMs !== undefined && <View testID="logs-status-line" className="flex-row items-center gap-1.5">
+          <View testID="logs-status-line-dot" aria-hidden className="size-1.5 shrink-0 rounded-full bg-success" />
+          <Text testID="logs-status-line-label" className="shrink text-xs text-muted-foreground">{label}</Text>
+        </View>}
+      </View>
     </View>
   );
 }

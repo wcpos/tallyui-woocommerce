@@ -68,6 +68,24 @@ test('today totals every sync state in the store currency only', () => {
   });
 }, 20_000);
 
+test('byCashier rolls the period\'s orders up by cashier, largest first', () => {
+  const cashierOrders: PosOrder[] = [
+    { ...base, id: 'C1', cashierRef: '7', totalMinor: 300, syncStatus: 'applied', payments: [] },
+    { ...base, id: 'C2', cashierRef: '9', totalMinor: 900, syncStatus: 'applied', payments: [] },
+    { ...base, id: 'C3', cashierRef: '7', totalMinor: 200, syncStatus: 'applied', payments: [] },
+    { ...base, id: 'C4', totalMinor: 200, syncStatus: 'applied', payments: [] },
+    { ...base, id: 'C5', cashierRef: '7', currency: 'EUR', totalMinor: 1000, syncStatus: 'applied', payments: [] },
+    { ...base, id: 'C6', cashierRef: '7', createdAt: new Date(2026, 9, 5, 11, 20).toISOString(),
+      totalMinor: 1000, syncStatus: 'applied', payments: [] },
+  ];
+  const { today } = salesRoom(cashierOrders, { now, currency: 'USD', ...day });
+  expect(today.byCashier).toEqual([
+    { cashierRef: '9', count: 1, totalMinor: 900 },
+    { cashierRef: '7', count: 2, totalMinor: 500 },
+    { cashierRef: '', count: 1, totalMinor: 200 },
+  ]);
+});
+
 test('a split counts once per method with its applied amounts', () => {
   expect(salesRoom(orders, { now, currency: 'USD', ...day }).today.byMethod).toEqual([
     { method: 'cash', label: 'Cash', count: 3, totalMinor: 758 },

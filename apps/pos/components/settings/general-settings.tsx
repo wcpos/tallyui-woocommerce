@@ -1,12 +1,12 @@
-import { useState, type JSX } from 'react';
-import { Linking, View } from 'react-native';
+import { useState, type JSX, type ReactNode } from 'react';
+import { Linking, Pressable, View } from 'react-native';
 import { Button, Switch, Text } from '@tallyui/components';
 import type { CustomerSummary } from '@tallyui/pos';
 import type { CurrencyPosition, StoreInfo } from '../../lib/catalogue/store-info';
 import type { CustomerSource } from '../../lib/customers/customer-source';
 import type { DefaultCustomerSetting } from '../../lib/customers/default-customer';
 import { useRegister } from '../../lib/register/register-context';
-import { CustomerPicker } from '../customer-picker';
+import { CUSTOMER_SELECT_FACE, CustomerPicker, CustomerSelectFace } from '../customer-picker';
 import { OpenExternalIcon } from '../docs-link';
 import { RegisterSwitch } from '../register-controls';
 import { SETTINGS_KEY_CLASS, SettingsField, SettingsSection } from './settings-form';
@@ -15,8 +15,8 @@ export function wooSettingsUrl(siteHome: string): string {
   return `${siteHome.replace(/\/+$/, '')}/wp-admin/admin.php?page=wc-settings`;
 }
 
-export function LockedRow({ testID, label, value, href }: {
-  testID: string; label: string; value: string | boolean | undefined; href: string;
+export function LockedRow({ testID, label, value, href, control }: {
+  testID: string; label: string; value: string | boolean | undefined; href: string; control?: ReactNode;
 }) {
   // v2 property-row/index.tsx:114-118: the trailing slot is where it is set, in the key rank, then Open.
   return (
@@ -32,7 +32,7 @@ export function LockedRow({ testID, label, value, href }: {
       </Button>
     </>}>
       {/* v2 PropertyRow (l.125-135): a locked boolean is a disabled switch, an empty locked value a dash. */}
-      {typeof value === 'boolean'
+      {control !== undefined ? control : typeof value === 'boolean'
         ? <Switch size="sm" testID={`${testID}-switch`} accessibilityLabel={label} checked={value} onCheckedChange={() => {}} disabled />
         : <Text testID={`${testID}-value`}>{value || '—'}</Text>}
     </SettingsField>
@@ -80,6 +80,7 @@ export interface DefaultCustomerControl {
 function DefaultCustomerRows({ setting, customer, source, onChange }: DefaultCustomerControl) {
   const [chosen, setChosen] = useState<CustomerSummary | null>();
   const shown = chosen !== undefined ? chosen : customer ?? null;
+  const name = shown ? shown.name : 'Guest';
   function choose(next: CustomerSummary | null) {
     const id = next ? Number(next.id) : 0;
     setChosen(next);
@@ -91,9 +92,13 @@ function DefaultCustomerRows({ setting, customer, source, onChange }: DefaultCus
       <SettingsField testID="settings-general-default_customer" label="Default Customer"
         help="Pre-selected on every new cart.">
         {source && !setting.isCashier
-          ? <CustomerPicker source={source} customer={shown} onChange={choose} />
-          : <Button variant="outline" size="sm" disabled testID="settings-general-default_customer-select">
-            <Text>{shown ? shown.name : 'Guest'}</Text></Button>}
+          ? <CustomerPicker face="select" label="Default Customer" testID="settings-general-default_customer-select"
+            source={source} customer={shown} onChange={choose} />
+          // v2 combobox.tsx:105: disabled triggers use web:cursor-not-allowed opacity-45.
+          : <Pressable disabled accessibilityRole="button" accessibilityLabel={`Default Customer: ${name}`}
+            testID="settings-general-default_customer-select" className={`${CUSTOMER_SELECT_FACE} opacity-45 web:cursor-not-allowed`}>
+            <CustomerSelectFace name={name} testID="settings-general-default_customer-select" />
+          </Pressable>}
       </SettingsField>
       {/* v2 general.tsx:324-328: a control with no value is the value (property-row/index.tsx:143). */}
       {/* v2 core.json:1744 reads "Default Customer is cashier"; the demo's "Cashier" wins. */}

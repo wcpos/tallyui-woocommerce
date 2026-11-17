@@ -35,6 +35,38 @@ test('counts each collection and follows writes', async () => {
 });
 
 const renderCounts = () => render(<><DatabaseCounts rows={rows} /><PortalHost /></>);
+
+test('v2\'s Size column: a caption head, ≈ size per row, — when empty', async () => {
+  await products.bulkInsert([{ id: 'a' }, { id: 'b' }]);
+  renderCounts();
+  expect(screen.getByTestId('db-head-size').textContent).toBe('Size');
+  expect(classesOf('db-head-size')).toEqual(expect.arrayContaining(['w-20', 'text-right', 'uppercase']));
+  await waitFor(() => expect(screen.getByTestId('db-row-size-products').textContent).toMatch(/^≈ \d+ B$/), { timeout: 4000 });
+  expect(classesOf('db-row-size-products')).toEqual(expect.arrayContaining([
+    'w-20', 'text-right', 'tabular-nums', 'text-sm', 'text-muted-foreground',
+  ]));
+  expect(screen.getByTestId('db-row-size-coupons').textContent).toBe('—');
+});
+
+test('the size follows writes after the debounce', async () => {
+  renderCounts();
+  expect(screen.getByTestId('db-row-size-products').textContent).toBe('—');
+  await act(async () => { await products.insert({ id: 'a' }); });
+  await waitFor(() => expect(screen.getByTestId('db-row-size-products').textContent).toMatch(/^≈ /), { timeout: 4000 });
+});
+
+test('a failed size sample shows — and the next write estimates again', async () => {
+  await products.bulkInsert([{ id: 'a' }, { id: 'b' }]);
+  const find = vi.spyOn(products, 'find').mockImplementation(() => { throw new Error('sample failed'); });
+  renderCounts();
+  await waitFor(() => expect(find).toHaveBeenCalled(), { timeout: 4000 });
+  expect(screen.getByTestId('db-row-size-products').textContent).toBe('—');
+  expect(screen.getByTestId('db-row-count-products').textContent).toBe('2');
+  find.mockRestore();
+  await act(async () => { await products.insert({ id: 'c' }); });
+  await waitFor(() => expect(screen.getByTestId('db-row-size-products').textContent).toMatch(/^≈ \d+ B$/), { timeout: 4000 });
+}, 10000);
+
 /** Open a row's ⋮ menu and press Check for changes now (v2 health/database.tsx:347-360). */
 function syncNow(key: string) {
   fireEvent.click(screen.getByTestId(`db-row-menu-${key}`));
@@ -101,5 +133,6 @@ test('v2\'s flat table: caption-rank heads, ruled rows at 61 px, no inner box', 
   expect(classesOf('db-head-local')).toEqual(expect.arrayContaining(['w-20', 'text-right']));
   expect(classesOf('db-row-count-products')).toEqual(expect.arrayContaining(['w-20', 'text-right', 'tabular-nums']));
   expect(screen.queryByText('On server')).toBeNull();
+  expect(screen.queryByText('Coverage')).toBeNull();
   await waitFor(() => expect(screen.getByTestId('db-row-count-products').textContent).toBe('0'));
 });

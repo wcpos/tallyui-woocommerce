@@ -203,13 +203,27 @@ test.each([
   expect(screen.queryByTestId('add-discount-kind-coupon')).toBeNull();
 }, 20_000);
 
-test('Add discount is disabled on an empty cart', async () => {
+test('Add Discount opens on an empty cart, and a percent discount applies to the first line', async () => {
   await renderTill();
-  fireEvent.click(screen.getByTestId('cart-add-menu'));
-  const item = screen.getByTestId('cart-add-menu-discount');
-  expect(item.getAttribute('aria-disabled')).toBe('true');
-  fireEvent.click(item);
-  expect(screen.queryByTestId('add-discount-dialog')).toBeNull();
+  openAddMenuItem('discount');
+  expect(screen.getByTestId('add-discount-dialog')).not.toBeNull();
+  const dialog = within(screen.getByTestId('add-discount-dialog'));
+  fireEvent.change(dialog.getByLabelText('Discount value'), { target: { value: '10' } });
+  fireEvent.click(dialog.getByRole('button', { name: 'Apply' }));
+  await waitFor(() => expect(screen.queryByTestId('add-discount-dialog')).toBeNull());
+  await addEspresso();
+  await waitFor(() => expect(total().getByText('$2.70')).not.toBeNull());
+}, 20_000);
+
+test('a fixed discount on an empty cart is refused inline', async () => {
+  await renderTill();
+  openAddMenuItem('discount');
+  const dialog = within(screen.getByTestId('add-discount-dialog'));
+  fireEvent.click(dialog.getByRole('button', { name: 'Amount' }));
+  fireEvent.change(dialog.getByLabelText('Discount value'), { target: { value: '5' } });
+  fireEvent.click(dialog.getByRole('button', { name: 'Apply' }));
+  expect(screen.getByRole('alert').textContent).toBe('The discount is more than the order');
+  expect(screen.getByTestId('add-discount-dialog')).not.toBeNull();
 }, 20_000);
 
 test('the cart column has no Order discount, Add charge or Add coupon buttons; an applied order discount still shows', async () => {

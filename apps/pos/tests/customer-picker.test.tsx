@@ -83,6 +83,14 @@ test('the customer chip is 44 px high', () => {
   expect(classesOf('cart-customer-name')).not.toContain('min-h-9');
 });
 
+test('the cart chip keeps its muted Customer label, initials and pill when no face is given', () => {
+  renderPicker();
+  expect(classesOf('cart-customer-name')).toContain('rounded-full');
+  expect(screen.getByTestId('cart-customer-initials').textContent).toBe('GU');
+  expect(screen.getByText('Customer')).not.toBeNull();
+  expect(screen.queryByTestId('customer-select-trigger-chevron')).toBeNull();
+});
+
 test('the panel has no create path: no New customer, no customer form and no Cancel', () => {
   const panel = openPicker();
   expect(panel.queryByRole('button', { name: 'New customer' })).toBeNull();

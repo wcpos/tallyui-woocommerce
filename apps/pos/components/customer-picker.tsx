@@ -6,6 +6,17 @@ import type { CustomerSummary } from '@tallyui/pos';
 import { CustomerSelect, Popover, PopoverContent, PopoverTrigger, Text } from '@tallyui/components';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { customerInitials } from '../lib/customers/customer-table';
+import { ChevronDownIcon } from './select-chevron';
+
+// v2 field-box/index.tsx:24-40: h-ctl (44 px), rounded-field, field border; combobox.tsx:102-155: w-full px-3.
+export const CUSTOMER_SELECT_FACE = 'h-11 w-full flex-row items-center gap-2 rounded-lg border border-border bg-card px-3';
+
+export function CustomerSelectFace({ name, testID }: { name: string; testID: string }) {
+  return <>
+    <Text numberOfLines={1} className="flex-1">{name}</Text>
+    <ChevronDownIcon testID={`${testID}-chevron`} size={16} className="text-muted-foreground" />
+  </>;
+}
 
 function Initials({ text, testID }: { text: string; testID?: string }) {
   return (
@@ -15,11 +26,15 @@ function Initials({ text, testID }: { text: string; testID?: string }) {
   );
 }
 
-export function CustomerPicker({ source, customer, onChange }: {
+export function CustomerPicker({ source, customer, onChange, face = 'chip', label = 'Customer', testID = 'customer-select-trigger' }: {
   source: CustomerSource;
   customer: CustomerSummary | null;
   onChange(customer: CustomerSummary | null): void;
+  face?: 'chip' | 'select';
+  label?: string;
+  testID?: string;
 }) {
+  const name = customer ? customer.name : 'Guest';
   const [open, setOpen] = useState(false);
   const [results, setResults] = useState<Customer[]>([]);
   const [empty, setEmpty] = useState(false);
@@ -106,10 +121,16 @@ export function CustomerPicker({ source, customer, onChange }: {
   // v2 cart/customer.tsx: a muted label, then the same chip as the products column's filter pills. v2 cart-header.tsx:
   // the chip opens a dropdown over the cart (a Combobox of CustomerSearch withGuest), with no create in it.
   return (
-    <View ref={row} className="flex-row items-center gap-2">
-      <Text className="text-muted-foreground">Customer</Text>
+    <View ref={row} className={face === 'select' ? 'w-full' : 'flex-row items-center gap-2'}>
+      {face === 'chip' && <Text className="text-muted-foreground">Customer</Text>}
       <Popover open={open} onOpenChange={next => { if (next) openPanel(); else close(); }}>
         <PopoverTrigger asChild>
+          {face === 'select' ? (
+          <Pressable accessibilityRole="button" testID={testID}
+            accessibilityLabel={`${label}: ${name}`} className={CUSTOMER_SELECT_FACE}>
+            <CustomerSelectFace name={name} testID={testID} />
+          </Pressable>
+          ) : (
           <Pressable accessibilityRole="button" testID="cart-customer-name"
             accessibilityLabel={`Customer: ${customer ? customer.name : 'Guest'}`}
             // h-11: v2's default Chip, `h-ctl px-3`, 44 px (monorepo packages/components/src/chip/index.tsx:158).
@@ -117,6 +138,7 @@ export function CustomerPicker({ source, customer, onChange }: {
             <Initials testID="cart-customer-initials" text={customer ? customerInitials(customer) : 'GU'} />
             <Text numberOfLines={1}>{customer ? customer.name : 'Guest'}</Text>
           </Pressable>
+          )}
         </PopoverTrigger>
         <PopoverContent ref={panel} testID="customer-select-panel" align="start" className="w-80 gap-2">
           {/* v2 lists Guest first in the customer search, even when the order already is a guest. */}

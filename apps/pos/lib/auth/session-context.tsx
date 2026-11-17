@@ -2,11 +2,11 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import type { JSX, ReactNode } from 'react';
 import { buildAuthUrl, LoginError, newState, parseCallback } from './login';
 import { discoverSite } from './site';
-import type { ConnectStage } from './site';
+import type { ConnectStage, StoreSite } from './site';
 import { clearSession, loadCashiers, loadSession, PENDING_KEY, refreshSession, saveCashiers, saveSession, SessionExpiredError } from './session';
 import type { Session } from './session';
-import { otherCashiers, rosterAfterSignIn, rosterAfterSwitch, withoutCashier } from './roster';
-import type { Roster } from './roster';
+import { otherCashiers, rosterAfterSignIn, rosterAfterSignOut, rosterAfterSwitch, savedSites, withoutCashier, withoutSite } from './roster';
+import type { Roster, SavedSite } from './roster';
 import { runBeforeLeave } from '../sale/before-leave';
 
 interface SessionContextValue {
@@ -17,6 +17,16 @@ interface SessionContextValue {
   hold(accessToken: string): void;
   startReauth(): Promise<string | null>;
   cashiers: Session[];
+  /** The saved stores and their saved cashiers (the active cashier is not among them). */
+  savedSites: SavedSite[];
+  /** Signs in a saved cashier of store `home` from their stored sign-in, refreshing it first. */
+  signInSaved(home: string, uuid: string): Promise<void>;
+  /** Starts a plain sign-in at a saved store, skipping discovery: Add another user and Re-authenticate on Connect. */
+  startSignInAt(site: StoreSite): void;
+  /** Forgets one saved cashier of store `home`. */
+  removeSaved(home: string, uuid: string): void;
+  /** Forgets a saved store and all its saved cashiers. */
+  removeSavedSite(home: string): void;
   startAddCashier(): void;
   switchCashier(uuid: string): Promise<void>;
   removeCashier(uuid: string): void;
@@ -72,8 +82,12 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
 
   async function startSignIn(siteInput: string, onStage?: (stage: ConnectStage) => void): Promise<void> {
     const site = await discoverSite(siteInput, undefined, onStage);
-    const state = newState();
     onStage?.('saving');
+    startSignInAt(site);
+  }
+
+  function startSignInAt(site: StoreSite): void {
+    const state = newState();
     try {
       globalThis.sessionStorage.setItem(PENDING_KEY, JSON.stringify({ state, site }));
     } catch {}
@@ -165,14 +179,45 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
     setRoster(updated);
   }
 
+  async function signInSaved(home: string, uuid: string): Promise<void> {
+    const target = (loadCashiers()[home] ?? []).find(entry => entry.tokens.user.uuid === uuid);
+    if (!target) throw new Error('No such cashier');
+    const next = { ...(await refreshSession(target)), signedInAt: Date.now() };
+    const previous = current.current;
+    saveSession(next);
+    updateSession(next);
+    const updated = rosterAfterSwitch(loadCashiers(), home, uuid, previous);
+    saveCashiers(updated);
+    setRoster(updated);
+  }
+
+  function removeSaved(home: string, uuid: string): void {
+    const updated = withoutCashier(loadCashiers(), home, uuid);
+    saveCashiers(updated);
+    setRoster(updated);
+  }
+
+  function removeSavedSite(home: string): void {
+    const updated = withoutSite(loadCashiers(), home);
+    saveCashiers(updated);
+    setRoster(updated);
+  }
+
   function signOut(): void {
+    const active = current.current;
     clearSession();
     updateSession(null);
+    if (active) {
+      const updated = rosterAfterSignOut(loadCashiers(), active);
+      saveCashiers(updated);
+      setRoster(updated);
+    }
   }
 
   const cashiers = otherCashiers(roster, session);
   return (
-    <SessionContext.Provider value={{ session, held, hold, ready, cashiers, startSignIn, startAddCashier, startReauth, switchCashier, removeCashier, completeSignIn, signOut }}>
+    <SessionContext.Provider value={{ session, held, hold, ready, cashiers, startSignIn, startAddCashier, startReauth, switchCashier, removeCashier, completeSignIn, signOut,
+      savedSites: savedSites(roster), signInSaved, startSignInAt, removeSaved, removeSavedSite }}>
       {children}
     </SessionContext.Provider>
   );

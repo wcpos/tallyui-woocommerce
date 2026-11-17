@@ -4,6 +4,23 @@ import { View } from 'react-native';
 import { AppFrame, AppRail } from '../components/app-rail';
 import { RegisterBarShell } from '../components/register-bar-shell';
 import { classesOf } from './classes-of';
+import { UnreadLogsCount } from '../lib/logs/unread-errors';
+
+test("the rail's Store health glyph carries the unread-error badge on its shoulder", () => {
+  const rail = (count: number) => <UnreadLogsCount.Provider value={count}>
+    <AppRail active="pos" onNavigate={() => {}} />
+  </UnreadLogsCount.Provider>;
+  const { rerender } = render(rail(7));
+  const badge = screen.getByTestId('drawer-badge-health');
+  const shoulder = screen.getByTestId('drawer-badge-health-shoulder');
+  expect(shoulder.contains(badge)).toBe(true);
+  expect(screen.getByTestId('drawer-item-health').contains(shoulder)).toBe(true);
+  expect(badge.textContent).toBe('7');
+  expect(classesOf('drawer-badge-health-shoulder')).toEqual(expect.arrayContaining(['absolute', 'bottom-3/4', 'left-full']));
+  expect(screen.getAllByTestId('drawer-badge-health')).toHaveLength(1);
+  rerender(rail(0));
+  expect(screen.queryByTestId('drawer-badge-health')).toBeNull();
+});
 
 afterEach(() => { cleanup(); });
 
