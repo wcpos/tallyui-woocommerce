@@ -191,6 +191,17 @@ test('the Taxes card reads an empty period', () => {
   expect(text('card-taxes-tax')).toBe('$0.00');
 });
 
+test('the Taxes bar draws only the rates that collected tax, and the legend lists every rate', () => {
+  cards({ period: { ...period, taxMinor: 174, taxRates: [
+    { ratePpm: 0, label: 'Zero rate', netMinor: 500, taxMinor: 0, grossMinor: 500 },
+    { ratePpm: 72500, label: 'Tax 7.25%', netMinor: 2400, taxMinor: 174, grossMinor: 2574 },
+  ] } });
+  expect(screen.getByTestId('card-taxes-bar').children).toHaveLength(1);
+  expect(screen.getAllByTestId(/^card-taxes-rate-\d+$/).map(row => row.getAttribute('data-testid')))
+    .toEqual(['card-taxes-rate-0', 'card-taxes-rate-72500']);
+  expect(within(screen.getByTestId('card-taxes-rate-0')).getByText('$0.00')).not.toBeNull();
+});
+
 const rows = () => screen.getAllByTestId(/^reports-period-row-\d$/).map(row =>
   Array.from(row.children).map(cell => cell.firstElementChild?.getAttribute('data-testid') ?? null));
 
