@@ -1,8 +1,10 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
+import * as ReactNative from 'react-native';
 import { formatClosureDate, type Closure, type Correction } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
 import { ClosurePanel } from '../components/closure-panel';
+import { classesOf } from './classes-of';
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
@@ -119,4 +121,59 @@ test('Print closure and Close call back, and there is no Recount', () => {
   expect(screen.queryByTestId('closure-recount')).toBeNull();
   fireEvent.click(screen.getByTestId('closure-panel-close'));
   expect(props.onClose).toHaveBeenCalledTimes(1);
+});
+
+test('on a tablet the panel is a right sheet with the × and Close beside Print closure', () => {
+  render(<><ClosurePanel {...props} /><PortalHost /></>);
+  const classes = classesOf('closure-panel');
+  expect(classes).toEqual(expect.arrayContaining(['right-0', 'h-full', 'max-w-lg', 'border-l', 'rounded-none', 'bg-card']));
+  expect(classes).not.toContain('rounded-lg');
+  expect(classes).not.toContain('max-h-[80%]');
+  expect(screen.queryByTestId('closure-back')).toBeNull();
+  fireEvent.click(screen.getByTestId('closure-panel-x'));
+  expect(props.onClose).toHaveBeenCalledTimes(1);
+  const footer = screen.getByTestId('closure-panel-footer');
+  const close = screen.getByTestId('closure-panel-close');
+  const print = screen.getByTestId('closure-reprint');
+  expect(footer.contains(close)).toBe(true);
+  expect(footer.contains(print)).toBe(true);
+  expect(close.compareDocumentPosition(print) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+test('on a phone the panel is a full page with a back chevron and no Close', () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  render(<><ClosurePanel {...props} /><PortalHost /></>);
+  const classes = classesOf('closure-panel');
+  expect(classes).toEqual(expect.arrayContaining(['w-full', 'max-w-full', 'h-full', 'border-0']));
+  expect(classes).not.toContain('max-w-lg');
+  expect(classes).not.toContain('border-l');
+  expect(screen.queryByTestId('closure-panel-x')).toBeNull();
+  expect(screen.queryByTestId('closure-panel-close')).toBeNull();
+  expect(screen.getByTestId('closure-back').getAttribute('aria-label')).toBe('Back');
+  fireEvent.click(screen.getByTestId('closure-back'));
+  expect(props.onClose).toHaveBeenCalledTimes(1);
+  expect(classesOf('closure-reprint')).toContain('w-full');
+});
+
+test('the heading leads with a tone disc: bad when short, ok when a recount settles it, muted when blind', () => {
+  render(<><ClosurePanel {...props} /><PortalHost /></>);
+  expect(screen.getByTestId('closure-tone-bad')).toBeTruthy();
+  expect(classesOf('closure-tone-bad')).toContain('bg-destructive/15');
+  cleanup();
+  render(<><ClosurePanel {...props} corrections={[recount]} /><PortalHost /></>);
+  expect(screen.getByTestId('closure-tone-ok')).toBeTruthy();
+  expect(classesOf('closure-tone-ok')).toContain('bg-success/15');
+  expect(screen.queryByTestId('closure-tone-bad')).toBeNull();
+  cleanup();
+  render(<><ClosurePanel {...props} blind /><PortalHost /></>);
+  expect(screen.getByTestId('closure-tone-muted')).toBeTruthy();
+  expect(classesOf('closure-tone-muted')).toContain('bg-muted');
+});
+
+test('the description ends in the closer in bold', () => {
+  render(<><ClosurePanel {...props} /><PortalHost /></>);
+  const closer = screen.getByTestId('closure-panel-closer');
+  expect(closer.textContent).toBe('Paul');
+  expect(classesOf('closure-panel-closer')).toEqual(expect.arrayContaining(['font-semibold', 'text-foreground']));
+  expect(screen.getByTestId('closure-panel-description').contains(closer)).toBe(true);
 });
