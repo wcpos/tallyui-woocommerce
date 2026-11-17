@@ -258,7 +258,7 @@ test('Today starts empty and observes an Espresso cash sale', async () => {
   expect(screen.getAllByTestId(/^sales-hour-\d\d$/)).toHaveLength(12);
   const today = within(screen.getByTestId('reports-hero'));
   expect(today.getByText('No sales yet today.')).not.toBeNull();
-  expect(text('card-payments-empty')).toBe('No payments in this period.');
+  expect(text('card-payments-empty')).toBe('No payments in this period');
   // Closures is its own room now: the Sales page has no closures section.
   expect(screen.queryByTestId('reports-closures')).toBeNull();
   expect(screen.queryByTestId('x-report-print')).toBeNull();
@@ -291,7 +291,7 @@ test('Today starts empty and observes an Espresso cash sale', async () => {
 
 test('the Top products card lists the product the sale rang up', async () => {
   await setup();
-  expect(text('card-products-empty')).toBe('No sales in this period.');
+  expect(text('card-products-empty')).toBe('No sales in this period');
   expect(text('card-products-figure')).toBe('0');
   await payCash();
   await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
@@ -316,7 +316,7 @@ test("the Categories card names the synced product's category for a sale in the 
 
 test('the Cashiers card names the signed-in cashier who made the sale', async () => {
   await setup();
-  expect(text('card-cashiers-empty')).toBe('No sales in this period.');
+  expect(text('card-cashiers-empty')).toBe('No sales in this period');
   expect(text('card-cashiers-figure')).toBe('0');
   await payCash();
   await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
@@ -338,7 +338,7 @@ test('Today removes a sale when its createdAt moves to yesterday', async () => {
   await act(async () => { await order.incrementalPatch({ createdAt }); });
   await waitFor(() => expect(text('hero-total')).toBe('$0.00'));
   expect(today.getByText('No sales yet today.')).not.toBeNull();
-  expect(text('card-payments-empty')).toBe('No payments in this period.');
+  expect(text('card-payments-empty')).toBe('No payments in this period');
 }, 20_000);
 
 test('the hero chart switches between By hour and Running total', async () => {
@@ -1133,7 +1133,7 @@ test('the cashier chip narrows every period figure to one cashier', async () => 
   expect(text('hero-chip-cashier')).toBe('Paul');
   await waitFor(() => expect(text('hero-total')).toBe('$0.00'));
   expect(today.getByText('No sales yet today.')).not.toBeNull();
-  expect(text('card-payments-empty')).toBe('No payments in this period.');
+  expect(text('card-payments-empty')).toBe('No payments in this period');
   fireEvent.click(screen.getByTestId('sales-room-orders-open'));
   const table = within(await screen.findByTestId('sales-table'));
   expect(table.queryAllByTestId(/^sales-table-row-/)).toHaveLength(0);
