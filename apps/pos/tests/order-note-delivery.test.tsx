@@ -62,6 +62,7 @@ test.each([
     document: { id: 115, status: 'completed', total: '3.000000' }, currentRevision: 'r1',
   }, { status: 201 }));
   vi.stubGlobal('fetch', fetchStub);
+  const posts = () => fetchStub.mock.calls.filter(([, init]) => init?.method === 'POST');
   render(
     <SessionProvider>
       <OutboxProvider storage={getRxStorageMemory()}>
@@ -84,8 +85,8 @@ test.each([
   await takeCash(300);
   await screen.findByTestId('receipt-order');
   await waitFor(() => expect(screen.queryByTestId('sync-status')).toBeNull());
-  expect(fetchStub).toHaveBeenCalledTimes(1);
-  const { payload } = JSON.parse(fetchStub.mock.calls[0][1]!.body as string);
+  expect(posts()).toHaveLength(1);
+  const { payload } = JSON.parse(posts()[0][1]!.body as string);
   if (orderCreate === 8 && note) {
     expect(payload.customer_note).toBe('Leave at the door');
     expect(screen.queryByText("The customer note couldn't be sent to the store.")).toBeNull();

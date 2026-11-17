@@ -180,7 +180,6 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
               currency={currency}
               locale={locale}
               resolveCashierName={resolveCashierName}
-              onReprint={reprintClosure}
               onOpen={closure => setOpenClosureId(closure.id)}
               filter={closureFilter}
               onFilterChange={setClosureFilter}

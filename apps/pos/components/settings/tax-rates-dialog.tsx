@@ -24,9 +24,29 @@ export function rateTags(rate: Pick<StoreTaxRate, 'compound' | 'shipping'>): str
   return [rate.compound ? 'Compound' : null, rate.shipping === false ? 'Not on shipping' : null].filter(Boolean).join(' · ');
 }
 
+function locationField(value: string | readonly string[] | undefined): string | null {
+  return (typeof value === 'string' ? value : value?.join(', ')) || null;
+}
+
+// v2 rate-rows.ts:32-42: the phone row's location line.
+export function phoneLocation(rate: Pick<StoreTaxRate, 'location'>): string {
+  const country = locationField(rate.location.country) ?? 'Any';
+  const state = locationField(rate.location.region);
+  const postcodes = locationField(rate.location.postcodes);
+  const cities = locationField(rate.location.cities);
+  if (!state && !postcodes && !cities) return [country, 'any state, postcode or city'].join(' · ');
+  return [country, state ?? 'any state', postcodes, cities].filter(Boolean).join(' · ');
+}
+
+// v2 rate-rows.ts:44-53: the phone row's tags, then the non-default priority.
+export function phoneTags(rate: Pick<StoreTaxRate, 'compound' | 'shipping' | 'priority'>): string {
+  const priority = rate.priority ?? 1;
+  return [rateTags(rate), priority !== 1 ? `priority ${priority}` : null].filter(Boolean).join(' · ');
+}
+
 // v2 rate-rows.ts:14-17: lists joined with ", "; empty means WooCommerce's `*`, which reads a muted "Any" (rate-table.tsx:78-85).
 function Location({ value }: { value: string | readonly string[] | undefined }) {
-  const shown = Array.isArray(value) ? value.join(', ') : value;
+  const shown = locationField(value);
   return shown
     ? <Text numberOfLines={Array.isArray(value) ? 2 : undefined}>{shown}</Text>
     : <Text className="text-muted-foreground">Any</Text>;
@@ -42,10 +62,29 @@ const HEADS: Array<[keyof typeof COLUMNS, string]> = [
   ['rate', 'Rate'], ['name', 'Name'], ['priority', 'Priority'],
 ];
 
-// v2 rate-table.tsx:57-183, without the phone rows and the "applies" marks.
+// v2 rate-table.tsx:57-183, without the "applies" marks; a phone gets v2's list rows (:87-115).
 function TaxRateTable({ rates }: { rates: StoreTaxRate[] }) {
+  const wide = useIsWide();
   // v2 rate-table.tsx:62-70, en core.json tax_rates.none_in_class.
   if (rates.length === 0) return <Text testID="tax-rates-empty" className="p-8 text-center text-muted-foreground">No rates in this class</Text>;
+  // v2 rate-table.tsx:87-115 and list-row/index.tsx:54-58: ListRow with px-0; TallyUI has no ListRow.
+  if (!wide) return (
+    <View testID="tax-rates-list">
+      {rates.map(rate => {
+        const tags = phoneTags(rate);
+        return (
+          <View key={rate.id} testID={`tax-rates-row-${rate.id}`} className="min-h-14 flex-row items-center gap-3 border-b border-border py-2">
+            <View className="min-w-0 flex-1">
+              <Text numberOfLines={1}>{rate.name}</Text>
+              <Text testID={`tax-rates-row-${rate.id}-location`} numberOfLines={1} className={SETTINGS_KEY_CLASS}>{phoneLocation(rate)}</Text>
+              {tags ? <Text testID={`tax-rates-row-${rate.id}-tags`} className={SETTINGS_HELP_CLASS}>{tags}</Text> : null}
+            </View>
+            <Text testID={`tax-rates-row-${rate.id}-rate`} className="font-semibold tabular-nums">{ratePercent(rate.rate)}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
   return (
     <Table testID="tax-rates-table">
       <TableHeader>

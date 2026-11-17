@@ -4,7 +4,7 @@ import * as ReactNative from 'react-native';
 import type { StoreSettings, StoreTaxRate } from '@tallyui/core';
 import { PortalHost } from '@tallyui/primitives';
 import { TaxSettings, shippingTaxClassLabel, wooTaxSettingsUrl } from '../components/settings/tax-settings';
-import { ratePercent, rateTags } from '../components/settings/tax-rates-dialog';
+import { phoneLocation, phoneTags, ratePercent, rateTags } from '../components/settings/tax-rates-dialog';
 import { classesOf } from './classes-of';
 import { GeneralSettings } from '../components/settings/general-settings';
 
@@ -27,7 +27,7 @@ test('Tax shows the calculation rows read-only, each set in WooCommerce', () => 
   expect(screen.getByText('Prices Entered with Tax')).not.toBeNull();
   expect(screen.getByText('Shipping Tax Class')).not.toBeNull();
   expect(screen.getByText('Round Tax at Subtotal Level')).not.toBeNull();
-  expect(screen.getAllByText('Set in WooCommerce')).toHaveLength(5);
+  expect(screen.getAllByText('Set in WooCommerce')).toHaveLength(9);
   expect(screen.getByTestId('settings-tax-locked-prices_include_tax-switch').getAttribute('aria-checked')).toBe('true');
   expect(screen.getByTestId('settings-tax-locked-prices_include_tax-switch').getAttribute('aria-disabled')).toBe('true');
   expect(screen.getByTestId('settings-tax-locked-tax_round_at_subtotal-switch').getAttribute('aria-checked')).toBe('false');
@@ -38,6 +38,61 @@ test('Tax shows the calculation rows read-only, each set in WooCommerce', () => 
   // Without the catalogue's store, the basis and Enable Taxes read the dash, not an off switch.
   expect(screen.getByTestId('settings-tax-locked-tax_based_on-value').textContent).toBe('—');
   expect(screen.getByTestId('settings-tax-locked-calc_taxes-value').textContent).toBe('—');
+});
+
+test('the Display section shows WooCommerce\'s display options read-only, each set in WooCommerce', () => {
+  render(<TaxSettings settings={settings} siteHome={siteHome} store={{
+    taxTotalDisplay: 'itemized', taxDisplayShop: 'excl', taxDisplayCart: 'incl', priceDisplaySuffix: 'incl. VAT',
+  }} />);
+  const display = within(screen.getByTestId('settings-tax-display'));
+  expect(display.getByText('Display')).not.toBeNull();
+  expect(display.getAllByText('Set in WooCommerce')).toHaveLength(4);
+  const labels = display.getAllByText(
+    /^(Display Tax Totals|Display Prices in the Shop|Display Prices During Cart and Checkout|Price Display Suffix)$/);
+  expect(labels.map(node => node.textContent)).toEqual([
+    'Display Tax Totals', 'Display Prices in the Shop', 'Display Prices During Cart and Checkout', 'Price Display Suffix',
+  ]);
+  for (const [field, value, label, checked] of [
+    ['tax_total_display', 'single', 'As a single total', 'false'],
+    ['tax_total_display', 'itemized', 'Itemized', 'true'],
+    ['tax_display_shop', 'incl', 'Including tax', 'false'],
+    ['tax_display_shop', 'excl', 'Excluding tax', 'true'],
+    ['tax_display_cart', 'incl', 'Including tax', 'true'],
+    ['tax_display_cart', 'excl', 'Excluding tax', 'false'],
+  ]) {
+    const segment = display.getByTestId(`settings-tax-locked-${field}-segments-segment-${value}`);
+    expect(segment.textContent).toBe(label);
+    expect(segment.getAttribute('aria-checked')).toBe(checked);
+    expect(segment.getAttribute('aria-disabled')).toBe('true');
+  }
+  expect(display.getByTestId('settings-tax-locked-price_display_suffix-value').textContent).toBe('incl. VAT');
+});
+
+test('a locked display segment does not change when pressed', () => {
+  render(<TaxSettings settings={settings} siteHome={siteHome} store={{ taxDisplayShop: 'excl' }} />);
+  fireEvent.click(screen.getByTestId('settings-tax-locked-tax_display_shop-segments-segment-incl'));
+  expect(screen.getByTestId('settings-tax-locked-tax_display_shop-segments-segment-excl').getAttribute('aria-checked')).toBe('true');
+  expect(screen.getByTestId('settings-tax-locked-tax_display_shop-segments-segment-incl').getAttribute('aria-checked')).toBe('false');
+});
+
+test('before the store says, the Display rows read the dash', () => {
+  render(<TaxSettings settings={settings} siteHome={siteHome} />);
+  for (const field of ['tax_total_display', 'tax_display_shop', 'tax_display_cart', 'price_display_suffix']) {
+    expect(screen.getByTestId(`settings-tax-locked-${field}-value`).textContent).toBe('—');
+  }
+  expect(screen.queryAllByRole('radio')).toHaveLength(0);
+});
+
+test('the sections read Calculation, Display, Tax Rates', () => {
+  render(<TaxSettings settings={settings} siteHome={siteHome} />);
+  expect(screen.getAllByRole('heading').map(h => h.textContent)).toEqual(['Calculation', 'Display', 'Tax Rates']);
+});
+
+test('Open on a Display row opens the WooCommerce tax settings tab', () => {
+  const open = vi.spyOn(ReactNative.Linking, 'openURL').mockResolvedValue(true);
+  render(<TaxSettings settings={settings} siteHome={siteHome} />);
+  fireEvent.click(screen.getByTestId('settings-tax-locked-tax_display_cart-open'));
+  expect(open).toHaveBeenCalledExactlyOnceWith('https://shop.example/wp-admin/admin.php?page=wc-settings&tab=tax');
 });
 
 test('the Calculation rows read in the demo order and labels', () => {
@@ -96,6 +151,7 @@ test('the Tax Rates section holds only the View all tax rates button', () => {
 
 test('View all opens the dialog: a tab per class with its count, and the standard rates in seven columns', () => {
   const dialog = openRates();
+  expect(screen.queryByTestId('tax-rates-list')).toBeNull();
   expect(dialog.getByTestId('tax-rates-title').textContent).toBe('Tax Rates');
   expect(dialog.getByRole('tablist')).not.toBeNull();
   expect(taxClassSlugs.map(slug => screen.getByTestId(`tax-rates-tab-${slug}`).textContent))
@@ -132,7 +188,35 @@ test('a phone folds the tab strip into a Select', () => {
   openRates();
   expect(screen.getByTestId('tax-rates-class-select').textContent).toContain('Standard 2');
   expect(screen.queryByRole('tablist')).toBeNull();
-  expect(cells('1')[5]).toBe('State Tax');
+  expect(within(screen.getByTestId('tax-rates-row-1')).getByText('State Tax')).not.toBeNull();
+});
+
+test('a phone shows v2\'s list rows in place of the table', () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  openRates();
+  expect(screen.queryByTestId('tax-rates-table')).toBeNull();
+  expect(screen.getByTestId('tax-rates-list')).not.toBeNull();
+  expect(screen.queryAllByRole('columnheader')).toHaveLength(0);
+  const row1 = screen.getByTestId('tax-rates-row-1');
+  expect(within(row1).getByText('State Tax')).not.toBeNull();
+  expect(screen.getByTestId('tax-rates-row-1-location').textContent).toBe('US · any state · 73301 · Austin, Dallas');
+  expect(screen.queryByTestId('tax-rates-row-1-tags')).toBeNull();
+  expect(screen.getByTestId('tax-rates-row-1-rate').textContent).toBe('6%');
+  expect(screen.getByTestId('tax-rates-row-2-location').textContent).toBe('US · TX');
+  expect(screen.getByTestId('tax-rates-row-2-tags').textContent).toBe('Compound · priority 2');
+  expect(screen.getByTestId('tax-rates-row-2-rate').textContent).toBe('2.25%');
+  expect(classesOf('tax-rates-row-1')).toEqual(expect.arrayContaining(['min-h-14', 'flex-row', 'items-center', 'border-b', 'border-border']));
+  expect(classesOf('tax-rates-row-1-location')).toEqual(expect.arrayContaining(['text-sm', 'text-muted-foreground']));
+  expect(classesOf('tax-rates-row-2-tags')).toEqual(expect.arrayContaining(['text-xs', 'text-muted-foreground']));
+  expect(classesOf('tax-rates-row-1-rate')).toEqual(expect.arrayContaining(['font-semibold', 'tabular-nums']));
+  expect(screen.queryByTestId('tax-rates-row-3')).toBeNull();
+});
+
+test('a phone keeps the empty state for a class with no rates', () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  openRates({ allTaxRates: undefined, taxClassSlugs });
+  expect(screen.getByTestId('tax-rates-empty').textContent).toBe('No rates in this class');
+  expect(screen.queryByTestId('tax-rates-list')).toBeNull();
 });
 
 test('Close closes the dialog', () => {
@@ -187,6 +271,20 @@ test('rateTags and ratePercent follow v2', () => {
   expect(ratePercent('10.0000')).toBe('10%');
   expect(ratePercent('8.2500')).toBe('8.25%');
   expect(ratePercent('20')).toBe('20%');
+});
+
+test('phoneLocation reads v2\'s location line', () => {
+  expect(phoneLocation({ location: { country: 'GB' } })).toBe('GB · any state, postcode or city');
+  expect(phoneLocation({ location: { country: '', region: '', postcodes: [], cities: [] } })).toBe('Any · any state, postcode or city');
+  expect(phoneLocation({ location: { country: 'GB', cities: ['PORTLAND'] } })).toBe('GB · any state · PORTLAND');
+  expect(phoneLocation({ location: { country: 'US', region: 'AL', postcodes: ['12345', '123456'] } })).toBe('US · AL · 12345, 123456');
+});
+
+test('phoneTags adds the priority only when it is not the default', () => {
+  expect(phoneTags({})).toBe('');
+  expect(phoneTags({ priority: 1 })).toBe('');
+  expect(phoneTags({ compound: true, priority: 2 })).toBe('Compound · priority 2');
+  expect(phoneTags({ shipping: false })).toBe('Not on shipping');
 });
 
 test('a locked switch does not change when pressed', () => {
