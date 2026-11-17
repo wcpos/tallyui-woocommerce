@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
@@ -10,6 +10,11 @@ import { CARD_CLASSES } from './classes-of';
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+});
+
+// jsdom's window is 0 wide to react-native-web; every test is in a window unless it mocks a phone.
+beforeEach(() => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1280, height: 800, scale: 1, fontScale: 1 });
 });
 
 function closure(over: Partial<Closure> & Pick<Closure, 'id' | 'number' | 'business_day' | 'opened_at' | 'closed_at' | 'expected' | 'counted' | 'variance'>): Closure {
