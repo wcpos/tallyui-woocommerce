@@ -233,7 +233,7 @@ test('logs a store-sync row when the coupons pull', async () => {
   try {
     await vi.waitFor(async () => {
       const rows = await catalogue.logs.find({ selector: { scope: 'sync' } }).exec();
-      const row = rows.find(row => row.detail?.includes('"collection":"coupons"'));
+      const row = rows.find(row => row.detail?.includes('"collection":"coupons"') && row.message.startsWith('Saved updates from your store'));
       expect(row).toBeDefined();
       expect(row!.message).toMatch(/^Saved updates from your store · \d+ records?$/);
       expect(row!.durationMs).toEqual(expect.any(Number));
