@@ -127,7 +127,7 @@ export function OrdersCard({ period, money, onOpen }: Omit<CardProps, 'moneyWhol
   return (
     <ReportCard testID="card-orders" name="Orders" figure={String(period.count)} onOpen={onOpen}>
       {period.count === 0
-        ? <Text testID="card-orders-empty">No orders in this period.</Text>
+        ? <Text testID="card-orders-empty">No orders in this period</Text>
         : <StatGrid items={stats.map(([id, label, value]) => ({ label, value, testID: `card-orders-${id}` }))} />}
     </ReportCard>
   );
@@ -139,7 +139,7 @@ export function PaymentsCard({ period, money, moneyWhole, onOpen }: CardProps & 
   return (
     <ReportCard testID="card-payments" name="Payments" figure={money(period.totalMinor)} onOpen={onOpen}>
       {ways === 0
-        ? <Text testID="card-payments-empty">No payments in this period.</Text>
+        ? <Text testID="card-payments-empty">No payments in this period</Text>
         : <Donut testID="card-payments-donut" total={period.totalMinor} money={money}
           centre={{ figure: moneyWhole(period.totalMinor), label: `${ways} ${ways === 1 ? 'way' : 'ways'}` }}
           parts={period.byMethod.map(row => ({
@@ -156,7 +156,7 @@ export function WhereSoldCard({ period, money, moneyWhole, onOpen }: CardProps &
   return (
     <ReportCard testID="card-where-sold" name="Where sold" figure={money(period.totalMinor)} onOpen={onOpen}>
       {period.count === 0
-        ? <Text testID="card-where-sold-empty">No sales in this period.</Text>
+        ? <Text testID="card-where-sold-empty">No sales in this period</Text>
         : <Donut testID="card-where-sold-donut" total={period.totalMinor} money={money}
           centre={{ figure: moneyWhole(period.totalMinor), label: '1 channel' }}
           parts={[{
@@ -172,7 +172,7 @@ export function TopProductsCard({ period, money, products }: { period: Period; m
   return (
     <ReportCard testID="card-products" name="Top products" figure={String(period.items)}>
       {products.length === 0
-        ? <Text testID="card-products-empty">No sales in this period.</Text>
+        ? <Text testID="card-products-empty">No sales in this period</Text>
         : products.slice(0, 4).map((row, index) => {
           const share = period.totalMinor ? row.amountMinor / period.totalMinor : 0;
           return (
@@ -197,7 +197,7 @@ export function CategoriesCard({ period, money, moneyWhole, categories }: CardPr
   return (
     <ReportCard testID="card-categories" name="Categories" figure={money(period.totalMinor)}>
       {categories.parts.length === 0
-        ? <Text testID="card-categories-empty">No sales in this period.</Text>
+        ? <Text testID="card-categories-empty">No sales in this period</Text>
         : <Donut testID="card-categories-donut" total={period.totalMinor} money={money}
           centre={{ figure: moneyWhole(period.totalMinor), label: `${n} ${n === 1 ? 'category' : 'categories'}` }}
           parts={categories.parts.map(row => ({
@@ -217,7 +217,7 @@ export function CashiersCard({ period, money, moneyWhole, cashiers }: CardProps 
   return (
     <ReportCard testID="card-cashiers" name="Cashiers" figure={String(period.byCashier.length)}>
       {period.byCashier.length === 0
-        ? <Text testID="card-cashiers-empty">No sales in this period.</Text>
+        ? <Text testID="card-cashiers-empty">No sales in this period</Text>
         : <Donut testID="card-cashiers-donut" total={period.totalMinor} money={money}
           centre={{ figure: moneyWhole(period.totalMinor), label: `${n} ${n === 1 ? 'cashier' : 'cashiers'}` }}
           parts={period.byCashier.map(row => ({

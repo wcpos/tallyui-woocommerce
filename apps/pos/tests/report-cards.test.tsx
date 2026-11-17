@@ -72,7 +72,7 @@ test('the Orders card reads the count and six stats, and opens the Orders table'
 test('the Orders card reads an empty period', () => {
   cards({ period: empty });
   expect(text('card-orders-figure')).toBe('0');
-  expect(text('card-orders-empty')).toBe('No orders in this period.');
+  expect(text('card-orders-empty')).toBe('No orders in this period');
   expect(screen.queryByTestId('card-orders-average')).toBeNull();
 });
 
@@ -112,7 +112,7 @@ test('the Payments card keeps the split tenders line, and reads an empty period'
   expect(within(screen.getByTestId('card-payments')).getByText('Split tenders: 2')).not.toBeNull();
   cleanup();
   cards({ period: empty });
-  expect(text('card-payments-empty')).toBe('No payments in this period.');
+  expect(text('card-payments-empty')).toBe('No payments in this period');
   expect(screen.queryByTestId('card-payments-donut')).toBeNull();
 });
 
@@ -183,7 +183,7 @@ test('Where sold shows one In store row with the total, and opens the Where sold
 
 test('Where sold reads an empty period', () => {
   cards({ period: empty });
-  expect(text('card-where-sold-empty')).toBe('No sales in this period.');
+  expect(text('card-where-sold-empty')).toBe('No sales in this period');
 });
 
 test('the Top products card lists the four best sellers with amount, share bar and units sold', () => {
@@ -214,7 +214,7 @@ test('a product with no name reads Unknown, and a tiny share still draws a slive
 test('the Top products card reads an empty period', () => {
   cards({ period: empty });
   expect(text('card-products-figure')).toBe('0');
-  expect(text('card-products-empty')).toBe('No sales in this period.');
+  expect(text('card-products-empty')).toBe('No sales in this period');
   expect(screen.queryByTestId('card-products-row-0')).toBeNull();
 });
 
@@ -248,7 +248,7 @@ test('one real category reads 1 category, leaving out Uncategorised and Unknown 
 
 test('the Categories card reads an empty period', () => {
   cards({ period: empty });
-  expect(text('card-categories-empty')).toBe('No sales in this period.');
+  expect(text('card-categories-empty')).toBe('No sales in this period');
   expect(screen.queryByTestId('card-categories-donut')).toBeNull();
   expect(screen.queryByTestId('card-categories-unknown')).toBeNull();
 });
@@ -288,7 +288,7 @@ test('one cashier reads 1 cashier', () => {
 test('the Cashiers card reads an empty period', () => {
   cards({ period: empty });
   expect(text('card-cashiers-figure')).toBe('0');
-  expect(text('card-cashiers-empty')).toBe('No sales in this period.');
+  expect(text('card-cashiers-empty')).toBe('No sales in this period');
   expect(screen.queryByTestId('card-cashiers-donut')).toBeNull();
 });
 
