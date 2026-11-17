@@ -190,6 +190,33 @@ test('signInSaved signs a saved cashier in from their stored sign-in', async () 
   });
 });
 
+test('signInSaved at another store files the previous cashier under their own store', async () => {
+  const bOther = { ...b, site: { ...b.site, home: 'https://other.example' }, tokens: { ...b.tokens, expiresAt: now + 300 } };
+  saveSession(a);
+  saveCashiers({ 'https://other.example': [bOther] });
+  vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ access_token: 'new-b', expires_in: 3600 }), { status: 200 }));
+  const { result } = renderHook(useSession, { wrapper });
+  await act(async () => {});
+  await act(() => result.current.signInSaved('https://other.example', b.tokens.user.uuid));
+  const next = { ...bOther, tokens: { ...bOther.tokens, accessToken: 'new-b', expiresAt: now + 3600 }, signedInAt: expect.any(Number) };
+  expect(result.current.session).toEqual(next);
+  expect(loadSession()).toEqual(next);
+  expect(loadCashiers()[home]).toEqual([a]);
+  expect(loadCashiers()['https://other.example']).toEqual([]);
+});
+
+test('signInSaved at the same store lists the previous cashier last', async () => {
+  const dueB = { ...b, tokens: { ...b.tokens, expiresAt: now + 300 } };
+  saveSession(a);
+  saveCashiers({ [home]: [dueB] });
+  vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ access_token: 'new-b', expires_in: 3600 }), { status: 200 }));
+  const { result } = renderHook(useSession, { wrapper });
+  await act(async () => {});
+  await act(() => result.current.signInSaved(home, b.tokens.user.uuid));
+  expect(result.current.session).toEqual({ ...b, tokens: { ...b.tokens, accessToken: 'new-b', expiresAt: now + 3600 }, signedInAt: expect.any(Number) });
+  expect(loadCashiers()).toEqual({ [home]: [a] });
+});
+
 test('signInSaved keeps a cashier the store refused', async () => {
   const due = { ...a, tokens: { ...a.tokens, expiresAt: now + 300 } };
   saveCashiers({ [home]: [due] });

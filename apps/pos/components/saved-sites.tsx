@@ -66,6 +66,7 @@ function SavedSiteCard({ site, cashiers, onOpenPos, onSignInAt, onRemoveUser, on
       </DropdownMenu>
     </View>
     <Text className="text-sm font-semibold">WordPress users</Text>
+    <Text testID="saved-users-note" className="text-sm text-muted-foreground">Signed-out users stay saved on this device until you remove them.</Text>
     <View role="radiogroup" aria-label="WordPress users" className="gap-2">
       {cashiers.map(cashier => {
         const { uuid: u, displayName } = cashier.tokens.user;
