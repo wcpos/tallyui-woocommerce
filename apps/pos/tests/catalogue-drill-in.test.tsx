@@ -272,3 +272,69 @@ test('after the back chevron the chips work again', () => {
   fireEvent.click(onSale);
   expect(screen.getByTestId('filter-pill-on_sale').getAttribute('aria-pressed')).toBe('true');
 });
+
+test('Escape on a variation tile closes the drill-in and brings the product tiles back', () => {
+  renderView();
+  drillIn();
+  expect(screen.queryByTestId('catalogue-level-back')).toBeNull();
+  expect(screen.getByTestId('catalogue-drill-back')).not.toBeNull();
+  fireEvent.keyDown(screen.getByTestId('variation-tile-104'), { key: 'Escape' });
+  expect(screen.queryByTestId('drill-back')).toBeNull();
+  expect(variationTiles()).toEqual([]);
+  expect(productTiles()).toEqual(['product-tile-80', 'product-tile-102']);
+  expect(screen.queryByTestId('catalogue-drill-back')).toBeNull();
+});
+
+test('Escape on a tile in a level returns to the root; another key does not', () => {
+  view({ browseBy: 'categories' });
+  renderView();
+  fireEvent.click(screen.getByTestId('browse-term-27'));
+  fireEvent.keyDown(screen.getByTestId('product-tile-102'), { key: 'Enter' });
+  expect(screen.queryByTestId('browse-root')).toBeNull();
+  expect(screen.getByTestId('products-breadcrumb').textContent).toBe('CategoriesMerch');
+  fireEvent.keyDown(screen.getByTestId('product-tile-102'), { key: 'a' });
+  expect(screen.queryByTestId('browse-root')).toBeNull();
+  expect(screen.getByTestId('products-breadcrumb').textContent).toBe('CategoriesMerch');
+  fireEvent.keyDown(screen.getByTestId('product-tile-102'), { key: 'Escape' });
+  expect(screen.getByTestId('browse-root')).not.toBeNull();
+  expect(screen.queryByTestId('catalogue-level-back')).toBeNull();
+});
+
+test('with a drill inside a level, one Escape closes only the drill and a second returns to the root', () => {
+  view({ browseBy: 'categories' });
+  renderView();
+  fireEvent.click(screen.getByTestId('browse-term-27'));
+  drillIn();
+  expect(screen.getByTestId('catalogue-level-back').contains(screen.getByTestId('catalogue-drill-back'))).toBe(true);
+  fireEvent.keyDown(screen.getByTestId('variation-tile-105'), { key: 'Escape' });
+  expect(screen.queryByTestId('drill-back')).toBeNull();
+  expect(productTiles()).toEqual(['product-tile-102']);
+  expect(screen.getByTestId('products-breadcrumb').textContent).toBe('CategoriesMerch');
+  expect(screen.queryByTestId('browse-root')).toBeNull();
+  fireEvent.keyDown(screen.getByTestId('product-tile-102'), { key: 'Escape' });
+  expect(screen.getByTestId('browse-root')).not.toBeNull();
+});
+
+test('Escape in the search input inside a level changes nothing', () => {
+  // No guard of ours: react-native-web's TextInput stops the key (TextInput handleKeyDown, #612).
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1000, height: 800, scale: 1, fontScale: 1 });
+  view({ browseBy: 'categories', view: 'table' });
+  renderView();
+  fireEvent.click(screen.getByTestId('browse-term-27'));
+  const input = screen.getByPlaceholderText('Search products');
+  expect(screen.getByTestId('catalogue-level-back').contains(input)).toBe(true);
+  fireEvent.keyDown(input, { key: 'Escape' });
+  expect(screen.queryByTestId('browse-root')).toBeNull();
+  expect(screen.getByTestId('products-breadcrumb').textContent).toBe('CategoriesMerch');
+  expect(screen.getByTestId('product-row-102')).not.toBeNull();
+});
+
+test('at the root there is no level wrapper and Escape changes nothing', () => {
+  view({ browseBy: 'categories' });
+  renderView();
+  expect(screen.queryByTestId('catalogue-level-back')).toBeNull();
+  expect(screen.queryByTestId('catalogue-drill-back')).toBeNull();
+  fireEvent.keyDown(screen.getByTestId('browse-term-27'), { key: 'Escape' });
+  expect(screen.getByTestId('browse-root')).not.toBeNull();
+  expect(productTiles()).toEqual([]);
+});
