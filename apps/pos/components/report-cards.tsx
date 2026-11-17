@@ -4,6 +4,7 @@ import Svg, { Circle, G } from 'react-native-svg';
 import { useCSSVariable } from 'uniwind';
 import { Text } from '@tallyui/components';
 import type { Period } from '../lib/reports/sales-room';
+import type { ReportCashier } from './report-chips';
 
 export type ReportTable = 'orders' | 'payments' | 'where-sold' | 'taxes';
 type Money = (minor: number) => string;
@@ -164,6 +165,25 @@ export function WhereSoldCard({ period, money, moneyWhole, onOpen }: CardProps &
   );
 }
 
+/** v2 reports/cards/cashiers.tsx: the period's takings by cashier. */
+export function CashiersCard({ period, money, moneyWhole, cashiers }: CardProps & { cashiers: readonly ReportCashier[] }) {
+  const n = period.byCashier.length;
+  return (
+    <ReportCard testID="card-cashiers" name="Cashiers" figure={String(period.byCashier.length)}>
+      {period.byCashier.length === 0
+        ? <Text testID="card-cashiers-empty">No sales in this period.</Text>
+        : <Donut testID="card-cashiers-donut" total={period.totalMinor} money={money}
+          centre={{ figure: moneyWhole(period.totalMinor), label: `${n} ${n === 1 ? 'cashier' : 'cashiers'}` }}
+          parts={period.byCashier.map(row => ({
+            key: row.cashierRef || 'unknown',
+            label: cashiers.find(c => c.id === row.cashierRef)?.name || (row.cashierRef ? `#${row.cashierRef}` : 'Unknown'),
+            value: row.totalMinor, valueText: money(row.totalMinor),
+            shareText: shareText(row.totalMinor, period.totalMinor), note: ordersNote(row.count),
+          }))} />}
+    </ReportCard>
+  );
+}
+
 // v2 cards/taxes.tsx:10 cycles five hues; Tally's theme has no chart tokens, so these are the Donut's theme colours.
 const TAX_COLORS = ['bg-primary', 'bg-success', 'bg-warning', 'bg-info', 'bg-muted-foreground'];
 
@@ -200,14 +220,17 @@ export function TaxesCard({ period, money, onOpen }: Omit<CardProps, 'moneyWhole
 const THREE_COLUMNS_MIN_WIDTH = 1000;
 const TWO_COLUMNS_MIN_WIDTH = 600;
 
-/** v2 reports/cards/index.tsx PeriodSection: Orders, Payments, Where sold and Taxes in columns that follow the measured width. */
-export function ReportCards({ period, money, moneyWhole, onOpenTable }: CardProps & { onOpenTable(table: ReportTable): void }) {
+/** v2 reports/cards/index.tsx PeriodSection: Orders, Payments, Where sold, Cashiers and Taxes in columns that follow the measured width. */
+export function ReportCards({ period, money, moneyWhole, onOpenTable, cashiers = [] }: CardProps & {
+  onOpenTable(table: ReportTable): void; cashiers?: readonly ReportCashier[];
+}) {
   const [width, setWidth] = useState<number | null>(null);
   const columns = width === null ? 1 : width >= THREE_COLUMNS_MIN_WIDTH ? 3 : width >= TWO_COLUMNS_MIN_WIDTH ? 2 : 1;
   const cards = [
     <OrdersCard key="orders" period={period} money={money} onOpen={() => onOpenTable('orders')} />,
     <PaymentsCard key="payments" period={period} money={money} moneyWhole={moneyWhole} onOpen={() => onOpenTable('payments')} />,
     <WhereSoldCard key="where-sold" period={period} money={money} moneyWhole={moneyWhole} onOpen={() => onOpenTable('where-sold')} />,
+    <CashiersCard key="cashiers" period={period} money={money} moneyWhole={moneyWhole} cashiers={cashiers} />,
     <TaxesCard key="taxes" period={period} money={money} onOpen={() => onOpenTable('taxes')} />,
   ];
   return (

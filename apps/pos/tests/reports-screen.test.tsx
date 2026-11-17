@@ -284,6 +284,20 @@ test('Today starts empty and observes an Espresso cash sale', async () => {
   expect(app.onBack).toHaveBeenCalledOnce();
 }, 20_000);
 
+test('the Cashiers card names the signed-in cashier who made the sale', async () => {
+  await setup();
+  expect(text('card-cashiers-empty')).toBe('No sales in this period.');
+  expect(text('card-cashiers-figure')).toBe('0');
+  await payCash();
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+  expect(text('card-cashiers-figure')).toBe('1');
+  const cashier = within(screen.getByTestId('card-cashiers-donut-row-2'));
+  expect(cashier.getByText('Paul')).not.toBeNull();
+  expect(cashier.getByText('1 order')).not.toBeNull();
+  expect(cashier.queryByText('#2')).toBeNull();
+  expect(text('card-cashiers-donut-row-2-value')).toBe('$3.00');
+}, 20_000);
+
 test('Today removes a sale when its createdAt moves to yesterday', async () => {
   const app = await setup();
   await payCash();

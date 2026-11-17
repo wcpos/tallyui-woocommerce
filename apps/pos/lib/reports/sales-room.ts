@@ -19,6 +19,7 @@ export const isMultiDay = (range: DayRange, preset?: DatePreset) =>
 export type Compare = 'yesterday' | 'lastweek';
 export type MethodTile = { method: string; label: string; count: number; totalMinor: number };
 export type TaxRateRow = { ratePpm: number; label: string; netMinor: number; taxMinor: number; grossMinor: number };
+export type CashierFigure = { cashierRef: string; count: number; totalMinor: number };
 export type Period = {
   count: number; totalMinor: number; taxMinor: number; averageMinor: number;
   /** Units sold: the sum of line quantities. */
@@ -31,6 +32,8 @@ export type Period = {
   discountMinor: number;
   pending: number; rejected: number; splitCount: number;
   byMethod: MethodTile[]; taxRates: TaxRateRow[];
+  /** Sorted by totalMinor, largest first; an order with no cashierRef counts under ''. */
+  byCashier: CashierFigure[];
 };
 export type HourBucket = {
   /** The hour of day of `minute`; on a multi-day period, the day's index in the period. */
@@ -78,6 +81,7 @@ export function salesRoom(orders: readonly PosOrder[], options: {
       count: 0, totalMinor: 0, taxMinor: 0, averageMinor: 0, items: 0,
       medianMinor: 0, largestMinor: null, discountMinor: 0,
       pending: 0, rejected: 0, splitCount: 0, byMethod: [], taxRates: [],
+      byCashier: [],
     };
     const totals: number[] = [];
     for (const order of orders) {
@@ -92,6 +96,14 @@ export function salesRoom(orders: readonly PosOrder[], options: {
       if (order.syncStatus === 'pending') period.pending++;
       if (order.syncStatus === 'rejected') period.rejected++;
       if (order.payments.length > 1) period.splitCount++;
+      const cashierRef = order.cashierRef ?? '';
+      let cashier = period.byCashier.find(row => row.cashierRef === cashierRef);
+      if (!cashier) {
+        cashier = { cashierRef, count: 0, totalMinor: 0 };
+        period.byCashier.push(cashier);
+      }
+      cashier.count++;
+      cashier.totalMinor += order.totalMinor;
       const methods = new Set<string>();
       for (const payment of order.payments) {
         let tile = period.byMethod.find(row => row.method === payment.method);
@@ -145,6 +157,7 @@ export function salesRoom(orders: readonly PosOrder[], options: {
       : totals.length % 2 ? totals[middle] : Math.round((totals[middle - 1] + totals[middle]) / 2);
     period.largestMinor = totals.length === 0 ? null : totals[totals.length - 1];
     period.taxRates.sort((a, b) => a.ratePpm - b.ratePpm);
+    period.byCashier.sort((a, b) => b.totalMinor - a.totalMinor);
     return period;
   });
   yesterdaySoFar.averageMinor = yesterdaySoFar.count === 0 ? 0 : Math.round(yesterdaySoFar.totalMinor / yesterdaySoFar.count);
