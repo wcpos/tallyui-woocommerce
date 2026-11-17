@@ -5,7 +5,7 @@ import type { StoreOrder } from '@tallyui/core';
 import type { PosOrder } from '@tallyui/pos';
 import { OrdersTable } from '../components/orders-table';
 import { CARD_CLASSES, classesOf } from './classes-of';
-import { dateTimeLabel, dayHeading, orderRowCells, orderTableItems, storeTone } from '../lib/orders/order-days';
+import { dateTimeLabel, dayHeading, dayLabel, orderRowCells, orderTableItems, storeTone } from '../lib/orders/order-days';
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
@@ -32,6 +32,13 @@ test("dayHeading says Today, Yesterday, then v2's long date", () => {
   expect(dayHeading('2026-11-09', now)).toBe('Yesterday');
   expect(dayHeading('2026-11-07', now)).toBe('Saturday, 7 Nov 2026');
   expect(dayHeading('2026-11-30', new Date(2026, 11, 1, 9, 0))).toBe('Yesterday');
+});
+
+test("dayLabel reads v2's day: Today, Yesterday, else EEE d MMM", () => {
+  expect(dayLabel(at(2026, 11, 10, 14, 41), now)).toBe('Today');
+  expect(dayLabel(at(2026, 11, 9, 9, 5), now)).toBe('Yesterday');
+  expect(dayLabel(at(2026, 11, 7, 14, 41), now)).toBe('Sat 7 Nov');
+  expect(dayLabel('nope', now)).toBe('');
 });
 
 test("dateTimeLabel reads day · HH:mm like v2's Date Created cell", () => {
