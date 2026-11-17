@@ -32,7 +32,7 @@ export function RejectedOrdersPanel({ orders, onRequeue, now = () => new Date() 
     <View testID="db-rejected" className="gap-3 rounded-lg border border-border p-4">
       <View testID="db-rejected-callout" className="gap-1">
         <Text className="font-semibold">{`${n} ${n === 1 ? 'change' : 'changes'} never reached your server`}</Text>
-        <Text>Your server refused these and nothing will retry them on its own. Send again rebuilds each one from what is on this device; discard drops the local change and keeps your server’s version.</Text>
+        <Text>Your server refused these and nothing will retry them on its own. Send again rebuilds each one from what is on this device.</Text>
       </View>
       {rows.map(order => {
         const label = order.serverRefs?.orderId ? `Orders · #${order.serverRefs.orderId}` : `Orders · ${order.id.slice(0, 8)}`;
