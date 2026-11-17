@@ -2,6 +2,8 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, expect, test, vi } from 'vitest';
 import { PortalHost } from '@tallyui/primitives';
 import { DrawerSheet } from '../components/drawer-content';
+import { AppRail } from '../components/app-rail';
+import { RAIL_FOOT, RAIL_LABEL, RAIL_TOP } from '../lib/layout/rail-routes';
 import { SOFTWARE_VERSION } from '../lib/software';
 import { classesOf } from './classes-of';
 import { UnreadLogsCount } from '../lib/logs/unread-errors';
@@ -9,6 +11,52 @@ import { UnreadLogsCount } from '../lib/logs/unread-errors';
 afterEach(() => { cleanup(); });
 
 const itemIds = () => screen.getAllByTestId(/^drawer-item-/).map(el => el.getAttribute('data-testid'));
+
+test("the drawer lists every area the rail lists, in rail order, each with the rail's glyph", () => {
+  render(<><DrawerSheet open onOpenChange={vi.fn()} onOpenProducts={vi.fn()} onOpenOrders={vi.fn()} onOpenCoupons={vi.fn()}
+    onOpenCustomers={vi.fn()} onOpenReports={vi.fn()} onOpenHealth={vi.fn()} onOpenSettings={vi.fn()} /><PortalHost /></>);
+  const keys = [...RAIL_TOP, ...RAIL_FOOT];
+  const drawerIds = itemIds();
+  expect(drawerIds).toEqual(keys.map(key => `drawer-item-${key}`));
+  expect(screen.getAllByTestId(/^drawer-label-/).map(el => el.textContent)).toEqual(keys.map(key => RAIL_LABEL[key]));
+  const glyphs = keys.map(key => {
+    const item = within(screen.getByTestId(`drawer-item-${key}`));
+    expect(item.getAllByTestId(/^drawer-glyph-/)).toHaveLength(1);
+    return item.getByTestId(`drawer-glyph-${key}`).innerHTML;
+  });
+  const top = within(screen.getByTestId('drawer-top-group'));
+  expect(top.getByTestId('drawer-item-products')).not.toBeNull();
+  expect(top.getByTestId('drawer-item-coupons')).not.toBeNull();
+  expect(within(screen.getByTestId('drawer-bottom-group')).getAllByTestId(/^drawer-item-/)[0].getAttribute('data-testid')).toBe('drawer-item-health');
+  cleanup();
+  render(<AppRail active="orders" onNavigate={vi.fn()} />);
+  expect(itemIds()).toEqual(drawerIds);
+  keys.forEach((key, index) => expect(screen.getByTestId(`drawer-glyph-${key}`).innerHTML).toBe(glyphs[index]));
+});
+
+test('each item draws its glyph before its label', () => {
+  render(<><DrawerSheet open onOpenChange={vi.fn()} onOpenProducts={vi.fn()} onOpenOrders={vi.fn()} onOpenCoupons={vi.fn()}
+    onOpenCustomers={vi.fn()} onOpenReports={vi.fn()} onOpenHealth={vi.fn()} onOpenSettings={vi.fn()} /><PortalHost /></>);
+  for (const key of [...RAIL_TOP, ...RAIL_FOOT]) {
+    const item = within(screen.getByTestId(`drawer-item-${key}`));
+    const glyph = item.getAllByTestId(/^drawer-glyph-/)[0];
+    expect(glyph.compareDocumentPosition(item.getByTestId(`drawer-label-${key}`)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  }
+});
+
+test('Products and Coupons close the drawer, then open their areas', () => {
+  const calls: string[] = [];
+  const drawer = <><DrawerSheet open onOpenChange={open => calls.push(`open:${open}`)}
+    onOpenProducts={() => calls.push('products')} onOpenCoupons={() => calls.push('coupons')} /><PortalHost /></>;
+  render(drawer);
+  fireEvent.click(screen.getByTestId('drawer-item-products'));
+  expect(calls).toEqual(['open:false', 'products']);
+  cleanup();
+  calls.length = 0;
+  render(drawer);
+  fireEvent.click(screen.getByTestId('drawer-item-coupons'));
+  expect(calls).toEqual(['open:false', 'coupons']);
+});
 
 test('the drawer lists the areas in v2 order with Store health starting the bottom group, then the version', () => {
   render(<><DrawerSheet open onOpenChange={vi.fn()} onOpenOrders={vi.fn()} onOpenCustomers={vi.fn()} onOpenReports={vi.fn()}

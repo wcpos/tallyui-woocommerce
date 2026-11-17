@@ -32,7 +32,8 @@ const HealthIcon = createSvgIcon('HealthIcon', () => <Path d="M22 12h-4l-3 9L9 3
 // v2's `settings` glyph from its default (tabler) set: packages/components/src/icon/components/tabler/settings.tsx.
 const GearIcon = createSvgIcon('GearIcon', () => <><Path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37 1 .608 2.296.07 2.572-1.065" /><Path d="M9 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0" /></>);
 
-const GLYPH: Record<RailKey, typeof RegisterIcon> = {
+// The phone drawer reads this glyph map too.
+export const RAIL_GLYPH: Record<RailKey, typeof RegisterIcon> = {
   pos: RegisterIcon, products: ProductsIcon, orders: ReceiptIcon, coupons: CouponsIcon, customers: CustomersIcon, reports: ReportsIcon,
   health: HealthIcon, settings: GearIcon,
 };
@@ -50,7 +51,7 @@ export const BESIDE_RAIL = 'left-16';
 export function AppRail({ active, onNavigate }: { active: RailKey; onNavigate(to: RailKey): void }): JSX.Element {
   const unread = useUnreadLogsCount();
   const item = (key: RailKey) => {
-    const Glyph = GLYPH[key];
+    const Glyph = RAIL_GLYPH[key];
     return (
       <IconButton key={key} size="lg" testID={`drawer-item-${key}`} accessibilityLabel={RAIL_LABEL[key]}
         // react-native-web reads aria-selected, not accessibilityState (as coupon-entry.tsx).
