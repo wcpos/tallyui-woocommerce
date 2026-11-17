@@ -21,7 +21,8 @@ export type CatalogueQueryAction =
   | { type: 'applyQuickFilter'; quickFilter: QuickFilter; baseline: CatalogueFilters }
   /** Pressing the active quick filter restores the baseline and returns to the browse root, as v2. */
   | { type: 'clearQuickFilter'; baseline: CatalogueFilters }
-  /** The applied quick filter was deleted or changed in the filter bar, so the catalogue resets to the baseline but stays in its browse place. */
+  /** The applied quick filter was deleted or changed in the filter bar, or the empty state's Clear filters was pressed,
+   *  so the catalogue resets to the baseline but stays in its browse place. */
   | { type: 'appliedQuickFilterGone'; baseline: CatalogueFilters };
 
 export function initialCatalogueQuery(baseline: CatalogueFilters): CatalogueQuery {

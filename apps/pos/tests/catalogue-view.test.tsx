@@ -6,6 +6,7 @@ import { PortalHost } from '@tallyui/primitives';
 import { CatalogueView } from '../components/catalogue-view';
 import type { CatalogueViewProps } from '../components/catalogue-view';
 import { CATALOGUE_TILE_FIELDS, CATALOGUE_VIEW_DEFAULTS, CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { QUICK_FILTERS_KEY } from '../lib/catalogue/quick-filters';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { classesOf } from './classes-of';
@@ -158,11 +159,69 @@ test('there is no Sync button without onSync, and the footer row comes after the
   expect(screen.getByTestId('product-tile-80').compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
-test('distinguishes an empty catalogue from an unmatched search', () => {
+// v2's EmptyState in the products list (pos/products/index.tsx:339-386, browse/level-place.ts:53-101).
+const emptyTitle = () => screen.getByTestId('no-data-message-title').textContent;
+const browseCategories = () => localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'categories' }));
+
+test('an empty store shows No products yet with its description and no Clear filters', () => {
   render(<CatalogueView {...props} products={[]} />);
-  expect(screen.getByText('No products yet')).not.toBeNull();
+  expect(emptyTitle()).toBe('No products yet');
+  expect(screen.getByTestId('no-data-message-description').textContent).toBe('Products you add to the store will appear here.');
+  expect(screen.queryByTestId('no-data-message-action')).toBeNull();
+});
+
+test('a search with no matches shows Nothing here matches the filters, and Clear filters brings the products back', () => {
+  render(<CatalogueView {...props} />);
   fireEvent.change(screen.getByPlaceholderText('Search products'), { target: { value: 'missing' } });
-  expect(screen.getByText('No products match')).not.toBeNull();
+  expect(emptyTitle()).toBe('Nothing here matches the filters');
+  expect(screen.queryByTestId('no-data-message-description')).toBeNull();
+  fireEvent.click(screen.getByTestId('no-data-message-action'));
+  expect((screen.getByPlaceholderText('Search products') as HTMLInputElement).value).toBe('');
+  for (const product of products) expect(screen.getByText(product.name)).not.toBeNull();
+  expect(screen.queryByTestId('no-data-message')).toBeNull();
+});
+
+test('an empty store with a search shows Nothing here matches the filters, and Clear filters clears the search', () => {
+  render(<CatalogueView {...props} products={[]} />);
+  fireEvent.change(screen.getByPlaceholderText('Search products'), { target: { value: 'missing' } });
+  expect(emptyTitle()).toBe('Nothing here matches the filters');
+  expect(screen.queryByTestId('no-data-message-description')).toBeNull();
+  fireEvent.click(screen.getByTestId('no-data-message-action'));
+  expect((screen.getByPlaceholderText('Search products') as HTMLInputElement).value).toBe('');
+});
+
+test('products the baseline hides, with nothing on, show No products yet with its description and no Clear filters', () => {
+  render(<CatalogueView {...props} products={products.map(doc => ({ ...doc, stock_status: 'outofstock' }))} />);
+  expect(emptyTitle()).toBe('No products yet');
+  expect(screen.getByTestId('no-data-message-description').textContent).toBe('Products you add to the store will appear here.');
+  expect(screen.queryByTestId('no-data-message-action')).toBeNull();
+});
+
+test('Clear filters in a category level turns the quick filter off and keeps the level open', () => {
+  browseCategories();
+  localStorage.setItem(QUICK_FILTERS_KEY, JSON.stringify([
+    { id: 'ext', type: 'quick', label: 'External', conditions: [{ field: 'type', value: 'external' }] },
+  ]));
+  render(<CatalogueView {...props} />);
+  fireEvent.click(screen.getByTestId('browse-term-25'));
+  fireEvent.click(screen.getByTestId('quick-filter-ext'));
+  expect(screen.getByTestId('quick-filter-ext').getAttribute('aria-pressed')).toBe('true');
+  expect(emptyTitle()).toBe('Nothing here matches the filters');
+  fireEvent.click(screen.getByTestId('no-data-message-action'));
+  expect(screen.getByTestId('quick-filter-ext').getAttribute('aria-pressed')).toBe('false');
+  expect(screen.getByTestId('products-breadcrumb')).not.toBeNull();
+  expect(screen.getByTestId('product-tile-80')).not.toBeNull();
+  expect(screen.getByTestId('product-tile-84')).not.toBeNull();
+});
+
+test('an empty level with nothing on shows the no-results title and no Clear filters', () => {
+  browseCategories();
+  const { rerender } = render(<CatalogueView {...props} />);
+  fireEvent.click(screen.getByTestId('browse-term-27'));
+  rerender(<CatalogueView {...props} products={products.filter(doc => doc.id !== 102)} />);
+  expect(emptyTitle()).toBe('Nothing here matches the filters');
+  expect(screen.queryByTestId('no-data-message-action')).toBeNull();
+  expect(screen.getByTestId('products-breadcrumb')).not.toBeNull();
 });
 
 test('shows the grid by default with names in ascending order', () => {

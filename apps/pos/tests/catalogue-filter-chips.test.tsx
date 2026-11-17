@@ -126,7 +126,7 @@ test('Category lists the synced categories and narrows the grid', () => {
   expect(screen.getByTestId('filter-pill-categories').textContent).toBe('Category');
   fireEvent.click(screen.getByTestId('filter-pill-categories'));
   fireEvent.click(screen.getByTestId('category-option-30'));
-  expect(screen.getByText('No products match')).not.toBeNull();
+  expect(screen.getByText('Nothing here matches the filters')).not.toBeNull();
 });
 
 test('Tag narrows the grid to products with that tag', () => {
@@ -175,7 +175,8 @@ test('removing In Stock turns an applied quick filter off', () => {
   expect(visible('Iced Latte')).toBe(true);
 });
 
-test('sold-out products hidden by In Stock say No products match', () => {
+// v2 counts no products: with nothing on, a baseline that hides every product still says No products yet (index.tsx:361).
+test('sold-out products hidden by In Stock, with nothing on, say No products yet', () => {
   renderView({ products: [catalogue[3]] });
-  expect(screen.getByText('No products match')).not.toBeNull();
+  expect(screen.getByText('No products yet')).not.toBeNull();
 });
