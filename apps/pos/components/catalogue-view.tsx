@@ -26,6 +26,7 @@ import { DrawerSheet } from './drawer-content';
 import { FilterBarDialog } from './filter-bar-dialog';
 import { ChevronRightIcon } from './icons';
 import { InCartBadge } from './in-cart-badge';
+import { LevelBack } from './level-back';
 import { ProductTile } from './product-tile';
 import { QuickFilterBar } from './quick-filter-bar';
 import { RegisterBarShell } from './register-bar-shell';
@@ -258,6 +259,12 @@ export function CatalogueView({
       product={{ name: traits.getName(drilled), onBack: () => setDrill(null) }} className={className} />
     : level === null ? undefined : <BrowseCrumb place={level} onRoot={backToRoot} className={className} />;
   const crumb = crumbOf();
+  // v2's LevelBack (level-back.tsx) round the variations (drill-in.tsx:70) and a browse level (term-grid.tsx:295-296):
+  // Escape inside goes back one step, the drill before the level. The root has no wrapper.
+  const levelBack = (body: JSX.Element) => {
+    const drillBody = drilled ? <LevelBack testID="catalogue-drill-back" onBack={() => setDrill(null)}>{body}</LevelBack> : body;
+    return level === null ? drillBody : <LevelBack testID="catalogue-level-back" onBack={backToRoot}>{drillBody}</LevelBack>;
+  };
   // v2's phone ground (packages/components/src/lib/ground.ts:60-72, `PHONE`): 16 from the screen's edge for the bar,
   // the chip row and the crumb (page-bar/index.tsx:86 `pl-4`, chip-row/index.tsx:29) and the tiles (data-table/
   // surface.tsx:49-55 `TileGround`). TallyUI's slots inset the search 12 and its ProductGrid the tiles 8 (FlatList
@@ -299,7 +306,7 @@ export function CatalogueView({
         {/* TallyUI's slot spacing (`py-2` over the search, `pb-2` under the crumb) at v2's phone gutter. */}
         {wide ? tileGrid ? windowHead : null : <View testID="catalogue-phone-head" className="gap-2 px-4 py-2">{searchSlot}{crumb}</View>}
         {/* v2's drill-in.tsx in the table: the variations as rows under the crumb. */}
-        {drilled && viewState.view === 'table' ? <ScrollView testID="catalogue-variations-table" className="flex-1">
+        {levelBack(drilled && viewState.view === 'table' ? <ScrollView testID="catalogue-variations-table" className="flex-1">
           {drillEntries.map(entry => <VariationRow key={entry.variant.id} entry={entry} onPress={() => onAddEntry?.(entry)} />)}
         </ScrollView>
         : drilled ? <ProductGrid
@@ -343,7 +350,7 @@ export function CatalogueView({
           onSelect={onSelect || onAddEntry ? tap : undefined}
           {...slots(crumb)}
           emptyState={emptyState}
-        />}
+        />)}
         <View testID="data-table-caption-row" className="flex-row items-center gap-2 px-3 py-2">
           <View className="flex-1" />
           <Text testID="data-table-count" className="text-sm text-muted-foreground">{countLabel}</Text>
