@@ -66,7 +66,7 @@ export function drawerFigureText(
 /** A `_gmt` time as device-local `HH:mm`; a stamp without a zone is UTC (WooCommerce's `_gmt` form). */
 function localHourMinute(gmt: string): string {
   const date = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(gmt) ? gmt : `${gmt}Z`);
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  return tillSinceTime(date.getTime());
 }
 
 /**
