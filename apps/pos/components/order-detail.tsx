@@ -3,6 +3,7 @@ import { ScrollView, View } from 'react-native';
 import { Button, Dialog, DialogContent, IconButton, Text, XIcon } from '@tallyui/components';
 import { formatMoney, type StoreOrder } from '@tallyui/core';
 import { wooStatusLabel } from '../lib/orders/order-history';
+import { dateTimeLabel } from '../lib/orders/order-days';
 
 // v2's status tones (packages/core/src/screens/main/orders/cells/status.tsx:10-21), drawn as
 // StatusBadge's dot and word (packages/components/src/status-badge/index.tsx).
@@ -38,11 +39,8 @@ export function orderPaymentState(order: StoreOrder): { paidMinor: number; remai
 // a left hairline on the card; size xl is w-160, which apps/main/global.css:53 makes 560px.
 export const ORDER_SHEET = 'left-auto right-0 top-0 h-full w-full max-w-[560px] translate-x-0 translate-y-0 gap-4 rounded-none border-0 border-l border-border bg-card p-0 py-4';
 
-function formatPlaced(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
-}
+// v2's TABLE_HEAD_TEXT, the caption rank (packages/components/src/table/index.tsx:105, text/ladder.ts:18).
+const TABLE_HEAD_TEXT = 'text-xs font-medium uppercase tracking-wide text-muted-foreground';
 
 // v2's document-style section (packages/core/src/screens/main/orders/view/sections/_section.tsx).
 function Section({ title, testID, last, right, children }: { title: string; testID: string; last?: boolean; right?: ReactNode; children: ReactNode }) {
@@ -127,7 +125,8 @@ export function OrderDetailView({ order, onReceipt, onClose }: {
             <View aria-hidden className={statusDotClass(order.status, partial)} />
             <Text className="shrink text-sm text-foreground">{statusLabel}</Text>
           </View>
-          <Text testID="order-modal-identity" className="text-muted-foreground">{formatPlaced(order.placedAt)}</Text>
+          {/* v2's OrderIdentity `dateTime` (orders/edit/view.tsx:33-70) at the key rank (text/ladder.ts:14). */}
+          <Text testID="order-modal-identity" className="text-sm text-muted-foreground">{dateTimeLabel(order.placedAt, new Date())}</Text>
         </View>
 
         <Section title="Items" testID="order-modal-items">
@@ -135,10 +134,10 @@ export function OrderDetailView({ order, onReceipt, onClose }: {
             ? <Text className="text-muted-foreground">No line items.</Text>
             : <>
                 <View className="flex-row gap-3 border-b border-border pb-2">
-                  <View className="w-8"><Text className="text-xs font-semibold text-muted-foreground">Qty</Text></View>
-                  <View className="min-w-0 flex-1"><Text className="text-xs font-semibold text-muted-foreground">Item</Text></View>
-                  <View className="w-20 items-end"><Text className="text-xs font-semibold text-muted-foreground">Price</Text></View>
-                  <View className="w-20 items-end"><Text className="text-xs font-semibold text-muted-foreground">Total</Text></View>
+                  <View className="w-8"><Text testID="order-modal-head-qty" className={TABLE_HEAD_TEXT}>Qty</Text></View>
+                  <View className="min-w-0 flex-1"><Text testID="order-modal-head-item" className={TABLE_HEAD_TEXT}>Item</Text></View>
+                  <View className="w-20 items-end"><Text testID="order-modal-head-price" className={TABLE_HEAD_TEXT}>Price</Text></View>
+                  <View className="w-20 items-end"><Text testID="order-modal-head-total" className={TABLE_HEAD_TEXT}>Total</Text></View>
                 </View>
                 {order.lines.map((line, index) => {
                   const lineSubtotal = gross(line.subtotalMinor, line.subtotalTaxMinor);
