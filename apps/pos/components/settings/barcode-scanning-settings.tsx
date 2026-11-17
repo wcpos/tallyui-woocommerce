@@ -89,8 +89,8 @@ function SoundSettings(): JSX.Element {
       </SettingsField>
       {sound.enabled && (
         <View testID="scan-sound-options">
-          <View testID="settings-barcode-sound-theme-row" className="gap-1 py-1 pl-4">
-            <Text className={SETTINGS_KEY_CLASS}>Sound theme</Text>
+          <View testID="settings-barcode-sound-theme-row" className="gap-1 py-1">
+            <Text testID="settings-barcode-sound-theme-row-label" className={`${SETTINGS_KEY_CLASS} pl-4`}>Sound theme</Text>
             <RadioGroup value={sound.theme} onValueChange={theme => update({ theme: normalizeScanSoundTheme(theme) })}>
               {SCAN_SOUND_THEMES.map(theme => (
                 <View key={theme} className="min-h-11 flex-row items-center gap-2">

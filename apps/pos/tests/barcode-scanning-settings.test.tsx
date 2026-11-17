@@ -184,7 +184,8 @@ test('the Sound options are indented rows under Play a sound on scan', () => {
   for (const id of ['settings-barcode-sound-volume-row', 'settings-barcode-sound-success-row', 'settings-barcode-sound-failure-row']) {
     expect(classesOf(`${id}-key`)).toContain('pl-4');
   }
-  expect(classesOf('settings-barcode-sound-theme-row')).toContain('pl-4');
+  expect(classesOf('settings-barcode-sound-theme-row-label')).toContain('pl-4');
+  expect(classesOf('settings-barcode-sound-theme-row')).not.toContain('pl-4');
   const volume = screen.getByTestId('settings-barcode-sound-volume-row');
   expect(volume.contains(screen.getByTestId('settings-barcode-sound-volume'))).toBe(true);
   expect(volume.contains(screen.getByTestId('sound-preview-volume'))).toBe(true);
