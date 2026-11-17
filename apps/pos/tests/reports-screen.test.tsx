@@ -284,6 +284,20 @@ test('Today starts empty and observes an Espresso cash sale', async () => {
   expect(app.onBack).toHaveBeenCalledOnce();
 }, 20_000);
 
+test('the Top products card lists the product the sale rang up', async () => {
+  await setup();
+  expect(text('card-products-empty')).toBe('No sales in this period.');
+  expect(text('card-products-figure')).toBe('0');
+  await payCash();
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+  expect(text('card-products-figure')).toBe('1');
+  const product = within(screen.getByTestId('card-products-row-0'));
+  expect(product.getByText('Espresso')).not.toBeNull();
+  expect(product.getByText('$3.00')).not.toBeNull();
+  expect(product.getByText('100% · 1 sold')).not.toBeNull();
+  expect(screen.queryByTestId('card-products-row-1')).toBeNull();
+}, 20_000);
+
 test('Today removes a sale when its createdAt moves to yesterday', async () => {
   const app = await setup();
   await payCash();
