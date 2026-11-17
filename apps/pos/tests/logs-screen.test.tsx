@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import * as ReactNative from 'react-native';
 import type { OutboxState } from '@tallyui/pos';
 import { addRxPlugin, createRxDatabase, type RxDatabase } from 'rxdb';
 import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
@@ -8,7 +9,7 @@ import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { BehaviorSubject } from 'rxjs';
 import { LogsScreen } from '../components/logs-screen';
 import { logRecordId, logRecordMigrationStrategies, logRecordSchema, type LogCollection, type LogRecord } from '../lib/logs/log-store';
-import { IDLE_OUTBOX_STATE, buildDebugInfo, formatDurationMs, logStats, matchesLogFilter, outboxSyncStats,
+import { IDLE_OUTBOX_STATE, buildDebugInfo, formatDurationMs, formatLogTime, logStats, matchesLogFilter, outboxSyncStats,
   type OutboxSyncStats } from '../lib/logs/log-view';
 import { setVerboseDiagnostics } from '../lib/logs/verbose';
 import { memoryStorage } from './memory-storage';
@@ -48,6 +49,7 @@ function classesOf(testID: string): string[] {
 }
 
 beforeEach(async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1280, height: 800, scale: 1, fontScale: 1 });
   vi.stubGlobal('localStorage', memoryStorage());
   db = await createRxDatabase({ name: `logs_screen_${crypto.randomUUID()}`, multiInstance: false,
     storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }) });
@@ -65,6 +67,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   cleanup();
+  vi.restoreAllMocks();
   await db.close();
   vi.unstubAllGlobals();
 });
@@ -87,6 +90,62 @@ test('shows the v2 columns with the newest row first', async () => {
   expect(screen.getByTestId(`logs-ok-${rows[2].id}`).textContent).toBe('✓ ok');
   expect(screen.getByTestId(`logs-took-${rows[0].id}`).textContent).toBe('—');
   expect(within(screen.getByTestId(`logs-row-${rows[0].id}`)).getAllByText('—')).toHaveLength(2);
+});
+
+test('on a phone the table head is hidden, and a row shows its time and level, then its event, then its scope and duration', async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  render(<LogsScreen {...props} collection={collection} />);
+  const id = rows[1].id;
+  await screen.findByTestId(`logs-row-sm-${id}`);
+  expect(screen.queryAllByTestId(/^logs-heading-/)).toHaveLength(0);
+  const time = screen.getByTestId(`logs-time-sm-${id}`);
+  const level = screen.getByTestId(`logs-level-sm-${id}`);
+  const line = screen.getByTestId(`logs-line-sm-${id}`);
+  const event = screen.getByTestId(`logs-event-sm-${id}`);
+  expect(time.textContent).toBe(formatLogTime(rows[1].timestamp, now()));
+  expect(level.textContent).toBe('warn');
+  expect(line.contains(time)).toBe(true);
+  expect(line.contains(level)).toBe(true);
+  expect(line.contains(event)).toBe(false);
+  expect(event.textContent).toBe('Order refused');
+  expect(screen.getByTestId(`logs-subline-sm-${id}`).textContent).toBe('outbox·1.5 s');
+  expect(screen.getByTestId(`logs-subline-sm-${rows[0].id}`).textContent).toBe('tax');
+  expect(screen.queryByTestId(`logs-took-sm-${rows[0].id}`)).toBeNull();
+  expect(screen.getByTestId(`logs-code-${id}`).textContent).toBe('refused');
+  expect(screen.getByTestId(`logs-ok-${rows[2].id}`)).not.toBeNull();
+  expect(screen.queryByTestId(`logs-toggle-${id}`)).toBeNull();
+  expect(screen.queryByTestId(`logs-took-${id}`)).toBeNull();
+});
+
+test('pressing a phone row opens its detail, indented as v2 does on a phone, and pressing again hides it', async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  render(<LogsScreen {...props} collection={collection} />);
+  const id = rows[1].id;
+  const row = await screen.findByTestId(`logs-row-sm-${id}`);
+  expect(screen.queryByTestId(`logs-detail-${id}`)).toBeNull();
+  fireEvent.click(row);
+  expect(screen.getByTestId(`logs-detail-${id}-code`).textContent).toBe('refused');
+  expect(row.getAttribute('aria-expanded')).toBe('true');
+  expect(classesOf(`logs-detail-${id}`)).toContain('pl-4');
+  expect(classesOf(`logs-detail-${id}`)).not.toContain('ml-42');
+  expect(screen.getByTestId(`logs-chevron-${id}`).textContent).toBe('⌄');
+  fireEvent.click(row);
+  expect(screen.queryByTestId(`logs-detail-${id}`)).toBeNull();
+});
+
+test('off a phone the table head and the table row stay, with no phone row', async () => {
+  render(<LogsScreen {...props} collection={collection} />);
+  const id = rows[1].id;
+  await screen.findByTestId(`logs-row-${id}`);
+  for (const heading of ['time', 'level', 'event', 'took', 'status']) {
+    expect(screen.getByTestId(`logs-heading-${heading}`)).not.toBeNull();
+  }
+  expect(screen.getByTestId(`logs-toggle-${id}`)).not.toBeNull();
+  expect(screen.getByTestId(`logs-pill-${id}`)).not.toBeNull();
+  expect(screen.getByTestId(`logs-took-${id}`)).not.toBeNull();
+  expect(screen.queryByTestId(`logs-row-sm-${id}`)).toBeNull();
+  fireEvent.click(screen.getByTestId(`logs-toggle-${id}`));
+  expect(classesOf(`logs-detail-${id}`)).toContain('ml-42');
 });
 
 test('shows a row logged after the page opened', async () => {
