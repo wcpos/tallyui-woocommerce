@@ -1,12 +1,34 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import * as ReactNative from 'react-native';
 import { afterEach, expect, test, vi } from 'vitest';
+import { Text } from '@tallyui/components';
 import { ConnectForm } from '../components/connect-form';
 import { SiteError } from '../lib/auth/site';
 import type { ConnectStage } from '../lib/auth/site';
 import type { StartSignIn } from '../lib/auth/use-connect-discovery';
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+
+test('with saved stores the address form waits behind Connect another store', () => {
+  render(<ConnectForm startSignIn={vi.fn()} saved={<Text testID="saved-slot">saved</Text>} />);
+  expect(screen.getByTestId('saved-slot')).not.toBeNull();
+  expect(screen.queryByTestId('store-url-input')).toBeNull();
+  expect(screen.getByTestId('connect-another-store').textContent).toBe('Connect another store');
+  fireEvent.click(screen.getByTestId('connect-another-store'));
+  expect(screen.getByTestId('store-url-input')).not.toBeNull();
+  expect(screen.queryByTestId('connect-another-store')).toBeNull();
+});
+
+test('without saved stores only the address form shows', () => {
+  render(<ConnectForm startSignIn={vi.fn()} />);
+  expect(screen.getByTestId('store-url-input')).not.toBeNull();
+  expect(screen.queryByTestId('connect-another-store')).toBeNull();
+});
+
+test('a sign-in callback error opens the address form even with saved stores', () => {
+  render(<ConnectForm startSignIn={vi.fn()} saved={<Text testID="saved-slot">saved</Text>} signInError="state_mismatch" />);
+  expect(screen.getByTestId('connect-error-message').textContent).toBe('Sign-in could not be verified. Try again.');
+});
 
 test('names each discovery stage while the store connects', async () => {
   let reportStage!: (stage: ConnectStage) => void;
