@@ -22,6 +22,7 @@ const CHARGES: ServerCapabilities = { orderCreate: 5, lineTax: { none: true, cla
 const NO_V5: ServerCapabilities = { orderCreate: 3, multiplePayments: false, lineTax: { none: true, classes: true },
   taxRounding: { granularity: 'woocommerce', roundAtSubtotal: false } };
 let fetchStub: ReturnType<typeof vi.fn<typeof fetch>>;
+const posts = () => fetchStub.mock.calls.filter(([, init]) => init?.method === 'POST');
 
 function SaleScreen(props: ComponentProps<typeof SaleScreenWithoutHost>) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
@@ -108,8 +109,8 @@ test('sells a fee, a shipping charge and a custom item and pushes them to WooCom
   expect(receipt.getByLabelText('Delivery: $5.00')).not.toBeNull();
   expect(receipt.getByLabelText('Total: $11.20')).not.toBeNull();
   await waitFor(() => expect(screen.queryByTestId('sync-status')).toBeNull());
-  expect(fetchStub).toHaveBeenCalledTimes(1);
-  const payload = JSON.parse(String(fetchStub.mock.calls[0][1]?.body)).payload;
+  expect(posts()).toHaveLength(1);
+  const payload = JSON.parse(String(posts()[0][1]?.body)).payload;
   expect(payload.line_items).toEqual([
     { product_id: 80, quantity: 1, subtotal: '3.00', total: '3.00' },
     { product_id: 0, name: 'Gift wrap', quantity: 1, subtotal: '3.00', total: '3.00', tax_class: '',
@@ -146,8 +147,8 @@ test('a store without order_create_v5 sells on the v3 fallback: no charges, one 
   fireEvent.click(screen.getByTestId('cart-checkout'));
   await takeCash(500);
   await waitFor(() => expect(screen.queryByTestId('sync-status')).toBeNull());
-  expect(fetchStub).toHaveBeenCalledTimes(1);
-  const payload = JSON.parse(String(fetchStub.mock.calls[0][1]?.body)).payload;
+  expect(posts()).toHaveLength(1);
+  const payload = JSON.parse(String(posts()[0][1]?.body)).payload;
   expect(payload.line_items).toEqual([{ product_id: 80, quantity: 1, subtotal: '3.00', total: '3.00' }]);
   expect(payload.fee_lines ?? []).toEqual([]);
   expect(payload.shipping_lines ?? []).toEqual([]);

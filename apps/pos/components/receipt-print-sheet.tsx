@@ -4,8 +4,9 @@ import { Button, Text } from '@tallyui/components';
 import { claimReceiptAutoPrint, installReceiptPrintStyle, nextReceiptArea, printReceipt, RECEIPT_PAPER_WIDTH, type ReceiptPaperWidth } from '../lib/receipts/print-receipt';
 import { useReceiptPrintCount } from '../lib/receipts/use-receipt-print-count';
 
-export function ReceiptPrintSheet({ orderId, paperWidth = RECEIPT_PAPER_WIDTH, autoPrint = false, onAutoPrinted, children }: {
-  orderId: string | null; paperWidth?: ReceiptPaperWidth; autoPrint?: boolean; onAutoPrinted?: () => void; children: ReactNode;
+// ready: false holds the auto print until the receipt that will print is on screen.
+export function ReceiptPrintSheet({ orderId, paperWidth = RECEIPT_PAPER_WIDTH, autoPrint = false, ready = true, onAutoPrinted, children }: {
+  orderId: string | null; paperWidth?: ReceiptPaperWidth; autoPrint?: boolean; ready?: boolean; onAutoPrinted?: () => void; children: ReactNode;
 }): JSX.Element {
   const [area] = useState(nextReceiptArea);
   useEffect(() => installReceiptPrintStyle(area, paperWidth), [area, paperWidth]);
@@ -13,11 +14,11 @@ export function ReceiptPrintSheet({ orderId, paperWidth = RECEIPT_PAPER_WIDTH, a
   const [error, setError] = useState<string | null>(null);
   // Declared after the style effect, so the @page style is installed before the auto print.
   useEffect(() => {
-    if (!autoPrint || orderId === null || !claimReceiptAutoPrint(orderId)) return;
+    if (!autoPrint || !ready || orderId === null || !claimReceiptAutoPrint(orderId)) return;
     const failure = printReceipt();
     setError(failure);
     if (failure === null) onAutoPrinted?.();
-  }, [autoPrint, orderId]);
+  }, [autoPrint, ready, orderId]);
   // TallyUI's Receipt keeps its own "Print receipt" button; v2 relabels that button "Print again" (receipt/print-sheet.tsx).
   return (
     <View testID="receipt-print-area" dataSet={{ print: 'receipt', receipt: area }}>

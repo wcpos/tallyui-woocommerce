@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { JSX } from 'react';
-import { View, useWindowDimensions } from 'react-native';
+import { Platform, View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { Button, ParkedSales, Receipt, SyncStatus, Text } from '@tallyui/components';
 import { catalogueEntries, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
@@ -8,6 +8,7 @@ import { formatMoney } from '@tallyui/core';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
 import type { CatalogueEntry, CustomerSummary, OutboxState } from '@tallyui/pos';
 import { createCustomersBlockedReason, type CashierCapabilities } from '../lib/auth/capabilities';
+import { useRequestContext } from '../lib/auth/request-context';
 import { useSession } from '../lib/auth/session-context';
 import { drawerFigureText, drawerVerbs, sheetMoney } from '../lib/cashier/sheet-figures';
 import { inCartCounts } from '../lib/catalogue/tile-words';
@@ -17,6 +18,8 @@ import { useRegister } from '../lib/register/register-context';
 import { REGISTER_ID } from '../lib/register/register-id';
 import { buildReceiptIdentity } from '../lib/receipts/receipt-identity';
 import { useReceiptPrintCount } from '../lib/receipts/use-receipt-print-count';
+import { renderedStoreReceipt } from '../lib/receipts/store-receipt';
+import { useStoreTemplates } from '../lib/receipts/use-store-templates';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { useCartRestore } from '../lib/sale/use-cart-restore';
 import { useLeaveTill } from '../lib/sale/use-leave-till';
@@ -42,6 +45,7 @@ import { ReceiptEmail } from './receipt-email';
 import { ReceiptIdentity } from './receipt-identity';
 import { ReceiptZoom } from './receipt-zoom';
 import { ReceiptPrintSheet } from './receipt-print-sheet';
+import { StoreReceipt } from './store-receipt';
 import { ReceiptPaidMoment } from './receipt-paid-moment';
 import { useReceiptSettings } from '../lib/receipts/receipt-settings';
 import { RegisterControls } from './register-controls';
@@ -105,6 +109,11 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const outbox = useOutbox();
   const auth = useSession() as ReturnType<typeof useSession> | null;
   const register = useRegister();
+  // The store's receipt templates, read once per till mount; without a session there is no store to ask.
+  const requestContext = useRequestContext(connector, auth?.session ?? null);
+  const storeTemplates = useStoreTemplates(auth?.session ? connector : undefined, requestContext, 'receipt');
+  // The order whose store receipt frame has loaded; until then the auto print waits.
+  const [frameLoaded, setFrameLoaded] = useState<string | null>(null);
   useReceiptEmailSender({ collection: mailer ? receiptEmails ?? null : null, mailer: mailer ?? null,
     orders: outbox.enabled ? outbox.orders : null });
   const outboxOrders = outbox.enabled ? outbox.orders : null;
@@ -269,15 +278,24 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         const orderId = sale.stage.posOrder.id;
         const receiptOrder = (outbox.enabled && outbox.recent.find(o => o.id === orderId)) || sale.stage.posOrder;
         const receiptCoupons = sale.stage.order.display.coupons ?? [], receiptCurrency = sale.stage.order.currency;
+        const doneLabel = receiptSettings.autoPrint ? 'Print receipt · New sale' : 'New sale';
+        // The store's own template (v2's receipt screen) when one renders on the web; the built-in receipt otherwise.
+        const storeHtml = Platform.OS === 'web' ? renderedStoreReceipt(storeTemplates, { kind: 'pos', order: receiptOrder }, {
+          config: { storeName: props.storeName, cashier: props.cashierName, registerName: register?.registerName ?? undefined },
+          pricesIncludeTax: props.storeSettings.pricesIncludeTax,
+        }) : null;
         return (
         <>
           <ReceiptPaidMoment posOrder={receiptOrder} locale={props.locale} onClose={sale.newSale} />
           <ReceiptZoom>
           <ReceiptPrintSheet orderId={orderId} autoPrint={receiptSettings.autoPrint}
+            ready={storeTemplates.status !== 'loading' && (storeHtml === null || frameLoaded === orderId)}
             onAutoPrinted={receiptSettings.autoShow ? undefined : sale.newSale}>
+          {storeHtml !== null ? <StoreReceipt html={storeHtml} doneLabel={doneLabel} onDone={sale.newSale}
+            onLoad={() => setFrameLoaded(orderId)} /> : <>
           <Receipt order={sale.stage.order} posOrder={receiptOrder} store={{ name: props.storeName }}
             cashier={props.cashierName} registerId={REGISTER_ID} newSale={sale.newSale}
-            doneLabel={receiptSettings.autoPrint ? 'Print receipt · New sale' : 'New sale'} />
+            doneLabel={doneLabel} />
           {receiptCoupons.length ? (
             <View testID="receipt-coupons" className="gap-1 py-2">
               {receiptCoupons.map(coupon => (
@@ -294,6 +312,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             copies: printCount,
           })} />
+          </>}
           </ReceiptPrintSheet>
           </ReceiptZoom>
           {mailer && receiptEmails && outbox.enabled ? <ReceiptEmail collection={receiptEmails}
