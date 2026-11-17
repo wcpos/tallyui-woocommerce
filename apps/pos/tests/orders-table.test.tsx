@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import type { StoreOrder } from '@tallyui/core';
@@ -197,4 +197,77 @@ test("at 1280 the table and its head stay, and only the chevron opens the order"
   expect(onOpen).toHaveBeenCalledTimes(1);
   expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ kind: 'store' }));
   expect(screen.queryByTestId('orders-rows')).toBeNull();
+});
+
+test('at 1280 ArrowDown walks the order rows past the day heading, clamps, and Enter opens the focused order', () => {
+  const onOpen = vi.fn();
+  const ring = 'web:outline-2';
+  render(<OrdersTable local={[posOrder({ id: 'local-1' })]}
+    store={[storeOrder, { ...storeOrder, id: '900', reference: '900', placedAt: at(2026, 11, 9, 18, 30) }]}
+    onOpen={onOpen} now={() => now} />);
+  fireEvent.keyDown(screen.getByTestId('orders-keyboard'), { key: 'ArrowDown' });
+  expect(document.activeElement).toBe(screen.getByTestId('order-keyrow-local-1'));
+  expect(classesOf('order-keyrow-local-1')).toContain(ring);
+  fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
+  expect(document.activeElement).toBe(screen.getByTestId('history-keyrow-901'));
+  expect(classesOf('history-keyrow-901')).toContain(ring);
+  expect(classesOf('order-keyrow-local-1')).not.toContain(ring);
+  fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
+  expect(document.activeElement).toBe(screen.getByTestId('history-keyrow-900'));
+  expect(classesOf('history-keyrow-900')).toContain(ring);
+  fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
+  expect(document.activeElement).toBe(screen.getByTestId('history-keyrow-900'));
+  fireEvent.keyDown(document.activeElement!, { key: 'Enter' });
+  expect(onOpen).toHaveBeenCalledTimes(1);
+  expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ kind: 'store', order: expect.objectContaining({ id: '900' }) }));
+});
+
+test('at 390 the phone rows take the same keys, and a focused phone row counts as the row', () => {
+  setWidth(390);
+  const onOpen = vi.fn();
+  const ring = 'web:outline-2';
+  render(<OrdersTable local={[posOrder({ id: 'local-1' })]}
+    store={[storeOrder, { ...storeOrder, id: '900', reference: '900', placedAt: at(2026, 11, 9, 18, 30) }]}
+    onOpen={onOpen} now={() => now} />);
+  fireEvent.keyDown(screen.getByTestId('orders-keyboard'), { key: 'ArrowDown' });
+  expect(document.activeElement).toBe(screen.getByTestId('order-keyrow-local-1'));
+  expect(classesOf('order-keyrow-local-1')).toContain(ring);
+  act(() => screen.getByTestId('history-row-901').focus());
+  fireEvent.keyDown(screen.getByTestId('history-row-901'), { key: 'ArrowDown' });
+  expect(document.activeElement).toBe(screen.getByTestId('history-keyrow-900'));
+  expect(classesOf('history-keyrow-900')).toContain(ring);
+  fireEvent.keyDown(document.activeElement!, { key: 'Enter' });
+  expect(onOpen).toHaveBeenCalledTimes(1);
+  expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ kind: 'store', order: expect.objectContaining({ id: '900' }) }));
+});
+
+test('a focus that is not a key move draws no ring', () => {
+  const ring = 'web:outline-2';
+  render(<OrdersTable local={[posOrder({ id: 'local-1' })]}
+    store={[storeOrder, { ...storeOrder, id: '900', reference: '900', placedAt: at(2026, 11, 9, 18, 30) }]}
+    onOpen={vi.fn()} now={() => now} />);
+  act(() => screen.getByTestId('history-keyrow-901').focus());
+  for (const id of ['order-keyrow-local-1', 'history-keyrow-901', 'history-keyrow-900']) {
+    expect(classesOf(id)).not.toContain(ring);
+  }
+  expect(screen.getByTestId('history-keyrow-901').getAttribute('tabindex')).toBe('0');
+  expect(screen.getByTestId('order-keyrow-local-1').getAttribute('tabindex')).toBe('-1');
+  fireEvent.keyDown(screen.getByTestId('history-keyrow-901'), { key: 'ArrowDown' });
+  expect(document.activeElement).toBe(screen.getByTestId('history-keyrow-900'));
+  expect(classesOf('history-keyrow-900')).toContain(ring);
+});
+
+test('keys on the chevron button are left to the button', () => {
+  const onOpen = vi.fn();
+  const ring = 'web:outline-2';
+  render(<OrdersTable local={[posOrder({ id: 'local-1' })]}
+    store={[storeOrder, { ...storeOrder, id: '900', reference: '900', placedAt: at(2026, 11, 9, 18, 30) }]}
+    onOpen={onOpen} now={() => now} />);
+  fireEvent.keyDown(screen.getByTestId('orders-keyboard'), { key: 'ArrowDown' });
+  expect(document.activeElement).toBe(screen.getByTestId('order-keyrow-local-1'));
+  fireEvent.keyDown(screen.getByTestId('history-open-901'), { key: 'ArrowDown' });
+  expect(document.activeElement).toBe(screen.getByTestId('order-keyrow-local-1'));
+  expect(classesOf('order-keyrow-local-1')).toContain(ring);
+  fireEvent.keyDown(screen.getByTestId('order-open-local-1'), { key: 'Enter' });
+  expect(onOpen).not.toHaveBeenCalled();
 });

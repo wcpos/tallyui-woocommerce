@@ -1,5 +1,5 @@
-import type { JSX, ReactNode } from 'react';
-import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
+import type { JSX, KeyboardEvent, ReactNode } from 'react';
+import { Platform, Pressable, ScrollView, View, useWindowDimensions, type ViewProps } from 'react-native';
 import { Path, Polyline } from 'react-native-svg';
 import { createSvgIcon, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Text } from '@tallyui/components';
 import type { StoreOrder } from '@tallyui/core';
@@ -7,6 +7,7 @@ import type { PosOrder } from '@tallyui/pos';
 import type { AreaColumn } from '../lib/area-columns';
 import { NARROW_WIDTH } from '../lib/layout/wide';
 import { orderRowCells, orderTableItems, type OrderRowCells, type OrderTableItem, type OrderTableRow, type OrderTone } from '../lib/orders/order-days';
+import { useRowKeyboard } from '../lib/orders/use-row-keyboard';
 import { CaptionRowInset, TableCount, TableSurface } from './table-surface';
 
 const ChevronRightIcon = createSvgIcon('ChevronRightIcon', () => <Polyline points="9 18 15 12 9 6" />);
@@ -90,6 +91,19 @@ function OrderPhoneRow({ item, cells, prefix, onOpen }: {
   </Pressable>;
 }
 
+function KeyboardRow({ index, keyboard, testID, children }: {
+  index: number; keyboard: ReturnType<typeof useRowKeyboard>; testID: string; children: ReactNode;
+}) {
+  const focused = keyboard.focusIndex === index;
+  const webProps: ViewProps = Platform.OS === 'web' ? {
+    tabIndex: focused ? 0 : -1, onFocus: () => keyboard.focusFrom(index),
+  } : {};
+  return <View testID={testID} ref={node => keyboard.focusRow(index, node)} {...webProps}
+    className={focused && keyboard.ring ? 'web:outline-2 web:outline-primary web:-outline-offset-2' : undefined}>
+    {children}
+  </View>;
+}
+
 function dayHeadingView(item: Extract<OrderTableItem, { type: 'day' }>) {
   return (
     <View key={item.id} testID={`orders-day-heading-${item.day}`} className="h-7 justify-center border-b border-border bg-background px-3">
@@ -129,15 +143,25 @@ export function OrdersTable({ local, store, onOpen, footer, active = false, onSy
   const narrow = width < NARROW_WIDTH;
   const today = now();
   const items = orderTableItems(local, store, today);
+  const rows = items.filter(item => item.type === 'order');
+  const ids = rows.map(row => row.id);
+  // On web the row's focus() already scrolls it into view inside the ScrollView (the browser's default
+  // focus scroll), so the list needs no scroll call.
+  const keyboard = useRowKeyboard(ids, id => { const row = rows.find(r => r.id === id); if (row) onOpen(row); }, () => {});
+  const webProps: ViewProps & { onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void } = Platform.OS === 'web'
+    ? { tabIndex: 0, onKeyDown: keyboard.onKeyDown } : {};
   const columns = ORDERS_COLUMNS.filter(column => visible.includes(column.id));
   return (
     <>
       <TableSurface testID="orders-table-surface">
         <ScrollView className="flex-1">
+          <View testID="orders-keyboard" {...webProps as ViewProps}>
           {narrow ? <View testID="orders-rows">
             {items.map(item => item.type === 'day' ? dayHeadingView(item) : (
-              <OrderPhoneRow key={item.id} item={item} cells={orderRowCells(item, today)}
+              <KeyboardRow key={item.id} index={ids.indexOf(item.id)} keyboard={keyboard} testID={`${item.kind === 'store' ? 'history' : 'order'}-keyrow-${item.order.id}`}>
+              <OrderPhoneRow item={item} cells={orderRowCells(item, today)}
                 prefix={item.kind === 'store' ? 'history' : 'order'} onOpen={onOpen} />
+              </KeyboardRow>
             ))}
           </View> : (
           <Table testID="orders-table">
@@ -153,7 +177,8 @@ export function OrdersTable({ local, store, onOpen, footer, active = false, onSy
                 const cells = orderRowCells(item, today);
                 const prefix = item.kind === 'store' ? 'history' : 'order';
                 return (
-                  <TableRow key={item.id} testID={`${prefix}-row-${item.order.id}`} className={ROW}>
+                  <KeyboardRow key={item.id} index={ids.indexOf(item.id)} keyboard={keyboard} testID={`${prefix}-keyrow-${item.order.id}`}>
+                  <TableRow testID={`${prefix}-row-${item.order.id}`} className={ROW}>
                     {columns.map(({ id }) => orderCell(id, cells, `${prefix}-${item.order.id}`))}
                     <TableCell className="w-14 flex-none items-center justify-center px-0 py-0">
                       <Pressable accessibilityRole="button" accessibilityLabel="Open order" testID={`${prefix}-open-${item.order.id}`}
@@ -162,11 +187,13 @@ export function OrdersTable({ local, store, onOpen, footer, active = false, onSy
                       </Pressable>
                     </TableCell>
                   </TableRow>
+                  </KeyboardRow>
                 );
               })}
             </TableBody>
           </Table>
           )}
+          </View>
           {footer ? <View className="gap-3 p-3">{footer}</View> : null}
         </ScrollView>
       </TableSurface>
