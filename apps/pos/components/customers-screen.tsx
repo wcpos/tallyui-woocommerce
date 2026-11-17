@@ -11,6 +11,7 @@ import type { CustomerSource } from '../lib/customers/customer-source';
 import { DEFAULT_CUSTOMER_SORT, billingLines, customerInitials, nextSort, sortCustomers } from '../lib/customers/customer-table';
 import type { CustomerSort, CustomerSortField } from '../lib/customers/customer-table';
 import { NARROW_WIDTH } from '../lib/layout/wide';
+import { dayLabel } from '../lib/orders/order-days';
 import { useSearchTerm } from '../lib/search-term';
 import { AddCustomerDialog } from './add-customer-dialog';
 import { AreaDisplayOptions } from './area-display-options';
@@ -22,10 +23,11 @@ import { CaptionRowInset, TableCount, TableSurface } from './table-surface';
 // screen shows the store's default list, search(''), as the picker does and as v2's Customers screen opens.
 const MIN_QUERY_CHARS = 2;
 
-export type CustomersColumnId = 'avatar_url' | 'id' | 'first_name' | 'last_name' | 'email' | 'billing';
+export type CustomersColumnId = 'avatar_url' | 'id' | 'first_name' | 'last_name' | 'email' | 'billing' | 'date_created_gmt';
 // v2's customers columns (ui-settings/initial-settings.json `customers.columns`) that a store Customer carries, in
-// its order, with v2's keys, its `show` and its labels (use-ui-label.ts). Not offered: role, username, shipping,
-// date_created_gmt and date_modified_gmt, which the connector's Customer does not carry, and Actions.
+// v2's order with its keys, `show` and labels (use-ui-label.ts); date_created_gmt reads Customer.createdAt
+// (connector-woocommerce sets it from the store's date_created_gmt). Not offered: role, username, shipping and
+// date_modified_gmt, which the connector's Customer does not carry, and Actions.
 export const CUSTOMERS_COLUMNS: readonly AreaColumn<CustomersColumnId>[] = [
   { id: 'avatar_url', label: 'Image', visible: true },
   { id: 'id', label: 'ID', visible: false },
@@ -33,6 +35,7 @@ export const CUSTOMERS_COLUMNS: readonly AreaColumn<CustomersColumnId>[] = [
   { id: 'last_name', label: 'Last Name', visible: true },
   { id: 'email', label: 'Email', visible: true },
   { id: 'billing', label: 'Billing Address', visible: true },
+  { id: 'date_created_gmt', label: 'Date Created', visible: true },
 ];
 // Each column's width in the row's flex layout.
 const COLUMN_CLASS: Partial<Record<CustomersColumnId, string>> = {
@@ -43,7 +46,7 @@ function sortable(id: CustomersColumnId): id is CustomerSortField {
   return id === 'first_name' || id === 'last_name' || id === 'email';
 }
 
-function customerCell(id: CustomersColumnId, c: Customer): JSX.Element {
+function customerCell(id: CustomersColumnId, c: Customer, now: Date): JSX.Element {
   const className = COLUMN_CLASS[id];
   switch (id) {
     case 'avatar_url': return <TableCell key={id} className={className}><Avatar size="md" fallback={customerInitials(c)} /></TableCell>;
@@ -52,6 +55,7 @@ function customerCell(id: CustomersColumnId, c: Customer): JSX.Element {
     case 'last_name': return <TableCell key={id}><Text>{c.lastName ?? ''}</Text></TableCell>;
     case 'email': return <TableCell key={id} className={className}><Text testID={c.email ? `customer-email-${c.email}` : undefined}>{c.email ?? ''}</Text></TableCell>;
     case 'billing': return <TableCell key={id} className={`${className} gap-0.5`}>{billingLines(c).map(line => <Text key={line}>{line}</Text>)}</TableCell>;
+    case 'date_created_gmt': return <TableCell key={id}><Text>{(c.createdAt && dayLabel(c.createdAt, now)) || '—'}</Text></TableCell>;
   }
 }
 
@@ -115,6 +119,7 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
   const shown = sortCustomers(results, sort);
   // The columns the display options leave on, in the area's order.
   const columns = visibleAreaColumns(CUSTOMERS_COLUMNS, settings);
+  const now = new Date();
 
   const body = error ? (
     <View className="gap-2 p-4">
@@ -152,7 +157,7 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
           </TableRow></TableHeader>
           <TableBody>
             {shown.map(c => <TableRow key={c.id} testID={`customers-row-${c.id}`}>
-              {columns.map(({ id }) => customerCell(id, c))}
+              {columns.map(({ id }) => customerCell(id, c, now))}
               <TableCell className="w-16 flex-none">
                 <IconButton testID="customer-open-button" accessibilityLabel="Open customer" variant="ghost" size="sm" disabled><ChevronRightIcon size={16} /></IconButton>
               </TableCell>

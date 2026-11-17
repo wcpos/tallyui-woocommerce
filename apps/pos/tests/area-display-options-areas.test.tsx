@@ -81,8 +81,18 @@ test("Customers: Customer Settings lists v2's columns in order, ID off by defaul
   await renderCustomers();
   expectSwitches('customers', openPanel('customers'), 'Customer Settings', [
     ['avatar_url', true], ['id', false], ['first_name', true], ['last_name', true], ['email', true], ['billing', true],
+    ['date_created_gmt', true],
   ]);
-  expect(headers()).toEqual(['First Name', 'Last Name', 'Email', 'Billing Address']);
+  expect(headers()).toEqual(['First Name', 'Last Name', 'Email', 'Billing Address', 'Date Created']);
+});
+
+test('Customers: switching Date Created off drops its header and cells', async () => {
+  await renderCustomers([{ ...gee, createdAt: '2023-08-21T12:00:00Z' }]);
+  expect(customerRow('7').getByText('Mon 21 Aug')).not.toBeNull();
+  openPanel('customers');
+  toggle('customers', 'date_created_gmt');
+  expect(headers()).not.toContain('Date Created');
+  expect(customerRow('7').queryByText('Mon 21 Aug')).toBeNull();
 });
 
 test('Customers: switching Email off drops its header and cells, and Restore brings it back', async () => {
@@ -90,13 +100,13 @@ test('Customers: switching Email off drops its header and cells, and Restore bri
   expect(customerRow('7').queryByText('gee@example.invalid')).not.toBeNull();
   openPanel('customers');
   toggle('customers', 'email');
-  expect(headers()).toEqual(['First Name', 'Last Name', 'Billing Address']);
+  expect(headers()).toEqual(['First Name', 'Last Name', 'Billing Address', 'Date Created']);
   expect(customerRow('7').queryByText('gee@example.invalid')).toBeNull();
   expect(customerRow('7').getByText('Four Co')).not.toBeNull();
   expect(JSON.parse(localStorage.getItem(areaColumnsKey('customers'))!).find((row: { id: string }) => row.id === 'email'))
     .toEqual({ id: 'email', visible: false });
   fireEvent.click(screen.getByTestId('customers-display-restore'));
-  expect(headers()).toEqual(['First Name', 'Last Name', 'Email', 'Billing Address']);
+  expect(headers()).toEqual(['First Name', 'Last Name', 'Email', 'Billing Address', 'Date Created']);
   expect(customerRow('7').getByText('gee@example.invalid')).not.toBeNull();
 });
 
@@ -105,7 +115,7 @@ test('Customers: ID switched on draws its header and the customer id', async () 
   expect(customerRow('7').queryByText('7')).toBeNull();
   openPanel('customers');
   toggle('customers', 'id');
-  expect(headers()).toEqual(['ID', 'First Name', 'Last Name', 'Email', 'Billing Address']);
+  expect(headers()).toEqual(['ID', 'First Name', 'Last Name', 'Email', 'Billing Address', 'Date Created']);
   expect(customerRow('7').getByText('7')).not.toBeNull();
   expect(customerRow('9').getByText('9')).not.toBeNull();
 });

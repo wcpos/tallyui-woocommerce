@@ -41,11 +41,18 @@ export function dayHeading(key: string, now: Date): string {
   return relative(key, now) ?? `${WEEKDAYS[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
 }
 
+/** v2's `day` (hooks/use-store-day-label.ts): 'Today', 'Yesterday', else 'EEE d MMM'; '' when the date is unreadable. */
+export function dayLabel(iso: string, now: Date): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return relative(dayKey(date), now) ?? `${WEEKDAYS[date.getDay()].slice(0, 3)} ${date.getDate()} ${MONTHS[date.getMonth()]}`;
+}
+
 /** v2's Date Created cell (`dateTime`): 'Today · 14:41', 'Yesterday · 09:05', else 'EEE d MMM · HH:mm'. */
 export function dateTimeLabel(iso: string, now: Date): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '';
-  const day = relative(dayKey(date), now) ?? `${WEEKDAYS[date.getDay()].slice(0, 3)} ${date.getDate()} ${MONTHS[date.getMonth()]}`;
+  const day = dayLabel(iso, now);
   return `${day} · ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 

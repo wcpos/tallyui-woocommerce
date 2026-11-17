@@ -7,6 +7,7 @@ import { PortalHost } from '@tallyui/primitives';
 import { CustomersScreen } from '../components/customers-screen';
 import { CatalogueView } from '../components/catalogue-view';
 import { Toaster } from '../components/toaster';
+import { areaColumnsKey } from '../lib/area-columns';
 import { dismissToast } from '../lib/toast/toast';
 import { CREATE_CUSTOMERS_DENIED } from '../lib/auth/capabilities';
 import type { CustomerSource } from '../lib/customers/customer-source';
@@ -44,6 +45,34 @@ async function findRows(search = vi.fn<CustomerSource['search']>().mockResolvedV
 }
 
 const searchBox = () => screen.getByPlaceholderText('Search Customers');
+
+test('Date Created follows Billing Address and reads Today, a short date or —', async () => {
+  await findRows(vi.fn<CustomerSource['search']>().mockResolvedValue([
+    { ...gee, createdAt: new Date().toISOString() },
+    { ...ada, createdAt: '2023-08-21T12:00:00Z' },
+    { id: '11', name: 'Cy Brown', firstName: 'Cy', lastName: 'Brown' },
+  ]));
+  expect(screen.getAllByRole('columnheader').map(node => node.textContent).filter(Boolean))
+    .toEqual(['First Name', 'Last Name', 'Email', 'Billing Address', 'Date Created']);
+  expect(within(screen.getByTestId('customers-row-7')).getByText('Today')).not.toBeNull();
+  expect(within(screen.getByTestId('customers-row-9')).getByText('Mon 21 Aug')).not.toBeNull();
+  expect(within(screen.getByTestId('customers-row-11')).getByText('—')).not.toBeNull();
+  for (const row of screen.getAllByTestId(/^customers-row-/)) {
+    expect(row.textContent).not.toContain('2023-08-21T12:00:00Z');
+  }
+});
+
+test('saved column prefs from before Date Created still show it, on by default', async () => {
+  localStorage.setItem(areaColumnsKey('customers'), JSON.stringify([
+    { id: 'avatar_url', visible: true }, { id: 'id', visible: false },
+    { id: 'first_name', visible: true }, { id: 'last_name', visible: true },
+    { id: 'email', visible: false }, { id: 'billing', visible: true },
+  ]));
+  await findRows(vi.fn<CustomerSource['search']>().mockResolvedValue([{ ...gee, createdAt: '2023-08-21T12:00:00Z' }]));
+  expect(screen.getAllByRole('columnheader').map(node => node.textContent).filter(Boolean))
+    .toEqual(['First Name', 'Last Name', 'Billing Address', 'Date Created']);
+  expect(within(screen.getByTestId('customers-row-7')).getByText('Mon 21 Aug')).not.toBeNull();
+});
 
 test('on open it lists the store\'s default customers', async () => {
   const { search } = renderScreen(vi.fn<CustomerSource['search']>().mockResolvedValue([gee, ada]));
