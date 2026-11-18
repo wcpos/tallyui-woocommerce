@@ -77,6 +77,14 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
   const dp = minorUnitDigits(sale.order.currency);
   const quick = method.givesChange ? quickTenderedAmounts(applied, QUICK_TENDER_STEPS.map(step => step * 10 ** dp)) : [];
   const legs = sale.order.payments.length;
+  // WCPOS v2 mirrors the last leg only once the store answers (record-manual-payment.ts:198,274) and swaps the pane for Done
+  // at a zero balance (checkout-body.ts:28), so its label and chip (tender-pane.tsx:383-396, 906-918) never read $0.00:
+  // while the paying leg saves, they read what was due before it, and count it as the payment being taken.
+  const before = multi && sale.saving && balance === 0 && legs > 0 ? sale.order.payments[legs - 1]!.amountMinor - sale.order.changeDueMinor : null;
+  const counted = before === null ? legs : legs - 1;
+  const heldPlan = before === null ? null : activePlan(state.plan, since.length - 1, before);
+  const held = heldPlan && before !== null ? planLegs(heldPlan, sinceRows.slice(0, -1), before).label : null;
+  const shown = before ?? balance;
   // WCPOS v2: tender-pane.tsx:117-118, tender-figures.ts:165. The balance is 0 once the last leg is in, so the entry
   // against it would read as all change: paid in full, the header shows the order's change while it saves.
   const change = multi && balance === 0 && legs > 0 ? sale.order.changeDueMinor : changeMinor(state.entryMinor, applied, method.givesChange);
@@ -135,8 +143,9 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
     {/* WCPOS v2: tender-pane.tsx:415-429. */}
     <View className="flex-row items-center justify-center gap-2">
       <Text testID="checkout-label" className="text-center text-sm text-muted-foreground">
-        {planned ? `Payment ${planned.label.n} of ${planned.label.ways} · ${fmt(balance)} left` : multi && legs > 0 ? `Payment ${legs + 1} · ${fmt(balance)} left`
-          : <>To pay{state.entryMinor !== balance ? <>{' '}<Text testID="checkout-balance" className="tabular-nums">{fmt(balance)}</Text></> : null}</>}
+        {planned ? `Payment ${planned.label.n} of ${planned.label.ways} · ${fmt(balance)} left` : held ? `Payment ${held.n} of ${held.ways} · ${fmt(shown)} left`
+          : multi && counted > 0 ? `Payment ${counted + 1} · ${fmt(shown)} left`
+          : <>To pay{state.entryMinor !== shown ? <>{' '}<Text testID="checkout-balance" className="tabular-nums">{fmt(shown)}</Text></> : null}</>}
       </Text>
       {multi && balance > 0 && <Pressable accessibilityRole="button" testID="checkout-split-chip" aria-pressed={on}
         className={filterChipClassName(on)} disabled={sale.saving}
@@ -192,7 +201,7 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
       <Pressable accessibilityRole="button" testID={method.givesChange ? 'checkout-quick-exact' : 'checkout-quick-balance'}
         className={filterChipClassName(false)} disabled={sale.saving} onPress={() => dispatch({ type: 'set-entry', minor: balance })}>
         <Text className={filterChipTextClassName(false)}>
-          {method.givesChange ? `Exact ${fmt(balance)}` : state.entryMinor === balance ? 'Full balance' : `Full balance ${fmt(balance)}`}
+          {method.givesChange ? `Exact ${fmt(shown)}` : state.entryMinor === shown ? 'Full balance' : `Full balance ${fmt(shown)}`}
         </Text>
       </Pressable>
     </View>
