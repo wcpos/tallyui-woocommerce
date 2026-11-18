@@ -10,10 +10,22 @@ export const RECENT_ERRORS_LIMIT = 10;
 // v2 buildDebugInfo lists the first 10 stuck records under their full count.
 export const DEBUG_STUCK_RECORDS_LIMIT = 10;
 
+export type LevelKind = LogLevel | 'action' | 'sync';
+// v2 displayKind (logs/logs-logic.ts:64-80), derived, never stored: severity wins, then an actor reads as an action,
+// then debug (it outranks the domain, so verbose rows stand out of the feed), then the sync domain, else the level.
+export function displayKind(row: LogRecord): LevelKind {
+  if (row.level === 'error' || row.level === 'warn') return row.level;
+  if (hasActor(row)) return 'action';
+  if (row.level === 'debug') return 'debug';
+  return SYNC_SCOPES.includes(row.scope) ? 'sync' : row.level;
+}
+
 // v2 presetFilters: debug rows show under All, Actions and Sync only while verbose diagnostics is on; Errors stays
-// error-only. Actions keeps only what a person did: rows whose actor names an id or a name.
-export function matchesLogFilter(row: LogRecord, preset: LogPreset, level?: LogLevel, verbose = false): boolean {
-  if (level !== undefined && row.level !== level) return false;
+// error-only. Actions keeps only what a person did: rows whose actor names an id or a name. The preset is a domain
+// filter and the kind a display-kind filter (logs-logic.ts:94-102): they compose, so Sync + verbose keeps debug sync
+// rows that the sync kind leaves out.
+export function matchesLogFilter(row: LogRecord, preset: LogPreset, kind?: LevelKind, verbose = false): boolean {
+  if (kind !== undefined && displayKind(row) !== kind) return false;
   if (preset === 'actions') return presetFilters('actions', verbose).level.includes(row.level) && hasActor(row);
   return (verbose || row.level !== 'debug')
     && (preset === 'all' || (preset === 'errors' ? row.level === 'error' : SYNC_SCOPES.includes(row.scope)));

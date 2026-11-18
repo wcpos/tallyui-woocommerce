@@ -2,12 +2,11 @@ import { useEffect, useState, type JSX } from 'react';
 import { Pressable, View } from 'react-native';
 import { Button, SearchInput, Text } from '@tallyui/components';
 import type { SyncCadenceRunner } from '@tallyui/database';
-import type { LogLevel } from '@tallyui/pos';
 import { useCheckStatusLabel } from '../lib/health/use-check-status';
 import { useIsWide } from '../lib/layout/wide';
 import type { LogCollection, LogRecord } from '../lib/logs/log-store';
-import { IDLE_OUTBOX_STATE, buildDebugInfo, buildLogEntryReport, formatDurationMs, formatLogTime, logStats, matchesLogFilter, outboxSyncStats,
-  type LogPreset, type OutboxSyncStats } from '../lib/logs/log-view';
+import { IDLE_OUTBOX_STATE, buildDebugInfo, buildLogEntryReport, displayKind, formatDurationMs, formatLogTime, logStats, matchesLogFilter,
+  outboxSyncStats, type LevelKind, type LogPreset, type OutboxSyncStats } from '../lib/logs/log-view';
 import { useVerboseDiagnostics } from '../lib/logs/verbose';
 import { useSearchTerm } from '../lib/search-term';
 import { toast } from '../lib/toast/toast';
@@ -53,16 +52,17 @@ function Chip({ testID, label, on, pressed, onPress }: {
   </Pressable>;
 }
 
-// v2's LEVEL_TONE dots (logs/ledger.tsx:40, components/src/lib/tone.ts): error bad, warn warning, the rest muted.
-const LEVEL_DOT: Record<LogLevel, string> = {
-  error: 'bg-destructive', warn: 'bg-warning', info: 'bg-muted-foreground', debug: 'bg-muted-foreground' };
+// v2's LEVEL_TONE dots (logs/ledger.tsx:39-47, components/src/lib/tone.ts): error bad, warn warning, action default
+// (bg-primary, status-badge/index.tsx:20), sync info (bg-info, tone.ts:39-44), info and debug muted.
+const LEVEL_DOT: Record<LevelKind, string> = { error: 'bg-destructive', warn: 'bg-warning', action: 'bg-primary',
+  sync: 'bg-info', info: 'bg-muted-foreground', debug: 'bg-muted-foreground' };
 // v2's table head text (TABLE_HEAD_TEXT, components/src/text/ladder.ts:18).
 const HEAD = 'text-xs uppercase tracking-wide text-muted-foreground';
 
-function LevelMark({ level }: { level: LogLevel }): JSX.Element {
+function LevelMark({ kind, testID }: { kind: LevelKind; testID: string }): JSX.Element {
   return <>
-    <View aria-hidden className={`size-1.5 shrink-0 rounded-full ${LEVEL_DOT[level]}`} />
-    <Text className="text-sm text-muted-foreground">{level}</Text>
+    <View testID={`${testID}-dot`} aria-hidden className={`size-1.5 shrink-0 rounded-full ${LEVEL_DOT[kind]}`} />
+    <Text className="text-sm text-muted-foreground">{kind}</Text>
   </>;
 }
 
@@ -79,7 +79,8 @@ function StatusCell({ row, expanded, onToggle, className }: {
         className="z-20 self-end rounded-md bg-destructive/15 px-2 py-0.5 web:hover:bg-destructive/20">
         <Text testID={`logs-code-${row.id}-label`} className="font-mono text-xs font-semibold text-destructive">{row.code}</Text>
       </Pressable>
-      : <View pointerEvents="none">{row.level === 'info' && row.outcome === 'ok'
+      // v2 ledger.tsx:156: ✓ ok on info and action rows.
+      : <View pointerEvents="none">{row.outcome === 'ok' && ['info', 'action'].includes(displayKind(row))
         ? <Text testID={`logs-ok-${row.id}`} className="text-xs font-semibold text-success">✓ ok</Text>
         : <Text className="text-xs text-muted-foreground/50">—</Text>}</View>}
     {/* v2 logs/ledger.tsx:170-176: chevronDown or chevronRight at size sm (size-4, icon/index.tsx:29). */}
@@ -128,7 +129,7 @@ export function LogsScreen({ collection, storeName, siteUrl,
   const phone = !useIsWide();
   const [rows, setRows] = useState<LogRecord[]>([]);
   const [preset, setPreset] = useState<LogPreset>('all');
-  const [level, setLevel] = useState<LogLevel>();
+  const [kind, setKind] = useState<LevelKind>();
   const { verbose, setVerbose } = useVerboseDiagnostics(now);
   useEffect(() => {
     const subscription = collection.find({ sort: [{ id: 'desc' }] }).$.subscribe(
@@ -139,7 +140,7 @@ export function LogsScreen({ collection, storeName, siteUrl,
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggle = (id: string) => setExpanded(previous => ({ ...previous, [id]: !previous[id] }));
   // v2 ANDs the search with the preset, the level and verbose (logs/index.tsx:188, one query of filters and search).
-  const filtered = rows.filter(row => matchesSearch(row, search) && matchesLogFilter(row, preset, level, verbose));
+  const filtered = rows.filter(row => matchesSearch(row, search) && matchesLogFilter(row, preset, kind, verbose));
   // The strip counts what All shows: debug rows only while verbose is on.
   const counted = verbose ? rows : rows.filter(row => row.level !== 'debug');
   // The footer's total is what All shows for the search, as v2's count follows its search.
@@ -179,7 +180,7 @@ export function LogsScreen({ collection, storeName, siteUrl,
         {(['all', 'actions', 'errors', 'sync'] as const).map(value => <Chip key={value} testID={`logs-chip-${value}`}
           label={{ all: 'All', actions: 'Actions', errors: 'Errors', sync: 'Sync' }[value]} on={preset === value}
           pressed={preset === value} onPress={() => setPreset(value)} />)}
-        {level !== undefined && <Chip testID="logs-chip-kind" label={`${level} ×`} on onPress={() => setLevel(undefined)} />}
+        {kind !== undefined && <Chip testID="logs-chip-kind" label={`${kind} ×`} on onPress={() => setKind(undefined)} />}
         <View className="flex-1" />
         <Chip testID="logs-chip-verbose" label={`Verbose diagnostics: ${verbose ? 'on' : 'off'}`} on={verbose}
           pressed={verbose} onPress={() => setVerbose(!verbose)} />
@@ -197,16 +198,18 @@ export function LogsScreen({ collection, storeName, siteUrl,
       {filtered.map(row => {
         const took = formatDurationMs(row.durationMs);
         const time = formatLogTime(row.timestamp, now());
+        // v2 ledger.tsx:182-210, :307: the pill and the phone level show the display kind, and the pill filters by it.
+        const rowKind = displayKind(row);
         // v2 logs/ledger.tsx:246 (hairline rule) and :288 (the press target's label).
         return <View key={row.id} testID={`logs-row-${row.id}`} className="border-b border-border/50">
         {/* v2 logs/ledger.tsx:296-320: the phone row, with status beside its first line. */}
         {phone ? <View className="relative">
           <Pressable testID={`logs-row-sm-${row.id}`} role="button" aria-expanded={!!expanded[row.id]}
-            aria-label={`${time} · ${row.level} · ${row.message}`} onPress={() => toggle(row.id)} className="gap-0.5 py-2">
+            aria-label={`${time} · ${rowKind} · ${row.message}`} onPress={() => toggle(row.id)} className="gap-0.5 py-2">
             <View testID={`logs-line-sm-${row.id}`} className="flex-row items-center gap-2 pr-32">
               <Text testID={`logs-time-sm-${row.id}`} className="font-mono text-sm tabular-nums text-muted-foreground">
                 {time}</Text>
-              <View testID={`logs-level-sm-${row.id}`} className="flex-row items-center gap-1.5"><LevelMark level={row.level} /></View>
+              <View testID={`logs-level-sm-${row.id}`} className="flex-row items-center gap-1.5"><LevelMark kind={rowKind} testID={`logs-level-sm-${row.id}`} /></View>
             </View>
             <Text testID={`logs-event-sm-${row.id}`} className="text-sm">{row.message}</Text>
             <View testID={`logs-subline-sm-${row.id}`} className="flex-row flex-wrap items-center gap-x-1.5 gap-y-0.5 pt-0.5">
@@ -219,14 +222,14 @@ export function LogsScreen({ collection, storeName, siteUrl,
             className="absolute right-0 top-2 z-10 flex-row items-center justify-end gap-1.5" />
         </View> : <View className="relative flex-row items-baseline gap-3 py-2 web:hover:bg-accent/20">
           <Pressable testID={`logs-toggle-${row.id}`} role="button" aria-expanded={!!expanded[row.id]}
-            aria-label={`${time} · ${row.level} · ${row.message}`} onPress={() => toggle(row.id)} className="absolute inset-0 z-10" />
+            aria-label={`${time} · ${rowKind} · ${row.message}`} onPress={() => toggle(row.id)} className="absolute inset-0 z-10" />
           <Text className="w-20 font-mono text-sm tabular-nums text-muted-foreground">{time}</Text>
           <View className="z-20 w-16">
-            <Pressable testID={`logs-pill-${row.id}`} role="button" aria-selected={level === row.level}
-              onPress={() => setLevel(level === row.level ? undefined : row.level)}
+            <Pressable testID={`logs-pill-${row.id}`} role="button" aria-selected={kind === rowKind}
+              onPress={() => setKind(kind === rowKind ? undefined : rowKind)}
               className={`-mx-1.5 flex-row items-center gap-1.5 self-start rounded-full px-1.5 py-0.5 web:hover:bg-accent/60${
-                level === row.level ? ' bg-muted' : ''}`}>
-              <LevelMark level={row.level} />
+                kind === rowKind ? ' bg-muted' : ''}`}>
+              <LevelMark kind={rowKind} testID={`logs-pill-${row.id}`} />
             </Pressable>
           </View>
           <View className="min-w-0 flex-1">
