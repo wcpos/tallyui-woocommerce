@@ -6,6 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
   Text } from '@tallyui/components';
 import { countFresh } from '@tallyui/pos';
 import { estimateCollectionSize, formatBytes } from '../lib/health/database-stats';
+import { useOnlineStatus } from '../lib/online/online-status';
 import { toast } from '../lib/toast/toast';
 import { MoreIcon } from './icons';
 
@@ -55,6 +56,7 @@ function CountRow({ row, onCount }: { row: DatabaseCountRow; onCount?(key: strin
   const [size, setSize] = useState<number | null>(null);
   const [syncing, setSyncing] = useState(false);
   const guard = useRef(false);
+  const offline = useOnlineStatus().status === 'offline';
   // Read through a ref so a new callback never resubscribes: one count subscription per collection
   const report = useRef({ key: row.key, onCount });
   report.current = { key: row.key, onCount };
@@ -75,6 +77,8 @@ function CountRow({ row, onCount }: { row: DatabaseCountRow; onCount?(key: strin
   }, [row.collection]);
 
   async function sync() {
+    // v2 use-manual-sync.ts:40-53: an offline device skips the tick and says so.
+    if (offline) return void toast({ type: 'warning', title: 'Sync didn’t run.', description: 'This device is offline.' });
     if (guard.current) return;
     guard.current = true;
     setSyncing(true);
