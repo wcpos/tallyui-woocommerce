@@ -64,9 +64,9 @@ export function ProductTile({ doc, fields, onPress, tax, inCart = 0 }: ProductTi
     soldOut ? (fields.price || fields.stock) && <Text key="money" testID={`tile-sold-out-${id}`} className="text-base font-bold">Sold out</Text>
       : fields.price && <TileMoney key="money" doc={doc} id={id} fields={fields} tax={tax} variable={variable} />,
     options && <Text key="options" testID={`tile-options-${id}`} className="text-xs text-foreground/70">{options}</Text>,
-    fields.category && category && <Text key="category" className="text-xs text-muted-foreground" numberOfLines={1}>{category}</Text>,
-    fields.sku && sku && <Text key="sku" className="text-xs text-muted-foreground" numberOfLines={1}>{sku}</Text>,
-    fields.barcode && barcode && <Text key="barcode" className="text-xs text-muted-foreground" numberOfLines={1}>{barcode}</Text>,
+    fields.sku && sku && <Text key="sku" testID={`tile-sku-${id}`} className="text-xs text-muted-foreground" numberOfLines={1}>SKU {sku}</Text>,
+    fields.barcode && barcode && <Text key="barcode" testID={`tile-barcode-${id}`} className="text-xs text-muted-foreground" numberOfLines={1}>{barcode}</Text>,
+    fields.category && category && <Text key="category" testID={`tile-category-${id}`} className="text-xs text-muted-foreground" numberOfLines={1}>{category}</Text>,
   ].filter(Boolean);
   const content = <View testID={`product-tile-${id}`} className="relative">
     {variable && <View testID={`tile-stack-${id}`} pointerEvents="none" style={StyleSheet.absoluteFill}>
