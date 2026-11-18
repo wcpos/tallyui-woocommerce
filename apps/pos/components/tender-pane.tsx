@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
-import { Button, Text } from '@tallyui/components';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Text } from '@tallyui/components';
 import { formatMoney, minorUnitDigits } from '@tallyui/core';
 import { activePlan, appliedMinor, changeMinor, initTenderState, planLegs, quickTenderedAmounts, tenderReducer } from '@tallyui/pos';
 import type { TenderKey, useSale } from '@tallyui/pos';
@@ -30,6 +30,7 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
     { methodId: sale.stage.kind === 'tender' && sale.stage.method === 'cash' ? 'pos_cash' : 'pos_card', balanceMinor: multi ? sale.order.balanceDueMinor : sale.order.totalMinor },
     initTenderState);
   const [reference, setReference] = useState('');
+  const [asking, setAsking] = useState(false);
   const online = useIsOnline();
   const due = multi ? sale.order.balanceDueMinor : sale.order.totalMinor;
   // WCPOS v2: tender-pane.tsx:337-352, 485-584.
@@ -66,6 +67,16 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
   const suffix = planned ? ` · ${planned.label.n} of ${planned.label.ways}` : !multi ? '' : applied < balance ? ` · ${fmt(balance - applied)} left` : legs > 0 ? ' · pays it off' : '';
   // A failed save (saving with an error) offers Retry; paid in full with nothing saving offers the completion again.
   const finish = multi && (sale.saving ? sale.error !== null : balance === 0 && legs > 0);
+
+  // WCPOS v2: use-tender-flow.ts:853-872. Offline every tile settles later, so a press with money due asks first;
+  // the gate is held across the question, so a second press cannot open a second prompt.
+  function press() {
+    if (taking.current) return;
+    if (!online && balance > 0) { taking.current = true; setAsking(true); return; }
+    take();
+  }
+  const cancelOffline = () => { taking.current = false; setAsking(false); };
+  const confirmOffline = () => { taking.current = false; setAsking(false); take(); };
 
   function take() {
     if (taking.current) return;
@@ -164,7 +175,7 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
     {method.method === 'external' ? <TextInput accessibilityLabel="Terminal reference" placeholder="Terminal reference" maxLength={REFERENCE_MAX}
       value={reference} onChangeText={setReference} className="rounded-md border border-border px-3 py-2 text-foreground" /> : null}
     <Button size="lg" testID="checkout-commit" disabled={finish ? false : sale.saving || applied <= 0 || (!multi && applied < balance) || noChange}
-      onPress={finish ? () => { void sale.complete(); } : take}>
+      onPress={finish ? () => { void sale.complete(); } : press}>
       <Text>{finish ? sale.error ? 'Retry' : 'Complete sale' : sale.saving ? 'Saving order…' : `Take ${fmt(applied)} in ${method.title}${suffix}`}</Text>
     </Button>
     {sale.error ? <Text accessibilityRole="alert" className="text-destructive">{sale.error}</Text> : null}
@@ -175,5 +186,18 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
       </Pressable>
     </> : null}
     <Button variant="outline" onPress={() => sale.cancelTender()}><Text>Back</Text></Button>
+    {/* WCPOS v2: use-confirm.tsx:46-63; the amount is the one that will be recorded, not the keyed entry. */}
+    {asking && <AlertDialog open onOpenChange={next => { if (!next) cancelOffline(); }}>
+      <AlertDialogContent testID="checkout-offline-dialog">
+        <AlertDialogHeader>
+          <AlertDialogTitle>{`Take ${fmt(applied)} in ${method.title} while offline?`}</AlertDialogTitle>
+          <AlertDialogDescription>The sale is held on this device and sent when the store is back. If the store refuses it, the sale appears under Needs attention in Orders.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel asChild onPress={cancelOffline}><Button variant="outline" testID="checkout-offline-cancel"><Text>Cancel</Text></Button></AlertDialogCancel>
+          <AlertDialogAction asChild onPress={confirmOffline}><Button testID="checkout-offline-confirm"><Text>{`Take ${fmt(applied)} in ${method.title}`}</Text></Button></AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>}
   </View>;
 }
