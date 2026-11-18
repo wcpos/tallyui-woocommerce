@@ -17,6 +17,7 @@ import { CART_SETTINGS_DEFAULTS, isQuickDiscount, LINE_SORTS, normalizeLineSort,
 import type { CartSettings } from '../lib/sale/cart-settings';
 import { AutoPrintReceiptSetting } from './auto-print-setting';
 import { RECEIPT_SETTINGS_DEFAULTS, saveReceiptSettings } from '../lib/receipts/receipt-settings';
+import { withRemovedToasts } from '../lib/toast/removed-from-cart-toast';
 
 // v2's UISettingsDialog trigger is the `filters` icon; in tabler, v2's default set, that is `adjustments-horizontal`.
 const FiltersIcon = createSvgIcon('FiltersIcon', () => <>
@@ -230,7 +231,7 @@ export function CartWithSettings({ position, onPositionChange, openOrders, coupo
       <CartSettingsDialog position={position} onPositionChange={onPositionChange} settings={settings} onSettingsChange={setSettings} />
     </View>
     {/* Sort a copy for display only: the order builder's lineItems keep the add order (receipts, parking, the order). */}
-    <Cart {...cartProps} quickDiscounts={settings.quickDiscounts} sale={{ ...sale, order: { ...sale.order, lineItems: sortCartLines(sale.order.lineItems, settings.sortLines) } }} />
+    <Cart {...cartProps} quickDiscounts={settings.quickDiscounts} sale={{ ...sale, ...withRemovedToasts(sale), order: { ...sale.order, lineItems: sortCartLines(sale.order.lineItems, settings.sortLines) } }} />
     {settings.openOrdersPosition !== 'top' && openOrdersStrip}
   </>;
 }
