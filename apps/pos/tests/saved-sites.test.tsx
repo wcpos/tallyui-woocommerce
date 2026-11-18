@@ -33,6 +33,14 @@ const c: Session = {
   },
 };
 const cUuid = c.tokens.user.uuid;
+const d: Session = {
+  site: second,
+  tokens: {
+    accessToken: 'access-d', refreshToken: 'refresh-d', expiresAt: 1791239000 + 86400,
+    user: { id: 4, uuid: '12345678-1234-1234-1234-123456789ddd', displayName: 'Cashier D' },
+  },
+};
+const dUuid = d.tokens.user.uuid;
 const onOpenPos = vi.fn<SavedSitesProps['onOpenPos']>();
 const onSignInAt = vi.fn(), onRemoveUser = vi.fn(), onRemoveSite = vi.fn();
 beforeEach(() => {
@@ -42,9 +50,9 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
-function renderTwo() {
+function renderTwo(secondCashiers: Session[] = [c]) {
   cleanup();
-  render(<><SavedSites sites={[{ site, cashiers: [a, b] }, { site: second, cashiers: [c] }]} onOpenPos={onOpenPos}
+  render(<><SavedSites sites={[{ site, cashiers: [a, b] }, { site: second, cashiers: secondCashiers }]} onOpenPos={onOpenPos}
     onSignInAt={onSignInAt} onRemoveUser={onRemoveUser} onRemoveSite={onRemoveSite} /><PortalHost /></>);
 }
 
@@ -168,4 +176,16 @@ test('a fold keeps the picked cashier', () => {
   fireEvent.click(screen.getAllByTestId('saved-site-trigger')[0]);
   expect(screen.getByTestId(`saved-user-select-${bUuid}`).getAttribute('aria-checked')).toBe('true');
   expect(screen.getByTestId(`saved-user-select-${aUuid}`).getAttribute('aria-checked')).toBe('false');
+});
+
+test('a pick in the second site stays with that site', () => {
+  renderTwo([c, d]);
+  const checked = (uuid: string) => screen.getByTestId(`saved-user-select-${uuid}`).getAttribute('aria-checked');
+  fireEvent.click(screen.getAllByTestId('saved-site-trigger')[1]);
+  fireEvent.click(screen.getByTestId(`saved-user-select-${dUuid}`));
+  expect([checked(dUuid), checked(cUuid)]).toEqual(['true', 'false']);
+  fireEvent.click(screen.getAllByTestId('saved-site-trigger')[0]);
+  expect([checked(aUuid), checked(bUuid)]).toEqual(['true', 'false']);
+  fireEvent.click(screen.getAllByTestId('saved-site-trigger')[1]);
+  expect([checked(dUuid), checked(cUuid)]).toEqual(['true', 'false']);
 });
