@@ -22,8 +22,8 @@ const MAX_ATTEMPTS = 5;
 // v2 test-panel.tsx headlines (settings.barcode_test_*).
 function verdict(attempt: WedgeAttempt | null): string {
   if (!attempt) return 'Scan into this page to see keystroke timing';
-  if (attempt.result === 'scan') return `Detected as a scan → ${attempt.code}`;
-  if (attempt.result === 'too_short') return `Lower minimum length to ${attempt.code.length} — this code is ${attempt.code.length} characters`;
+  // v2 analyze-trace.ts:54: a too-short code is a detected scan; its fix is the suggestion notice below.
+  if (attempt.result === 'scan' || attempt.result === 'too_short') return `Detected as a scan → ${attempt.code}`;
   if (attempt.avgGapMs === undefined) return 'Treated as typing — only one key pressed, so there are no gaps to measure';
   return `Treated as typing (average gap ${Math.round(attempt.avgGapMs)}ms) — correctly ignored`;
 }
@@ -53,6 +53,8 @@ function TextField({ testID, label, value, onChange }: { testID: string; label: 
 function ScanTestPanel({ settings, update }: { settings: ScanSettings; update(patch: Partial<ScanSettings>): void }): JSX.Element {
   const [attempts, setAttempts] = useState<WedgeAttempt[]>([]);
   const attempt = attempts[0] ?? null;
+  // v2 analyze-trace.ts:54 (tooShort = detectedAsScan && …): too short gets the scan check and timing as well.
+  const detected = attempt?.result === 'scan' || attempt?.result === 'too_short';
   // Claims the wedge while the page is open, so a test scan never rings up on the till underneath.
   useWedgeScanner(() => {}, true, next => setAttempts(prev => [next, ...prev].slice(0, MAX_ATTEMPTS)));
   return (
@@ -68,11 +70,11 @@ function ScanTestPanel({ settings, update }: { settings: ScanSettings; update(pa
       <View className="flex-row items-center gap-2">
         {attempt && <Badge testID="barcode-test-result" variant={RESULT_VARIANTS[attempt.result]} label={RESULT_WORDS[attempt.result]} />}
         {/* v2 test-panel.tsx:226-240: a scan is the success check and a subheading, then its timing as help. */}
-        {attempt?.result === 'scan' && <CheckIcon testID="barcode-test-scan-check" size={16} className="text-success" />}
-        <Text testID="barcode-test-verdict" className={`flex-1 ${attempt?.result === 'scan' ? 'text-base font-medium text-foreground' : 'text-sm text-muted-foreground'}`}>{verdict(attempt)}</Text>
+        {detected && <CheckIcon testID="barcode-test-scan-check" size={16} className="text-success" />}
+        <Text testID="barcode-test-verdict" className={`flex-1 ${detected ? 'text-base font-medium text-foreground' : 'text-sm text-muted-foreground'}`}>{verdict(attempt)}</Text>
       </View>
-      {attempt?.result === 'scan' && <Text testID="barcode-test-scan-detail" className={SETTINGS_HELP_CLASS}>
-        {`Average keystroke gap ${Math.round(attempt.avgGapMs ?? 0)}ms, under the ${settings.threshold}ms threshold`}</Text>}
+      {detected && <Text testID="barcode-test-scan-detail" className={SETTINGS_HELP_CLASS}>
+        {`Average keystroke gap ${Math.round(attempt?.avgGapMs ?? 0)}ms, under the ${settings.threshold}ms threshold`}</Text>}
       {/* v2 test-panel.tsx:247-256: a Notice tone="info" per suggestion with one Apply action. */}
       {attempt && scanSuggestions(attempt, settings).map(s => (
         <View key={s.kind} testID={`barcode-test-suggestion-${s.kind}`} className="gap-2 rounded-lg border border-info bg-info/10 px-3 py-2.5">
