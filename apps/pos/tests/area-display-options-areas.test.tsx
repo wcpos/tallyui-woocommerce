@@ -31,6 +31,7 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 /** The bar's controls among `ids`, in the order they are drawn. */
@@ -184,6 +185,9 @@ test('Coupons: switching Usage off drops its header and cells, and Restore bring
 });
 
 test('Coupons: Status and Date Created switched on draw v2 status words and the created day', async () => {
+  // Only Date is faked, so effects and promises run; "now" is long after 1 Mar, never Today or Yesterday.
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(Date.parse('2026-11-18T10:00:00.000Z'));
   const db = await renderCoupons();
   expect(screen.queryByTestId('coupon-status-10off')).toBeNull();
   openPanel('coupons');
@@ -192,8 +196,8 @@ test('Coupons: Status and Date Created switched on draw v2 status words and the 
   expect(couponHeaders()).toEqual([...COUPON_DEFAULT_HEADERS, 'Status', 'Date Created']);
   expect(screen.getByTestId('coupon-status-10off').textContent).toBe('Published');
   expect(screen.getByTestId('coupon-status-drafty').textContent).toBe('Draft');
-  // The created day reads as the expiry date does: the locale's day, month and year, no time.
-  expect(screen.getByTestId('coupon-date_created_gmt-10off').textContent).toBe('Mar 1, 2026');
+  // The created day reads in v2's day words (Today, Yesterday, else 'EEE d MMM'): 1 Mar 2026 was a Sunday.
+  expect(screen.getByTestId('coupon-date_created_gmt-10off').textContent).toBe('Sun 1 Mar');
   expect(screen.queryByTestId('coupon-date_modified_gmt-10off')).toBeNull();
   await db.close();
 });
