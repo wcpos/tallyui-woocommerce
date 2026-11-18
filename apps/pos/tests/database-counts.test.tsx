@@ -5,7 +5,10 @@ import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { PortalHost } from '@tallyui/primitives';
 import { DatabaseCounts, type DatabaseCountRow } from '../components/database-counts';
+import { dismissToast, getToasts } from '../lib/toast/toast';
 import { classesOf } from './classes-of';
+
+const toasts = () => getToasts().map(({ type, title, description }) => ({ type, title, description }));
 
 let db: RxDatabase;
 let products: RxCollection;
@@ -18,7 +21,7 @@ beforeEach(async () => {
   ({ products, coupons } = await db.addCollections({ products: { schema }, coupons: { schema } }));
   rows = [{ key: 'products', label: 'Products', collection: products }, { key: 'coupons', label: 'Coupons', collection: coupons }];
 });
-afterEach(async () => { cleanup(); await db.close(); });
+afterEach(async () => { act(() => dismissToast()); cleanup(); await db.close(); });
 
 test('counts each collection and follows writes', async () => {
   await products.bulkInsert([{ id: 'a' }, { id: 'b' }]);
@@ -104,20 +107,26 @@ test('Check for changes now runs only that row\'s sync, once at a time', async (
   await act(async () => { resolve(); await pending; });
   syncNow('products');
   expect(onSyncNow).toHaveBeenCalledTimes(2);
-  expect(screen.queryByTestId('db-sync-failed-products')).toBeNull();
+  expect(toasts()).toEqual([]);
 });
 
-test('a failed sync says so until the next try', async () => {
+test('a failed check toasts v2’s error and hint, a good one is quiet', async () => {
   const onSyncNow = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(undefined);
   rows[0].onSyncNow = onSyncNow;
   renderCounts();
   syncNow('products');
-  await waitFor(() => expect(screen.getByTestId('db-sync-failed-products').textContent).toBe('Couldn’t sync with the server.'));
+  await waitFor(() => expect(toasts()).toEqual([{ type: 'error', title: 'Couldn’t sync with the server.',
+    description: 'Check your connection and try again. Logs has the details.' }]));
+  expect(screen.queryByTestId('db-sync-failed-products')).toBeNull();
+  expect(screen.getByTestId('db-row-products').textContent).not.toContain('Couldn’t sync with the server.');
+  act(() => dismissToast());
   // The ⋮ comes back once the failed sync settles
   await waitFor(() => expect(screen.getByTestId('db-row-menu-products').getAttribute('aria-disabled')).not.toBe('true'));
   syncNow('products');
-  await waitFor(() => expect(screen.queryByTestId('db-sync-failed-products')).toBeNull());
   expect(onSyncNow).toHaveBeenCalledTimes(2);
+  // Settled once the ⋮ is enabled again: a good check leaves no toast
+  await waitFor(() => expect(screen.getByTestId('db-row-menu-products').getAttribute('aria-disabled')).not.toBe('true'));
+  expect(toasts()).toEqual([]);
 });
 
 test('v2\'s flat table: caption-rank heads, ruled rows at 61 px, no inner box', async () => {

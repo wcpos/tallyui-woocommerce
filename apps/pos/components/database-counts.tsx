@@ -6,6 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
   Text } from '@tallyui/components';
 import { countFresh } from '@tallyui/pos';
 import { estimateCollectionSize, formatBytes } from '../lib/health/database-stats';
+import { toast } from '../lib/toast/toast';
 import { MoreIcon } from './icons';
 
 export interface DatabaseCountRow {
@@ -53,7 +54,6 @@ function CountRow({ row, onCount }: { row: DatabaseCountRow; onCount?(key: strin
   const [count, setCount] = useState<number | null>(null);
   const [size, setSize] = useState<number | null>(null);
   const [syncing, setSyncing] = useState(false);
-  const [failed, setFailed] = useState(false);
   const guard = useRef(false);
   // Read through a ref so a new callback never resubscribes: one count subscription per collection
   const report = useRef({ key: row.key, onCount });
@@ -78,9 +78,9 @@ function CountRow({ row, onCount }: { row: DatabaseCountRow; onCount?(key: strin
     if (guard.current) return;
     guard.current = true;
     setSyncing(true);
-    setFailed(false);
+    // v2 use-manual-sync.ts:33-39, :117-125: a failed check toasts, a good one is quiet.
     try { await row.onSyncNow!(); }
-    catch { setFailed(true); }
+    catch { toast({ type: 'error', title: 'Couldn’t sync with the server.', description: 'Check your connection and try again. Logs has the details.' }); }
     finally { guard.current = false; setSyncing(false); }
   }
   const sizeText = formatBytes(size);
@@ -110,7 +110,6 @@ function CountRow({ row, onCount }: { row: DatabaseCountRow; onCount?(key: strin
           </DropdownMenu>}
         </View>
       </View>
-      {failed && <Text testID={`db-sync-failed-${row.key}`}>Couldn’t sync with the server.</Text>}
     </View>
   );
 }
