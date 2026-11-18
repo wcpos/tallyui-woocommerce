@@ -338,6 +338,11 @@ test('Add new customer opens Add Customer, requires an email and saves', async (
   renderScreen(undefined, undefined, { create });
   fireEvent.click(screen.getByRole('button', { name: 'Add new customer' }));
   expect(screen.getByRole('heading', { name: 'Add Customer' })).not.toBeNull();
+  expect(screen.queryByRole('heading', { name: 'Add new customer' })).toBeNull();
+  // v2 customers/add.tsx:88: a right side sheet, size xl (560px).
+  expect(classesOf('add-customer-dialog')).toEqual(expect.arrayContaining(['right-0', 'top-0', 'h-full', 'max-w-[560px]', 'border-l']));
+  expect(classesOf('add-customer-dialog')).not.toContain('-translate-x-1/2');
+  expect(classesOf('add-customer-dialog')).not.toContain('max-w-lg');
   expect(screen.queryByPlaceholderText('Street address')).toBeNull();
   const submit = () => fireEvent.click(within(screen.getByTestId('customer-form')).getByText('Add Customer'));
   fireEvent.change(screen.getByPlaceholderText('email@example.com'), { target: { value: '   ' } });
