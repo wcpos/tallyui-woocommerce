@@ -81,8 +81,9 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
     if (outbox.enabled && history) void loadPage(1, search);
   }, [outbox.enabled, history, search, value]);
 
-  function scan(code: string) { set(code); }
-  useWedgeScanner(scan, outbox.enabled && opened === null && viewing === null);
+  function scan(code: string) { if (outbox.enabled && opened === null && viewing === null) set(code); }
+  // Orders keeps the claim while a receipt or detail is open, so the till underneath does not ring the scan up.
+  useWedgeScanner(scan, true);
 
   function clear() { set(''); setValue(initial); }
 

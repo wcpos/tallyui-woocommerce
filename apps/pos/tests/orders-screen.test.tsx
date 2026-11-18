@@ -19,6 +19,7 @@ import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 
 const props: ComponentProps<typeof SaleScreen> = {
   storeSettings: noTaxSettings,
@@ -289,4 +290,73 @@ test('a wedge scan searches Orders at once', async () => {
   expect((screen.getByPlaceholderText('Search Orders') as HTMLInputElement).value).toBe('12345678');
   expect(await screen.findByTestId('history-row-902')).not.toBeNull();
   expect(list.mock.calls).toEqual([[1], [1, '12345678']]);
+});
+
+// Stands in for the till's catalogue scanner, which stays mounted under the Orders route.
+function TillScanner({ onScan }: { onScan: (code: string) => void }) {
+  useWedgeScanner(onScan, true);
+  return null;
+}
+
+async function setupOverTill(till: (code: string) => void, list: OrderHistorySource['list']) {
+  render(
+    <SessionProvider>
+      <OutboxProvider transportFor={() => ({ send: async batch => ({ kind: 'results', results: batch.map(applied) }) })} storage={getRxStorageMemory()}>
+        <OrderStoreReady />
+        <TillScanner onScan={till} />
+        <OrdersScreen onBack={() => {}} history={{ list }} storeName={props.storeName} cashierName={props.cashierName} />
+        <PortalHost />
+      </OutboxProvider>
+    </SessionProvider>,
+  );
+  await vi.waitFor(() => expect(screen.getByText('Order store ready')).not.toBeNull());
+  expect(await screen.findByTestId('history-row-901')).not.toBeNull();
+}
+
+function wedge(code: string) {
+  act(() => {
+    for (const key of [...code, 'Enter']) {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    }
+  });
+}
+
+const backFromReceipt = () => screen.getAllByRole('button', { name: 'Back' }).find(button => button.getAttribute('data-testid') !== 'orders-back')!;
+
+test('a wedge scan under Orders searches Orders, not the till underneath', async () => {
+  const till = vi.fn();
+  const list = vi.fn<OrderHistorySource['list']>().mockResolvedValue({ orders: [storeOrder], hasMore: false });
+  await setupOverTill(till, list);
+  wedge('12345678');
+  expect((screen.getByPlaceholderText('Search Orders') as HTMLInputElement).value).toBe('12345678');
+  await vi.waitFor(() => expect(list.mock.calls).toEqual([[1], [1, '12345678']]));
+  expect(till).not.toHaveBeenCalled();
+});
+
+test('with a receipt open a wedge scan reaches neither the search nor the till underneath', async () => {
+  const till = vi.fn();
+  const list = vi.fn<OrderHistorySource['list']>().mockResolvedValue({ orders: [storeOrder], hasMore: false });
+  await setupOverTill(till, list);
+  fireEvent.click(screen.getByTestId(`history-open-${storeOrder.id}`));
+  fireEvent.click(screen.getByTestId('order-modal-receipt'));
+  expect(screen.getByTestId('receipt-order').textContent).toBe('Order 901');
+  wedge('12345678');
+  expect(till).not.toHaveBeenCalled();
+  fireEvent.click(backFromReceipt());
+  fireEvent.click(screen.getByTestId('order-modal-close'));
+  expect((screen.getByPlaceholderText('Search Orders') as HTMLInputElement).value).toBe('');
+  expect(list).toHaveBeenCalledTimes(1);
+});
+
+test("with an order's detail open a wedge scan reaches neither the search nor the till underneath", async () => {
+  const till = vi.fn();
+  const list = vi.fn<OrderHistorySource['list']>().mockResolvedValue({ orders: [storeOrder], hasMore: false });
+  await setupOverTill(till, list);
+  fireEvent.click(screen.getByTestId(`history-open-${storeOrder.id}`));
+  expect(screen.getByTestId('order-modal-title').textContent).toBe('Order #901');
+  wedge('12345678');
+  expect(till).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByTestId('order-modal-close'));
+  expect((screen.getByPlaceholderText('Search Orders') as HTMLInputElement).value).toBe('');
+  expect(list).toHaveBeenCalledTimes(1);
 });
