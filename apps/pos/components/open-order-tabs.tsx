@@ -182,7 +182,7 @@ export function OpenOrderTabs({ parked, current, currentOpenedAt, currency, loca
           <Text testID={`open-order-tab-${id}-amount`} numberOfLines={1} className="text-muted-foreground tabular-nums">
             {formatMoney({ amount: totalMinor, currency }, locale) ?? String(totalMinor)}
             {/* Only the age carries the warning tone; the separator stays muted (v2 TabContent). */}
-            {stale ? <>{' · '}<Text testID={`open-order-tab-${id}-age`} className="font-semibold text-warning">
+            {stale ? <>{' · '}<Text testID={`open-order-tab-${id}-age`} className="font-semibold text-warning-text">
               {`${Math.round(delta / HOUR_MS)} h`}
             </Text></> : null}
           </Text>

@@ -153,7 +153,7 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
         <Text className={filterChipTextClassName(on)}>Split</Text>
       </Pressable>}
       {/* WCPOS v2: tender-pane.tsx:430-434. */}
-      {!online && <Text testID="checkout-offline" className="text-xs text-warning">Offline</Text>}
+      {!online && <Text testID="checkout-offline" className="text-xs text-warning-text">Offline</Text>}
     </View>
     {change > 0 ? <>
       {/* WCPOS v2: tender-pane.tsx:437-449; change is the ok tone, and a later leg names the order total. */}
@@ -162,7 +162,7 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
         {sale.order.totalMinor !== balance ? ` · Total ${fmt(sale.order.totalMinor)}` : ''}</Text>
     </> : <>
       <Text testID="checkout-entry" className={`text-center text-4xl font-semibold tabular-nums text-foreground ${state.entryDirty ? '' : 'opacity-70'}`}>{fmt(state.entryMinor)}</Text>
-      <Text testID="checkout-entry-hint" className={`min-h-6 text-center ${noChange ? 'text-warning' : 'text-muted-foreground'}`}>{hint}</Text>
+      <Text testID="checkout-entry-hint" className={`min-h-6 text-center ${noChange ? 'text-warning-text' : 'text-muted-foreground'}`}>{hint}</Text>
     </>}
     {/* WCPOS v2: tender-pane.tsx:475-483 draws the method tiles under the figure and its hint, before the plan strip and the quick amounts. */}
     <View className="flex-row gap-2">
@@ -183,8 +183,8 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
           <Text className="text-base font-semibold text-foreground">{m.title}</Text>
           {/* WCPOS v2: tender-pane.tsx MethodStatus (ADR 0040 rule 1): a tile taken offline says it is sent later, and the risk. */}
           {!online && <View testID={`checkout-method-sent-later-${m.id}`}>
-            <Text className="text-center text-xs text-warning">Sent later</Text>
-            <Text className="text-center text-xs text-warning">Store may refuse</Text>
+            <Text className="text-center text-xs text-warning-text">Sent later</Text>
+            <Text className="text-center text-xs text-warning-text">Store may refuse</Text>
           </View>}
         </Pressable>;
       })}
@@ -208,8 +208,8 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
     {/* WCPOS v2: tender-pane.tsx:337-352, 485-584. */}
     {planned && <PlanStrip legs={planned.legs} taken={taken} paidMinor={taken.reduce((sum, row) => sum + row.minor, 0)} fmt={fmt} disabled={sale.saving}
       onChange={() => { dispatch({ type: 'clear-plan', balanceMinor: balance }); dispatch({ type: 'open-split' }); }} />}
-    {/* WCPOS v2: tender-pane.tsx:587-591, core.json pos_checkout.store_not_answering; v2's text-warning-text is the app's text-warning; v2's pane centres it (:383); v2's copy also says "or go back to the cart", dropped here because Back is refused while the save is in flight (front desk ruling, 18 Nov). */}
-    {slow ? <Text testID="checkout-save-slow" className="text-center text-sm text-warning">The store isn't answering. Keep waiting.</Text> : null}
+    {/* WCPOS v2: tender-pane.tsx:587-591, core.json pos_checkout.store_not_answering; v2's text-warning-text; v2's pane centres it (:383); v2's copy also says "or go back to the cart", dropped here because Back is refused while the save is in flight (front desk ruling, 18 Nov). */}
+    {slow ? <Text testID="checkout-save-slow" className="text-center text-sm text-warning-text">The store isn't answering. Keep waiting.</Text> : null}
     <View testID="checkout-keypad" className="gap-2">
       {KEY_ROWS.map(row => <View key={row.join()} className="flex-row gap-2">
         {row.map(key => <Pressable key={key} accessibilityRole="button" testID={`checkout-keypad-key-${key}`}

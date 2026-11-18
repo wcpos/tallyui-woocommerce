@@ -20,6 +20,7 @@ function CellView({ cell }: { cell: UptimeCell }) {
       {cell.state === 'running' ? <View className="h-6 rounded bg-success opacity-75" />
         : cell.state === 'errors' ? (
           <View className="h-6 items-center justify-center rounded border border-warning">
+            {/* A glyph, not a word: v2 keeps plain text-warning here (apps/main/components/health/uptime-strip.tsx:27). */}
             <Text className="text-xs text-warning">⚠</Text>
           </View>
         ) : <View className="h-6 rounded border border-border" />}

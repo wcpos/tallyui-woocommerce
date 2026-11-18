@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { PosOrder, PosOrderPayment } from '@tallyui/pos';
 import { paidMomentFigures, ReceiptPaidMoment } from '../components/receipt-paid-moment';
 import { memoryStorage } from './memory-storage';
+import { classesOf } from './classes-of';
 
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); });
 
@@ -57,6 +58,8 @@ test('while the store has not heard the sale the disc and sub-line say Awaiting 
   const payments = [cash(600)];
   const { rerender } = show(payments, 'pending');
   expect(screen.getByTestId('receipt-awaiting-store')).not.toBeNull();
+  // v2 tone.ts:23: a warning word takes text-warning-text, the darker ink on light themes.
+  expect(classesOf('receipt-awaiting-store')).toContain('text-warning-text');
   expect(paidWith()).toBe('Awaiting store · Cash');
   expect(tone()).toBe('warning');
   expect(screen.getByTestId('receipt-paid-disc').getAttribute('aria-label')).toBe('Awaiting store');

@@ -110,7 +110,7 @@ export function ClosurePanel({ closure, corrections = [], storeName, currency, l
               <Text testID="closure-figure-expected" className="text-xl font-semibold tabular-nums">{money(expectedCash)}</Text>
             </View>}
           </View>
-          {touched.size > 0 && !blind && <Text testID="closure-settled" className="rounded-md border border-border px-3 py-2 text-warning">
+          {touched.size > 0 && !blind && <Text testID="closure-settled" className="rounded-md border border-border px-3 py-2 text-warning-text">
             {`Recorded ${recorded} · ${result}. Settled at ${settledAt} after ${recounts > 0 ? `${recounts} ${recounts === 1 ? 'recount' : 'recounts'}` : 'a late sale, refund or movement'}.`}
           </Text>}
           <Text className="border-b border-border px-2.5 pb-1 pt-3 text-xs font-medium text-muted-foreground">Drawer</Text>

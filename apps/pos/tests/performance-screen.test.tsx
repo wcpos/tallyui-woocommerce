@@ -3,6 +3,7 @@ import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, expect, test } from 'vitest';
 import { createRequestMetrics } from '@tallyui/database';
 import { PerformanceScreen } from '../components/performance-screen';
+import { classesOf } from './classes-of';
 
 const nowMs = Date.UTC(2026, 10, 12, 15, 30);
 const now = () => nowMs;
@@ -36,4 +37,6 @@ test('requests recorded while the page is open fill the summary and the current 
 test('an unhealthy till reads Needs attention', () => {
   render(<PerformanceScreen metrics={createRequestMetrics({ now })} healthy={false} now={now} />);
   expect(screen.getByTestId('performance-status').textContent).toBe('⚠ Needs attention');
+  // v2 components/health/performance-screen.tsx:193.
+  expect(classesOf('performance-status')).toContain('text-warning-text');
 });

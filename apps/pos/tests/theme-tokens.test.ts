@@ -34,8 +34,10 @@ const value = (theme: string, name: string): string | undefined =>
 const lightNames = [...new Set([...names(variantBlock(tokensCss, 'light')), ...names(variantBlock(globalCss, 'light'))])].sort();
 
 test('every extra theme defines exactly the variables light defines, once each', () => {
-  // 38 plus v2's --selected pair (apps/main/global.css l.400-401), TallyUI 3.20.0's --color-scrim and v2's chart c1-c5
-  expect(lightNames).toHaveLength(46);
+  // 38 plus v2's --selected pair (apps/main/global.css l.400-401), TallyUI 3.20.0's --color-scrim, v2's chart c1-c5
+  // and v2's --warning-text (l.112)
+  expect(lightNames).toHaveLength(47);
+  expect(lightNames).toContain('--color-warning-text');
   expect(lightNames).toContain('--color-tile-tint-5');
   for (const theme of EXTRA_THEMES) {
     const declared = names(variantBlock(themesCss, theme));
@@ -243,4 +245,22 @@ test("light, dark and the seven extra themes define v2's chart colours c1 to c5,
   }
   const tokens = themeTokens(globalCss);
   expect(CHART_TOKENS.map(name => tokens.get(name)), 'default').toEqual(V2_CHART.light);
+});
+
+// v2 apps/main/global.css --warning-text (mapped to --color-warning-text at l.112): darker ink on the light-surface
+// themes, the plain warning on the dark ones (v2's var(--warning) is the app's var(--color-warning)).
+const V2_WARNING_INK = 'oklch(0.50 0.13 70)';
+const V2_WARNING_TEXT: Record<string, string> = {
+  light: V2_WARNING_INK, // l.439
+  dark: 'var(--color-warning)', ocean: 'var(--color-warning)', sunset: 'var(--color-warning)', monochrome: 'var(--color-warning)', // l.579, l.717, l.855, l.991
+  paper: V2_WARNING_INK, warm: V2_WARNING_INK, bold: V2_WARNING_INK, market: V2_WARNING_INK, // l.1098, l.1201, l.1304, l.1411
+};
+
+test("light, dark and the seven extra themes define v2's --color-warning-text, and the default is light's", () => {
+  const sources: [string, string][] = [['light', globalCss], ['dark', globalCss], ...EXTRA_THEMES.map(theme => [theme, themesCss] as [string, string])];
+  for (const [theme, css] of sources) {
+    const declared = Object.fromEntries(declarations(variantBlock(css, theme)));
+    expect(declared['--color-warning-text'], theme).toBe(V2_WARNING_TEXT[theme]);
+  }
+  expect(themeTokens(globalCss).get('--color-warning-text'), 'default').toBe(V2_WARNING_INK);
 });
