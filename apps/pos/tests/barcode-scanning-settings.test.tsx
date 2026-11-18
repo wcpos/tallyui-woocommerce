@@ -451,3 +451,14 @@ test('retyping the stored count marks nothing', () => {
   fireEvent.change(screen.getByTestId('settings-barcode-threshold'), { target: { value: '25' } });
   expect(marks()).toEqual(['saved-threshold']);
 });
+
+test('with sound on, picking another Sound theme marks Sound theme and nothing else', () => {
+  vi.useFakeTimers();
+  writeScanSoundSettings({ ...readScanSoundSettings(), enabled: true, theme: 'classic' });
+  render(<BarcodeScanningSettings />);
+  expect(marks()).toEqual([]);
+  fireEvent.click(screen.getByTestId('sound-theme-soft'));
+  expect(readScanSoundSettings().theme).toBe('soft');
+  expect(marks()).toEqual(['saved-theme']);
+  expect(screen.getByTestId('settings-barcode-sound-theme-row').contains(screen.getByTestId('saved-theme'))).toBe(true);
+});
