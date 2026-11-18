@@ -45,6 +45,7 @@ export function SavedSites(props: SavedSitesProps): JSX.Element {
         return <Card key={home} testID="saved-site" className="w-full p-3">
           <AccordionItem value={home} className="border-b-0">
             <View className="flex-row items-center gap-2">
+              <View className="min-w-0 flex-1">
               <AccordionTrigger testID="saved-site-trigger" className="min-h-11 justify-start gap-3 py-2 web:hover:no-underline">
                 <View className={next.expanded === home ? 'rotate-180' : undefined}>
                   <ChevronDownIcon size={16} strokeWidth={1.5} className="text-muted-foreground" />
@@ -52,6 +53,7 @@ export function SavedSites(props: SavedSitesProps): JSX.Element {
                 <SiteHeader site={saved.site} />
                 {n > 0 && <Badge testID="saved-site-users" variant="info" label={`${n} ${n === 1 ? 'user' : 'users'}`} />}
               </AccordionTrigger>
+              </View>
               <SiteMenu site={saved.site} onRemoveSite={props.onRemoveSite} />
             </View>
             <AccordionContent><View className="gap-3 pt-2">
