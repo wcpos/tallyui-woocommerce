@@ -1,7 +1,7 @@
 import { expect, test, vi } from 'vitest';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import type { StoreOrder, SyncContext, TallyConnector } from '@tallyui/core';
-import { initialOrderFilters, matchesOrderFilters, matchesOrderSearch, orderHistorySource, toHistoryRow, type SearchableOrder } from '../lib/orders/order-history';
+import { initialOrderFilters, matchesOrderFilters, matchesOrderSearch, orderHistorySource, toHistoryRow, wooStatusLabel, type SearchableOrder } from '../lib/orders/order-history';
 
 const order: StoreOrder = {
   id: '901', reference: '901', status: 'on-hold', placedAt: '2026-10-15T10:00:00Z',
@@ -53,6 +53,11 @@ test('matchesOrderFilters judges local sales from the fields the till knows', ()
   expect(matchesOrderFilters(local, { dateRange: { from: '2026-10-15', to: '2026-10-15' } }, '2', 'UTC')).toBe(true);
   expect(matchesOrderFilters(local, { dateRange: { from: '2026-10-16', to: '2026-10-16' } }, '2', 'UTC')).toBe(false);
   expect(matchesOrderFilters(local, { dateRange: { from: '2026-10-14', to: '2026-10-14' } }, '2', 'UTC')).toBe(false);
+});
+
+test("wooStatusLabel names WCPOS's two statuses as v2", () => {
+  expect(wooStatusLabel('pos-open')).toBe('POS open');
+  expect(wooStatusLabel('pos-partial')).toBe('POS partial');
 });
 
 test('toHistoryRow counts items and labels Woo statuses', () => {
