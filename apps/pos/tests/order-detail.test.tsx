@@ -188,6 +188,31 @@ test('the customer is named with the email, and Guest when there is none', () =>
   expect(part('order-modal-customer').getByText('ada@example.com')).not.toBeNull();
 });
 
+test('a customer order shows the customer\'s initials avatar beside the name, as v2 (sections/customer.tsx:79)', () => {
+  show(make({ customer: { id: '7', name: 'Ada Lovelace', email: 'shopper@example.com' } }));
+  const avatar = screen.getByTestId('order-modal-customer-avatar');
+  expect(avatar.textContent).toBe('AL');
+  expect(part('order-modal-customer').getByTestId('order-modal-customer-avatar')).toBe(avatar);
+});
+
+test('a registered customer with no name reads by the email\'s local part, as v2', () => {
+  show(make({ customer: { id: '8', email: 'jane.doe@shop.example' } }));
+  expect(screen.getByTestId('order-modal-customer-avatar').textContent).toBe('JA');
+});
+
+test.each([null, { email: 'walkin@example.com' }])('a guest order shows v2\'s Guest avatar, never initials', customer => {
+  show(make({ customer }));
+  const avatar = screen.getByTestId('order-modal-customer-avatar');
+  expect(avatar).not.toBeNull();
+  expect(avatar.textContent).toBe('');
+  expect(part('order-modal-customer').getByText('Guest')).not.toBeNull();
+});
+
+test('a guest order that carries a name shows its initials, as v2', () => {
+  show(make({ customer: { name: 'Walk In' } }));
+  expect(screen.getByTestId('order-modal-customer-avatar').textContent).toBe('WI');
+});
+
 test('Receipt and Close call their handlers', () => {
   const onReceipt = vi.fn();
   const onClose = vi.fn();
