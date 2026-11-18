@@ -1,7 +1,8 @@
 /* v2's seven extra themes (monorepo main, apps/main/global.css), mapped to
    TallyUI's token names: input takes v2's border, price v2's success and sale
    v2's destructive. The rail tokens are v2's --rail* (v2's var(--card) is var(--color-card); v2's --selected
-   pair, which the app lacks, is written out). warning-text is v2's --warning-text (l.717 ocean, l.855 sunset,
+   pair, which the app lacks, is written out); rail-accent is v2's --rail-accent (l.711 ocean, l.849 sunset, l.985
+   monochrome: var(--card); l.1092 paper, l.1195 warm, l.1298 bold, l.1405 market). warning-text is v2's --warning-text (l.717 ocean, l.855 sunset,
    l.991 monochrome: var(--warning); l.1098 paper, l.1201 warm, l.1304 bold, l.1411 market); ok-bg / warning-bg are
    v2's --ok-bg / --warning-bg (l.715/718 ocean, l.853/856 sunset, l.989/992 monochrome, l.1096/1099 paper,
    l.1199/1202 warm, l.1302/1305 bold, l.1409/1412 market). Uniwind requires every theme to define the same
@@ -56,6 +57,7 @@
     --color-rail-border: oklch(0.24 0.04 230);
     --color-rail-selected: oklch(0.30 0.06 200);
     --color-rail-selected-foreground: oklch(0.84 0.12 195);
+    --color-rail-accent: var(--color-card);
     /* v2's --selected pair (l.681-682): an on chip's fill and its one ink */
     --color-selected: oklch(0.30 0.06 200);
     --color-selected-foreground: oklch(0.84 0.12 195);
@@ -112,6 +114,7 @@
     --color-rail-border: oklch(0.25 0.05 318);
     --color-rail-selected: oklch(0.32 0.07 45);
     --color-rail-selected-foreground: oklch(0.84 0.14 45);
+    --color-rail-accent: var(--color-card);
     /* v2's --selected pair (l.819-820) */
     --color-selected: oklch(0.32 0.07 45);
     --color-selected-foreground: oklch(0.84 0.14 45);
@@ -168,6 +171,7 @@
     --color-rail-border: oklch(0.22 0 0);
     --color-rail-selected: oklch(0.32 0 0);
     --color-rail-selected-foreground: oklch(0.95 0 0);
+    --color-rail-accent: var(--color-card);
     /* v2's --selected pair (l.955-956) */
     --color-selected: oklch(0.32 0 0);
     --color-selected-foreground: oklch(0.95 0 0);
@@ -224,6 +228,7 @@
     --color-rail-border: oklch(0.852 0.031 84);
     --color-rail-selected: var(--color-card);
     --color-rail-selected-foreground: oklch(0.227 0.016 71);
+    --color-rail-accent: oklch(0.87 0.035 84);
     /* v2's --selected pair (l.1074-1075) */
     --color-selected: oklch(0.885 0.035 84);
     --color-selected-foreground: oklch(0.227 0.016 71);
@@ -280,6 +285,7 @@
     --color-rail-border: oklch(0.895 0.017 76);
     --color-rail-selected: var(--color-card);
     --color-rail-selected-foreground: oklch(0.42 0.10 41);
+    --color-rail-accent: oklch(0.88 0.03 41);
     /* v2's --selected pair (l.1177-1178) */
     --color-selected: oklch(0.92 0.04 41);
     --color-selected-foreground: oklch(0.42 0.10 41);
@@ -336,6 +342,7 @@
     --color-rail-border: oklch(0.252 0 0);
     --color-rail-selected: oklch(0.908 0.201 123);
     --color-rail-selected-foreground: oklch(0.145 0 0);
+    --color-rail-accent: oklch(0.25 0 0);
     /* v2's --selected pair (l.1280-1281) */
     --color-selected: oklch(0.95 0.12 123);
     --color-selected-foreground: oklch(0.145 0 0);
@@ -392,6 +399,7 @@
     --color-rail-border: oklch(0.298 0.040 290);
     --color-rail-selected: oklch(0.686 0.205 34);
     --color-rail-selected-foreground: oklch(0.232 0.038 290);
+    --color-rail-accent: oklch(0.30 0.045 290);
     /* v2's --selected pair (l.1387-1388) */
     --color-selected: oklch(0.93 0.06 34);
     --color-selected-foreground: oklch(0.50 0.17 34);

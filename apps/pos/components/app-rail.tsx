@@ -10,7 +10,8 @@
 // Deviations: no Support item (this app has no such area); no hover tooltip. The version opens the About dialog (about-dialog.tsx).
 // Colours are the app's rail tokens (global.css / themes.css, v2's --rail* in apps/main/global.css l.104-109):
 // the rail and its border, `rail-foreground` items, and the selected item on `rail-selected` (nav-item/index.tsx:54-71),
-// the version in `rail-foreground` at half opacity as v2's version.tsx draws it. No rail-accent hover wash yet.
+// the version in `rail-foreground` at half opacity as v2's version.tsx draws it. Unselected items wash in `rail-accent`
+// on hover and press (pressable-surface/index.tsx:29); the selected item keeps `rail-selected` (nav-item/index.tsx:69).
 import { createContext } from 'react';
 import type { JSX, ReactNode } from 'react';
 import { View } from 'react-native';
@@ -56,7 +57,9 @@ export function AppRail({ active, onNavigate }: { active: RailKey; onNavigate(to
       <IconButton key={key} size="lg" testID={`drawer-item-${key}`} accessibilityLabel={RAIL_LABEL[key]}
         // react-native-web reads aria-selected, not accessibilityState (as coupon-entry.tsx).
         accessibilityState={{ selected: key === active }} aria-selected={key === active}
-        className={key === active ? 'rounded-lg bg-rail-selected text-rail-selected-foreground' : 'rounded-lg text-rail-foreground'}
+        className={key === active
+          ? 'rounded-lg bg-rail-selected text-rail-selected-foreground web:hover:bg-rail-selected active:bg-rail-selected'
+          : 'rounded-lg text-rail-foreground web:hover:bg-rail-accent active:bg-rail-accent'}
         onPress={() => { if (key !== active) onNavigate(key); }}>
         {/* react-native-svg's web Svg forwards `data-testid` to the DOM as is (it does not map `testID`). */}
         {/* v2 icon/index.tsx:150-167: the badge sits on the glyph's shoulder. */}

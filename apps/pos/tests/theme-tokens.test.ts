@@ -35,8 +35,8 @@ const lightNames = [...new Set([...names(variantBlock(tokensCss, 'light')), ...n
 
 test('every extra theme defines exactly the variables light defines, once each', () => {
   // 38 plus v2's --selected pair (apps/main/global.css l.400-401), TallyUI 3.20.0's --color-scrim, v2's chart c1-c5
-  // and v2's --warning-text (l.112), plus v2's --ok-bg / --warning-bg (l.111, l.113)
-  expect(lightNames).toHaveLength(49);
+  // and v2's --warning-text (l.112), plus v2's --ok-bg / --warning-bg (l.111, l.113), plus v2's --rail-accent (l.107)
+  expect(lightNames).toHaveLength(50);
   expect(lightNames).toContain('--color-warning-text');
   expect(lightNames).toContain('--color-ok-bg');
   expect(lightNames).toContain('--color-warning-bg');
@@ -183,9 +183,9 @@ test("the light and dark themes take v2's destructive, over @tallyui/theme's #dc
   expect(themeTokens(globalCss).get('--color-destructive-foreground')).toBe(LIGHT_DESTRUCTIVE_FG);
 });
 
-const RAIL_TOKENS = ['--color-rail', '--color-rail-foreground', '--color-rail-border', '--color-rail-selected', '--color-rail-selected-foreground'];
+const RAIL_TOKENS = ['--color-rail', '--color-rail-foreground', '--color-rail-border', '--color-rail-selected', '--color-rail-selected-foreground', '--color-rail-accent'];
 
-test("light, dark and the seven extra themes all define v2's five rail tokens, and the default is light's", () => {
+test("light, dark and the seven extra themes all define v2's six rail tokens, and the default is light's", () => {
   const sources: [string, string][] = [['light', globalCss], ['dark', globalCss], ...EXTRA_THEMES.map(theme => [theme, themesCss] as [string, string])];
   for (const [theme, css] of sources) {
     const declared = Object.fromEntries(declarations(variantBlock(css, theme)));
@@ -286,4 +286,24 @@ test("light, dark and the seven extra themes define v2's --color-ok-bg and --col
   }
   const tokens = themeTokens(globalCss);
   expect(SOFT_WASH_TOKENS.map(name => tokens.get(name)), 'default').toEqual(V2_SOFT_WASH_LIGHT);
+});
+
+// v2 apps/main/global.css --rail-accent (mapped to --color-rail-accent at l.107): the rail items' hover and press wash
+// (packages/components/src/pressable-surface/index.tsx:29). v2's var(--card) is the app's var(--color-card).
+const V2_RAIL_ACCENT: Record<string, string> = {
+  light: 'oklch(0.895 0.075 262)', // l.433
+  dark: 'var(--color-card)', ocean: 'var(--color-card)', sunset: 'var(--color-card)', monochrome: 'var(--color-card)', // l.573, l.711, l.849, l.985
+  paper: 'oklch(0.87 0.035 84)', // l.1092
+  warm: 'oklch(0.88 0.03 41)', // l.1195
+  bold: 'oklch(0.25 0 0)', // l.1298
+  market: 'oklch(0.30 0.045 290)', // l.1405
+};
+
+test("light, dark and the seven extra themes define v2's --color-rail-accent, and the default is light's", () => {
+  const sources: [string, string][] = [['light', globalCss], ['dark', globalCss], ...EXTRA_THEMES.map(theme => [theme, themesCss] as [string, string])];
+  for (const [theme, css] of sources) {
+    const declared = Object.fromEntries(declarations(variantBlock(css, theme)));
+    expect(declared['--color-rail-accent'], theme).toBe(V2_RAIL_ACCENT[theme]);
+  }
+  expect(themeTokens(globalCss).get('--color-rail-accent'), 'default').toBe(V2_RAIL_ACCENT.light);
 });

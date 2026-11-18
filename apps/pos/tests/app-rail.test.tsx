@@ -96,3 +96,12 @@ test("the rail draws v2's rail tokens: the rail and its border, rail-foreground 
   expect(classesOf('drawer-item-pos')).toContain('text-rail-foreground');
   expect(classesOf('drawer-item-pos')).not.toContain('bg-rail-selected');
 });
+
+// v2 pressable-surface/index.tsx:29 (WASH.rail) and nav-item/index.tsx:69.
+test('a rail item washes in rail-accent on hover and press; the selected one keeps rail-selected', () => {
+  render(<AppRail active="orders" onNavigate={() => {}} />);
+  expect(classesOf('drawer-item-pos')).toEqual(expect.arrayContaining(['web:hover:bg-rail-accent', 'active:bg-rail-accent']));
+  expect(classesOf('drawer-item-pos')).not.toContain('active:bg-accent');
+  expect(classesOf('drawer-item-orders')).toEqual(expect.arrayContaining(['web:hover:bg-rail-selected', 'active:bg-rail-selected']));
+  expect(classesOf('drawer-item-orders')).not.toContain('web:hover:bg-rail-accent');
+});
