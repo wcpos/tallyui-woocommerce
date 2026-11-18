@@ -19,8 +19,8 @@ export function RestoreDefaultsButton({ testID, onPress }: { testID: string; onP
  *  with an accent hover (button/index.tsx). TallyUI's outline is `border-input bg-card`, so only v2's border-border
  *  needs overriding. The catalogue, area and cart settings sheets all draw this one.
  *  `h-11` is v2's `h-ctl`, 44 px, as on Restore. */
-export function SheetCloseButton({ testID, onPress }: { testID: string; onPress(): void }): JSX.Element {
-  return <Button testID={testID} variant="outline" className="h-11 border-border web:hover:bg-accent" onPress={onPress}><Text>Close</Text></Button>;
+export function SheetCloseButton({ testID, onPress, className }: { testID: string; onPress(): void; className?: string }): JSX.Element {
+  return <Button testID={testID} variant="outline" className={`h-11 border-border web:hover:bg-accent ${className ?? ''}`} onPress={onPress}><Text>Close</Text></Button>;
 }
 
 /** v2's DialogTitle (dialog/index.tsx) is the dialog rank (text/ladder.ts `dialog: 'text-lg font-strong'`), 16 px on

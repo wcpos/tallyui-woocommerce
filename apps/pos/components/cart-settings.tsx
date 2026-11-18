@@ -27,14 +27,15 @@ const FiltersIcon = createSvgIcon('FiltersIcon', () => <>
 </>);
 
 // v2's UISettingsDialog is a full-height `lg` (512px) side panel (dialog side="left": h-full rounded-none border-r).
-const SHEET = 'fixed top-0 z-50 h-full w-[512px] max-w-full gap-4 border-border bg-card py-4 shadow-lg';
+const sheet = (width: string) => `fixed top-0 z-50 h-full ${width} max-w-full gap-4 border-border bg-card py-4 shadow-lg`;
 // v2 opens the panel in its screen's own overlay host, beside the rail (apps/main/app/(app)/(drawer)/_layout.tsx
 // `Scene`), so the rail stays undimmed and usable and a left panel starts at its right edge; with no rail (a phone)
 // the overlay and panel start at the window's.
-export const CART_SHEET: Record<PanelPosition, (railShown: boolean) => string> = {
-  left: railShown => `${railShown ? BESIDE_RAIL : 'left-0'} right-auto border-r ${SHEET}`,
-  right: () => `left-auto right-0 border-l ${SHEET}`,
-};
+export const sideSheet = (width: string): Record<PanelPosition, (railShown: boolean) => string> => ({
+  left: railShown => `${railShown ? BESIDE_RAIL : 'left-0'} right-auto border-r ${sheet(width)}`,
+  right: () => `left-auto right-0 border-l ${sheet(width)}`,
+});
+export const CART_SHEET = sideSheet('w-[512px]');
 
 /** A full-width two-cell segmented control, as v2's FormSegmentedControl draws it; the chosen cell is tinted. */
 function SegmentedRow({ title, testID, cells }: {
