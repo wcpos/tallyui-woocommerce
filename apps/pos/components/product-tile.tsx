@@ -8,6 +8,7 @@ import { tileNameSize, tileWords, useCompactTiles } from '../lib/catalogue/tile-
 import { formatTileMoney, isSoldOut, optionsLabel, tileStockMark, tileTaxLine, tileTint } from '../lib/catalogue/tile-words';
 import type { TileTax } from '../lib/catalogue/tile-words';
 import { InCartBadge } from './in-cart-badge';
+import { StockPill } from './stock-pill';
 
 export interface ProductTileProps { doc: any; fields: CatalogueTileFields; onPress?(): void; tax?: TileTax; inCart?: number }
 
@@ -74,7 +75,7 @@ export function ProductTile({ doc, fields, onPress, tax, inCart = 0 }: ProductTi
       <View className={STACK_CARD} style={NEAR} />
     </View>}
     <TilePoster doc={doc} testKey={id} soldOut={soldOut} lines={lines}>
-      {mark && <Text testID={`tile-stock-${id}`} className="absolute left-2 top-2 rounded-md bg-card/90 px-1.5 py-0.5 text-xs font-semibold">{mark.label}</Text>}
+      {mark && <View className="absolute left-2 top-2"><StockPill mark={mark} testID={`tile-stock-${id}`} /></View>}
       <InCartBadge count={inCart} testID={`in-cart-tile-${id}`} className="absolute right-2 top-2 z-10" />
     </TilePoster>
   </View>;

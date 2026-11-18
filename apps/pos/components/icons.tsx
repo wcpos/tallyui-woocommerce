@@ -28,3 +28,7 @@ export const DiscountIcon = createSvgIcon('DiscountIcon', () => <><Path d="m9 15
   <Path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0" /></>);
 // v2's `delete` glyph in its default set, tabler's trash at its 1.5 stroke (components/src/icon/svg/tabler/delete.svg).
 export const TrashIcon = createSvgIcon('TrashIcon', () => <Path d="M4 7h16m-10 4v6m4-6v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />);
+// v2's tabler `product` glyph (components/src/icon/svg/tabler/product.svg).
+export const BoxIcon = createSvgIcon('BoxIcon', () => <Path d="m12 3l8 4.5v9L12 21l-8-4.5v-9zm0 9l8-4.5M12 12v9m0-9L4 7.5" />);
+// v2's tabler `pending` glyph (components/src/icon/svg/tabler/pending.svg).
+export const ClockIcon = createSvgIcon('ClockIcon', () => <><Path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0-18 0" /><Path d="M12 7v5l3 3" /></>);
