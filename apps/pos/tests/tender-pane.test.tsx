@@ -41,13 +41,17 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+let orders: (ReturnType<typeof useOutbox> & { enabled: true })['orders'];
+
 function OrderStoreReady() {
   const outbox = useOutbox();
-  return outbox.enabled && outbox.orders ? <span>Order store ready</span> : null;
+  if (!outbox.enabled || !outbox.orders) return null;
+  orders = outbox.orders;
+  return <span>Order store ready</span>;
 }
 
-/** One Espresso ($3.00) in the cart of a store that takes one payment per order, then the cart's `button`. */
-async function startTender(button: 'Cash' | 'Card terminal', status: OnlineStatus = 'online-website-available', multi = false) {
+/** One Espresso ($3.00, or `price`) in the cart of a store that takes one payment per order, then the cart's `button`. */
+async function startTender(button: 'Cash' | 'Card terminal', status: OnlineStatus = 'online-website-available', multi = false, price?: string) {
   const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => ({
     kind: 'results',
     results: batch.map(envelope => ({ id: envelope.id, status: 'applied', serverRefs: { orderId: '115', totalMinor: 300 } })),
@@ -58,7 +62,8 @@ async function startTender(button: 'Cash' | 'Card terminal', status: OnlineStatu
       <SessionProvider>
         <OutboxProvider transportFor={() => fakeTransport} storage={getRxStorageMemory()}>
           <OrderStoreReady />
-          <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
+          <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency={stores[0].currency}
+            products={price ? products.map(p => p.name === 'Espresso' ? { ...p, price, regular_price: price } : p) : products}
             storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}}
             multiplePayments={multi} />
           <PortalHost />
@@ -287,4 +292,56 @@ test('offline, the To pay row ends with an Offline caption', async () => {
   await startTender('Cash', 'offline');
   expect(text('checkout-offline')).toBe('Offline');
   expect(classesOf('checkout-offline')).toEqual(expect.arrayContaining(['text-xs', 'text-warning']));
+}, 20_000);
+
+/** Holds the next order save until the returned release is called, so a test reads the pane while it saves. */
+function holdSave(): () => void {
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const insert = orders!.insert.bind(orders!);
+  vi.spyOn(orders!, 'insert').mockImplementationOnce(async doc => { await gate; return insert(doc); });
+  return release;
+}
+
+// WCPOS v2: tender-pane.tsx:117-118 (the keypad stays drawn while the order saves) and tender-figures.ts:165.
+test("multi: paid in full by a card leg then a cash leg, the header reads the order's change while it saves", async () => {
+  await startTender('Cash', 'online-website-available', true);
+  const release = holdSave();
+  takeLeg(100, 'pos_card');
+  await waitFor(() => expect(text('checkout-label')).toBe('Payment 2 · $2.00 left'));
+  takeLeg(500);
+  await waitFor(() => expect(text('checkout-commit')).toBe('Saving order…'));
+  expect(text('checkout-entry-hint')).toBe('Change $3.00');
+  expect(text('checkout-tendered-line')).toBe('Tendered $5.00 · Total $3.00');
+  release();
+  expect(await screen.findByTestId('receipt-order')).not.toBeNull();
+}, 20_000);
+
+test('multi: with a leg still to come, the entry reads its change against the balance', async () => {
+  await startTender('Cash', 'online-website-available', true);
+  takeLeg(100, 'pos_card');
+  await waitFor(() => expect(text('checkout-label')).toBe('Payment 2 · $2.00 left'));
+  fireEvent.click(screen.getByTestId('checkout-method-pos_cash'));
+  press('clear', '5', '0', '0');
+  expect(text('checkout-entry-hint')).toBe('Change $3.00');
+  expect(text('checkout-tendered-line')).toBe('Tendered $5.00 · Total $3.00');
+}, 20_000);
+
+test('multi: paid in full by card legs alone shows no Change while it saves', async () => {
+  await startTender('Cash', 'online-website-available', true);
+  const release = holdSave();
+  takeLeg(100, 'pos_card');
+  await waitFor(() => expect(text('checkout-label')).toBe('Payment 2 · $2.00 left'));
+  takeLeg(200, 'pos_card');
+  await waitFor(() => expect(text('checkout-commit')).toBe('Saving order…'));
+  expect(screen.queryByText(/^Change /)).toBeNull();
+  expect(screen.queryByTestId('checkout-tendered-line')).toBeNull();
+  release();
+  expect(await screen.findByTestId('receipt-order')).not.toBeNull();
+}, 20_000);
+
+test('multi: on a free order with no payment yet, a cash entry still reads as change', async () => {
+  await startTender('Cash', 'online-website-available', true, '0.00');
+  press('clear', '5', '0', '0');
+  expect(text('checkout-entry-hint')).toBe('Change $5.00');
 }, 20_000);
