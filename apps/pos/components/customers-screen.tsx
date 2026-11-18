@@ -180,9 +180,10 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
         search={source ? <SearchInput testID="search-customers" value={term} onChangeText={type} placeholder="Search Customers" /> : null}>
         {source ? createBlockedReason === undefined ? addButton : <Tooltip>
           {/* v2 customers/index.tsx:162-181: a greyed add button says why in its tooltip. The disabled button takes
-              no pointer (web:pointer-events-none), so a wrapper takes the hover, as v2's capability-tooltip.tsx:17-23. */}
+              no pointer (web:pointer-events-none), so a wrapper takes the hover, as v2's capability-tooltip.tsx:17-23. Below the
+              bar, where v2's Radix flips it: TallyUI clamps a top tooltip onto the button, which closes it under the pointer. */}
           <TooltipTrigger asChild><Pressable testID="customers-add-trigger" role="none" focusable={false}>{addButton}</Pressable></TooltipTrigger>
-          <TooltipContent><Text>{createBlockedReason}</Text></TooltipContent>
+          <TooltipContent side="bottom"><Text>{createBlockedReason}</Text></TooltipContent>
         </Tooltip> : null}
         {/* v2's order: add, then the settings icon, then the bell and the avatar. */}
         <AreaDisplayOptions area="customers" columns={CUSTOMERS_COLUMNS} settings={settings} onChange={setSettings} />
