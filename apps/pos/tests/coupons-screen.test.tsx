@@ -239,6 +239,9 @@ test("a phone row's code is v2's semibold single line, and the row ends at a mut
   expect(code).toContain('font-semibold');
   expect(code).not.toContain('font-medium');
   expect(numberOfLinesOf('coupon-row-code-10off')).toBe(1);
+  // v2 list-row/index.tsx:31,54-65: the row is min-h-14 px-3 py-2.
+  for (const cls of ['min-h-14', 'px-3', 'py-2']) expect(classesOf('coupons-row-10off')).toContain(cls);
+  expect(classesOf('coupons-row-10off')).not.toContain('px-4');
   const rowEl = screen.getByTestId('coupons-row-10off');
   const chevron = within(rowEl).getByTestId('coupons-row-chevron-10off');
   expect(rowEl.lastElementChild).toBe(chevron);

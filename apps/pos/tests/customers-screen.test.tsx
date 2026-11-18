@@ -13,7 +13,7 @@ import { CREATE_CUSTOMERS_DENIED } from '../lib/auth/capabilities';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
-import { CARD_CLASSES, classesOf } from './classes-of';
+import { CARD_CLASSES, classesOf, textPropsOf } from './classes-of';
 import { memoryStorage } from './memory-storage';
 
 beforeEach(() => {
@@ -201,6 +201,21 @@ test('a narrow window lists name and email rows', async () => {
   expect(screen.queryByText('Phone')).toBeNull();
 });
 
+// v2 list-row/index.tsx:31,54-65 and customers/row.tsx:54-68: min-h-14 px-3 py-2, the name on one line in regular
+// weight, the email in variant="key" (text-sm text-muted-foreground).
+test("a phone row is v2's list-row size: a one-line regular-weight name and a text-sm email", async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 800, scale: 1, fontScale: 1 });
+  renderScreen(vi.fn<CustomerSource['search']>().mockResolvedValue([gee]));
+  const row = await screen.findByTestId('customers-row-7');
+  for (const cls of ['min-h-14', 'px-3', 'py-2']) expect(classesOf('customers-row-7')).toContain(cls);
+  expect(classesOf('customers-row-7')).not.toContain('px-4');
+  const name = textPropsOf(within(row).getByText('Gee Four'));
+  expect(name.classes).toContain('text-foreground');
+  expect(name.classes).not.toContain('font-medium');
+  expect(name.numberOfLines).toBe(1);
+  expect(classesOf('customer-email-gee@example.invalid')).toEqual(expect.arrayContaining(['text-sm', 'text-muted-foreground']));
+});
+
 // v2 data-table/skeleton.tsx:31-120: the table frame stands while the store answers.
 async function renderPending() {
   let resolve!: (found: Customer[]) => void;
@@ -229,6 +244,7 @@ test('a narrow search loads phone placeholder rows with no table header', async 
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 400, height: 800, scale: 1, fontScale: 1 });
   await renderPending();
   expect(await screen.findByTestId('customers-skeleton-row-0')).not.toBeNull();
+  for (const cls of ['min-h-14', 'px-3', 'py-2']) expect(classesOf('customers-skeleton-row-0')).toContain(cls);
   expect(screen.queryAllByRole('columnheader')).toEqual([]);
 });
 

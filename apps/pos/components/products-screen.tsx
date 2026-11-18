@@ -186,9 +186,9 @@ function StockBadge({ doc, quantity }: { doc: ProductDoc | VariationDoc; quantit
 /** v2's ProductName (cells/name.tsx): the name, then ProductAttributes for a variable product. */
 function NameCell({ doc, onDrill, numberOfLines, showSku }: { doc: ProductDoc; onDrill: OnDrill; numberOfLines?: number; showSku?: boolean }): JSX.Element {
   return (
-    <View className="gap-1">
-      <Text numberOfLines={numberOfLines} className="font-medium text-foreground">{doc.name}</Text>
-      {showSku && doc.sku ? <Text testID={`products-phone-sku-${doc.id}`} numberOfLines={1} className="text-muted-foreground">{doc.sku}</Text> : null}
+    <View className={showSku ? undefined : 'gap-1'}>
+      <Text numberOfLines={numberOfLines} className={showSku ? 'text-foreground' : 'font-medium text-foreground'}>{doc.name}</Text>
+      {showSku && doc.sku ? <Text testID={`products-phone-sku-${doc.id}`} numberOfLines={1} className="text-sm text-muted-foreground">{doc.sku}</Text> : null}
       {doc.type === 'variable' ? (
         <ProductAttributes id={doc.id} attributes={doc.attributes} count={doc.variations?.length ?? 0}
           onDrill={match => onDrill(doc, match)} />
@@ -372,11 +372,11 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
         {variations.length === 0 ? noVariations : narrow ? (
           <ScrollView testID="products-variations-body">
             {variations.map(variation => (
-              <View key={variation.id} testID={`products-row-${variation.id}`} className="flex-row items-center gap-3 border-b border-border px-4 py-3">
+              <View key={variation.id} testID={`products-row-${variation.id}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
                 <ProductImage doc={drilled} size={IMAGE_SIZE} />
-                <View className="flex-1 gap-1">
+                <View className="min-w-0 flex-1">
                   <VariationNameCell variation={variation} parent={drilled} />
-                  {variation.sku ? <Text testID={`products-phone-sku-${variation.id}`} numberOfLines={1} className="text-muted-foreground">{variation.sku}</Text> : null}
+                  {variation.sku ? <Text testID={`products-phone-sku-${variation.id}`} numberOfLines={1} className="text-sm text-muted-foreground">{variation.sku}</Text> : null}
                 </View>
                 <View className="flex-row items-center gap-3">
                   <View testID={`products-phone-figures-${variation.id}`} className="items-end gap-1 tabular-nums">
@@ -401,7 +401,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   const body = total === 0 && sync.active ? (
     <View testID="products-syncing-rows" accessibilityLabel="Loading products…" aria-busy className="flex-1 overflow-hidden">
       {narrow ? SYNCING_ROWS.map(i => (
-        <View key={i} testID={`products-syncing-row-${i}`} className="flex-row items-center gap-3 border-b border-border px-4 py-3">
+        <View key={i} testID={`products-syncing-row-${i}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
           <View className="h-10 w-10 rounded bg-muted" />
           <View className="flex-1 gap-1"><View className={BAR} /><View className="h-5 w-1/2 rounded-lg bg-muted" /></View>
         </View>
@@ -416,11 +416,12 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   ) : shown.length === 0 ? (
     <EmptyState kind="no-results" title="Nothing here matches the filters" action={{ label: 'Clear filters', onPress: clear }} />
   ) : narrow ? (
+        // A phone row is v2's ListRow (list-row/index.tsx:31,54-65): min-h-14 px-3 py-2, a min-w-0 body, a regular-weight name over a text-sm SKU.
         <ScrollView testID="products-body">
           {listed.map(doc => (
-            <View key={doc.id} testID={`products-row-${doc.id}`} className="flex-row items-center gap-3 border-b border-border px-4 py-3">
+            <View key={doc.id} testID={`products-row-${doc.id}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
               <ProductImage doc={doc} size={IMAGE_SIZE} />
-              <View className="flex-1 gap-1">
+              <View className="min-w-0 flex-1">
                 <NameCell doc={doc} onDrill={drillTo} numberOfLines={1} showSku />
               </View>
               <View className="flex-row items-center gap-3">

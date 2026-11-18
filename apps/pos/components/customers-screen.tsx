@@ -157,7 +157,7 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
     // line per visible column, in a body that clips; a phone (v2's coarse pointer) has no header.
     <View testID="customers-skeleton" accessibilityLabel="Searching…" aria-busy className="flex-1 overflow-hidden">
       {width < NARROW_WIDTH ? SKELETON_ROWS.map(i => (
-        <View key={i} testID={`customers-skeleton-row-${i}`} className="flex-row items-center gap-3 border-b border-border px-4 py-3">
+        <View key={i} testID={`customers-skeleton-row-${i}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
           <View className="h-12 w-12 rounded-full bg-muted" />
           <View className="flex-1 gap-1"><View className={BAR} /><View className="h-5 w-1/2 rounded-lg bg-muted" /></View>
         </View>
@@ -171,13 +171,14 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
   ) : results.length === 0 ? (
     <EmptyState kind={asked ? 'no-results' : 'empty'} title={asked ? 'No customers match your search' : 'No customers yet'} description={asked ? undefined : 'Customers you add, and anyone who buys from you, will appear here.'} action={asked ? { label: 'Clear search', onPress: clear } : undefined} />
   ) : (
+      // A phone row is v2's ListRow (list-row/index.tsx:31,54-65): min-h-14 px-3 py-2, a min-w-0 body, a one-line regular-weight name over a text-sm email.
       <ScrollView testID="customers-body">
         {width < NARROW_WIDTH ? shown.map(c => (
-          <View key={c.id} testID={`customers-row-${c.id}`} className="flex-row items-center gap-3 border-b border-border px-4 py-3">
+          <View key={c.id} testID={`customers-row-${c.id}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
             <Avatar size="lg" fallback={customerInitials(c)} />
-            <View className="flex-1 gap-1">
-              <Text className="font-medium text-foreground">{c.name}</Text>
-              {c.email ? <Text testID={`customer-email-${c.email}`} numberOfLines={1} className="text-muted-foreground">{c.email}</Text> : null}
+            <View className="min-w-0 flex-1">
+              <Text numberOfLines={1} className="text-foreground">{c.name}</Text>
+              {c.email ? <Text testID={`customer-email-${c.email}`} numberOfLines={1} className="text-sm text-muted-foreground">{c.email}</Text> : null}
             </View>
             {/* v2 customers/row.tsx:50 ends the row in chevronRight; city and country wait on the connector. */}
             <ChevronRightIcon testID={`customers-row-chevron-${c.id}`} size={16} className="text-muted-foreground" />

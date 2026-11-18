@@ -323,9 +323,10 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
   ) : shown.length === 0 ? (
     <EmptyState kind="no-results" title="No coupons match these filters" action={{ label: 'Clear filters', onPress: clear }} />
   ) : (
+      // A phone row is v2's ListRow (list-row/index.tsx:31,54-65): min-h-14 px-3 py-2.
       <ScrollView testID="coupons-body">
         {width < NARROW_WIDTH ? shown.map(c => (
-          <View key={c.uuid} testID={`coupons-row-${c.code}`} className="flex-row items-center gap-3 border-b border-border px-4 py-3">
+          <View key={c.uuid} testID={`coupons-row-${c.code}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
             <View className="flex-1 gap-1">
               <Text testID={`coupon-row-code-${c.code}`} numberOfLines={1} className="font-semibold text-foreground">{c.code}</Text>
               {c.description ? <Text testID={`coupon-row-description-${c.code}`} numberOfLines={1} className="text-muted-foreground">{c.description}</Text> : null}

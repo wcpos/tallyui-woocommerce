@@ -5,7 +5,7 @@ import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { PortalHost } from '@tallyui/primitives';
 import { ProductsScreen } from '../components/products-screen';
 import fixtureProducts from './fixtures/products.json';
-import { CARD_CLASSES } from './classes-of';
+import { CARD_CLASSES, textPropsOf } from './classes-of';
 import { CatalogueContext } from '../lib/catalogue/catalogue-context';
 
 const connector = createWooCommerceConnector();
@@ -413,6 +413,34 @@ test('a phone row shows the SKU under the name and the managed quantity in its s
   expect(screen.getByText('Tea').compareDocumentPosition(sku) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(text('product-stock-status-1')).toBe('7 · In Stock');
   expect(within(screen.getByTestId('products-row-1')).getByText('$10.00')).not.toBeNull();
+});
+
+// v2 list-row/index.tsx:31,54-65 and products/row.tsx:154-159: min-h-14 px-3 py-2, the name in regular weight on one
+// line, the SKU in variant="key" (text-sm text-muted-foreground).
+test("phone rows are v2's list-row size: min-h-14 px-3 py-2, a regular-weight name and a text-sm SKU", () => {
+  setWidth(390);
+  renderScreen([product(1, 'Tea'), product(3, 'Shirt', {
+    type: 'variable', sku: '', variations: [31],
+    attributes: [{ id: 0, name: 'Size', position: 0, visible: true, variation: true, options: ['S'] }],
+    variation_docs: [variation(31, { sku: 'SH-S', attributes: [{ name: 'Size', option: 'S' }] })],
+  })]);
+  for (const cls of ['min-h-14', 'px-3', 'py-2']) expect(classesOf('products-row-1')).toContain(cls);
+  expect(classesOf('products-row-1')).not.toContain('px-4');
+  expect(classesOf('products-row-1')).not.toContain('py-3');
+  const name = textPropsOf(within(screen.getByTestId('products-row-1')).getByText('Tea'));
+  expect(name.classes).toContain('text-foreground');
+  expect(name.classes).not.toContain('font-medium');
+  expect(name.numberOfLines).toBe(1);
+  expect(classesOf('products-phone-sku-1')).toEqual(expect.arrayContaining(['text-sm', 'text-muted-foreground']));
+  fireEvent.click(screen.getByTestId('product-variations-3'));
+  for (const cls of ['min-h-14', 'px-3', 'py-2']) expect(classesOf('products-row-31')).toContain(cls);
+  expect(classesOf('products-phone-sku-31')).toContain('text-sm');
+});
+
+test("the wide table's name keeps font-medium", () => {
+  setWidth(1280);
+  renderScreen([product(1, 'Tea')]);
+  expect(textPropsOf(screen.getByText('Tea')).classes).toContain('font-medium');
 });
 
 test('a phone row draws v2\'s price column: even-width figures, a single price with no dash, and a muted chevron', () => {

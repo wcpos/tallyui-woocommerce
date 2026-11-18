@@ -17,3 +17,19 @@ export function classesOf(testID: string): string[] {
 
 /** v2's table card in a window (data-table/surface.tsx `TableSurface`). */
 export const CARD_CLASSES = ['rounded-lg', 'border', 'bg-card'];
+
+/** The classes and numberOfLines on the components that draw `element` (a Text with no testID of its own): every
+ * component fiber between its DOM node and the next DOM node up. */
+export function textPropsOf(element: HTMLElement): { classes: string[]; numberOfLines: unknown } {
+  const node = element as unknown as Record<string, unknown>;
+  type TextFiber = { type?: unknown; memoizedProps?: { className?: unknown; numberOfLines?: unknown }; return?: TextFiber };
+  let fiber = (node[Object.keys(node).find(name => name.startsWith('__reactFiber$'))!] as TextFiber).return;
+  const classes: string[] = [];
+  let numberOfLines: unknown;
+  for (; fiber && typeof fiber.type !== 'string'; fiber = fiber.return) {
+    const { className, numberOfLines: lines } = fiber.memoizedProps ?? {};
+    if (typeof className === 'string') classes.push(...className.split(/\s+/));
+    if (lines !== undefined) numberOfLines = lines;
+  }
+  return { classes, numberOfLines };
+}
