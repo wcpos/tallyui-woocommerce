@@ -209,9 +209,9 @@ const addTile = (id: number) => fireEvent.click(screen.getByTestId(`product-tile
 /** A ($3), B ($4) parked a minute apart, then C ($6) open in the cart; only Date is faked, so effects and promises run. */
 async function openThree() {
   vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(Date.parse('2026-11-18T10:00:00.000Z'));
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
   render(<SaleScreen {...props} />);
-  vi.setSystemTime(Date.parse('2026-11-18T10:00:00.000Z'));
   addTile(80);
   await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
   vi.setSystemTime(Date.parse('2026-11-18T10:01:00.000Z'));
