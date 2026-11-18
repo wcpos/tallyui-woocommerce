@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { ServerCapabilities } from '@tallyui/core';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
-import { catalogueEntries, TaxProvider, useSale } from '@tallyui/pos';
+import { catalogueEntries, SALE_SAVING, TaxProvider, useSale } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
 import { CartWithSettings } from '../components/cart-settings';
 import { withRemovedToasts } from '../lib/toast/removed-from-cart-toast';
@@ -117,4 +117,25 @@ test('each name is read before the line is removed', () => {
   expect(order.lineItems).toEqual([]);
   expect(order.fees).toEqual([]);
   expect(order.shipping).toEqual([]);
+});
+
+// The refusal is whatever the real useSale().removeFee / removeShipping returns besides null.
+function refusingSale(refusal: ReturnType<ReturnType<typeof useSale>['removeFee']>) {
+  const order = { lineItems: [], fees: [{ id: 'f1', name: 'Bag' }], shipping: [{ id: 's1', name: 'Flat rate' }] };
+  const sale = { order, remove() {}, removeFee: () => refusal, removeShipping: () => refusal, removeDiscount() {} };
+  return { order, wrapped: withRemovedToasts(sale as unknown as Parameters<typeof withRemovedToasts>[0]) };
+}
+
+test('a refused fee removal returns the refusal, shows no toast and leaves the fee', () => {
+  const { order, wrapped } = refusingSale(SALE_SAVING);
+  expect(wrapped.removeFee('f1')).toBe(SALE_SAVING);
+  expect(getToasts()).toEqual([]);
+  expect(order.fees).toEqual([{ id: 'f1', name: 'Bag' }]);
+});
+
+test('a refused shipping removal returns the refusal, shows no toast and leaves the line', () => {
+  const { order, wrapped } = refusingSale(SALE_SAVING);
+  expect(wrapped.removeShipping('s1')).toBe(SALE_SAVING);
+  expect(getToasts()).toEqual([]);
+  expect(order.shipping).toEqual([{ id: 's1', name: 'Flat rate' }]);
 });
