@@ -314,3 +314,38 @@ test.each([
     expect.objectContaining({ method: 'external', amountMinor: 200 }),
   ]);
 }, 20_000);
+
+// WCPOS v2: tender-figures.ts:134,147, tender-pane.tsx:285-334, core.json pos_checkout.less_than_planned(_n, _next_n).
+test.each([
+  { scenario: 'a 2-way split below the planned share moves the rest to the next payment', ways: 2, entry: 100, hint: 'Less than planned · $2.00 moves to the next payment' },
+  { scenario: 'a 3-way split below the planned share names payments 2 and 3', ways: 3, entry: 100, hint: 'Less than planned · $1.00 moves to payments 2 and 3' },
+  { scenario: 'a 4-way split below the planned share counts the next 3 payments', ways: 4, entry: 100, hint: 'Less than planned · $0.50 moves to the next 3 payments' },
+  { scenario: 'a split entry at exactly the planned share has no hint', ways: 2, entry: 300, hint: '' },
+  { scenario: 'with no plan an entry below the balance is still a part payment', ways: 0, entry: 100, hint: 'Part payment · $5.00 left after this' },
+])('$scenario', async ({ ways, entry, hint }) => {
+  const fakeTransport = { send: vi.fn<CommandTransport<OrderCreateEnvelope>['send']>() };
+  render(
+    <SessionProvider>
+      <OutboxProvider transportFor={() => fakeTransport} storage={getRxStorageMemory()}>
+        <OrderStoreReady />
+        <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
+          storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}}
+          multiplePayments={true} />
+        <PortalHost />
+      </OutboxProvider>
+    </SessionProvider>,
+  );
+  await screen.findByText('Order store ready');
+  fireEvent.click(screen.getByText('Espresso'));
+  setLineQuantity('Espresso', 2);
+  fireEvent.click(screen.getByTestId('cart-checkout'));
+  if (ways > 0) {
+    fireEvent.click(screen.getByTestId('checkout-split-chip'));
+    fireEvent.click(screen.getByTestId(`checkout-even-${ways}`));
+    expect(screen.getByTestId('checkout-label').textContent).toBe(`Payment 1 of ${ways} · $6.00 left`);
+  }
+  fireEvent.click(screen.getByTestId('checkout-keypad-key-clear'));
+  for (const digit of String(entry)) fireEvent.click(screen.getByTestId(`checkout-keypad-key-${digit}`));
+  expect(screen.getByTestId('checkout-entry-hint').textContent).toBe(hint);
+  expect(fakeTransport.send).not.toHaveBeenCalled();
+}, 20_000);
