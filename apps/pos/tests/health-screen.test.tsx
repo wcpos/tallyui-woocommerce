@@ -7,6 +7,7 @@ import { addPosOrderCollection, type PosOrder } from '@tallyui/pos';
 import { HealthScreen } from '../components/health-screen';
 import type { DatabaseCountRow } from '../components/database-counts';
 import type { ReceiptEmailCollection } from '../lib/receipts/receipt-emails';
+import { OnlineStatusContext, type OnlineStatus } from '../lib/online/online-status';
 
 const mocks = vi.hoisted(() => ({ outbox: { enabled: false } as any }));
 vi.mock('../lib/sale/outbox-context', () => ({ useOutbox: () => mocks.outbox }));
@@ -177,4 +178,39 @@ test('the storage stat reads the estimate', async () => {
   render(<HealthScreen receiptEmails={receiptEmails} collections={collections} />);
   await waitFor(() => expect(textOf('db-stat-storage-value')).toBe('2.0 KB'));
   expect(screen.getByText('storage used')).not.toBeNull();
+});
+
+// v2 database.tsx:708-715 and core.json health.database.offline / offline_preparing.
+const OFFLINE_READY = "You're offline. Sales keep working — anything you make is stored here and delivered when your server is back.";
+const OFFLINE_PREPARING = "You're offline and still setting up — this till can't sell until its catalog finishes downloading.";
+function renderWith(status: OnlineStatus) {
+  return render(<OnlineStatusContext.Provider value={{ status }}>
+    <HealthScreen receiptEmails={receiptEmails} collections={collections} /></OnlineStatusContext.Provider>);
+}
+
+test('offline and ready to sell: the notice says sales keep working, after the stat strip and before the table', async () => {
+  await products.insert({ id: 'a' });
+  renderWith('offline');
+  await waitFor(() => expect(textOf('db-row-count-products')).toBe('1'));
+  await waitFor(() => expect(textOf('db-offline-notice-title')).toBe(OFFLINE_READY));
+  const notice = screen.getByTestId('db-offline-notice');
+  expect(screen.getByTestId('db-stats').compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(notice.compareDocumentPosition(screen.getByTestId('db-table')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+test('offline and still preparing: the notice says the till cannot sell yet', async () => {
+  renderWith('offline');
+  await waitFor(() => expect(textOf('db-row-count-products')).toBe('0'));
+  expect(textOf('db-offline-notice-title')).toBe(OFFLINE_PREPARING);
+});
+
+test('online: no offline notice', async () => {
+  const { unmount } = render(<HealthScreen receiptEmails={receiptEmails} collections={collections} />);
+  await waitFor(() => expect(textOf('db-row-count-products')).toBe('0'));
+  expect(screen.queryByTestId('db-offline-notice')).toBeNull();
+  unmount();
+  // v2 shows it only for connectivity 'offline', not for a server it cannot reach.
+  renderWith('online-website-unavailable');
+  await waitFor(() => expect(textOf('db-row-count-products')).toBe('0'));
+  expect(screen.queryByTestId('db-offline-notice')).toBeNull();
 });
