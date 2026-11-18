@@ -328,7 +328,7 @@ export function CatalogueView({
           numColumns={numColumns}
           renderItem={(item, index) => index === 0
             ? <ParentTile doc={drilled} fields={viewState.tileFields} tax={tax} onBack={() => setDrill(null)} />
-            : <VariationTile entry={item.entry} inCart={inCartCounts?.get(item.entry.variant.id) ?? 0} onPress={() => onAddEntry?.(item.entry)} />}
+            : <VariationTile entry={item.entry} fields={viewState.tileFields} inCart={inCartCounts?.get(item.entry.variant.id) ?? 0} onPress={() => onAddEntry?.(item.entry)} />}
         />
         : atRoot ? viewState.view === 'grid'
           ? <BrowseRootGrid terms={terms} numColumns={numColumns} {...slots()} onOpen={place => dispatch({ type: 'open', place })} />

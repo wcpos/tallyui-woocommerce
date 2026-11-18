@@ -6,11 +6,12 @@ import { resolvePrice, useProductTraits, useTraitContext } from '@tallyui/core';
 import { Text } from '@tallyui/components';
 import type { CatalogueEntry } from '@tallyui/pos';
 import type { CatalogueTileFields } from '../lib/catalogue/catalogue-view-state';
-import { formatTileMoney } from '../lib/catalogue/tile-words';
+import { formatTileMoney, tileStockMark } from '../lib/catalogue/tile-words';
 import type { TileTax } from '../lib/catalogue/tile-words';
 import { ChevronLeftIcon } from './icons';
 import { InCartBadge } from './in-cart-badge';
 import { ProductTile, TilePoster } from './product-tile';
+import { StockPill } from './stock-pill';
 
 /** v2's ParentTile: the tapped product's tile, its back badge (v2's CIRCLE) where its cart count was. */
 export function ParentTile({ doc, fields, tax, onBack }: { doc: any; fields: CatalogueTileFields; tax?: TileTax; onBack(): void }): JSX.Element {
@@ -35,7 +36,7 @@ function useVariationParts(entry: CatalogueEntry<any>) {
   const chips = options.length > 0 ? options : variant.title ? [['title', variant.title] as const] : [];
   const name = traits.getName(product);
   return {
-    id, out, name,
+    id, out, name, was: out ? undefined : price?.was,
     label: variant.title ? `${name} · ${variant.title}` : name,
     chips: chips.length > 0 && <View key="chips" className="flex-row flex-wrap gap-1">
       {chips.map(([group, value]) => <Text key={group} testID={`variation-chip-${id}-${group}`}
@@ -50,15 +51,21 @@ function useVariationParts(entry: CatalogueEntry<any>) {
  * v2's VariationTile: the parent's picture, its name small and muted, the variation's values as v2's OptionChips,
  * then its price in bold, or Sold out over a greyed picture. The tile is the add control.
  * Its corner is v2's InCartCount (variation-tile.tsx:177), the count of that variation's lines.
+ * With Stock on, the parent tile's stock pill (v2's stockMark, variation-tile.tsx:150-157, 172-174); with On Sale on,
+ * the regular price struck after the bold price (v2's moneyRow, variation-tile.tsx:183-192, tile-words.tsx:74-104).
  */
-export function VariationTile({ entry, inCart = 0, onPress }: { entry: CatalogueEntry<any>; inCart?: number; onPress(): void }): JSX.Element {
-  const { id, out, name, label, chips, money } = useVariationParts(entry);
+export function VariationTile({ entry, fields, inCart = 0, onPress }: { entry: CatalogueEntry<any>; fields?: CatalogueTileFields; inCart?: number; onPress(): void }): JSX.Element {
+  const { id, out, name, was, label, chips, money } = useVariationParts(entry);
+  const mark = fields?.stock ? tileStockMark(entry.variant.stock, false) : null;
   const lines = [
-    <Text key="name" className="text-xs text-muted-foreground" numberOfLines={1}>{name}</Text>, chips, money,
+    <Text key="name" className="text-xs text-muted-foreground" numberOfLines={1}>{name}</Text>, chips,
+    fields?.on_sale && was ? <View key="money" className="flex-row flex-wrap items-baseline gap-x-1.5">{money}
+      <Text testID={`variation-was-${id}`} className="text-xs text-muted-foreground line-through">{formatTileMoney(was)}</Text></View> : money,
   ].filter(Boolean);
   return <Pressable accessibilityRole="button" accessibilityLabel={label}
     testID={`variation-tile-${id}`} onPress={onPress}>
     <TilePoster doc={entry.product} testKey={`variation-${id}`} soldOut={out} lines={lines}>
+      {mark && <View className="absolute left-2 top-2"><StockPill mark={mark} testID={`variation-tile-stock-${id}`} /></View>}
       <InCartBadge count={inCart} testID={`in-cart-variation-${id}`} className="absolute right-2 top-2 z-10" />
     </TilePoster>
   </Pressable>;
