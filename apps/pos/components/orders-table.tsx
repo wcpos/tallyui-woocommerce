@@ -49,16 +49,31 @@ function OrderStatus({ cells }: { cells: OrderRowCells }) {
   </View>;
 }
 
-function orderCell(id: OrdersColumnId, cells: ReturnType<typeof orderRowCells>, rowId: string): JSX.Element {
+/** The wide table's filter taps (v2 setFilter through the table's actions). */
+type CellFilters = { onFilterStatus?(status: string): void; onFilterCustomer?(id: string, name: string): void };
+
+function orderCell(id: OrdersColumnId, cells: ReturnType<typeof orderRowCells>, rowId: string, row: OrderTableRow, filters: CellFilters): JSX.Element {
+  const { onFilterStatus, onFilterCustomer } = filters;
+  const chip = 'h-8 max-w-full flex-row items-center self-start rounded-full border border-border px-2.5';
+  const name = <Text testID={`${rowId}-customer`} numberOfLines={1} className="shrink text-sm font-normal text-foreground">{cells.customer}</Text>;
   switch (id) {
-    case 'status': return <TableCell key={id} testID={`${rowId}-status`} className={CELL}><OrderStatus cells={cells} /></TableCell>;
+    // v2's status-filter-cell.tsx:24-32: pressed, it filters to the row's own Woo status. A local row's status is its
+    // sync state, which is no Woo status, so it stays plain. A Pressable stops Enter's propagation (react-native-web
+    // PressResponder), so Enter on either cell never reaches the table's open-the-row key.
+    case 'status': return <TableCell key={id} testID={`${rowId}-status`} className={CELL}>
+      {onFilterStatus && row.kind === 'store' ? <Pressable accessibilityRole="button" accessibilityLabel={cells.statusLabel}
+        testID={`${rowId}-status-filter`} className="self-start" onPress={() => onFilterStatus(row.order.status)}>
+        <OrderStatus cells={cells} />
+      </Pressable> : <OrderStatus cells={cells} />}
+    </TableCell>;
     case 'number': return <TableCell key={id} testID={`${rowId}-number`} className={`${CELL} ${ALIGN.number}`}><Text>{cells.number}</Text></TableCell>;
     // v2's Customer cell (components/order/customer.tsx:32) is a `size="sm"` Chip with no avatar: h-8 (32 px), px-2.5,
-    // and a one-line text-sm (13 px) label (components chip/index.tsx:125, 158).
+    // and a one-line text-sm (13 px) label (components chip/index.tsx:125, 158). Pressed, it filters to the customer
+    // (customer.tsx:39); a guest has no id, v2's customer_id 0.
     case 'customer_id': return <TableCell key={id} className={CELL}>
-      <View testID={`${rowId}-customer-chip`} className="h-8 max-w-full flex-row items-center self-start rounded-full border border-border px-2.5">
-        <Text testID={`${rowId}-customer`} numberOfLines={1} className="shrink text-sm font-normal text-foreground">{cells.customer}</Text>
-      </View>
+      {onFilterCustomer ? <Pressable accessibilityRole="button" testID={`${rowId}-customer-chip`} className={`${chip} web:hover:bg-accent`}
+        onPress={() => onFilterCustomer(row.order.customer?.id ?? '0', cells.customer)}>{name}</Pressable>
+        : <View testID={`${rowId}-customer-chip`} className={chip}>{name}</View>}
     </TableCell>;
     case 'date_created_gmt': return <TableCell key={id} testID={`${rowId}-date`} className={CELL}><Text>{cells.date}</Text></TableCell>;
     case 'payment_method': return <TableCell key={id} testID={`${rowId}-payment`} className={CELL}><Text>{cells.payment}</Text></TableCell>;
@@ -126,7 +141,7 @@ function headCell({ id, label }: AreaColumn<OrdersColumnId>): JSX.Element {
 }
 
 /** v2's orders table (screens/main/orders/index.tsx): grouped by day, newest first; the chevron opens the order. */
-export function OrdersTable({ local, store, onOpen, footer, active = false, onSync, now = () => new Date(), visible = ALL_COLUMNS, total = null }: {
+export function OrdersTable({ local, store, onOpen, footer, active = false, onSync, now = () => new Date(), visible = ALL_COLUMNS, total = null, ...filters }: CellFilters & {
   /** The store's count of every order the query matches; null when it gives none. */
   total?: number | null;
   /** The columns the Orders display options leave on; the table keeps its own order. The chevron always shows. */
@@ -181,7 +196,7 @@ export function OrdersTable({ local, store, onOpen, footer, active = false, onSy
                 return (
                   <KeyboardRow key={item.id} index={ids.indexOf(item.id)} keyboard={keyboard} testID={`${prefix}-keyrow-${item.order.id}`}>
                   <TableRow testID={`${prefix}-row-${item.order.id}`} className={ROW}>
-                    {columns.map(({ id }) => orderCell(id, cells, `${prefix}-${item.order.id}`))}
+                    {columns.map(({ id }) => orderCell(id, cells, `${prefix}-${item.order.id}`, item, filters))}
                     <TableCell className="w-14 flex-none items-center justify-center px-0 py-0">
                       <Pressable accessibilityRole="button" accessibilityLabel="Open order" testID={`${prefix}-open-${item.order.id}`}
                         onPress={() => onOpen(item)} className="size-9 items-center justify-center rounded-md web:hover:bg-accent">

@@ -38,8 +38,8 @@ const order: StoreOrder = {
   discountMinor: 0, discountTaxMinor: 0, taxMinor: 0, totalMinor: 300,
 };
 const scope = { cashierId: '2', createdVia: 'woocommerce-pos' };
-async function setup(fields: OrderHistorySource['fields'] = ['status', 'customerId', 'cashierId', 'storeId', 'createdVia', 'dateRange']) {
-  const list = vi.fn<OrderHistorySource['list']>().mockResolvedValue({ orders: [order], hasMore: false });
+async function setup(fields: OrderHistorySource['fields'] = ['status', 'customerId', 'cashierId', 'storeId', 'createdVia', 'dateRange'], row: StoreOrder = order) {
+  const list = vi.fn<OrderHistorySource['list']>().mockResolvedValue({ orders: [row], hasMore: false });
   const onCustomerSearch = vi.fn().mockResolvedValue([{ id: '7', name: 'Ada Lovelace' }]);
   render(<SessionProvider><OutboxProvider storage={getRxStorageMemory()} transportFor={() => ({ send: async () => ({ kind: 'results', results: [] }) })}>
     <OrderStoreReady />
@@ -100,4 +100,39 @@ test('no fields means no bar and the original list call', async () => {
   const { list } = await setup([]);
   expect(screen.queryByTestId('orders-chip-row')).toBeNull();
   expect(list.mock.calls).toEqual([[1]]);
+});
+
+// v2's cell taps (status-filter-cell.tsx:24-32, order/customer.tsx:32-39): the wide table's status and customer filter the list.
+test("a row's status filters the list to it and does not open the order", async () => {
+  const { list } = await setup(undefined, { ...order, status: 'processing' });
+  const cell = screen.getByTestId('history-901-status-filter');
+  expect(cell.getAttribute('aria-label')).toBe('Processing');
+  // The press focuses the row, and the table's Enter opens a focused row, so the cell must keep its key to itself.
+  fireEvent.focus(cell);
+  fireEvent.keyDown(cell, { key: 'Enter' });
+  fireEvent.click(cell);
+  await vi.waitFor(() => expect(list).toHaveBeenLastCalledWith(1, undefined, { ...scope, status: 'processing' }));
+  expect(screen.getByTestId('order-filter-status').textContent).toContain('Processing');
+  expect(screen.queryByTestId('order-modal')).toBeNull();
+});
+
+test("a row's customer chip filters to that customer and names them in the Customer chip", async () => {
+  const { list } = await setup(undefined, { ...order, customer: { id: '7', name: 'Ada Lovelace' } });
+  fireEvent.click(screen.getByTestId('history-901-customer-chip'));
+  await vi.waitFor(() => expect(list).toHaveBeenLastCalledWith(1, undefined, { ...scope, customerId: '7' }));
+  expect(screen.getByTestId('order-filter-customer').textContent).toContain('Ada Lovelace');
+  expect(screen.queryByTestId('order-modal')).toBeNull();
+});
+
+test("a guest's customer chip filters to Guest", async () => {
+  const { list } = await setup();
+  fireEvent.click(screen.getByTestId('history-901-customer-chip'));
+  await vi.waitFor(() => expect(list).toHaveBeenLastCalledWith(1, undefined, { ...scope, customerId: '0' }));
+  expect(screen.getByTestId('order-filter-customer').textContent).toContain('Guest');
+});
+
+test('without filter fields the status cell is not a button', async () => {
+  await setup([]);
+  expect(screen.queryByTestId('history-901-status-filter')).toBeNull();
+  expect(screen.getByTestId('history-901-customer-chip').getAttribute('role')).toBeNull();
 });

@@ -142,6 +142,13 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
             : <OrdersTable local={local} store={orders} footer={footer} active={loading} total={total}
               visible={columns.filter(column => column.visible).map(column => column.id)}
               onSync={history ? () => { void loadPage(1, search); } : undefined}
+              // v2's cell taps (status-filter-cell.tsx:29, order/customer.tsx:39) set the bar's filter, so only where it shows.
+              onFilterStatus={fields.length > 0 ? status => setValue(v => ({ ...v, status })) : undefined}
+              onFilterCustomer={fields.length > 0 ? (id, name) => {
+                setValue(v => ({ ...v, customerId: id }));
+                // The Customer chip names the customer from its options.
+                if (id !== '0') setFound(list => list.some(o => o.value === id) ? list : [...list, { value: id, label: name }]);
+              } : undefined}
               onOpen={row => { if (row.kind === 'store') setViewing(row.order); else open(row.order); }} />
         : <View testID="orders-unavailable" className={`py-4 ${gutter}`}><Text>Orders show once the store is connected.</Text></View>}
       {outbox.enabled && viewing && !opened && <OrderDetailSheet order={viewing} onReceipt={() => open(toHistoryRow(viewing))} onClose={() => setViewing(null)} />}
