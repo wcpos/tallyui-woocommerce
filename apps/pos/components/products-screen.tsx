@@ -17,7 +17,7 @@ import type { JSX } from 'react';
 import { ScrollView, View, useWindowDimensions } from 'react-native';
 import { ConnectorProvider, formatMoney, moneyFromDecimalString } from '@tallyui/core';
 import type { TallyConnector } from '@tallyui/core';
-import { Button, ProductImage, ProductTable, SearchInput, Text } from '@tallyui/components';
+import { Button, ProductImage, ProductTable, SearchInput, Table, TableBody, TableCell, TableRow, Text } from '@tallyui/components';
 import type { ProductTableColumn } from '@tallyui/components';
 import { searchProducts, sortProducts } from '@tallyui/pos';
 import type { ProductSort } from '@tallyui/pos';
@@ -41,12 +41,14 @@ import { LevelBack } from './level-back';
 import { ProductAttributes, variationMatches, variationName } from './product-attributes';
 import type { ProductAttribute, VariationDoc, VariationMatch } from './product-attributes';
 import { utcDate } from './coupons-screen';
+import { BAR } from './customers-screen';
 import { StatusDot } from './status-dot';
 import { CaptionRowInset, TableCount, TableSurface, useCatalogueSync } from './table-surface';
 import type { StatusTone } from './status-dot';
 
 // The image cell's square, about v2's thumbnail.
 const IMAGE_SIZE = 40;
+const SYNCING_ROWS = Array.from({ length: 5 }, (_, i) => i); // v2's SYNCING_SKELETON_ROWS (data-table/index.tsx:198-201).
 // v2's default sort for the products table (initial-settings.json "products").
 const NAME_ASC: ProductSort = { field: 'name', dir: 'asc' };
 
@@ -378,7 +380,22 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
     </LevelBack>
   ) : null;
 
-  const body = total === 0 ? (
+  // v2's ListEmptyComponent (data-table/index.tsx:392-414) and DataTableSkeletonRows (skeleton.tsx:34-69): mid-sync an
+  // empty list is rows in flight, not "No products yet". ProductTable drops its header with no rows, so bars only.
+  const body = total === 0 && sync.active ? (
+    <View testID="products-syncing-rows" accessibilityLabel="Loading products…" aria-busy className="flex-1 overflow-hidden">
+      {narrow ? SYNCING_ROWS.map(i => (
+        <View key={i} testID={`products-syncing-row-${i}`} className="flex-row items-center gap-3 border-b border-border px-4 py-3">
+          <View className="h-10 w-10 rounded bg-muted" />
+          <View className="flex-1 gap-1"><View className={BAR} /><View className="h-5 w-1/2 rounded-lg bg-muted" /></View>
+        </View>
+      )) : <Table><TableBody>{SYNCING_ROWS.map(i => <TableRow key={i} testID={`products-syncing-row-${i}`}>
+        {tableColumns.map(({ id, flex }) => <TableCell key={id} style={{ flex: flex ?? 1 }} className="justify-center px-3 py-1.5">
+          <View testID={`products-syncing-bar-${id}`} className={id === 'image' ? 'h-10 w-10 rounded bg-muted' : BAR} />
+        </TableCell>)}
+      </TableRow>)}</TableBody></Table>}
+    </View>
+  ) : total === 0 ? (
     <EmptyState kind="empty" title="No products yet" description="Products you add to the store will appear here." />
   ) : shown.length === 0 ? (
     <EmptyState kind="no-results" title="Nothing here matches the filters" action={{ label: 'Clear filters', onPress: clear }} />
