@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
-import { Button, Dialog, DialogContent, IconButton, Text, XIcon } from '@tallyui/components';
+import { Avatar, Button, Dialog, DialogContent, IconButton, Text, XIcon } from '@tallyui/components';
 import { formatMoney, type StoreOrder } from '@tallyui/core';
+import { customerInitials } from '../lib/customers/customer-table';
 import { wooStatusLabel } from '../lib/orders/order-history';
 import { dateTimeLabel } from '../lib/orders/order-days';
 
@@ -233,8 +234,16 @@ export function OrderDetailView({ order, onReceipt, onClose }: {
         )}
 
         <Section title="Customer" testID="order-modal-customer" last>
-          <Text className="font-medium text-foreground">{order.customer?.name || 'Guest'}</Text>
-          {order.customer?.email ? <Text className="text-xs text-muted-foreground">{order.customer.email}</Text> : null}
+          {/* v2 orders/view/sections/customer.tsx:78-93 and user-avatar/customer-avatar.tsx CustomerAvatar. */}
+          <View className="flex-row items-center gap-2">
+            {/* v2's Guest glyph (icon="customer") waits on an Avatar icon slot in @tallyui/components. */}
+            <Avatar testID="order-modal-customer-avatar" size="md" tone={order.customer?.id || order.customer?.name ? 'primary' : 'muted'}
+              fallback={order.customer?.id || order.customer?.name ? customerInitials({ name: order.customer.name || order.customer.email || '', email: order.customer.email }) : ''} />
+            <View className="min-w-0 flex-1">
+              <Text className="font-medium text-foreground" numberOfLines={1}>{order.customer?.name || 'Guest'}</Text>
+              {order.customer?.email ? <Text className="text-xs text-muted-foreground" numberOfLines={1}>{order.customer.email}</Text> : null}
+            </View>
+          </View>
         </Section>
       </ScrollView>
       <View testID="order-modal-footer" className="flex-row flex-wrap items-center justify-end gap-2 border-t border-border px-4 pt-4">

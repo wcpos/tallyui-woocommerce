@@ -20,6 +20,21 @@ function make(overrides: Partial<StoreOrder> = {}): StoreOrder {
 const show = (order: StoreOrder) => render(<OrderDetailView order={order} onReceipt={vi.fn()} onClose={vi.fn()} />);
 const part = (testID: string) => within(screen.getByTestId(testID));
 
+// Avatar puts its tone on the fallback disc inside it (bg-primary / bg-muted, @tallyui/components avatarFallbackVariants);
+// react-native-web drops className from the DOM, so read it off the nearest component above that disc (as classesOf).
+type Fiber = { type?: unknown; memoizedProps?: { className?: unknown }; return?: Fiber; alternate?: Fiber };
+function avatarDiscClasses(): string[] {
+  const disc = screen.getByTestId('order-modal-customer-avatar').firstElementChild as unknown as Record<string, unknown>;
+  const key = (prefix: string) => Object.keys(disc).find(name => name.startsWith(prefix))!;
+  const created = disc[key('__reactFiber$')] as Fiber;
+  let fiber: Fiber | undefined = created.memoizedProps === disc[key('__reactProps$')] ? created : created.alternate;
+  for (; fiber; fiber = fiber.return) {
+    const { className } = fiber.memoizedProps ?? {};
+    if (typeof fiber.type !== 'string' && typeof className === 'string') return className.split(/\s+/); // skip the DOM node's own css-view class
+  }
+  return [];
+}
+
 test('the header shows v2\'s order title, its status and when it was placed', () => {
   show(make());
   expect(screen.getByTestId('order-modal-title').textContent).toBe('Order #901');
@@ -186,6 +201,40 @@ test('the customer is named with the email, and Guest when there is none', () =>
   show(make({ customer: { id: '7', name: 'Ada Lovelace', email: 'ada@example.com' } }));
   expect(part('order-modal-customer').getByText('Ada Lovelace')).not.toBeNull();
   expect(part('order-modal-customer').getByText('ada@example.com')).not.toBeNull();
+});
+
+test('a customer order shows the customer\'s initials avatar beside the name, as v2 (sections/customer.tsx:79)', () => {
+  show(make({ customer: { id: '7', name: 'Ada Lovelace', email: 'shopper@example.com' } }));
+  const avatar = screen.getByTestId('order-modal-customer-avatar');
+  expect(avatar.textContent).toBe('AL');
+  expect(part('order-modal-customer').getByTestId('order-modal-customer-avatar')).toBe(avatar);
+  // v2 user-avatar/customer-avatar.tsx: a customer gets the primary disc.
+  expect(avatarDiscClasses()).toContain('bg-primary');
+  expect(avatarDiscClasses()).not.toContain('bg-muted');
+});
+
+test('a registered customer with no name reads by the email\'s local part, as v2', () => {
+  show(make({ customer: { id: '8', email: 'jane.doe@shop.example' } }));
+  expect(screen.getByTestId('order-modal-customer-avatar').textContent).toBe('JA');
+});
+
+test.each([null, { email: 'walkin@example.com' }])('a guest order shows v2\'s Guest avatar, never initials', customer => {
+  show(make({ customer }));
+  const avatar = screen.getByTestId('order-modal-customer-avatar');
+  expect(avatar).not.toBeNull();
+  expect(avatar.textContent).toBe('');
+  expect(part('order-modal-customer').getByText('Guest')).not.toBeNull();
+  // v2 user-avatar/customer-avatar.tsx: a nameless guest gets the muted disc.
+  expect(avatarDiscClasses()).toContain('bg-muted');
+  expect(avatarDiscClasses()).not.toContain('bg-primary');
+});
+
+test('a guest order that carries a name shows its initials, as v2', () => {
+  show(make({ customer: { name: 'Walk In' } }));
+  expect(screen.getByTestId('order-modal-customer-avatar').textContent).toBe('WI');
+  // v2 user-avatar/customer-avatar.tsx: a guest order carrying a name gets the primary disc.
+  expect(avatarDiscClasses()).toContain('bg-primary');
+  expect(avatarDiscClasses()).not.toContain('bg-muted');
 });
 
 test('Receipt and Close call their handlers', () => {
