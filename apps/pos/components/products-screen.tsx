@@ -29,6 +29,9 @@ import { useAreaColumns, visibleAreaColumns } from '../lib/area-columns';
 import type { AreaColumn } from '../lib/area-columns';
 import { NARROW_WIDTH } from '../lib/layout/wide';
 import { useSearchTerm } from '../lib/search-term';
+import { lookupCode } from '../lib/scan/lookup';
+import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
+import { toast } from '../lib/toast/toast';
 import { AreaDisplayOptions } from './area-display-options';
 import { AreaToolbar, useAreaGutter } from './area-header';
 import { BrowseCrumb } from './browse-terms-view';
@@ -280,6 +283,21 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
 
   function clear() { set(''); setFilters({}); }
 
+  // v2's useBarcode (products/use-barcode.ts:19-63, core.json common.barcode_scanned and product_found_locally_one /
+  // _other): toast the local match count, info for 0 or 1 and warn for an ambiguous code, then search for it whatever
+  // the count, which ends a drill as v2's does. While the display options panel is open a scan is dropped, but the
+  // screen keeps the wedge, so the till under this route on the stack does not ring it up.
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  function scan(code: string) {
+    if (optionsOpen) return;
+    const found = lookupCode(products, connector.traits.product, code, { currency });
+    const count = found.kind === 'several' ? found.count : found.kind === 'none' ? 0 : 1;
+    toast({ title: `Barcode scanned: ${code}`, description: `${count} ${count === 1 ? 'product' : 'products'} found locally`,
+      type: count > 1 ? 'warning' : 'info' });
+    set(code);
+  }
+  useWedgeScanner(scan, true);
+
   const columns = useMemo(() => productColumns(currency, locale, drillTo), [currency, locale, drillTo]);
   // The columns the display options leave on, in the area's order; the narrow list keeps sorting on every column.
   const tableColumns = useMemo(() => visibleAreaColumns(columns, settings), [columns, settings]);
@@ -363,7 +381,8 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
       <View testID="screen-products" className="flex-1 bg-background">
         <AreaToolbar area="products" title="Products" onBack={onBack}
           search={<SearchInput testID="search-products" value={term} onChangeText={type} placeholder="Search products" />}>
-          <AreaDisplayOptions area="products" columns={PRODUCTS_COLUMNS} settings={settings} onChange={setSettings} />
+          <AreaDisplayOptions area="products" columns={PRODUCTS_COLUMNS} settings={settings} onChange={setSettings}
+            onOpenChange={setOptionsOpen} />
         </AreaToolbar>
         <View testID="products-filter-row" className={`pb-2 ${gutter}`}>
           <CatalogueFilterChips products={products} filters={filters} onChange={setFilters} />
