@@ -36,7 +36,7 @@ export function CouponRows({ sale }: { sale: ReturnType<typeof useSale> }): JSX.
             <DiscountIcon testID={`coupon-chip-icon-${coupon.code}`} size={16} strokeWidth={1.5} className="text-muted-foreground" />
             <Text className="text-sm text-foreground">{coupon.code}</Text>
             <Pressable testID={`remove-coupon-${coupon.code}`} role="button" accessibilityLabel={`Remove coupon ${coupon.code}`}
-              className="min-w-8 items-center justify-center self-stretch" onPress={() => {
+              className="-my-px min-w-8 items-center justify-center self-stretch" onPress={() => {
                 const refusal = sale.removeCoupon(coupon.code);
                 toast(refusal === null ? { type: 'info', title: 'Coupon removed' } : { type: 'warning', title: refusal });
               }}><XIcon size={14} className="text-muted-foreground" /></Pressable>
