@@ -50,7 +50,7 @@ const cell = (id: CustomersColumnId, extra = '') => [CELL, COLUMN_CLASS[id], ext
 // Nothing here measures the card, so the app draws the cap and clips it; a 1280×800 card is taller than 12 × 48.
 const SKELETON_ROWS = Array.from({ length: 12 }, (_, i) => i);
 // v2's Skeleton shape="line" (`h-5`, `bg-muted rounded-lg`, skeleton/index.tsx:8,18) at w-3/4 (data-table/skeleton.tsx:59-62).
-const BAR = 'h-5 w-3/4 rounded-lg bg-muted';
+export const BAR = 'h-5 w-3/4 rounded-lg bg-muted';
 // The columns the header sorts (customer-table.ts sorts the loaded rows on these): all but v2's `disableSort` ones
 // (initial-settings.json customers.columns: avatar_url, billing).
 function sortable(id: CustomersColumnId): id is CustomerSortField {

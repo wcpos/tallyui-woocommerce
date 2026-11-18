@@ -6,6 +6,7 @@ import { PortalHost } from '@tallyui/primitives';
 import { ProductsScreen } from '../components/products-screen';
 import fixtureProducts from './fixtures/products.json';
 import { CARD_CLASSES } from './classes-of';
+import { CatalogueContext } from '../lib/catalogue/catalogue-context';
 
 const connector = createWooCommerceConnector();
 
@@ -315,6 +316,61 @@ test('no products: "No products yet" with its description', () => {
   expect(text('no-data-message-title')).toBe('No products yet');
   expect(text('no-data-message-description')).toBe('Products you add to the store will appear here.');
   expect(screen.queryByTestId('data-table-count')).toBeNull();
+});
+
+// v2 data-table/index.tsx:392-414 and index.test.tsx:106-116: an empty list mid-sync draws 5 skeleton rows.
+function renderSyncing(products: any[], status: string) {
+  const screenFor = (value: string) => (
+    <CatalogueContext.Provider value={{ catalogue: null, products: [], status: value as 'syncing' }}>
+      <ProductsScreen products={products} connector={connector} currency="USD" locale="en_US" onBack={() => {}} />
+    </CatalogueContext.Provider>
+  );
+  const view = render(screenFor(status), { wrapper: ({ children }) => <>{children}<PortalHost /></> });
+  return { ...view, settle: () => view.rerender(screenFor('idle')) };
+}
+const syncingRows = () => screen.queryAllByTestId(/^products-syncing-row-/);
+
+test('first sync: an empty store shows v2\'s 5 skeleton rows, not "No products yet"', () => {
+  renderSyncing([], 'syncing');
+  const rows = screen.getByTestId('products-syncing-rows');
+  expect(rows.getAttribute('aria-busy')).toBe('true');
+  expect(rows.getAttribute('aria-label')).toBe('Loading products…');
+  expect(syncingRows()).toHaveLength(5);
+  expect(within(syncingRows()[0]).queryAllByTestId(/^products-syncing-bar-/).map(el => el.getAttribute('data-testid')))
+    .toEqual(['image', 'name', 'stock_quantity', 'stock_status', 'categories', 'price', 'regular_price', 'sale_price']
+      .map(id => `products-syncing-bar-${id}`));
+  expect(screen.queryByTestId('no-data-message-title')).toBeNull();
+  expect(screen.queryByText('No products yet')).toBeNull();
+  expect(screen.queryByTestId('data-table-count')).toBeNull();
+});
+
+test('first sync on a phone: 5 skeleton rows of an image square and two bars', () => {
+  setWidth(390);
+  renderSyncing([], 'syncing');
+  expect(syncingRows()).toHaveLength(5);
+  // react-native-web drops className: read the shape, the square then a column of two bars, and no table cells.
+  for (const row of syncingRows()) {
+    expect(row.children).toHaveLength(2);
+    expect(row.children[0].children).toHaveLength(0);
+    expect(row.children[1].children).toHaveLength(2);
+  }
+  expect(screen.queryAllByTestId(/^products-syncing-bar-/)).toHaveLength(0);
+  expect(screen.queryByText('No products yet')).toBeNull();
+});
+
+test('the sync settles with no products: "No products yet", no skeleton rows', () => {
+  const { settle } = renderSyncing([], 'syncing');
+  expect(syncingRows()).toHaveLength(5);
+  settle();
+  expect(screen.queryByTestId('products-syncing-rows')).toBeNull();
+  expect(text('no-data-message-title')).toBe('No products yet');
+});
+
+test('products while the sync runs: the rows draw as now, no skeleton', () => {
+  renderSyncing([product(1, 'Tea'), product(2, 'Americano')], 'syncing');
+  expect(rowIds()).toEqual(['product-row-2', 'product-row-1']);
+  expect(screen.queryByTestId('products-syncing-rows')).toBeNull();
+  expect(screen.queryByTestId('data-table-sync-active')).not.toBeNull();
 });
 
 test('live: rerendering with a new products array adds the new row', () => {
