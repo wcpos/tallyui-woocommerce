@@ -86,14 +86,16 @@ export function CouponPicker({ sale, coupons, currency, onClose }: {
 
   return (
     <View className="gap-2 py-2">
-      <Input><Input.Field value={search} onChangeText={setSearch} placeholder="Search coupons..."
+      {/* v2 add-coupon.tsx:88-90 places the error above the coupon field. */}
+      {error ? <Text accessibilityRole="alert" className="text-destructive">{error}</Text> : null}
+      <Input><Input.Field value={search} onChangeText={text => { setSearch(text); setError(null); }} placeholder="Search coupons..."
         accessibilityLabel="Search coupons" autoCapitalize="none" /></Input>
       <Text className="text-muted-foreground">{selected ?? 'Select coupon...'}</Text>
       <ScrollView style={{ maxHeight: 320 }}>
         {listed.length ? listed.map(coupon => (
           <Pressable key={coupon.code} accessibilityRole="button" accessibilityLabel={coupon.code}
             // react-native-web reads aria-selected, not accessibilityState.
-            accessibilityState={{ selected: selected === coupon.code }} aria-selected={selected === coupon.code} onPress={() => setSelected(coupon.code)}
+            accessibilityState={{ selected: selected === coupon.code }} aria-selected={selected === coupon.code} onPress={() => { setSelected(coupon.code); setError(null); }}
             className={`flex-row items-center justify-between gap-2 rounded-md border border-border px-3 py-2 ${selected === coupon.code ? 'bg-accent' : 'bg-card'}`}>
             <View className="flex-1">
               <Text className="text-foreground">{coupon.code}</Text>
@@ -103,7 +105,6 @@ export function CouponPicker({ sale, coupons, currency, onClose }: {
           </Pressable>
         )) : <Text className="text-muted-foreground">No coupons found</Text>}
       </ScrollView>
-      {error ? <Text accessibilityRole="alert" className="text-destructive">{error}</Text> : null}
       <DialogFooter>
         <Button variant="outline" onPress={onClose}><Text>Cancel</Text></Button>
         <Button disabled={!selected || applying} onPress={() => { void apply(); }}><Text>Apply</Text></Button>
