@@ -39,7 +39,7 @@ beforeEach(() => {
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-async function setup(onSignOut: () => void) {
+async function setup(onSignOut: () => void, cashiers: { uuid: string; name: string }[] = []) {
   let register!: ReturnType<typeof useRegister>;
   let outbox!: ReturnType<typeof useOutbox>;
   function Probe() { register = useRegister(); outbox = useOutbox(); return null; }
@@ -53,7 +53,7 @@ async function setup(onSignOut: () => void) {
           <Probe />
           <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
             storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={onSignOut}
-            onSwitchCashier={async () => null} cashiers={[]} />
+            onSwitchCashier={async () => null} cashiers={cashiers} />
           <PortalHost />
         </RegisterProvider>
       </OutboxProvider>
@@ -107,4 +107,27 @@ test('sessions off: Sign out signs out at once', async () => {
   fireEvent.click(screen.getByTestId('user-sheet-sign-out'));
   expect(onSignOut).toHaveBeenCalledTimes(1);
   expect(screen.queryByTestId('sign-out-confirm')).toBeNull();
+}, 20_000);
+
+// v2 switch-confirm.tsx:136-137: the hand-over names the drawer only while the bound register has a session.
+const SAM = [{ uuid: 'b', name: 'Sam' }];
+function handOverDescription() {
+  fireEvent.click(within(shell()).getByTestId('register-bar-avatar'));
+  fireEvent.click(screen.getByTestId('user-sheet-user-b'));
+  return within(screen.getByTestId('switch-confirm')).getByText(/^The POS reloads as Sam\./).textContent;
+}
+
+test('register open: the hand-over says the drawer stays open on the register', async () => {
+  localStorage.setItem(REGISTER_SESSIONS_KEY, 'true');
+  const app = await setup(vi.fn(), SAM);
+  await openSessionThroughCard();
+  await waitFor(() => expect(app.register.session?.status).toBe('open'));
+  expect(handOverDescription()).toBe(`The POS reloads as Sam. The drawer stays open on ${app.register.registerName ?? 'This till'}.`);
+}, 20_000);
+
+test('register closed: the hand-over says nothing about the drawer', async () => {
+  localStorage.setItem(REGISTER_SESSIONS_KEY, 'true');
+  await setup(vi.fn(), SAM);
+  await screen.findByTestId('open-register-card');
+  expect(handOverDescription()).toBe('The POS reloads as Sam.');
 }, 20_000);

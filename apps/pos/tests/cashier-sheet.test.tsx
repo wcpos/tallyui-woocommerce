@@ -91,6 +91,7 @@ test('the sheet lists the other cashiers and switches to the chosen one', async 
     expect(screen.getByTestId('user-sheet-user-b-avatar').textContent).toBe('SA');
     expect(within(screen.getByTestId('user-sheet')).queryByText(/Switch to/)).toBeNull();
     fireEvent.click(screen.getByTestId('user-sheet-user-b'));
+    fireEvent.click(screen.getByTestId('switch-confirm-confirm'));
     await waitFor(() => expect(onSwitchCashier).toHaveBeenCalledWith('b'));
     expect(screen.queryByTestId('user-sheet')).toBeNull();
     expect(await parkedCarts.find().exec()).toEqual([]);
@@ -153,6 +154,7 @@ test('switching with a cart parks it under the held-cart key before switching', 
     fireEvent.click(screen.getByText('Espresso'));
     fireEvent.click(screen.getByTestId('register-bar-avatar'));
     fireEvent.click(screen.getByTestId('user-sheet-user-b'));
+    fireEvent.click(screen.getByTestId('switch-confirm-confirm'));
     await waitFor(() => expect(onSwitchCashier).toHaveBeenCalledWith('b'));
     await onSwitchCashier.mock.results[0].value;
     await waitFor(() => expect(screen.queryByLabelText('Edit quantity of Espresso')).toBeNull());
@@ -168,6 +170,7 @@ test('a failed switch shows the message and puts the cart back', async () => {
     fireEvent.click(screen.getByText('Espresso'));
     fireEvent.click(screen.getByTestId('register-bar-avatar'));
     fireEvent.click(screen.getByTestId('user-sheet-user-b'));
+    fireEvent.click(screen.getByTestId('switch-confirm-confirm'));
     await waitFor(() => expect(onSwitchCashier).toHaveBeenCalledWith('b'));
     await screen.findByText(error);
     await screen.findByLabelText('Edit quantity of Espresso');
@@ -255,6 +258,7 @@ test('a cart held for a switch that is still pending stays parked on the same sc
     fireEvent.click(screen.getByText('Espresso'));
     fireEvent.click(screen.getByTestId('register-bar-avatar'));
     fireEvent.click(screen.getByTestId('user-sheet-user-b'));
+    fireEvent.click(screen.getByTestId('switch-confirm-confirm'));
     await waitFor(async () => expect(await parkedCarts.find().exec()).toHaveLength(1));
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
     const docs = await parkedCarts.find().exec();
@@ -499,4 +503,59 @@ test('the Store row shows Store and the store name, and is absent without one', 
   cleanup();
   openSheet();
   expect(screen.queryByTestId('user-sheet-row-store')).toBeNull();
+});
+
+// v2 switch-confirm.tsx:134-140,171,274-300: a cashier row asks before the till changes hands.
+function askToHandOver(extra: Partial<Parameters<typeof CashierSheet>[0]> = {}) {
+  const onSwitch = vi.fn();
+  openSheet({ cashiers: [{ uuid: 'b', name: 'Sam' }], onSwitch, ...extra });
+  fireEvent.click(screen.getByTestId('user-sheet-user-b'));
+  return { onSwitch, dialog: screen.getByTestId('switch-confirm') };
+}
+
+test('pressing a cashier row asks "Hand the till to Sam?" and does not switch yet', () => {
+  const { onSwitch, dialog } = askToHandOver();
+  expect(within(dialog).getByText('Hand the till to Sam?')).not.toBeNull();
+  expect(within(dialog).getByText('The POS reloads as Sam.')).not.toBeNull();
+  expect(screen.getByTestId('switch-confirm-cancel').textContent).toBe('Cancel');
+  expect(screen.getByTestId('switch-confirm-confirm').textContent).toBe('Hand over to Sam');
+  expect(onSwitch).not.toHaveBeenCalled();
+  expect(screen.getByTestId('user-sheet')).not.toBeNull();
+});
+
+test('confirming the hand-over switches exactly once and closes the sheet', async () => {
+  const { onSwitch } = askToHandOver();
+  fireEvent.click(screen.getByTestId('switch-confirm-confirm'));
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
+  expect(onSwitch).toHaveBeenCalledTimes(1);
+  expect(onSwitch).toHaveBeenCalledWith('b');
+  expect(screen.queryByTestId('switch-confirm')).toBeNull();
+  expect(screen.queryByTestId('user-sheet')).toBeNull();
+});
+
+test('Cancel on the hand-over never switches and keeps the sheet open', async () => {
+  const { onSwitch } = askToHandOver();
+  fireEvent.click(screen.getByTestId('switch-confirm-cancel'));
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
+  expect(onSwitch).not.toHaveBeenCalled();
+  expect(screen.queryByTestId('switch-confirm')).toBeNull();
+  expect(screen.getByTestId('user-sheet')).not.toBeNull();
+});
+
+// The @tallyui/primitives AlertDialog content has no Escape handler of its own (only Dialog's has), so this checks
+// only that Escape never switches, not that it closes the confirm (a TallyUI gap).
+test('Escape on the hand-over never switches', async () => {
+  const { onSwitch, dialog } = askToHandOver();
+  fireEvent.keyDown(dialog, { key: 'Escape' });
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
+  expect(onSwitch).not.toHaveBeenCalled();
+});
+
+test('the hand-over says the drawer stays open only when given a register', () => {
+  const { dialog } = askToHandOver({ drawerRegister: 'Front' });
+  expect(within(dialog).getByText('The POS reloads as Sam. The drawer stays open on Front.')).not.toBeNull();
+  cleanup();
+  const without = askToHandOver().dialog;
+  expect(within(without).getByText('The POS reloads as Sam.')).not.toBeNull();
+  expect(without.textContent).not.toContain('drawer stays open');
 });
