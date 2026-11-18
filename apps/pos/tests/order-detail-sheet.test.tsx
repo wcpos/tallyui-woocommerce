@@ -12,6 +12,7 @@ import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import type { OrderHistorySource } from '../lib/orders/order-history';
 import stores from './fixtures/stores.json';
+import { classesOf } from './classes-of';
 
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
@@ -105,6 +106,36 @@ test('the footer is v2\'s read-only footer: Close then Receipt', () => {
   const text = screen.getByTestId('order-modal').textContent ?? '';
   expect(text).not.toContain('Edit');
   expect(text).not.toContain('JSON');
+});
+
+const footerIds = () => Array.from(screen.getByTestId('order-modal-footer').querySelectorAll('[data-testid]'))
+  .map(node => node.getAttribute('data-testid'));
+
+// v2 button/index.tsx:85 size default `h-ctl` (44 px) on every DialogFooter button (dialog/index.tsx:344-377).
+test('the footer buttons are v2\'s h-ctl, 44 px (h-11)', () => {
+  sheet(make());
+  expect(classesOf('dialog-footer-close')).toContain('h-11');
+  expect(classesOf('order-modal-receipt')).toContain('h-11');
+});
+
+// v2 dialog/index.tsx:381-411: wide, `{dismiss}{other}` in a wrapping row.
+test('wide, the footer is a row: Close then Receipt', () => {
+  sheet(make());
+  expect(classesOf('order-modal-footer')).toContain('flex-row');
+  expect(classesOf('order-modal-footer')).not.toContain('flex-col');
+  expect(footerIds()).toEqual(['dialog-footer-close', 'order-modal-receipt']);
+});
+
+// v2 dialog/index.tsx:343,390-398: a phone stacks aside, primary, other, dismiss…, every button w-full;
+// view.tsx:145 passes the receipt as `secondary`, which is the `other` slot, so Receipt sits above Close.
+test('on a phone the footer stacks: Receipt above Close, both full width', () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  sheet(make());
+  expect(classesOf('order-modal-footer')).toContain('flex-col');
+  expect(classesOf('order-modal-footer')).not.toContain('flex-row');
+  expect(footerIds()).toEqual(['order-modal-receipt', 'dialog-footer-close']);
+  expect(classesOf('order-modal-receipt')).toContain('w-full');
+  expect(classesOf('dialog-footer-close')).toContain('w-full');
 });
 
 test('the status is v2\'s dot and word, in v2\'s tones', () => {

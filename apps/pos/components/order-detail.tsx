@@ -6,6 +6,8 @@ import { customerInitials } from '../lib/customers/customer-table';
 import { orderCustomerName } from '../lib/orders/customer-name';
 import { wooStatusLabel } from '../lib/orders/order-history';
 import { dateTimeLabel } from '../lib/orders/order-days';
+import { useIsWide } from '../lib/layout/wide';
+import { SheetCloseButton } from './sheet';
 
 // v2's status tones (packages/core/src/screens/main/orders/cells/status.tsx:10-21), drawn as
 // StatusBadge's dot and word (packages/components/src/status-badge/index.tsx).
@@ -98,6 +100,8 @@ function Chip({ text }: { text: string }) {
 export function OrderDetailView({ order, onReceipt, onClose }: {
   order: StoreOrder; onReceipt(): void; onClose(): void;
 }) {
+  const wide = useIsWide();
+  const close = <SheetCloseButton testID="dialog-footer-close" className={wide ? undefined : 'w-full'} onPress={onClose} />;
   const gross = (net: number, tax: number) => order.pricesIncludeTax ? net + tax : net;
   const money = (amount: number) => formatMoney({ amount, currency: order.currency }) ?? String(amount);
   const refunded = order.refunds.reduce((sum, refund) => sum + refund.amountMinor, 0);
@@ -247,9 +251,11 @@ export function OrderDetailView({ order, onReceipt, onClose }: {
           </View>
         </Section>
       </ScrollView>
-      <View testID="order-modal-footer" className="flex-row flex-wrap items-center justify-end gap-2 border-t border-border px-4 pt-4">
-        <Button testID="dialog-footer-close" variant="outline" onPress={onClose}><Text>Close</Text></Button>
-        <Button testID="order-modal-receipt" variant="outline" onPress={onReceipt}><Text>Receipt</Text></Button>
+      {/* v2 dialog/index.tsx:343,381-411: `secondary` is the `other` slot; a phone stacks it above the dismiss, all w-full. */}
+      <View testID="order-modal-footer" className={wide ? 'flex-row flex-wrap items-center justify-end gap-2 border-t border-border px-4 pt-4' : 'flex-col gap-2 border-t border-border px-4 pt-4'}>
+        {wide && close}
+        <Button testID="order-modal-receipt" variant="outline" className={wide ? 'h-11 border-border' : 'h-11 w-full border-border'} onPress={onReceipt}><Text>Receipt</Text></Button>
+        {!wide && close}
       </View>
     </View>
   );
