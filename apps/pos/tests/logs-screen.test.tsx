@@ -203,6 +203,8 @@ test('the search combines with the Errors preset, and no match shows the empty t
   searchFor('nothing like this');
   await waitFor(() => expect(screen.getByTestId('logs-empty').textContent).toBe('No logs found'));
   expect(shownRows()).toEqual([]);
+  // v2's Logs empty row is inline: no glyph above the text (empty-state/index.tsx:62).
+  expect(within(screen.getByTestId('logs-empty')).queryByTestId('no-data-message-glyph')).toBeNull();
   expect(screen.getByTestId('logs-footer').textContent).toBe('Showing 0 of 0');
 });
 

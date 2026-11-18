@@ -168,7 +168,7 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
       </TableBody></Table>}
     </View>
   ) : results.length === 0 ? (
-    <EmptyState title={asked ? 'No customers match your search' : 'No customers yet'} description={asked ? undefined : 'Customers you add, and anyone who buys from you, will appear here.'} action={asked ? { label: 'Clear search', onPress: clear } : undefined} />
+    <EmptyState kind={asked ? 'no-results' : 'empty'} title={asked ? 'No customers match your search' : 'No customers yet'} description={asked ? undefined : 'Customers you add, and anyone who buys from you, will appear here.'} action={asked ? { label: 'Clear search', onPress: clear } : undefined} />
   ) : (
       <ScrollView testID="customers-body">
         {width < NARROW_WIDTH ? shown.map(c => (

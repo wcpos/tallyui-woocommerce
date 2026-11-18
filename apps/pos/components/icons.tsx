@@ -1,5 +1,5 @@
 // Glyphs drawn in more than one component: one definition each.
-import { Path, Rect } from 'react-native-svg';
+import { Circle, Path, Rect } from 'react-native-svg';
 import { createSvgIcon } from '@tallyui/components';
 
 // v2's `check` glyph.
@@ -39,3 +39,5 @@ export const CardIcon = createSvgIcon('CardIcon', () => <Path d="M3 8a3 3 0 0 1 
 export const BoxIcon = createSvgIcon('BoxIcon', () => <Path d="m12 3l8 4.5v9L12 21l-8-4.5v-9zm0 9l8-4.5M12 12v9m0-9L4 7.5" />);
 // v2's tabler `pending` glyph (components/src/icon/svg/tabler/pending.svg).
 export const ClockIcon = createSvgIcon('ClockIcon', () => <><Path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0-18 0" /><Path d="M12 7v5l3 3" /></>);
+// v2's lucide `info` glyph (coupon status chip, EmptyState `empty`); @tallyui/components exports none.
+export const InfoIcon = createSvgIcon('InfoIcon', () => <><Circle cx={12} cy={12} r={10} /><Path d="M12 16v-4" /><Path d="M12 8h.01" /></>);

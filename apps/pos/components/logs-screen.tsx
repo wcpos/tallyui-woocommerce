@@ -230,7 +230,7 @@ export function LogsScreen({ collection, storeName, siteUrl,
       </View>;
       })}
       {/* v2 ledger.tsx:418-424. */}
-      {filtered.length === 0 && <View testID="logs-empty"><EmptyState title="No logs found" /></View>}
+      {filtered.length === 0 && <View testID="logs-empty"><EmptyState kind="empty" size="inline" title="No logs found" /></View>}
       {/* v2 logs/index.tsx:70-110 and ledger.tsx:475; "last check X ago" waits on a last-tick value from @tallyui/database. */}
       <View className="mt-4 flex-row flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-border/50 py-2">
         <Text testID="logs-footer" className="text-muted-foreground">{`Showing ${filtered.length} of ${searched.length}`}</Text>

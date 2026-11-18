@@ -137,8 +137,8 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
             ? loading
               ? <View testID="orders-loading" className="flex-1" />
               : search !== '' || filtered
-                ? <EmptyState title="No orders match these filters" action={{ label: 'Clear filters', onPress: clear }} />
-                : <EmptyState title="No orders yet" description="Sales you take will appear here." />
+                ? <EmptyState kind="no-results" title="No orders match these filters" action={{ label: 'Clear filters', onPress: clear }} />
+                : <EmptyState kind="empty" title="No orders yet" description="Sales you take will appear here." />
             : <OrdersTable local={local} store={orders} footer={footer} active={loading} total={total}
               visible={columns.filter(column => column.visible).map(column => column.id)}
               onSync={history ? () => { void loadPage(1, search); } : undefined}
