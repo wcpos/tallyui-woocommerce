@@ -161,7 +161,8 @@ test('Quick discount applies an order discount and closes the dialog', async () 
   await addEspresso();
   openAddMenuItem('discount');
   const dialog = within(screen.getByTestId('add-discount-dialog'));
-  expect(dialog.getByText('Add discount')).not.toBeNull();
+  // v2's pos_cart.add_discount, the same words as the menu item.
+  expect(dialog.getByText('Add Discount', { exact: true })).not.toBeNull();
   expect(dialog.getByTestId('add-discount-kind-quick').getAttribute('aria-pressed')).toBe('true');
   const form = within(dialog.getByRole('group', { name: 'Order discount' }));
   fireEvent.change(form.getByLabelText('Discount value'), { target: { value: '10' } });

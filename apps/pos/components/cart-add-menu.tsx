@@ -79,7 +79,7 @@ export function CartAddMenu({ sale, taxClasses, coupons, couponsOffered, custome
     </Dialog>}
     {dialog === 'discount' && <Dialog open onOpenChange={onOpenChange}>
       <DialogContent testID="add-discount-dialog" className="w-full max-w-lg">
-        <DialogHeader><DialogTitle>Add discount</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>Add Discount</DialogTitle></DialogHeader>
         {couponCollection && <ToggleGroup type="single" value={kind} variant="outline"
           onValueChange={value => { if (value === 'quick' || value === 'coupon') setKind(value); }}>
           {/* Toggle's own pressed style, which ToggleGroupItem leaves out. */}
