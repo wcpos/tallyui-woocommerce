@@ -198,14 +198,44 @@ test('a narrow window lists name and email rows', async () => {
   expect(screen.queryByText('Phone')).toBeNull();
 });
 
-test('while the store answers it says Searching…', async () => {
+// v2 data-table/skeleton.tsx:31-120: the table frame stands while the store answers.
+async function renderPending() {
   let resolve!: (found: Customer[]) => void;
-  renderScreen(vi.fn<CustomerSource['search']>().mockReturnValue(new Promise<Customer[]>(r => { resolve = r; })));
-  fireEvent.change(screen.getByPlaceholderText('Search Customers'), { target: { value: 'gee' } });
-  expect((await screen.findByTestId('customers-searching')).textContent).toBe('Searching…');
+  const { search } = renderScreen(vi.fn<CustomerSource['search']>().mockResolvedValueOnce([])
+    .mockReturnValueOnce(new Promise<Customer[]>(r => { resolve = r; })));
+  fireEvent.change(searchBox(), { target: { value: 'gee' } });
+  // The search itself is pending, not the default list before it.
+  await vi.waitFor(() => expect(search.mock.calls).toEqual([[''], ['gee']]));
+  return { resolve };
+}
+
+test('while a wide search loads the header stays over placeholder rows, one bar per visible column and the open cell', async () => {
+  await renderPending();
+  const row = await screen.findByTestId('customers-skeleton-row-0');
+  expect(screen.getAllByRole('columnheader').map(node => node.textContent).filter(Boolean))
+    .toEqual(['First Name', 'Last Name', 'Email', 'Billing Address', 'Date Created']);
+  expect(screen.getByTestId('customers-skeleton').getAttribute('aria-label')).toBe('Searching…');
+  // Image, First Name, Last Name, Email, Billing Address, Date Created, then the open cell.
+  expect(within(row).getAllByTestId('customers-skeleton-bar')).toHaveLength(7);
+  expect(screen.getAllByTestId(/^customers-skeleton-row-/)).toHaveLength(12);
+  expect(screen.queryByTestId('customers-body')).toBeNull();
+  expect(screen.queryByText('Searching…')).toBeNull();
+});
+
+test('a narrow search loads phone placeholder rows with no table header', async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 400, height: 800, scale: 1, fontScale: 1 });
+  await renderPending();
+  expect(await screen.findByTestId('customers-skeleton-row-0')).not.toBeNull();
+  expect(screen.queryAllByRole('columnheader')).toEqual([]);
+});
+
+test('when the results arrive the skeleton gives way to the rows', async () => {
+  const { resolve } = await renderPending();
+  await screen.findByTestId('customers-skeleton-row-0');
   await act(async () => { resolve([gee]); });
   expect(screen.getByTestId('customers-row-7')).not.toBeNull();
-  expect(screen.queryByTestId('customers-searching')).toBeNull();
+  expect(screen.queryByTestId('customers-skeleton')).toBeNull();
+  expect(screen.queryAllByTestId(/^customers-skeleton-row-/)).toEqual([]);
 });
 
 test('a slower earlier search does not replace a later one', async () => {
