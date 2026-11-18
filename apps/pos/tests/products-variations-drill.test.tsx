@@ -94,7 +94,10 @@ test('"N variations" drills in: the crumb, the product\'s variations on their ow
   expect(within(surface).getAllByRole('columnheader').map(header => header.textContent))
     .toEqual(['', 'Product', 'Stock', 'Stock Status', 'Categories', 'Price', 'Regular Price', 'Sale Price']);
   // The variation rows centre their cells as the table's rows do.
-  for (const id of ['image', 'name', 'price']) expect(classesOf(`product-cell-${id}-106`)).toEqual(['flex-1', 'justify-center']);
+  for (const id of ['image', 'name']) expect(classesOf(`product-cell-${id}-106`)).toEqual(['flex-1', 'justify-center']);
+  // and keep the table's aligns: Price sits right, Stock Status centres.
+  expect(classesOf('product-cell-price-106')).toEqual(['flex-1', 'justify-center', 'items-end']);
+  expect(classesOf('product-cell-stock_status-106')).toEqual(['flex-1', 'justify-center', 'items-center']);
   expect(text('data-table-count')).toBe('Showing 3 of 6');
   fireEvent.click(screen.getByTestId('products-breadcrumb-back'));
   expect(crumb()).toBeNull();
