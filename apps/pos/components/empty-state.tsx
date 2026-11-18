@@ -13,12 +13,15 @@ export function EmptyState({ kind, size = 'surface', title, description, action 
   title: string; description?: string; action?: { label: string; onPress(): void };
 }) {
   const [glyph, Glyph] = GLYPHS[kind];
+  const inline = size === 'inline';
+  // v2 empty-state/index.tsx:55-69: inline is a muted row with no glyph and no description.
   return (
-    <View testID="no-data-message" dataSet={{ kind }} className="flex-1 items-center justify-center gap-2 p-6">
-      {size === 'inline' ? null
+    <View testID="no-data-message" dataSet={{ kind }}
+      className={inline ? 'flex-row flex-wrap items-center gap-2 py-2' : 'flex-1 items-center justify-center gap-2 p-6'}>
+      {inline ? null
         : <Glyph testID="no-data-message-glyph" dataSet={{ glyph }} size={32} className="text-muted-foreground" />}
-      <Text testID="no-data-message-title" className="text-center font-medium text-foreground">{title}</Text>
-      {description ? <Text testID="no-data-message-description" className="text-center text-muted-foreground">{description}</Text> : null}
+      <Text testID="no-data-message-title" className={inline ? 'text-muted-foreground' : 'text-center font-medium text-foreground'}>{title}</Text>
+      {!inline && description ? <Text testID="no-data-message-description" className="text-center text-muted-foreground">{description}</Text> : null}
       {action ? <Button testID="no-data-message-action" variant="ghost" size="sm" onPress={action.onPress}><Text>{action.label}</Text></Button> : null}
     </View>
   );

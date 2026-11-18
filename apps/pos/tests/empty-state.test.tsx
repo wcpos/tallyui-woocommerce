@@ -43,3 +43,27 @@ test('inline draws no glyph, as v2 (empty-state/index.tsx:62)', () => {
   expect(screen.queryByTestId('no-data-message-glyph')).toBeNull();
   expect(screen.getByTestId('no-data-message-title').textContent).toBe('No logs found');
 });
+
+test('inline mutes the title, as v2 (empty-state/index.tsx:65)', () => {
+  render(<EmptyState kind="empty" size="inline" title="No logs found" />);
+  expect(classesOf('no-data-message-title')).toContain('text-muted-foreground');
+  expect(classesOf('no-data-message-title')).not.toContain('font-medium');
+});
+
+test("inline lays out as v2's row (empty-state/index.tsx:55-59)", () => {
+  render(<EmptyState kind="empty" size="inline" title="No logs found" />);
+  expect(classesOf('no-data-message')).toContain('flex-row');
+  expect(classesOf('no-data-message')).not.toContain('flex-1');
+});
+
+test('inline drops the description, as v2 (empty-state/index.tsx:69)', () => {
+  render(<EmptyState kind="empty" size="inline" title="No logs found" description="Nothing logged yet." />);
+  expect(screen.queryByTestId('no-data-message-description')).toBeNull();
+});
+
+test('surface keeps its centred title and description', () => {
+  render(<EmptyState kind="empty" title="No orders yet" description="Sales you take will appear here." />);
+  expect(classesOf('no-data-message-title')).toEqual(expect.arrayContaining(['font-medium', 'text-foreground']));
+  expect(classesOf('no-data-message')).toContain('flex-1');
+  expect(screen.getByTestId('no-data-message-description').textContent).toBe('Sales you take will appear here.');
+});
