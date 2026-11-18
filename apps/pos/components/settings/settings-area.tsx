@@ -1,7 +1,7 @@
 import type { JSX, ReactNode } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import { Button, SettingsLayout, Text } from '@tallyui/components';
-import { ChevronRightIcon } from '../icons';
+import { Button, Text } from '@tallyui/components';
+import { ChevronLeftIcon, ChevronRightIcon } from '../icons';
 
 export interface SettingsNavItem { href: string; label: string; testID: string;
   /** The page's help line under its title (v2 `AreaPage` `description`). */
@@ -23,7 +23,7 @@ function NavRow({ item, selected, onPress, chevron = false }: { item: SettingsNa
 }
 
 /** v2 `NavigationAreaLayout`: Settings and Store health; `title` and `testIDPrefix` default to Settings'. */
-export function SettingsArea({ items, currentHref, onNavigate, onBack, wide, title: areaTitle = 'Settings',
+export function SettingsArea({ items, currentHref, onNavigate, onBack, onIndex, wide, title: areaTitle = 'Settings',
   testIDPrefix: id = 'settings', children }: {
   items: SettingsNavItem[];
   /** The phone bar's area title. */
@@ -32,7 +32,11 @@ export function SettingsArea({ items, currentHref, onNavigate, onBack, wide, tit
   testIDPrefix?: string;
   currentHref: string;
   onNavigate(href: string): void;
+  /** The phone index's Back: leaves the area. */
   onBack(): void;
+  /** A phone leaf page's back ("‹ Settings"): the area index (v2 `router.navigate(indexHref)`; here `dismissTo`, which pops to
+   *  the index when it is in the stack and replaces otherwise, so the index's Back still leaves the area). */
+  onIndex(): void;
   /** `useIsWide()`: the app rail is beside Settings, so Settings draws no bar of its own (v2 `NavigationAreaLayout`). */
   wide: boolean;
   children: ReactNode;
@@ -89,13 +93,17 @@ export function SettingsArea({ items, currentHref, onNavigate, onBack, wide, tit
       </View>
     );
   }
+  // v2 `NavigationAreaLayout` phone leaf with `leafPagesCarryTitle` (:84-101): the bar is only the way back to the
+  // area index, a crumb "‹ Settings" (page-bar/index.tsx:90-93); no bar title, no rows: the page card's heading is the title.
   return (
-    <SettingsLayout
-      testID={`${id}-navigation`}
-      layout="stacked"
-      headerSlot={header}
-      navSlot={<View testID={`${id}-navigation-rail`} className="gap-1 p-2">{navRows}</View>}
-      contentSlot={page}
-    />
+    <View testID={`${id}-navigation`} className="flex-1 bg-background">
+      <View className="flex-row items-center px-2 pt-2">
+        <Button testID={`${id}-back`} variant="ghost" onPress={onIndex}>
+          <ChevronLeftIcon size={16} className="text-foreground" />
+          <Text className="font-medium text-foreground">{areaTitle}</Text>
+        </Button>
+      </View>
+      {page}
+    </View>
   );
 }

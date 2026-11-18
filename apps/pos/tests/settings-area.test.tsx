@@ -19,7 +19,7 @@ test('the nav lists General, Tax, Printing, Card readers, Barcode Scanning then 
   expect(SETTINGS_NAV_ITEMS).toEqual([{ href: '/settings/general', label: 'General', testID: 'settings-nav-general' }, { href: '/settings/tax', label: 'Tax', testID: 'settings-nav-tax' }, { href: '/settings/printing', label: 'Printing', testID: 'settings-nav-printing' }, { href: '/settings/card-readers', label: 'Card readers', testID: 'settings-nav-card-readers' }, { href: '/settings/barcode-scanning', label: 'Barcode Scanning', testID: 'settings-nav-barcode-scanning' }, { href: '/settings/theme', label: 'Theme', testID: 'settings-nav-theme' }]);
   expect(SETTINGS_DEFAULT_HREF).toBe('/settings/general');
   render(
-    <SettingsArea wide items={SETTINGS_NAV_ITEMS} currentHref="/settings/general" onNavigate={vi.fn()} onBack={vi.fn()}>
+    <SettingsArea wide items={SETTINGS_NAV_ITEMS} currentHref="/settings/general" onNavigate={vi.fn()} onBack={vi.fn()} onIndex={vi.fn()}>
       <Text>page body</Text>
     </SettingsArea>
   );
@@ -40,7 +40,7 @@ test("the nav lists v2's pages in v2's order", () => {
 test('pressing a nav item navigates to its href', () => {
   const onNavigate = vi.fn();
   render(
-    <SettingsArea wide items={SETTINGS_NAV_ITEMS} currentHref="/settings/general" onNavigate={onNavigate} onBack={vi.fn()}>
+    <SettingsArea wide items={SETTINGS_NAV_ITEMS} currentHref="/settings/general" onNavigate={onNavigate} onBack={vi.fn()} onIndex={vi.fn()}>
       <Text>page body</Text>
     </SettingsArea>
   );
@@ -62,9 +62,9 @@ function classesAbove(testID: string, ownOnly = false): string[] {
   return found;
 }
 const classesOf = (testID: string) => classesAbove(testID, true);
-const renderArea = (props: { wide: boolean; currentHref?: string; onNavigate?(href: string): void; onBack?(): void }, body = <Text>body</Text>) => render(
+const renderArea = (props: { wide: boolean; currentHref?: string; onNavigate?(href: string): void; onBack?(): void; onIndex?(): void }, body = <Text>body</Text>) => render(
   <SettingsArea items={SETTINGS_NAV_ITEMS} currentHref={props.currentHref ?? '/settings/general'} wide={props.wide}
-    onNavigate={props.onNavigate ?? vi.fn()} onBack={props.onBack ?? vi.fn()}>{body}</SettingsArea>
+    onNavigate={props.onNavigate ?? vi.fn()} onBack={props.onBack ?? vi.fn()} onIndex={props.onIndex ?? vi.fn()}>{body}</SettingsArea>
 );
 
 test('on a wide window Settings has no bar of its own: no Back, no Settings title', () => {
@@ -96,7 +96,7 @@ test('each page is one card titled by its nav item, with the body under a hairli
 
 test('the Card readers page draws no description in its head', () => {
   render(
-    <SettingsArea wide items={SETTINGS_NAV_ITEMS} currentHref="/settings/card-readers" onNavigate={vi.fn()} onBack={vi.fn()}><Text>body</Text></SettingsArea>
+    <SettingsArea wide items={SETTINGS_NAV_ITEMS} currentHref="/settings/card-readers" onNavigate={vi.fn()} onBack={vi.fn()} onIndex={vi.fn()}><Text>body</Text></SettingsArea>
   );
   expect(screen.getByTestId('settings-page-title').textContent).toBe('Card readers');
   expect(screen.queryByTestId('settings-page-description')).toBeNull();
@@ -109,16 +109,16 @@ test('the open page description is small and muted inside its heading, above the
     { href: '/empty', label: 'Empty', testID: 'nav-empty', description: '' },
   ];
   const { rerender } = render(
-    <SettingsArea wide items={items} currentHref="/described" onNavigate={vi.fn()} onBack={vi.fn()}><Text>body</Text></SettingsArea>
+    <SettingsArea wide items={items} currentHref="/described" onNavigate={vi.fn()} onBack={vi.fn()} onIndex={vi.fn()}><Text>body</Text></SettingsArea>
   );
   const description = screen.getByTestId('settings-page-description');
   expect(description.textContent).toBe('Page help');
   expect(classesOf('settings-page-description')).toEqual(expect.arrayContaining(['text-xs', 'text-muted-foreground']));
   expect(screen.getByTestId('settings-page-title').parentElement?.contains(description)).toBe(true);
   expect(within(screen.getByTestId('settings-page-body')).queryByTestId('settings-page-description')).toBeNull();
-  rerender(<SettingsArea wide items={items} currentHref="/plain" onNavigate={vi.fn()} onBack={vi.fn()}><Text>body</Text></SettingsArea>);
+  rerender(<SettingsArea wide items={items} currentHref="/plain" onNavigate={vi.fn()} onBack={vi.fn()} onIndex={vi.fn()}><Text>body</Text></SettingsArea>);
   expect(screen.queryByTestId('settings-page-description')).toBeNull();
-  rerender(<SettingsArea wide items={items} currentHref="/empty" onNavigate={vi.fn()} onBack={vi.fn()}><Text>body</Text></SettingsArea>);
+  rerender(<SettingsArea wide items={items} currentHref="/empty" onNavigate={vi.fn()} onBack={vi.fn()} onIndex={vi.fn()}><Text>body</Text></SettingsArea>);
   expect(screen.queryByTestId('settings-page-description')).toBeNull();
   // React DOM drops an empty-string child, so the !!description guard (v2 area-page.tsx:50) is for React Native, where a bare '' outside <Text> throws, and cannot be observed here.
 });
@@ -130,13 +130,33 @@ test('pressing a nav item navigates to its page', () => {
   expect(onNavigate).toHaveBeenCalledExactlyOnceWith('/settings/tax');
 });
 
-test('on a phone Settings keeps its Back bar, and Back leaves Settings', () => {
+test('on a phone a leaf page shows only "‹ Settings", which goes to the index', () => {
   const onBack = vi.fn();
-  renderArea({ wide: false, currentHref: '/settings/tax', onBack });
-  expect(screen.getByText('Settings')).not.toBeNull();
+  const onIndex = vi.fn();
+  renderArea({ wide: false, currentHref: '/settings/tax', onBack, onIndex });
+  const back = screen.getByTestId('settings-back');
+  expect(back.textContent).toBe('Settings');
+  // The one "Settings" is the crumb: the bar carries no area title.
+  expect(screen.getAllByText('Settings')).toHaveLength(1);
+  expect(back.contains(screen.getByText('Settings'))).toBe(true);
+  expect(screen.queryAllByTestId(/^settings-nav-/)).toHaveLength(0);
+  expect(screen.queryByTestId('settings-navigation-rail')).toBeNull();
   expect(screen.getByRole('heading', { name: 'Tax' })).not.toBeNull();
+  expect(screen.getByTestId('settings-page-title').textContent).toBe('Tax');
+  fireEvent.click(back);
+  expect(onIndex).toHaveBeenCalledOnce();
+  expect(onBack).not.toHaveBeenCalled();
+});
+
+test('on the phone index the bar keeps the area title and Back leaves the area', () => {
+  const onBack = vi.fn();
+  const onIndex = vi.fn();
+  renderArea({ wide: false, currentHref: '/settings', onBack, onIndex });
+  expect(screen.getByText('Settings')).not.toBeNull();
+  expect(screen.getByTestId('settings-back').textContent).toBe('Back');
   fireEvent.click(screen.getByTestId('settings-back'));
   expect(onBack).toHaveBeenCalledOnce();
+  expect(onIndex).not.toHaveBeenCalled();
 });
 
 test('on a phone the Settings index lists every page with a chevron and no page card', () => {

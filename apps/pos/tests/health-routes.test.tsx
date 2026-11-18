@@ -8,7 +8,7 @@ import LogsRedirect from '../app/logs';
 
 const mocks = vi.hoisted(() => ({
   pathname: '/health/database',
-  router: { push: vi.fn(), replace: vi.fn(), back: vi.fn(), canGoBack: vi.fn(() => false) },
+  router: { push: vi.fn(), replace: vi.fn(), back: vi.fn(), dismissTo: vi.fn(), canGoBack: vi.fn(() => false) },
 }));
 
 vi.mock('expo-router', () => ({
@@ -82,10 +82,26 @@ test('Performance has no page description', () => {
   expect(screen.queryByTestId('health-page-description')).toBeNull();
 });
 
-test('on a phone the area bar reads Store health, and Back with no history goes to the POS', () => {
+test("on a phone a leaf page's back reads Store health and goes to /health", () => {
   setWidth(400);
+  mocks.pathname = '/health/logs';
+  render(<HealthLayoutRoute />);
+  expect(screen.getByTestId('health-back').textContent).toBe('Store health');
+  expect(screen.getAllByText('Store health')).toHaveLength(1);
+  expect(screen.queryAllByTestId(/^health-nav-/)).toHaveLength(0);
+  expect(screen.getByTestId('health-page-title').textContent).toBe('Logs');
+  fireEvent.click(screen.getByTestId('health-back'));
+  expect(mocks.router.dismissTo).toHaveBeenCalledExactlyOnceWith('/health');
+  expect(mocks.router.replace).not.toHaveBeenCalled();
+  expect(mocks.router.back).not.toHaveBeenCalled();
+});
+
+test('on the phone index Back with no history goes to the POS', () => {
+  setWidth(400);
+  mocks.pathname = '/health';
   render(<HealthLayoutRoute />);
   expect(screen.getByText('Store health')).not.toBeNull();
   fireEvent.click(screen.getByTestId('health-back'));
   expect(mocks.router.replace).toHaveBeenCalledExactlyOnceWith('/catalogue');
+  expect(mocks.router.dismissTo).not.toHaveBeenCalled();
 });

@@ -10,6 +10,7 @@ export default function SettingsLayoutRoute() {
   return (
     <SettingsArea items={SETTINGS_NAV_ITEMS} currentHref={pathname} wide={wide}
       onNavigate={href => router.push(href as Href)}
+      onIndex={() => router.dismissTo('/settings')}
       onBack={() => { router.canGoBack() ? router.back() : router.replace('/catalogue'); }}>
       <Slot />
     </SettingsArea>
