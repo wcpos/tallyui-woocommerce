@@ -543,7 +543,7 @@ test('category, barcode and stock switches show their tile fields', () => {
   const tile = within(screen.getByTestId('product-tile-80'));
   expect(tile.getByText('Coffee')).not.toBeNull();
   expect(tile.getByText('2000000000015')).not.toBeNull();
-  expect(screen.getByTestId('tile-stock-80').textContent).toBe('100 left');
+  expect(screen.getByTestId('tile-stock-80').textContent).toBe('100');
 });
 
 test('the price tile switch hides price and keeps name visible', () => {
@@ -638,7 +638,26 @@ test('Stock shows Backorder for a product that sells at none', () => {
   fireEvent.click(screen.getByTestId('filter-pill-remove-stock_status'));
   openTileFields('Stock');
   expect(screen.getByTestId('tile-stock-80').textContent).toBe('Backorder');
+  expect(screen.getByTestId('tile-stock-80-glyph').innerHTML).toContain('M12 7v5l3 3');
+  expect(screen.getByLabelText('Backorder')).toBe(screen.getByTestId('tile-stock-80'));
   expect(within(screen.getByTestId('product-tile-80')).getByText('$3.00')).not.toBeNull();
+});
+
+// v2's poster-tile/stock-pill.tsx:8-43: the count pill draws the box glyph and the number; "{n} left" is its label.
+test('the stock pill shows the count alone with the box glyph and says how many are left', () => {
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  openTileFields('Stock');
+  const pill = screen.getByTestId('tile-stock-80');
+  expect(pill.textContent).toBe('100');
+  expect(pill.textContent).not.toContain('left');
+  expect(within(pill).getByTestId('tile-stock-80-glyph').innerHTML).toContain('m12 3l8 4.5');
+  expect(screen.getByLabelText('100 left')).toBe(pill);
+});
+
+test('no stock pill while the Stock field is off', () => {
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  expect(screen.getByTestId('product-tile-80')).not.toBeNull();
+  expect(screen.queryByTestId('tile-stock-80')).toBeNull();
 });
 
 test('tiles show the in-cart count and no badge at zero', () => {
@@ -689,7 +708,7 @@ test('a sold-out tile greys its picture and an in-stock one does not', () => {
 test('the stock mark stays on the tile when Stock is on', () => {
   render(<><CatalogueView {...props} /><PortalHost /></>);
   openTileFields('Stock');
-  expect(within(screen.getByTestId('product-tile-80')).getByTestId('tile-stock-80').textContent).toBe('100 left');
+  expect(within(screen.getByTestId('product-tile-80')).getByTestId('tile-stock-80').textContent).toBe('100');
 });
 
 // P13-S6: v2's phone ground (lib/ground.ts:60-72): the search, the chips and the tiles 16 from the screen's edge. The

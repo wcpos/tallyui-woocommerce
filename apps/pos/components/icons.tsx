@@ -35,3 +35,7 @@ export const RegisterIcon = createSvgIcon('RegisterIcon', () => <>
 </>);
 // v2's tabler `card` glyph at its 1.5 stroke (monorepo packages/components/src/icon/svg/tabler/card.svg).
 export const CardIcon = createSvgIcon('CardIcon', () => <Path d="M3 8a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zm0 2h18M7 15h.01M11 15h2" />);
+// v2's tabler `product` glyph (components/src/icon/svg/tabler/product.svg).
+export const BoxIcon = createSvgIcon('BoxIcon', () => <Path d="m12 3l8 4.5v9L12 21l-8-4.5v-9zm0 9l8-4.5M12 12v9m0-9L4 7.5" />);
+// v2's tabler `pending` glyph (components/src/icon/svg/tabler/pending.svg).
+export const ClockIcon = createSvgIcon('ClockIcon', () => <><Path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0-18 0" /><Path d="M12 7v5l3 3" /></>);
