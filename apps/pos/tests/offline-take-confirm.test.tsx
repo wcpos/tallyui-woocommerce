@@ -57,11 +57,15 @@ function StatusHost({ initial, children }: { initial: OnlineStatus; children: Re
 }
 
 /** One Espresso ($3.00) in the cart, the checkout open on Cash (or Card), under the given online status. */
-async function startTender({ status, multi = false, card = false }: { status: OnlineStatus; multi?: boolean; card?: boolean }) {
-  const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => ({
-    kind: 'results',
-    results: batch.map(envelope => ({ id: envelope.id, status: 'applied', serverRefs: { orderId: '115', totalMinor: 300 } })),
-  }));
+async function startTender({ status, multi = false, card = false, hold }: { status: OnlineStatus; multi?: boolean; card?: boolean; hold?: Promise<unknown> }) {
+  // `hold` keeps the send pending, so a test can press again before the order settles.
+  const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => {
+    await hold;
+    return {
+      kind: 'results',
+      results: batch.map(envelope => ({ id: envelope.id, status: 'applied', serverRefs: { orderId: '115', totalMinor: 300 } })),
+    };
+  });
   const fakeTransport = { send };
   render(
     <StatusHost initial={status}>
@@ -165,4 +169,52 @@ test('a store that cannot be reached asks too', async () => {
   await startTender({ status: 'online-website-unavailable', card: true });
   commit();
   expect(within(dialog()).getByRole('heading').textContent).toBe('Take $3.00 in Card while offline?');
+}, 20_000);
+
+/** A promise the test resolves itself: the store's answer to the held send. */
+function held() {
+  let release: () => void = () => {};
+  const promise = new Promise<void>(resolve => { release = resolve; });
+  return { promise, release };
+}
+
+// Desk review of #391: the Action also closes the dialog (onOpenChange(false) → cancelOffline). The primitive runs
+// that close before onPress (confirmOffline), so the close can never release the gate after take() has started.
+test('offline single mode: a second Take while the confirmed take is in flight records exactly one order', async () => {
+  const store = held();
+  const send = await startTender({ status: 'offline', hold: store.promise });
+  press('clear', '1', '0', '0', '0');
+  commit();
+  fireEvent.click(screen.getByTestId('checkout-offline-confirm'));
+  // Still saving: the take has not settled.
+  expect(screen.getByTestId('checkout-commit').textContent).toBe('Saving order…');
+  commit();
+  expect(screen.queryAllByTestId('checkout-offline-dialog')).toHaveLength(0);
+  store.release();
+  expect(await sentPayments(send)).toEqual([expect.objectContaining({ method: 'cash', amountMinor: 300, tenderedMinor: 1000 })]);
+  await tick();
+  expect(send.mock.calls.flatMap(([batch]) => batch)).toHaveLength(1);
+  expect(screen.queryAllByTestId('checkout-offline-dialog')).toHaveLength(0);
+}, 20_000);
+
+test('offline multi mode: a second Take while the confirmed leg is in flight records exactly one leg', async () => {
+  const store = held();
+  const send = await startTender({ status: 'offline', multi: true, hold: store.promise });
+  press('clear', '3', '0', '0');
+  commit();
+  // A second tap before the leg renders: the confirm and the press land in one batch, with the pre-confirm handlers.
+  act(() => {
+    screen.getByTestId('checkout-offline-confirm').click();
+    screen.getByTestId('checkout-commit').click();
+  });
+  expect(screen.queryAllByTestId('checkout-offline-dialog')).toHaveLength(0);
+  expect(legs()).toHaveLength(1);
+  // And again while the sale is saving.
+  commit();
+  expect(screen.queryAllByTestId('checkout-offline-dialog')).toHaveLength(0);
+  store.release();
+  expect(await sentPayments(send)).toEqual([expect.objectContaining({ method: 'cash', amountMinor: 300 })]);
+  await tick();
+  expect(send.mock.calls.flatMap(([batch]) => batch)).toHaveLength(1);
+  expect(screen.queryAllByTestId('checkout-offline-dialog')).toHaveLength(0);
 }, 20_000);
