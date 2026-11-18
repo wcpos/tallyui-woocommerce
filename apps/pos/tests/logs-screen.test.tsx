@@ -12,6 +12,7 @@ import { logRecordId, logRecordMigrationStrategies, logRecordSchema, type LogCol
 import { IDLE_OUTBOX_STATE, buildDebugInfo, formatDurationMs, formatLogTime, logStats, matchesLogFilter, outboxSyncStats,
   type OutboxSyncStats } from '../lib/logs/log-view';
 import { setVerboseDiagnostics } from '../lib/logs/verbose';
+import { dismissToast, getToasts } from '../lib/toast/toast';
 import { memoryStorage } from './memory-storage';
 import { SOFTWARE_NAME, SOFTWARE_VERSION } from '../lib/software';
 
@@ -66,6 +67,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  act(() => dismissToast());
   cleanup();
   vi.restoreAllMocks();
   await db.close();
@@ -268,7 +270,8 @@ test('Copy debug info copies the debug text and confirms', async () => {
   await screen.findByTestId(`logs-row-${rows[0].id}`);
   fireEvent.click(screen.getByTestId('logs-chip-errors'));
   fireEvent.click(screen.getByTestId('logs-copy-debug'));
-  await waitFor(() => expect(screen.getByTestId('logs-copy-status').textContent).toBe('Debug info copied'));
+  await waitFor(() => expect(getToasts().map(({ type, title }) => ({ type, title }))).toEqual([{ type: 'success', title: 'Debug info copied' }]));
+  expect(screen.queryByTestId('logs-copy-status')).toBeNull();
   expect(copyText).toHaveBeenCalledTimes(1);
   expect(copyText).toHaveBeenCalledWith(buildDebugInfo({ now: now(), storeName, siteUrl, rows, verbose: false, sync: idle }));
 });
@@ -292,7 +295,8 @@ test("Copy debug info's text agrees with the stuck and waiting stats", async () 
 test('a failed copy says so', async () => {
   render(<LogsScreen {...props} collection={collection} copyText={vi.fn().mockRejectedValue(new Error('denied'))} />);
   fireEvent.click(screen.getByTestId('logs-copy-debug'));
-  await waitFor(() => expect(screen.getByTestId('logs-copy-status').textContent).toBe("Couldn't copy debug info"));
+  await waitFor(() => expect(getToasts().map(({ type, title }) => ({ type, title }))).toEqual([{ type: 'error', title: "Couldn't copy debug info" }]));
+  expect(screen.queryByTestId('logs-copy-status')).toBeNull();
 });
 
 test('hides Copy debug info when there is no clipboard', () => {

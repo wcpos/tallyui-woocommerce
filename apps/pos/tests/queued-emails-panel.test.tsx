@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, expect, test } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { addRxPlugin, createRxDatabase, type RxCollection, type RxDatabase } from 'rxdb';
 import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
@@ -7,6 +7,9 @@ import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { addPosOrderCollection, type PosOrder } from '@tallyui/pos';
 import { QueuedEmailsPanel, queuedAgo } from '../components/queued-emails-panel';
 import { receiptEmailSchema, receiptEmailMigrationStrategies, type ReceiptEmailCollection } from '../lib/receipts/receipt-emails';
+import { dismissToast, getToasts } from '../lib/toast/toast';
+
+const toasts = () => getToasts().map(({ type, title, description }) => ({ type, title, description }));
 
 let db: RxDatabase;
 let collection: ReceiptEmailCollection;
@@ -24,7 +27,9 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  act(() => dismissToast());
   cleanup();
+  vi.restoreAllMocks();
   await db.close();
 });
 
@@ -113,7 +118,9 @@ test('Remove deletes a waiting or failed email', async () => {
   fireEvent.click(await screen.findByTestId('db-queued-email-remove-b'));
   await waitFor(async () => expect(await collection.findOne('b').exec()).toBeNull());
   expect(screen.getByTestId('db-queued-email-row-a')).not.toBeNull();
-  expect(await screen.findByText('Removed from the queue.')).not.toBeNull();
+  await waitFor(() => expect(toasts()).toEqual([{ type: 'success', title: 'Removed from the queue.', description: undefined }]));
+  expect(screen.queryByText('Removed from the queue.')).toBeNull();
+  expect(screen.queryByTestId('db-queued-emails-message')).toBeNull();
 });
 
 test('Remove refuses an email that is already sending', async () => {
@@ -121,8 +128,23 @@ test('Remove refuses an email that is already sending', async () => {
   await collection.insert({ attempts: 0, id: 'a', status: 'failed', email: 'a@example.invalid', queuedAt: '2026-10-07T07:00:00.000Z' });
   render(<QueuedEmailsPanel collection={collection} orders={orders} now={() => new Date('2026-10-07T10:00:00.000Z')} />);
   fireEvent.click(await screen.findByTestId('db-queued-email-remove-c'));
-  expect(await screen.findByText('Delivery has already started and can’t be cancelled. The customer may still receive this email.')).not.toBeNull();
+  await waitFor(() => expect(toasts()).toEqual([{ type: 'warning',
+    title: 'Delivery has already started and can’t be cancelled. The customer may still receive this email.', description: undefined }]));
+  expect(screen.queryByTestId('db-queued-emails-message')).toBeNull();
   expect((await collection.findOne('c').exec())?.status).toBe('sending');
+});
+
+test.each([
+  ['Send again', 'retry', 'Couldn’t send that email.'],
+  ['Remove', 'remove', 'Couldn’t remove that email.'],
+] as const)('a failed %s toasts the error', async (_, button, title) => {
+  await collection.insert({ attempts: 0, id: 'a', status: 'failed', email: 'a@example.invalid', queuedAt: '2026-10-07T07:00:00.000Z' });
+  render(<QueuedEmailsPanel collection={collection} orders={orders} now={() => new Date('2026-10-07T10:00:00.000Z')} />);
+  const target = await screen.findByTestId(`db-queued-email-${button}-a`);
+  vi.spyOn(collection, 'findOne').mockReturnValue({ exec: () => Promise.reject(new Error('disk full')) } as never);
+  fireEvent.click(target);
+  await waitFor(() => expect(toasts()).toEqual([{ type: 'error', title, description: undefined }]));
+  expect(screen.queryByTestId('db-queued-emails-message')).toBeNull();
 });
 
 test('renders nothing when the queue is empty or only sent', async () => {

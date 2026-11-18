@@ -22,6 +22,7 @@ import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import { queueReceiptEmail, receiptEmailSchema, receiptEmailMigrationStrategies, SEND_SPACING_MS, useReceiptEmailSender } from '../lib/receipts/receipt-emails';
 import type { ReceiptEmail as ReceiptEmailRow, ReceiptEmailCollection } from '../lib/receipts/receipt-emails';
 import type { ReceiptMailer } from '../lib/receipts/receipt-mailer';
+import { dismissToast, getToasts } from '../lib/toast/toast';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
@@ -33,6 +34,7 @@ function SaleScreen(props: ComponentProps<typeof SaleScreenWithoutHost>) {
 
 const email = 'gee@example.invalid';
 const queuedText = 'Receipt email queued';
+const toastTitles = () => getToasts().map(item => item.title);
 let db: RxDatabase;
 let collection: ReceiptEmailCollection;
 let orders: RxCollection<PosOrder>;
@@ -66,6 +68,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  act(() => dismissToast());
   cleanup();
   await db.close();
   vi.useRealTimers();
@@ -137,7 +140,7 @@ test('a failed send is not retried by ticks; Send again queues exactly one more 
   await settle();
   expect(send).toHaveBeenCalledTimes(1);
   await sendFromDialog();
-  await vi.waitFor(() => expect(screen.getByText('Email sent')).not.toBeNull());
+  await vi.waitFor(() => expect(toastTitles()).toContain('Email sent'));
   expect(send).toHaveBeenNthCalledWith(2, '115', email, undefined);
   expect(send).toHaveBeenCalledTimes(2);
   expect((await request())?.error).toBe('');
@@ -445,14 +448,14 @@ test.each([true, false])('completed sale receipt UI, mailer available: %s', asyn
     expect((await vi.waitFor(() => screen.getByLabelText('Email Address')) as HTMLInputElement).value).toBe(email);
     expect(screen.getByTestId('receipt-email-send').textContent).toBe('Send when online');
     fireEvent.click(screen.getByTestId('receipt-email-send'));
-    await vi.waitFor(() => expect(screen.getByText(queuedText)).not.toBeNull());
+    await vi.waitFor(() => expect(toastTitles()).toContain(queuedText));
     expect(screen.queryByLabelText('Email Address')).toBeNull();
     expect(send).not.toHaveBeenCalled();
     await act(async () => { sync(); });
     await vi.waitFor(() => expect(screen.getByText('Sending the receipt…')).not.toBeNull());
     expect(send).toHaveBeenCalledExactlyOnceWith('115', email, undefined);
     await act(async () => { finish(); });
-    await vi.waitFor(() => expect(screen.getByText('Email sent')).not.toBeNull());
+    await vi.waitFor(() => expect(toastTitles()).toContain('Email sent'));
   } else {
     expect(screen.queryByRole('button', { name: 'Email Receipt' })).toBeNull();
     await act(async () => { sync(); finish(); });
