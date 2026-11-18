@@ -383,3 +383,20 @@ test("at 1280 the table sits on v2's card, with the count under it", async () =>
   expect(surface.contains(screen.getByTestId('customers-body'))).toBe(true);
   expect(surface.contains(screen.getByTestId('data-table-count'))).toBe(false);
 });
+
+test("with the store's total the count reads v2's Showing 2 of 57", async () => {
+  const search = vi.fn<CustomerSource['search']>().mockResolvedValue([gee, ada]);
+  const searchPage = vi.fn<NonNullable<CustomerSource['searchPage']>>().mockResolvedValue({ customers: [gee, ada], total: 57 });
+  render(<CustomersScreen source={{ search, searchPage, create: vi.fn() }} onBack={vi.fn()} createBlockedReason={undefined} />);
+  expect(await screen.findByTestId('customers-row-7')).not.toBeNull();
+  expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 2 of 57');
+  expect(searchPage.mock.calls).toEqual([['']]);
+  expect(search).not.toHaveBeenCalled();
+});
+
+test('a page without a total keeps Showing N', async () => {
+  const searchPage = vi.fn<NonNullable<CustomerSource['searchPage']>>().mockResolvedValue({ customers: [gee, ada] });
+  render(<CustomersScreen source={{ search: vi.fn(), searchPage, create: vi.fn() }} onBack={vi.fn()} createBlockedReason={undefined} />);
+  expect(await screen.findByTestId('customers-row-7')).not.toBeNull();
+  expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 2');
+});

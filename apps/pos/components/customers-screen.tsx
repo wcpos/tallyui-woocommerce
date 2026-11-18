@@ -3,7 +3,7 @@ import type { JSX } from 'react';
 import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { Circle, Line, Path } from 'react-native-svg';
 import { ConnectorUnauthorizedError, CustomerServiceError } from '@tallyui/core';
-import type { Customer } from '@tallyui/core';
+import type { Customer, CustomerPage } from '@tallyui/core';
 import { Avatar, Button, IconButton, SearchInput, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Text, createSvgIcon } from '@tallyui/components';
 import { useAreaColumns, visibleAreaColumns } from '../lib/area-columns';
 import type { AreaColumn } from '../lib/area-columns';
@@ -82,6 +82,7 @@ function searchErrorMessage(cause: unknown): string {
 export function CustomersScreen({ source, onBack, createBlockedReason }: CustomersScreenProps): JSX.Element {
   const { term, query, type, set } = useSearchTerm();
   const [results, setResults] = useState<Customer[]>([]);
+  const [total, setTotal] = useState<number | null>(null);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string>();
   const [attempt, setAttempt] = useState(0);
@@ -99,14 +100,15 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
   useEffect(() => {
     const mine = ++request.current;
     setResults([]);
+    setTotal(null);
     setError(undefined);
     if (!source) {
       setSearching(false);
       return;
     }
     setSearching(true);
-    source.search(asked).then(found => {
-      if (mine === request.current) setResults(found);
+    (source.searchPage ? source.searchPage(asked) : source.search(asked).then((customers): CustomerPage => ({ customers }))).then(page => {
+      if (mine === request.current) { setResults(page.customers); setTotal(page.total ?? null); }
     }, cause => {
       if (mine === request.current) setError(searchErrorMessage(cause));
     }).finally(() => {
@@ -183,8 +185,8 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
         {createBlockedReason !== undefined
           ? <Text testID="customers-add-blocked" className={`pb-2 text-sm text-muted-foreground ${gutter}`}>{createBlockedReason}</Text> : null}
         <TableSurface testID="customers-table-surface">{body}</TableSurface>
-        {/* The store searches its customers (limit 20) and reports no total, so the count is "Showing N". */}
-        {listing ? <CaptionRowInset><TableCount shown={shown.length} total={null} active={searching} onSync={retry} /></CaptionRowInset> : null}
+        {/* The store's count of every match, when it gives one (v2 data-table/footer.tsx:58-63). */}
+        {listing ? <CaptionRowInset><TableCount shown={shown.length} total={total} active={searching} onSync={retry} /></CaptionRowInset> : null}
         {adding ? <AddCustomerDialog source={source} onClose={() => { setAdding(false); retry(); }} /> : null}
       </> : <Text testID="customers-unavailable" className={`py-4 text-muted-foreground ${gutter}`}>Customers show once the store is connected.</Text>}
     </View>
