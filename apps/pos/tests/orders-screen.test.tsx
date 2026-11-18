@@ -348,6 +348,38 @@ test('with a receipt open a wedge scan reaches neither the search nor the till u
   expect(list).toHaveBeenCalledTimes(1);
 });
 
+// A till row opens its receipt straight away (no detail sheet), so only the receipt guards the search.
+test("with a till order's receipt open a wedge scan reaches neither the search nor the till underneath", async () => {
+  const till = vi.fn();
+  const list = vi.fn<OrderHistorySource['list']>().mockResolvedValue({ orders: [storeOrder], hasMore: false });
+  const storage = getRxStorageMemory();
+  const tree = (overTill: boolean) => (
+    <SessionProvider>
+      <OutboxProvider transportFor={() => ({ send: async batch => ({ kind: 'results', results: batch.map(applied) }) })} storage={storage}>
+        <OrderStoreReady />
+        {!overTill && <SaleScreen {...props} />}
+        {overTill && <TillScanner onScan={till} />}
+        {overTill && <OrdersScreen onBack={() => {}} history={{ list }} storeName={props.storeName} cashierName={props.cashierName} />}
+        <PortalHost />
+      </OutboxProvider>
+    </SessionProvider>
+  );
+  const { rerender } = render(tree(false));
+  await vi.waitFor(() => expect(screen.getByText('Order store ready')).not.toBeNull());
+  const reference = await payCash();
+  rerender(tree(true));
+  expect(await screen.findByTestId('history-row-901')).not.toBeNull();
+  await vi.waitFor(() => expect(table().getByText(`${reference} · #305`)).not.toBeNull());
+  fireEvent.click(screen.getByTestId(/^order-open-/));
+  expect(screen.getByTestId('receipt-order').textContent).toBe(`Order ${reference} · #305`);
+  expect(screen.queryByTestId('order-modal-title')).toBeNull();
+  wedge('12345678');
+  expect(till).not.toHaveBeenCalled();
+  fireEvent.click(backFromReceipt());
+  expect((screen.getByPlaceholderText('Search Orders') as HTMLInputElement).value).toBe('');
+  expect(list.mock.calls).toEqual([[1]]);
+}, 20_000);
+
 test("with an order's detail open a wedge scan reaches neither the search nor the till underneath", async () => {
   const till = vi.fn();
   const list = vi.fn<OrderHistorySource['list']>().mockResolvedValue({ orders: [storeOrder], hasMore: false });
