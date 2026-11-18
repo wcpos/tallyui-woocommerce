@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { JSX } from 'react';
-import { Platform, View, useWindowDimensions } from 'react-native';
+import { Platform, ScrollView, View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { Button, ParkedSales, Receipt, SyncStatus, Text } from '@tallyui/components';
 import { catalogueEntries, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
@@ -268,7 +268,11 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           <OrderDetailsSheet open={detailsOpen} onOpenChange={setDetailsOpen} side={viewState.position}
             note={sale.order.note} onNoteChange={sale.setNote} onVoid={voiding.offered ? voiding.voidSale : undefined} />
         </>
-      ) : sale.stage.kind === 'tender' ? outbox.enabled ? (props.multiplePayments === true ? (
+      ) : sale.stage.kind === 'tender' ? outbox.enabled ? (
+        // v2's tender pane is a ScrollView (checkout/tender/tender-pane.tsx:377) whose content takes a minimum height, never
+        // a height (checkout/LEDGER.md:49), so on a phone a tall pane scrolls to Back and the commit button.
+        <ScrollView testID="checkout-scroll" className="flex-1" contentContainerClassName="grow" keyboardShouldPersistTaps="handled">
+        {props.multiplePayments === true ? (
         cancelling && sale.order.payments.length > 0 ? (
           <>
             {voidError ? <Text testID="tender-void-error" accessibilityRole="alert" className="text-destructive">{voidError}</Text> : null}
@@ -284,7 +288,9 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             {width < SALE_SPLIT_MIN_WIDTH ? <LedgerPane order={sale.order} onRemove={sale.saving ? undefined : id => { void removeLeg(id); }} /> : null}
           </>
         )
-      ) : <TenderPane sale={sale} />) : (
+      ) : <TenderPane sale={sale} />}
+        </ScrollView>
+      ) : (
         <>
           <Text>Taking payment arrives in the next update</Text>
           <Button onPress={() => sale.cancelTender()}><Text>Back to cart</Text></Button>
