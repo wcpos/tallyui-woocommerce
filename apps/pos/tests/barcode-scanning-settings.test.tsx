@@ -66,19 +66,30 @@ test('the page reopens with the saved values', () => {
   expect(value('settings-barcode-min-chars')).toBe('8');
 });
 
+test("the test values are v2's filled, read-only mono boxes, empty before a scan", () => {
+  render(<BarcodeScanningSettings />);
+  // v2 test-panel.tsx:143-169: Input className="bg-accent font-mono", read-only, no dash before a scan.
+  for (const id of ['barcode-test-keys', 'barcode-test-detected']) {
+    expect(value(id)).toBe('');
+    expect((screen.getByTestId(id) as HTMLInputElement).readOnly).toBe(true);
+    expect(classesOf(id)).toContain('font-mono');
+    expect(classesOf(`${id}-box`)).toContain('bg-accent');
+  }
+});
+
 test('the test panel shows a passing scan, then a too-short code', () => {
   vi.useFakeTimers();
   render(<BarcodeScanningSettings />);
   expect(screen.getByTestId('barcode-test-verdict').textContent).toBe('Scan into this page to see keystroke timing');
   expect(screen.queryByTestId('barcode-test-result')).toBeNull();
   burst('2000000000015', 5);
-  expect(screen.getByTestId('barcode-test-keys').textContent).toBe('2000000000015');
-  expect(screen.getByTestId('barcode-test-detected').textContent).toBe('2000000000015');
+  expect(value('barcode-test-keys')).toBe('2000000000015');
+  expect(value('barcode-test-detected')).toBe('2000000000015');
   expect(screen.getByTestId('barcode-test-result').textContent).toBe('scan');
   expect(screen.getByTestId('barcode-test-verdict').textContent).toBe('Detected as a scan → 2000000000015');
   burst('123', 5);
   expect(screen.getByTestId('barcode-test-result').textContent).toBe('too short');
-  expect(screen.getByTestId('barcode-test-detected').textContent).toBe('—');
+  expect(value('barcode-test-detected')).toBe('');
   // v2 analyze-trace.ts:54: a too-short code is a detected scan, so it reads as one; the fix is the notice below.
   expect(screen.getByTestId('barcode-test-verdict').textContent).toBe('Detected as a scan → 123');
   expect(classesOf('barcode-test-verdict')).toEqual(expect.arrayContaining(['text-base', 'font-medium']));
@@ -94,10 +105,11 @@ test('the test panel shows typing, and a saved prefix applies to the next scan',
   burst('abc', 100);
   expect(screen.getByTestId('barcode-test-result').textContent).toBe('typing');
   expect(screen.getByTestId('barcode-test-verdict').textContent).toBe('Treated as typing (average gap 100ms) — correctly ignored');
+  expect(value('barcode-test-detected')).toBe('');
   fireEvent.change(screen.getByTestId('settings-barcode-prefix'), { target: { value: ']C1' } });
   burst(']C12000000000015', 5);
-  expect(screen.getByTestId('barcode-test-keys').textContent).toBe(']C12000000000015');
-  expect(screen.getByTestId('barcode-test-detected').textContent).toBe('2000000000015');
+  expect(value('barcode-test-keys')).toBe(']C12000000000015');
+  expect(value('barcode-test-detected')).toBe('2000000000015');
   expect(screen.getByTestId('barcode-test-result').textContent).toBe('scan');
 });
 

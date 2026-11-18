@@ -59,13 +59,16 @@ function ScanTestPanel({ settings, update }: { settings: ScanSettings; update(pa
   useWedgeScanner(() => {}, true, next => setAttempts(prev => [next, ...prev].slice(0, MAX_ATTEMPTS)));
   return (
     <View className="gap-3 pt-1">
+      {/* v2 test-panel.tsx:143-169: each value is a filled, read-only mono Input, empty before a scan; the wedge listens globally. */}
       <View className="gap-1">
         <Text className="text-sm font-medium text-foreground">Keypress Event</Text>
-        <Text testID="barcode-test-keys">{attempt?.raw || '—'}</Text>
+        <Input testID="barcode-test-keys-box" className="bg-accent"><Input.Field testID="barcode-test-keys" accessibilityLabel="Keypress Event"
+          className="font-mono" value={attempt?.raw ?? ''} editable={false} aria-disabled /></Input>
       </View>
       <View className="gap-1">
         <Text className="text-sm font-medium text-foreground">Detected Barcode</Text>
-        <Text testID="barcode-test-detected">{attempt?.result === 'scan' ? attempt.code : '—'}</Text>
+        <Input testID="barcode-test-detected-box" className="bg-accent"><Input.Field testID="barcode-test-detected" accessibilityLabel="Detected Barcode"
+          className="font-mono" value={attempt?.result === 'scan' ? attempt.code : ''} editable={false} aria-disabled /></Input>
       </View>
       <View className="flex-row items-center gap-2">
         {attempt && <Badge testID="barcode-test-result" variant={RESULT_VARIANTS[attempt.result]} label={RESULT_WORDS[attempt.result]} />}
