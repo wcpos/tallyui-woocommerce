@@ -42,6 +42,7 @@ import { ProductAttributes, variationMatches, variationName } from './product-at
 import type { ProductAttribute, VariationDoc, VariationMatch } from './product-attributes';
 import { utcDate } from './coupons-screen';
 import { BAR } from './customers-screen';
+import { ChevronRightIcon } from './icons';
 import { StatusDot } from './status-dot';
 import { CaptionRowInset, TableCount, TableSurface, useCatalogueSync } from './table-surface';
 import type { StatusTone } from './status-dot';
@@ -155,14 +156,26 @@ function variationRange(doc: ProductDoc, field: PriceField): { min: string; max:
 }
 
 /** v2's VariableProductPrice (variable-price.tsx:39-71) for a variable product with variations: nothing without a
- *  range, one price when min equals max, else "min - max"; any other product shows its own field. */
-function priceText(doc: ProductDoc, field: PriceField, currency: string, locale: string | undefined): string {
-  if (doc.type !== 'variable' || (doc.variation_docs?.length ?? 0) === 0) return money(doc[field], currency, locale);
+ *  range, one price when min equals max, else min and max; any other product shows its own field. */
+function priceParts(doc: ProductDoc, field: PriceField, currency: string, locale: string | undefined): { min: string; max?: string } | null {
+  if (doc.type !== 'variable' || (doc.variation_docs?.length ?? 0) === 0) return { min: money(doc[field], currency, locale) };
   const range = variationRange(doc, field);
-  if (!range) return '';
-  if (Number(range.min) === Number(range.max)) return money(range.max, currency, locale);
-  return `${money(range.min, currency, locale)} - ${money(range.max, currency, locale)}`;
+  if (!range) return null;
+  if (Number(range.min) === Number(range.max)) return { min: money(range.max, currency, locale) };
+  return { min: money(range.min, currency, locale), max: money(range.max, currency, locale) };
 }
+
+/** The wide table's text: v2's `<Text> - </Text>` between min and max (variable-price.tsx). */
+function priceText(doc: ProductDoc, field: PriceField, currency: string, locale: string | undefined): string {
+  const parts = priceParts(doc, field, currency, locale);
+  return !parts ? '' : parts.max ? `${parts.min} - ${parts.max}` : parts.min;
+}
+
+// v2's phone row (row.tsx:136-143): min, then an en dash (U+2013, the gap spaces it) and max only for a range.
+const phonePrice = (parts: { min: string; max?: string } | null) => parts && <><Text numberOfLines={1} className="text-foreground">{parts.min}</Text>
+  {parts.max ? <><Text className="text-foreground">–</Text><Text numberOfLines={1} className="text-foreground">{parts.max}</Text></> : null}</>;
+// v2's Icon default, size-4.5 = 18 px (components/src/icon/index.tsx:27); a mark only, the row is not pressable.
+const rowChevron = (id: number) => <ChevronRightIcon testID={`products-row-chevron-${id}`} size={18} className="text-muted-foreground" />;
 
 /** v2's ProductStockBadge (cells/stock-status.tsx:43-57): a managed quantity reads before the word. */
 function StockBadge({ doc, quantity }: { doc: ProductDoc | VariationDoc; quantity?: number }): JSX.Element {
@@ -365,9 +378,12 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
                   <VariationNameCell variation={variation} parent={drilled} />
                   {variation.sku ? <Text testID={`products-phone-sku-${variation.id}`} numberOfLines={1} className="text-muted-foreground">{variation.sku}</Text> : null}
                 </View>
-                <View className="items-end gap-1">
-                  <Text numberOfLines={1} className="text-foreground">{money(variation.price, currency, locale)}</Text>
-                  <StockBadge doc={variation} quantity={stockQuantity(variation)} />
+                <View className="flex-row items-center gap-3">
+                  <View testID={`products-phone-figures-${variation.id}`} className="items-end gap-1 tabular-nums">
+                    <View testID={`products-phone-price-${variation.id}`} className="flex-row items-center gap-1">{phonePrice({ min: money(variation.price, currency, locale) })}</View>
+                    <StockBadge doc={variation} quantity={stockQuantity(variation)} />
+                  </View>
+                  {rowChevron(variation.id)}
                 </View>
               </View>
             ))}
@@ -407,9 +423,12 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
               <View className="flex-1 gap-1">
                 <NameCell doc={doc} onDrill={drillTo} numberOfLines={1} showSku />
               </View>
-              <View className="items-end gap-1">
-                <Text numberOfLines={1} className="text-foreground">{priceText(doc, 'price', currency, locale)}</Text>
-                <StockBadge doc={doc} quantity={stockQuantity(doc)} />
+              <View className="flex-row items-center gap-3">
+                <View testID={`products-phone-figures-${doc.id}`} className="items-end gap-1 tabular-nums">
+                  <View testID={`products-phone-price-${doc.id}`} className="flex-row items-center gap-1">{phonePrice(priceParts(doc, 'price', currency, locale))}</View>
+                  <StockBadge doc={doc} quantity={stockQuantity(doc)} />
+                </View>
+                {rowChevron(doc.id)}
               </View>
             </View>
           ))}
