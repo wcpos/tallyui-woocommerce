@@ -15,8 +15,10 @@ import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeLeg } from './tender-helpers';
+import { classesOf } from './classes-of';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 
+let orders: (ReturnType<typeof useOutbox> & { enabled: true })['orders'];
 let send: ReturnType<typeof vi.fn<CommandTransport<OrderCreateEnvelope>['send']>>;
 
 beforeEach(async () => {
@@ -63,7 +65,9 @@ afterEach(() => {
 
 function OrderStoreReady() {
   const outbox = useOutbox();
-  return outbox.enabled && outbox.orders ? <span>Order store ready</span> : null;
+  if (!outbox.enabled || !outbox.orders) return null;
+  orders = outbox.orders;
+  return <span>Order store ready</span>;
 }
 
 test('Back with a cash leg asks before cancelling, and Keep taking payment returns with the leg', () => {
@@ -105,6 +109,7 @@ test('Back with no leg goes straight to the cart', () => {
 test('The Cancel payment button opens the same view', () => {
   expect(screen.queryByTestId('checkout-cancel-payment')).toBeNull();
   takeLeg(200);
+  expect(screen.getByTestId('checkout-cancel-payment').getAttribute('aria-disabled')).not.toBe('true');
   fireEvent.click(screen.getByTestId('checkout-cancel-payment'));
   expect(screen.getByTestId('cancel-payment')).not.toBeNull();
   expect(screen.queryAllByTestId(/^checkout-cancel-leg-/).map(element => element.textContent)).toEqual(['Return $2.00 cash to the customer']);
@@ -118,4 +123,26 @@ test('A new tender after cancelling does not reopen the view', async () => {
   takeLeg(300);
   expect(screen.queryByTestId('cancel-payment')).toBeNull();
   expect(screen.getByTestId('checkout-ledger-totals').textContent).toContain('Paid$3.00');
+}, 20_000);
+
+test('Cancel payment is v2\'s outline-destructive, sm beside the title on a wide screen', () => {
+  takeLeg(200);
+  const classes = classesOf('checkout-cancel-payment');
+  expect(classes).toEqual(expect.arrayContaining(['border', 'border-destructive', 'bg-card', 'h-9']));
+  expect(classes).not.toContain('h-10');
+}, 20_000);
+
+test('While the order saves, Cancel payment is disabled and a press opens no confirm', async () => {
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const insert = orders!.insert.bind(orders!);
+  vi.spyOn(orders!, 'insert').mockImplementationOnce(async doc => { await gate; return insert(doc); });
+  takeLeg(200);
+  takeLeg(400);
+  await waitFor(() => expect(screen.getByTestId('checkout-commit').textContent).toBe('Saving order…'));
+  expect(screen.getByTestId('checkout-cancel-payment').getAttribute('aria-disabled')).toBe('true');
+  fireEvent.click(screen.getByTestId('checkout-cancel-payment'));
+  expect(screen.queryByTestId('cancel-payment')).toBeNull();
+  release();
+  expect(await screen.findByTestId('receipt-order')).not.toBeNull();
 }, 20_000);

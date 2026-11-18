@@ -282,7 +282,9 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         ) : (
           <>
             {voidError ? <Text testID="tender-void-error" accessibilityRole="alert" className="text-destructive">{voidError}</Text> : null}
-            {sale.order.payments.length > 0 ? <Button variant="ghost" testID="checkout-cancel-payment" onPress={requestCancel}><Text>Cancel payment</Text></Button> : null}
+            {/* v2's CancelPaymentButton (checkout-body-view.tsx:87-101): outline-destructive (button/index.tsx:53-54), sm beside
+                the title when wide, default in the phone sheet (tender-checkout.tsx:129), disabled while the order saves. */}
+            {sale.order.payments.length > 0 ? <Button variant="outline" className="border-destructive bg-card" size={width < SALE_SPLIT_MIN_WIDTH ? undefined : 'sm'} disabled={sale.saving} testID="checkout-cancel-payment" onPress={requestCancel}><Text>Cancel payment</Text></Button> : null}
             <TenderPane multi sale={{ ...sale, cancelTender: requestCancel }} />
             {/* One column below 900: the legs sit under the tender (wide, the ledger has the products panel). */}
             {width < SALE_SPLIT_MIN_WIDTH ? <LedgerPane order={sale.order} onRemove={sale.saving ? undefined : id => { void removeLeg(id); }} /> : null}
