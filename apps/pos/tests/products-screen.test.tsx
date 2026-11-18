@@ -56,9 +56,63 @@ test("v2's image column has no label, and every cell's content centres on the ro
   renderScreen([product(1, 'Tea')]);
   expect(screen.getAllByRole('columnheader')[0].textContent).toBe('');
   expect(screen.queryByText(/^image$/i)).toBeNull();
-  for (const id of ['image', 'name', 'stock_status', 'price']) {
-    expect(classesOf(`product-cell-${id}-1`)).toEqual(['flex-1', 'justify-center']);
+  // v2's `hideLabel`: the head draws nothing but keeps the column's name, and it does not sort (`disableSort`).
+  expect(screen.getByRole('columnheader', { name: 'Image' })).toBe(screen.getAllByRole('columnheader')[0]);
+  expect(screen.queryByTestId('product-table-sort-image')).toBeNull();
+  for (const id of ['image', 'name']) expect(classesOf(`product-cell-${id}-1`)).toEqual(['flex-1', 'justify-center']);
+  expect(classesOf('product-cell-stock_status-1')).toEqual(['flex-1', 'justify-center', 'items-center']);
+  expect(classesOf('product-cell-price-1')).toEqual(['flex-1', 'justify-center', 'items-end']);
+});
+
+// The head's classes, read off the View that took its columnheader role (TallyUI's TableHead).
+function headClasses(label: string): string[] {
+  const head = screen.getAllByRole('columnheader').find(el => el.textContent?.replace(/ [▲▼]$/, '') === label)!;
+  const node = head as unknown as Record<string, unknown>;
+  let fiber = node[Object.keys(node).find(name => name.startsWith('__reactFiber$'))!] as
+    { type?: unknown; memoizedProps?: { role?: string; className?: unknown }; return?: unknown } | undefined;
+  for (; fiber; fiber = fiber.return as typeof fiber) {
+    const { role, className } = fiber.memoizedProps ?? {};
+    // The DOM node's own class is react-native-web's generated one; the View above it holds the uniwind classes.
+    if (typeof fiber.type !== 'string' && role === 'columnheader' && typeof className === 'string') return className.split(/\s+/);
   }
+  return [];
+}
+
+test("v2's aligns: Stock and Stock Status centre, the three prices sit right, on the head and the cell alike", () => {
+  renderScreen([product(1, 'Tea', { manage_stock: true, stock_quantity: 4 })]);
+  for (const id of ['stock_quantity', 'stock_status']) expect(classesOf(`product-cell-${id}-1`)).toContain('items-center');
+  for (const id of ['price', 'regular_price', 'sale_price']) expect(classesOf(`product-cell-${id}-1`)).toContain('items-end');
+  for (const label of ['Stock', 'Stock Status']) expect(headClasses(label)).toContain('items-center');
+  for (const label of ['Price', 'Regular Price', 'Sale Price']) expect(headClasses(label)).toContain('items-end');
+  expect(headClasses('Product')).not.toContain('items-center');
+  expect(headClasses('Product')).not.toContain('items-end');
+});
+
+test('Regular Price and Sale Price heads do not sort; Price does', () => {
+  renderScreen([
+    product(1, 'Americano', { price: '30', regular_price: '30', sale_price: '' }),
+    product(2, 'Beans', { price: '10', regular_price: '10', sale_price: '' }),
+    product(3, 'Cortado', { price: '20', regular_price: '20', sale_price: '' }),
+  ]);
+  expect(screen.queryByTestId('product-table-sort-regular_price')).toBeNull();
+  expect(screen.queryByTestId('product-table-sort-sale_price')).toBeNull();
+  fireEvent.click(screen.getByText('Regular Price'));
+  fireEvent.click(screen.getByText('Sale Price'));
+  expect(rowIds()).toEqual(['product-row-1', 'product-row-2', 'product-row-3']);
+  fireEvent.click(screen.getByTestId('product-table-sort-price'));
+  expect(rowIds()).toEqual(['product-row-2', 'product-row-3', 'product-row-1']);
+});
+
+test('Stock Status sorts in stock, on backorder, out of stock ascending, and back descending', () => {
+  renderScreen([
+    product(1, 'Americano', { stock_status: 'onbackorder' }),
+    product(2, 'Beans', { stock_status: 'instock' }),
+    product(3, 'Cortado', { stock_status: 'outofstock' }),
+  ]);
+  fireEvent.click(screen.getByTestId('product-table-sort-stock_status'));
+  expect(rowIds()).toEqual(['product-row-2', 'product-row-1', 'product-row-3']);
+  fireEvent.click(screen.getByTestId('product-table-sort-stock_status'));
+  expect(rowIds()).toEqual(['product-row-3', 'product-row-1', 'product-row-2']);
 });
 
 test('a variable product shows its variation count under the name, singular for one; a simple product shows none', () => {

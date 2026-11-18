@@ -202,10 +202,11 @@ function termNames(terms: { name?: string }[] | undefined): string {
 
 /** Every column of PRODUCTS_COLUMNS, in its order; the screen hands ProductTable the ones left on. */
 function productColumns(currency: string, locale: string | undefined, onDrill: OnDrill): (ProductTableColumn<ProductDoc> & { id: ProductsColumnId })[] {
+  // v2 sorts Price only; Regular and Sale Price are `disableSort` (initial-settings.json:323-349), all three `right`.
   const priceColumn = (id: PriceField) => ({
-    id, header: LABEL[id], flex: 1,
+    id, header: LABEL[id], flex: 1, align: 'right' as const,
     render: (doc: ProductDoc) => <Text testID={`product-${id}-${doc.id}`}>{priceText(doc, id, currency, locale)}</Text>,
-    sortValue: (doc: ProductDoc) => doc.type === 'variable' && (doc.variation_docs?.length ?? 0) > 0
+    sortValue: id !== 'price' ? undefined : (doc: ProductDoc) => doc.type === 'variable' && (doc.variation_docs?.length ?? 0) > 0
       ? priceValue(variationRange(doc, id)?.min) : priceValue(doc[id]),
   });
   // v2's plain cells (no cell renderer: the field's text); sortable where v2's column has no `disableSort`.
@@ -215,18 +216,20 @@ function productColumns(currency: string, locale: string | undefined, onDrill: O
     sortValue: (doc: ProductDoc) => doc[id],
   });
   return [
-    // v2's image column is unlabelled (initial-settings.json:252 `hideLabel`, data-table/index.tsx:493 header ''); the
-    // display options keep its name. TallyUI's head has no accessible name to give it.
-    { id: 'image', header: '', flex: 0.6, render: doc => <ProductImage doc={doc} size={IMAGE_SIZE} /> },
-    { id: 'id', header: LABEL.id, flex: 0.6, render: doc => <Text testID={`product-id-${doc.id}`}>{String(doc.id)}</Text>, sortValue: doc => doc.id },
+    // v2's image column is unlabelled and unsorted (initial-settings.json:250-252 `hideLabel`, `disableSort`); TallyUI's
+    // `hideHeader` draws no label and keeps "Image" as the head's accessible name. id, Stock, Stock Status centre (:256-299 `center`).
+    { id: 'image', header: LABEL.image, hideHeader: true, flex: 0.6, render: doc => <ProductImage doc={doc} size={IMAGE_SIZE} /> },
+    { id: 'id', header: LABEL.id, flex: 0.6, align: 'center', render: doc => <Text testID={`product-id-${doc.id}`}>{String(doc.id)}</Text>, sortValue: doc => doc.id },
     { id: 'name', header: LABEL.name, flex: 3, render: doc => <NameCell doc={doc} onDrill={onDrill} />, sortValue: doc => doc.name },
     textColumn('type', 1),
     textColumn('sku', 1),
     textColumn('barcode', 1.2),
-    { id: 'stock_quantity', header: LABEL.stock_quantity, flex: 1,
+    { id: 'stock_quantity', header: LABEL.stock_quantity, flex: 1, align: 'center',
       render: doc => <Text testID={`product-stock-quantity-${doc.id}`}>{String(stockQuantity(doc) ?? '—')}</Text>,
       sortValue: doc => stockQuantity(doc) },
-    { id: 'stock_status', header: LABEL.stock_status, flex: 1.4, render: doc => <StockBadge doc={doc} /> },
+    // Sortable in v2; the raw values order instock < onbackorder < outofstock.
+    { id: 'stock_status', header: LABEL.stock_status, flex: 1.4, align: 'center', render: doc => <StockBadge doc={doc} />,
+      sortValue: doc => resolveStock(doc) },
     { id: 'categories', header: LABEL.categories, flex: 2, render: doc => <Text>{termNames(doc.categories)}</Text> },
     { id: 'tags', header: LABEL.tags, flex: 2, render: doc => <Text testID={`product-tags-${doc.id}`}>{termNames(doc.tags)}</Text> },
     priceColumn('price'),
@@ -255,12 +258,17 @@ export function gmtAgoText(value: string | undefined, locale: string | undefined
   }
 }
 
+// The cell's align as TallyUI's ProductTable maps it (left items-start, center items-center, right items-end).
+const ITEMS = { left: 'items-start', center: 'items-center', right: 'items-end' } as const;
+
 /** v2's body cell centres its content on the row (components/src/table/index.tsx:129 `flex-col justify-center`).
- *  ProductTableColumn takes no cell class, so each column's own content fills the cell and centres itself. */
+ *  ProductTableColumn takes no cell class, so each column's own content fills the cell and centres itself; the
+ *  wrapper takes the column's align too, so a centred or right column's content keeps its place. */
 function centred<Doc extends { id: number }>(columns: ProductTableColumn<Doc>[]): ProductTableColumn<Doc>[] {
   return columns.map(column => ({
     ...column,
-    render: (doc: Doc) => <View testID={`product-cell-${column.id}-${doc.id}`} className="flex-1 justify-center">
+    render: (doc: Doc) => <View testID={`product-cell-${column.id}-${doc.id}`}
+      className={column.align ? `flex-1 justify-center ${ITEMS[column.align]}` : 'flex-1 justify-center'}>
       {column.render(doc)}
     </View>,
   }));
@@ -270,8 +278,8 @@ function centred<Doc extends { id: number }>(columns: ProductTableColumn<Doc>[])
  *  variation's own fields where it has them, the parent's image, ProductVariationName, and empty terms. */
 function variationColumns(columns: (ProductTableColumn<ProductDoc> & { id: ProductsColumnId })[], parent: ProductDoc)
   : ProductTableColumn<VariationDoc>[] {
-  return columns.map(({ id, header, flex, render }) => ({
-    id, header, flex,
+  return columns.map(({ id, header, flex, align, hideHeader, render }) => ({
+    id, header, flex, align, hideHeader,
     render: (variation: VariationDoc) => id === 'image' ? <ProductImage doc={parent} size={IMAGE_SIZE} />
       : id === 'name' ? <VariationNameCell variation={variation} parent={parent} />
         : id === 'categories' || id === 'tags' ? null
