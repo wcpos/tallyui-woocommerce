@@ -364,7 +364,7 @@ test("a save held past 4 s says the store isn't answering, and the line goes wit
   expect(screen.queryByTestId('checkout-save-slow')).toBeNull();
   advance(100);
   expect(text('checkout-save-slow')).toBe(SLOW);
-  expect(classesOf('checkout-save-slow')).toEqual(expect.arrayContaining(['text-sm', 'text-warning']));
+  expect(classesOf('checkout-save-slow')).toEqual(expect.arrayContaining(['text-center', 'text-sm', 'text-warning']));
   vi.useRealTimers();
   release();
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
