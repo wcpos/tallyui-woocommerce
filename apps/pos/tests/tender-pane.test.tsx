@@ -201,6 +201,26 @@ test('Exact restores the amount due after a keypad edit', async () => {
   expect(text('checkout-commit')).toBe('Take $3.00 in Cash');
 }, 20_000);
 
+/** The `ids` present under the tender pane, in document order (the DOM react-native-web renders). */
+function order(ids: string[]) {
+  return Array.from(screen.getByTestId('checkout-tender').querySelectorAll<HTMLElement>('[data-testid]'))
+    .map(node => node.dataset.testid!).filter(id => ids.includes(id));
+}
+
+test('the tender pane reads To pay, the figure, its hint, then the method tiles, then the quick amounts (v2 :395-483)', async () => {
+  await startTender('Cash');
+  const ids = ['checkout-label', 'checkout-entry', 'checkout-entry-hint', 'checkout-method-pos_cash', 'checkout-method-pos_card', 'checkout-helpers'];
+  expect(order(ids)).toEqual(ids);
+}, 20_000);
+
+test('once change is due, Change and the Tendered line still come before the method tiles', async () => {
+  await startTender('Cash');
+  press('clear', '1', '0', '0', '0');
+  expect(text('checkout-entry-hint')).toBe('Change $7.00');
+  const ids = ['checkout-label', 'checkout-entry-hint', 'checkout-tendered-line', 'checkout-method-pos_cash', 'checkout-method-pos_card', 'checkout-helpers'];
+  expect(order(ids)).toEqual(ids);
+}, 20_000);
+
 test('card has no quick amounts and Full balance restores the amount due', async () => {
   await startTender('Card terminal');
   expect(screen.queryAllByTestId(/^checkout-quick-\d/)).toHaveLength(0);
