@@ -86,7 +86,9 @@ test('the customer chip is 44 px high', () => {
 test('the cart chip keeps its muted Customer label, initials and pill when no face is given', () => {
   renderPicker();
   expect(classesOf('cart-customer-name')).toContain('rounded-full');
-  expect(screen.getByTestId('cart-customer-initials').textContent).toBe('GU');
+  // v2 GuestAvatar: the Guest is a muted person glyph, never 'GU' initials.
+  expect(screen.getByTestId('cart-customer-initials').textContent).toBe('');
+  expect(within(screen.getByTestId('cart-customer-initials')).getByTestId('customer-guest-icon')).not.toBeNull();
   expect(screen.getByText('Customer')).not.toBeNull();
   expect(screen.queryByTestId('customer-select-trigger-chevron')).toBeNull();
 });
@@ -279,7 +281,9 @@ test('a guest order shows the Customer label and a Guest chip', () => {
   renderPicker();
   expect(screen.getByText('Customer')).not.toBeNull();
   const chip = screen.getByTestId('cart-customer-name');
-  expect(within(chip).getByTestId('cart-customer-initials').textContent).toBe('GU');
+  expect(chip.getAttribute('aria-label')).toBe('Customer: Guest');
+  expect(within(chip).queryByText('GU')).toBeNull();
+  expect(within(within(chip).getByTestId('cart-customer-initials')).getByTestId('customer-guest-icon')).not.toBeNull();
   expect(within(chip).getByText('Guest')).not.toBeNull();
   expect(screen.queryByRole('button', { name: 'Change customer' })).toBeNull();
 });
@@ -289,7 +293,25 @@ test('a customer chip shows initials and the name under the customer accessible 
   const chip = screen.getByRole('button', { name: 'Customer: Gee Four' });
   expect(chip.getAttribute('data-testid')).toBe('cart-customer-name');
   expect(within(chip).getByTestId('cart-customer-initials').textContent).toBe('GF');
+  expect(within(chip).queryByTestId('customer-guest-icon')).toBeNull();
   expect(within(chip).getByText('Gee Four')).not.toBeNull();
+});
+
+// v2 cart-header.tsx:128-144: while the search is open the chip reads Select Customer with the customer icon.
+test.each(Object.keys(dismissals) as (keyof typeof dismissals)[])('while the panel is open the chip reads Select Customer with the person glyph, and closing with %s shows the name again', how => {
+  openPicker(gee);
+  const chip = screen.getByTestId('cart-customer-name');
+  expect(screen.getByTestId('cart-customer-select-label').textContent).toBe('Select Customer');
+  expect(chip.getAttribute('aria-label')).toBe('Select Customer');
+  expect(within(chip).getByTestId('customer-guest-icon')).not.toBeNull();
+  expect(within(chip).queryByText('Gee Four')).toBeNull();
+  dismissals[how]();
+  expect(screen.queryByTestId('customer-select-panel')).toBeNull();
+  expect(screen.getByTestId('cart-customer-select-label').textContent).toBe('Gee Four');
+  expect(chip.getAttribute('aria-label')).toBe('Customer: Gee Four');
+  expect(within(chip).getByTestId('cart-customer-initials').textContent).toBe('GF');
+  expect(within(chip).queryByTestId('customer-guest-icon')).toBeNull();
+  expect(onChange).not.toHaveBeenCalled();
 });
 
 test('the Guest option clears the customer and closes the panel', () => {
@@ -304,7 +326,8 @@ test('a guest order still lists Guest first above Search Customers', () => {
   const panel = openPicker();
   const guest = panel.getByTestId('customer-option-guest');
   expect(guest.getAttribute('role')).toBe('button');
-  expect(within(guest).getByText('GU')).not.toBeNull();
+  expect(within(guest).queryByText('GU')).toBeNull();
+  expect(within(guest).getByTestId('customer-guest-icon')).not.toBeNull();
   expect(within(guest).getByText('Guest')).not.toBeNull();
   const searchField = panel.getByPlaceholderText('Search Customers');
   expect(guest.compareDocumentPosition(searchField) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

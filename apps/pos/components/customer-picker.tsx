@@ -6,6 +6,7 @@ import type { CustomerSummary } from '@tallyui/pos';
 import { CustomerSelect, Popover, PopoverContent, PopoverTrigger, Text } from '@tallyui/components';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { customerInitials } from '../lib/customers/customer-table';
+import { UserIcon } from './icons';
 import { ChevronDownIcon } from './select-chevron';
 
 // v2 field-box/index.tsx:24-40: h-ctl (44 px), rounded-field, field border; combobox.tsx:102-155: w-full px-3.
@@ -22,6 +23,16 @@ function Initials({ text, testID }: { text: string; testID?: string }) {
   return (
     <View testID={testID} className="size-[22px] items-center justify-center rounded-full bg-muted">
       <Text className="text-[10px] font-medium">{text}</Text>
+    </View>
+  );
+}
+
+// v2 customer-avatar.tsx GuestAvatar, <Avatar icon="customer" variant="muted" />: the Guest is a glyph, never initials.
+// avatar/index.tsx:54,69 bg-muted, text-muted-foreground; :86 xs icon, icon/index.tsx:28 size-3.5 (14 px).
+function GuestMark({ testID }: { testID?: string }) {
+  return (
+    <View testID={testID} aria-hidden className="size-[22px] items-center justify-center rounded-full bg-muted">
+      <UserIcon testID="customer-guest-icon" size={14} className="text-muted-foreground" />
     </View>
   );
 }
@@ -132,11 +143,13 @@ export function CustomerPicker({ source, customer, onChange, face = 'chip', labe
           </Pressable>
           ) : (
           <Pressable accessibilityRole="button" testID="cart-customer-name"
-            accessibilityLabel={`Customer: ${customer ? customer.name : 'Guest'}`}
+            // v2 cart-header.tsx:128-144: while the search is open the chip reads Select Customer with the customer icon.
+            accessibilityLabel={open ? 'Select Customer' : `Customer: ${name}`}
             // h-11: v2's default Chip, `h-ctl px-3`, 44 px (monorepo packages/components/src/chip/index.tsx:158).
             className="rounded-full border border-border bg-card px-3 h-11 flex-row items-center gap-2">
-            <Initials testID="cart-customer-initials" text={customer ? customerInitials(customer) : 'GU'} />
-            <Text numberOfLines={1}>{customer ? customer.name : 'Guest'}</Text>
+            {open || !customer ? <GuestMark testID="cart-customer-initials" />
+              : <Initials testID="cart-customer-initials" text={customerInitials(customer)} />}
+            <Text testID="cart-customer-select-label" numberOfLines={1}>{open ? 'Select Customer' : name}</Text>
           </Pressable>
           )}
         </PopoverTrigger>
@@ -144,7 +157,7 @@ export function CustomerPicker({ source, customer, onChange, face = 'chip', labe
           {/* v2 lists Guest first in the customer search, even when the order already is a guest. */}
           <Pressable accessibilityRole="button" testID="customer-option-guest" className="flex-row items-center gap-2"
             onPress={() => { onChange(null); close(); }}>
-            <Initials text="GU" />
+            <GuestMark />
             <Text>Guest</Text>
           </Pressable>
           <CustomerSelect customers={results} selected={null} onSelect={pick} onSearch={search}
