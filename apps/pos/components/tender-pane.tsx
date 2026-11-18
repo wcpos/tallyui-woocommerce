@@ -59,7 +59,10 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
   const applied = appliedMinor(state.entryMinor, balance);
   const dp = minorUnitDigits(sale.order.currency);
   const quick = method.givesChange ? quickTenderedAmounts(applied, QUICK_TENDER_STEPS.map(step => step * 10 ** dp)) : [];
-  const change = changeMinor(state.entryMinor, applied, method.givesChange);
+  const legs = sale.order.payments.length;
+  // WCPOS v2: tender-pane.tsx:117-118, tender-figures.ts:165. The balance is 0 once the last leg is in, so the entry
+  // against it would read as all change: paid in full, the header shows the order's change while it saves.
+  const change = multi && balance === 0 && legs > 0 ? sale.order.changeDueMinor : changeMinor(state.entryMinor, applied, method.givesChange);
   const noChange = !method.givesChange && state.entryMinor > balance;
   const fmt = (amount: number) => formatMoney({ amount, currency: sale.order.currency }) ?? '';
   // WCPOS v2: tender-figures.ts:134,147 and tender-pane.tsx:285-334. A plan is measured against this payment's planned
@@ -71,7 +74,6 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
     : state.entryMinor > 0 && applied < shareDue ? !planned ? `Part payment · ${fmt(balance - applied)} left after this`
       : toCome === 2 ? `${short} payments ${planned.label.n + 1} and ${planned.label.n + 2}`
         : toCome > 2 ? `${short} the next ${toCome} payments` : `${short} the next payment` : '';
-  const legs = sale.order.payments.length;
   const suffix = planned ? ` · ${planned.label.n} of ${planned.label.ways}` : !multi ? '' : applied < balance ? ` · ${fmt(balance - applied)} left` : legs > 0 ? ' · pays it off' : '';
   // A failed save (saving with an error) offers Retry; paid in full with nothing saving offers the completion again.
   const finish = multi && (sale.saving ? sale.error !== null : balance === 0 && legs > 0);
