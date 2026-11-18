@@ -45,6 +45,8 @@ async function findRows(search = vi.fn<CustomerSource['search']>().mockResolvedV
 }
 
 const searchBox = () => screen.getByPlaceholderText('Search Customers');
+// v2's EmptyState kind and glyph (empty-state/index.tsx:23-27): `empty` → info, `no-results` → search.
+const emptyKind = () => [screen.getByTestId('no-data-message').getAttribute('data-kind'), screen.getByTestId('no-data-message-glyph').getAttribute('data-glyph')];
 
 test('Date Created follows Billing Address and reads Today, a short date or —', async () => {
   await findRows(vi.fn<CustomerSource['search']>().mockResolvedValue([
@@ -129,6 +131,7 @@ test('two characters search and replace the rows; clearing the box goes back to 
 test("an empty default list says No customers yet with v2's description and no Clear search", async () => {
   renderScreen(vi.fn<CustomerSource['search']>().mockResolvedValue([]));
   await vi.waitFor(() => expect(screen.getByTestId('no-data-message-title').textContent).toBe('No customers yet'));
+  expect(emptyKind()).toEqual(['empty', 'info']);
   expect(screen.queryByTestId('no-data-message-action')).toBeNull();
   expect(screen.getByTestId('no-data-message-description').textContent).toBe('Customers you add, and anyone who buys from you, will appear here.');
   expect(screen.queryByTestId('data-table-count')).toBeNull();
@@ -259,12 +262,14 @@ test('with nothing matching it says so and Clear search empties the box', async 
   const box = searchBox();
   fireEvent.change(box, { target: { value: 'zzz' } });
   await vi.waitFor(() => expect(screen.getByTestId('no-data-message-title').textContent).toBe('No customers match your search'));
+  expect(emptyKind()).toEqual(['no-results', 'search']);
   expect(screen.queryByTestId('no-data-message-description')).toBeNull();
   const clear = screen.getByTestId('no-data-message-action');
   expect(clear.textContent).toBe('Clear search');
   fireEvent.click(clear);
   expect((box as HTMLInputElement).value).toBe('');
   await vi.waitFor(() => expect(screen.getByTestId('no-data-message-title').textContent).toBe('No customers yet'));
+  expect(emptyKind()).toEqual(['empty', 'info']);
   expect(search.mock.calls).toEqual([[''], ['zzz'], ['']]);
 });
 
