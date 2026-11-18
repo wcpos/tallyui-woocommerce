@@ -47,10 +47,11 @@ export function ReceiptPaidMoment({ posOrder, locale, onClose }: {
           className={`size-12 rounded-full items-center justify-center ${awaiting ? 'bg-warning' : 'bg-success'}`}>
           <Text className={`text-xl ${awaiting ? 'text-warning-foreground' : 'text-success-foreground'}`}>{awaiting ? '…' : '✓'}</Text>
         </View>
+        {/* v2's AmountFigure hero (amount-figure/index.tsx:18-24): text-amt 40px, line 1.1 (global.css:44, :203), bold, tabular. */}
         <View testID="checkout-paid-headline" className="items-center gap-1">
           {changeDue
-            ? <Text testID="receipt-change-due" className="text-2xl font-semibold">{`Change ${money(figures.changeMinor)}`}</Text>
-            : <Text className="text-2xl font-semibold">{`Paid ${money(figures.paidMinor)}`}</Text>}
+            ? <Text testID="receipt-change-due" className="text-[40px] leading-[44px] font-bold tabular-nums text-center">{`Change ${money(figures.changeMinor)}`}</Text>
+            : <Text className="text-[40px] leading-[44px] font-bold tabular-nums text-center">{`Paid ${money(figures.paidMinor)}`}</Text>}
           <Text testID="receipt-paid-with" className="text-muted-foreground text-center">
             {awaiting ? <Text testID="receipt-awaiting-store" className="text-warning-text">Awaiting store · </Text> : null}
             {subLine}
