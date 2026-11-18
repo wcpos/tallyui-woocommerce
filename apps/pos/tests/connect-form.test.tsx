@@ -6,6 +6,7 @@ import { ConnectForm } from '../components/connect-form';
 import { SiteError } from '../lib/auth/site';
 import type { ConnectStage } from '../lib/auth/site';
 import type { StartSignIn } from '../lib/auth/use-connect-discovery';
+import { classesOf } from './classes-of';
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
@@ -165,4 +166,49 @@ test('the clear button hides while the store connects', async () => {
   fireEvent.click(screen.getByTestId('connect-store-button'));
   await screen.findByTestId('connect-progress');
   expect(screen.queryByTestId('store-url-clear')).toBeNull();
+});
+
+function deferredSignIn() {
+  let settle!: { resolve: () => void; reject: (error: unknown) => void };
+  const startSignIn = vi.fn<StartSignIn>(() => new Promise<void>((resolve, reject) => { settle = { resolve, reject }; }));
+  return { startSignIn, settle: () => settle };
+}
+
+// v2 url-input.tsx:55-62: the Connect button is `loading` while discovery runs (Button draws a Loader).
+test('the Connect button spins while discovery runs and stops on an error', async () => {
+  const { startSignIn, settle } = deferredSignIn();
+  render(<ConnectForm startSignIn={startSignIn} />);
+  fireEvent.change(screen.getByTestId('store-url-input'), { target: { value: 'shop.example' } });
+  expect(screen.queryByTestId('connect-store-spinner')).toBeNull();
+  fireEvent.click(screen.getByTestId('connect-store-button'));
+  await screen.findByTestId('connect-progress');
+  expect(screen.getByTestId('connect-store-button').contains(screen.getByTestId('connect-store-spinner'))).toBe(true);
+  await act(async () => { settle().reject(new SiteError('no_wcpos', 'Missing WCPOS')); });
+  expect(screen.getByTestId('connect-error-message').textContent).toBe('Missing WCPOS');
+  expect(screen.queryByTestId('connect-store-spinner')).toBeNull();
+});
+
+// use-connect-discovery keeps its stage after a resolved sign-in: the page is leaving for the store's login.
+test('the Connect button keeps spinning while the page leaves for the sign-in', async () => {
+  const { startSignIn, settle } = deferredSignIn();
+  render(<ConnectForm startSignIn={startSignIn} />);
+  fireEvent.change(screen.getByTestId('store-url-input'), { target: { value: 'shop.example' } });
+  fireEvent.click(screen.getByTestId('connect-store-button'));
+  expect(await screen.findByTestId('connect-store-spinner')).not.toBeNull();
+  await act(async () => { settle().resolve(); });
+  expect(screen.getByTestId('connect-store-button').contains(screen.getByTestId('connect-store-spinner'))).toBe(true);
+});
+
+// v2 url-input.tsx:69-71: `text-bad text-sm` (the app's text-destructive).
+test('the error line is small red text', () => {
+  render(<ConnectForm startSignIn={vi.fn()} signInError="state_mismatch" />);
+  expect(classesOf('connect-error-message')).toEqual(expect.arrayContaining(['text-sm', 'text-destructive']));
+});
+
+// v2 url-input.tsx:37: `<VStack className="gap-2">`.
+test('the address form is a tight stack', () => {
+  render(<ConnectForm startSignIn={vi.fn()} />);
+  const classes = classesOf('connect-url-form');
+  expect(classes).toContain('gap-2');
+  expect(classes).not.toContain('gap-4');
 });
