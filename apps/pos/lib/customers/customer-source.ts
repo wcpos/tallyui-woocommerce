@@ -1,7 +1,9 @@
-import type { Customer, CustomerInput, SyncContext, TallyConnector } from '@tallyui/core';
+import type { Customer, CustomerInput, CustomerPage, SyncContext, TallyConnector } from '@tallyui/core';
 
 export interface CustomerSource {
   search(query: string): Promise<Customer[]>;
+  /** The first page of a search with the store's count of every match; absent when the connector can't count. */
+  searchPage?(query: string): Promise<CustomerPage>;
   create(input: CustomerInput): Promise<Customer>;
   /** One customer by id, null when the store has none; absent when the connector cannot look one up. */
   get?(id: string): Promise<Customer | null>;
@@ -13,6 +15,7 @@ export function customerSource(connector: TallyConnector, context: () => SyncCon
   return {
     search: query => connector.searchCustomers!(context(), query, { limit: 20 }),
     create: input => connector.createCustomer!(context(), input),
+    ...(connector.searchCustomersPage ? { searchPage: (query: string) => connector.searchCustomersPage!(context(), query, { limit: 20 }) } : {}),
     ...(connector.getCustomer ? { get: (id: string) => connector.getCustomer!(context(), id) } : {}),
   };
 }

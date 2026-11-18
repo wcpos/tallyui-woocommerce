@@ -39,3 +39,18 @@ test('forwards search and create with a fresh context on every call', async () =
   expect(createCustomer).toHaveBeenNthCalledWith(2, { ...context, headers: { Authorization: 'Bearer third' } }, input);
   expect(getContext).toHaveBeenCalledTimes(4);
 });
+
+test('searchPage forwards the page call with limit 20 and a fresh context, keeping the total', async () => {
+  const searchCustomers = vi.fn<NonNullable<TallyConnector['searchCustomers']>>(async () => [customer]);
+  const createCustomer = vi.fn<NonNullable<TallyConnector['createCustomer']>>(async () => customer);
+  const searchCustomersPage = vi.fn<NonNullable<TallyConnector['searchCustomersPage']>>(async () => ({ customers: [customer], total: 57 }));
+  const source = customerSource({ ...createWooCommerceConnector(), searchCustomers, createCustomer, searchCustomersPage }, () => context)!;
+  await expect(source.searchPage!('gee')).resolves.toEqual({ customers: [customer], total: 57 });
+  expect(searchCustomersPage).toHaveBeenCalledWith(context, 'gee', { limit: 20 });
+  expect(searchCustomers).not.toHaveBeenCalled();
+});
+
+test('no searchPage when the connector cannot count', () => {
+  const source = customerSource({ ...createWooCommerceConnector(), searchCustomersPage: undefined }, () => context)!;
+  expect(source.searchPage).toBeUndefined();
+});
