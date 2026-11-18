@@ -24,7 +24,7 @@ test("empty draws v2's info glyph above the title", () => {
   expectGlyph('info');
   // lucide `info`: the circle r=10 with its stem and dot.
   expect(glyph().querySelector('circle')?.getAttribute('r')).toBe('10');
-  expect([...glyph().querySelectorAll('path')].map(path => path.getAttribute('d'))).toEqual(['M12 16v-4', 'M12 8h.01']);
+  expect(Array.from(glyph().querySelectorAll('path')).map(path => path.getAttribute('d'))).toEqual(['M12 16v-4', 'M12 8h.01']);
 });
 
 test("no-results draws v2's search glyph above the title", () => {
