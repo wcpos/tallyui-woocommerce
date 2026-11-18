@@ -314,3 +314,34 @@ test.each([
     expect.objectContaining({ method: 'external', amountMinor: 200 }),
   ]);
 }, 20_000);
+
+// v2 tender-pane.tsx:377: the tender column scrolls, so a tall phone checkout reaches Back and the commit button.
+test.each([
+  { scenario: 'the phone tender and its ledger scroll in checkout-scroll', width: 390, multiplePayments: true, checkout: true },
+  { scenario: 'the one-payment tender scrolls in checkout-scroll', width: 900, multiplePayments: false, checkout: true },
+  { scenario: 'the cart stage has no checkout-scroll', width: 390, multiplePayments: true, checkout: false },
+])('$scenario', async ({ width, multiplePayments, checkout }) => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width, height: 844, scale: 1, fontScale: 1 });
+  render(
+    <SessionProvider>
+      <OutboxProvider transportFor={() => ({ send: vi.fn() })} storage={getRxStorageMemory()}>
+        <OrderStoreReady />
+        <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
+          storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}}
+          multiplePayments={multiplePayments} />
+        <PortalHost />
+      </OutboxProvider>
+    </SessionProvider>,
+  );
+  await screen.findByText('Order store ready');
+  fireEvent.click(screen.getByText('Espresso'));
+  if (!checkout) {
+    expect(screen.getByTestId('cart-checkout')).not.toBeNull();
+    expect(screen.queryByTestId('checkout-scroll')).toBeNull();
+    return;
+  }
+  fireEvent.click(screen.getByTestId('cart-checkout'));
+  const scroll = within(screen.getByTestId('checkout-scroll'));
+  expect(scroll.getByTestId('checkout-tender')).not.toBeNull();
+  if (multiplePayments) expect(scroll.getByTestId('checkout-ledger-pane')).not.toBeNull();
+}, 20_000);
