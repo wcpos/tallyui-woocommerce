@@ -279,6 +279,29 @@ test('with customers, Add new customer is first, then a separator, then the add 
   expect(separator.compareDocumentPosition(menu.getByTestId('cart-add-menu-misc-product')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 }, 20_000);
 
+// v2 add-cart-items-menu.tsx:54-95 puts an Icon before each label; the first path of each tabler glyph v2 draws
+// (components/src/icon/components/tabler/<name>.tsx; product is the app's BoxIcon, v2's svg/tabler/product.svg).
+const GLYPHS = {
+  customer: 'M8 7a4 4 0 1 0 8 0 4 4 0 0 0-8 0m8 12h6m-3-3v6M6 21v-2a4 4 0 0 1 4-4h4',
+  'misc-product': 'm12 3l8 4.5v9L12 21l-8-4.5v-9zm0 9l8-4.5M12 12v9m0-9L4 7.5',
+  fee: 'M14 3v4a1 1 0 0 0 1 1h4',
+  discount: 'M6.5 7.5a1 1 0 1 0 2 0 1 1 0 1 0-2 0',
+  shipping: 'M5 17a2 2 0 1 0 4 0 2 2 0 1 0-4 0m10 0a2 2 0 1 0 4 0 2 2 0 1 0-4 0',
+} as const;
+
+test('each + menu item leads with v2\'s icon: addCustomer, product, invoice, tag, shipping', async () => {
+  await renderTill(COUPONS, { customers: customerSource(), cashier: CAN_CREATE });
+  fireEvent.click(screen.getByTestId('cart-add-menu'));
+  const menu = within(screen.getByRole('menu'));
+  expect(menu.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Add new customer', 'Add Miscellaneous Product', 'Add Fee', 'Add Discount', 'Add Shipping']);
+  for (const [item, d] of Object.entries(GLYPHS)) {
+    const row = menu.getByTestId(`cart-add-menu-${item}`);
+    const icon = within(row).getByTestId(`cart-add-menu-${item}-icon`);
+    expect(row.querySelector('svg')).toBe(icon); // the icon comes before the label
+    expect(Array.from(icon.querySelectorAll('path')).map(path => path.getAttribute('d'))[0]).toBe(d);
+  }
+}, 20_000);
+
 test('without customers there is no Add new customer item', async () => {
   await renderTill();
   fireEvent.click(screen.getByTestId('cart-add-menu'));
@@ -297,6 +320,10 @@ test.each<{ name: string; cashier?: CashierCapabilities; siteHome?: string; reas
   const item = screen.getByTestId('cart-add-menu-customer');
   expect(item.getAttribute('aria-disabled')).toBe('true');
   expect(within(item).getByText(reason)).not.toBeNull();
+  // The icon leads the row; the reason stays under the label.
+  expect(item.querySelector('svg')).toBe(within(item).getByTestId('cart-add-menu-customer-icon'));
+  expect(within(item).getByText('Add new customer').compareDocumentPosition(within(item).getByText(reason))
+    & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   fireEvent.click(item);
   expect(screen.queryByTestId('customer-form')).toBeNull();
 }, 20_000);
