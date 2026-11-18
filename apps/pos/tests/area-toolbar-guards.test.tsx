@@ -63,6 +63,34 @@ test.each(['starting', 'syncing'])("the catalogue's %s status turns the footer's
   expect(screen.queryByTestId('data-table-sync-active')).not.toBeNull();
 });
 
+// v2 sync-button.tsx:39-53: the button is never disabled while it turns; a press then does nothing.
+const syncDisabled = () => screen.getByTestId('data-table-sync').getAttribute('aria-disabled');
+
+test('the turning sync button stays at full strength: not disabled while active', () => {
+  render(<TableCount shown={1} total={1} active onSync={vi.fn()} />);
+  expect(screen.queryByTestId('data-table-sync-active')).not.toBeNull();
+  expect(syncDisabled()).not.toBe('true');
+});
+
+test('a press while the sync button turns does not sync again', () => {
+  const onSync = vi.fn();
+  render(<TableCount shown={1} total={1} active onSync={onSync} />);
+  fireEvent.click(screen.getByTestId('data-table-sync'));
+  expect(onSync).not.toHaveBeenCalled();
+});
+
+test('a press at rest syncs once', () => {
+  const onSync = vi.fn();
+  render(<TableCount shown={1} total={1} active={false} onSync={onSync} />);
+  fireEvent.click(screen.getByTestId('data-table-sync'));
+  expect(onSync).toHaveBeenCalledTimes(1);
+});
+
+test('with nothing to sync the button stays disabled', () => {
+  render(<TableCount shown={1} total={1} active={false} />);
+  expect(syncDisabled()).toBe('true');
+});
+
 test.each(['idle', 'ready', 'error'])('a settled catalogue (%s) leaves the sync button still', status => {
   state.status = status;
   render(<SyncedCount />);

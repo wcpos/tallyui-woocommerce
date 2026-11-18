@@ -40,7 +40,9 @@ export function TableCount({ shown, total, active, onSync }: { shown: number; to
   return (
     <View testID="data-table-caption-row" className="flex-row items-center justify-end gap-1">
       <Text testID="data-table-count" className="text-sm text-muted-foreground">{count}</Text>
-      <IconButton testID="data-table-sync" accessibilityLabel="Sync" variant="ghost" size="sm" disabled={active || !onSync} onPress={onSync}>
+      {/* v2 sync-button.tsx:39-53 never disables it: the turning glyph is the motion, at full strength. A press while
+          it turns does nothing, so one re-sync runs at a time. */}
+      <IconButton testID="data-table-sync" accessibilityLabel="Sync" variant="ghost" size="sm" disabled={!onSync} onPress={active ? undefined : onSync}>
         <View testID={active ? 'data-table-sync-active' : undefined} className={active ? 'animate-spin' : undefined}><SyncIcon size={14} /></View>
       </IconButton>
     </View>
