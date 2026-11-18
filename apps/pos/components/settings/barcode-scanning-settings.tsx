@@ -1,6 +1,6 @@
 import { useState, type JSX } from 'react';
 import { Pressable, View } from 'react-native';
-import { Badge, Button, Input, RadioGroup, RadioGroupItem, Slider, Switch, Text } from '@tallyui/components';
+import { Badge, Button, Card, Input, RadioGroup, RadioGroupItem, Slider, Switch, Text } from '@tallyui/components';
 import { useScanSettings } from '../../lib/scan/scan-settings';
 import {
   MAX_SCAN_SOUND_VOLUME, MIN_SCAN_SOUND_VOLUME, normalizeScanSoundTheme, playScanTone, SCAN_SOUND_THEMES, useScanSoundSettings,
@@ -15,6 +15,8 @@ import { DocsLink, SCANNER_DOCS_URL } from '../docs-link';
 // v2 settings.barcode_test_result_*; badge tones follow v2's History (ok, warning, muted).
 const RESULT_WORDS: Record<WedgeResult, string> = { scan: 'scan', too_short: 'too short', typing: 'typing' };
 const RESULT_VARIANTS = { scan: 'success', too_short: 'warning', typing: 'secondary' } as const;
+// v2 use-scan-trace-capture.ts:11,34: the panel keeps the last five attempts, newest first.
+const MAX_ATTEMPTS = 5;
 
 // v2 test-panel.tsx headlines (settings.barcode_test_*).
 function verdict(attempt: WedgeAttempt | null): string {
@@ -46,9 +48,10 @@ function TextField({ testID, label, value, onChange }: { testID: string; label: 
 
 // `threshold` is the page's own useScanSettings() value, so an edit above shows in the next verdict.
 function ScanTestPanel({ threshold }: { threshold: number }): JSX.Element {
-  const [attempt, setAttempt] = useState<WedgeAttempt | null>(null);
+  const [attempts, setAttempts] = useState<WedgeAttempt[]>([]);
+  const attempt = attempts[0] ?? null;
   // Claims the wedge while the page is open, so a test scan never rings up on the till underneath.
-  useWedgeScanner(() => {}, true, setAttempt);
+  useWedgeScanner(() => {}, true, next => setAttempts(prev => [next, ...prev].slice(0, MAX_ATTEMPTS)));
   return (
     <View className="gap-3 pt-1">
       <View className="gap-1">
@@ -67,6 +70,25 @@ function ScanTestPanel({ threshold }: { threshold: number }): JSX.Element {
       </View>
       {attempt?.result === 'scan' && <Text testID="barcode-test-scan-detail" className={SETTINGS_HELP_CLASS}>
         {`Average keystroke gap ${Math.round(attempt.avgGapMs ?? 0)}ms, under the ${threshold}ms threshold`}</Text>}
+      {attempts.length > 0 && <RecentAttempts attempts={attempts} />}
+    </View>
+  );
+}
+
+// v2 test-panel.tsx:294-320 (History): a row card per attempt with its code, its result badge and its rounded gap.
+function RecentAttempts({ attempts }: { attempts: WedgeAttempt[] }): JSX.Element {
+  return (
+    <View testID="barcode-test-history" className="gap-1">
+      <Text className="text-base font-medium text-foreground">Recent attempts</Text>
+      {attempts.map((entry, index) => (
+        // v2's Card padding="row" (p-3) has no shadow.
+        <Card key={index} testID={`barcode-test-history-row-${index}`} className="flex-row items-center gap-2 p-3 shadow-none">
+          <Text className="flex-1 font-mono text-sm" numberOfLines={1}>{entry.code || entry.raw || '—'}</Text>
+          <Badge variant={RESULT_VARIANTS[entry.result]} label={RESULT_WORDS[entry.result]} />
+          <Text className={`w-16 text-right ${SETTINGS_HELP_CLASS}`}>
+            {entry.avgGapMs === undefined ? '—' : `${Math.round(entry.avgGapMs)}ms`}</Text>
+        </Card>
+      ))}
     </View>
   );
 }

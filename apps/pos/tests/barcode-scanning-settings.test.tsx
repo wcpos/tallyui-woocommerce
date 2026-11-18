@@ -132,6 +132,62 @@ test('typing and too short show no scan detail', () => {
   expect(screen.queryByTestId('barcode-test-scan-check')).toBeNull();
 });
 
+// One burst whose key gaps fold to a fraction: `gapMs` between the keys, `lastGapMs` before the last one.
+function unevenBurst(keys: string, gapMs: number, lastGapMs: number) {
+  act(() => {
+    [...keys].forEach((key, i) => {
+      if (i > 0) vi.advanceTimersByTime(i === keys.length - 1 ? lastGapMs : gapMs);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    });
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  });
+}
+
+function historyRow(index: number): string | null {
+  return screen.queryByTestId(`barcode-test-history-row-${index}`)?.textContent ?? null;
+}
+
+test('no Recent attempts before the first attempt', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  expect(screen.queryByTestId('barcode-test-history')).toBeNull();
+  expect(screen.queryByText('Recent attempts')).toBeNull();
+  burst('2000000000015', 5);
+  expect(screen.getByTestId('barcode-test-history').textContent).toContain('Recent attempts');
+  expect(historyRow(0)).toBe('2000000000015scan5ms');
+});
+
+test('Recent attempts lists each attempt newest first with its badge and gap', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  // Gaps of 7ms, then 8ms, fold to 7.5ms: shown rounded, as v2's Math.round.
+  unevenBurst('2000000000015', 7, 8);
+  burst('123', 5);
+  burst('abc', 100);
+  expect(historyRow(0)).toBe('abctyping100ms');
+  expect(historyRow(1)).toBe('123too short5ms');
+  expect(historyRow(2)).toBe('2000000000015scan8ms');
+  expect(historyRow(3)).toBeNull();
+  expect(classesOf('barcode-test-history-row-0')).toEqual(expect.arrayContaining(['flex-row', 'p-3']));
+});
+
+test('an attempt with no gap shows a dash for its gap', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  burst('a', 5);
+  expect(historyRow(0)).toBe('atyping—');
+});
+
+test('a sixth attempt drops the oldest', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  for (const key of ['a', 'b', 'c', 'd', 'e']) burst(key, 5);
+  expect(historyRow(4)).toBe('atyping—');
+  burst('f', 5);
+  expect([0, 1, 2, 3, 4].map(historyRow)).toEqual(['ftyping—', 'etyping—', 'dtyping—', 'ctyping—', 'btyping—']);
+  expect(historyRow(5)).toBeNull();
+});
+
 test('a test scan never reaches the till underneath', () => {
   vi.useFakeTimers();
   const till = vi.fn();
