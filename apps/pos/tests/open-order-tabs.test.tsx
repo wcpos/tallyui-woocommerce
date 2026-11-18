@@ -320,12 +320,30 @@ test('(b) a cart under an hour old shows no age until the minute tick crosses th
   }
 });
 
-test('(c) the current sale\'s tab never shows an age', () => {
+test('(c) a current cart never parked shows no age', () => {
   const { onSelect, onNew, onError } = handlers();
   render(<OpenOrderTabs currency={currency} onSelect={onSelect} onNew={onNew} onError={onError} now={() => NOW + 48 * HOUR}
     parked={[]} current={order(['Espresso'], 300)} />);
   expect(screen.getByTestId('open-order-tab-current-amount').textContent).toBe('$3.00');
   expect(screen.queryByTestId('open-order-tab-current-age')).toBeNull();
+});
+
+// v2 cart/tabs.tsx TabContent: every tab, the active one included, shows its age once it is an hour old.
+test('(c2) a current cart first parked over an hour ago shows its age on the selected tab', () => {
+  const { onSelect, onNew, onError } = handlers();
+  render(<OpenOrderTabs currency={currency} onSelect={onSelect} onNew={onNew} onError={onError} now={() => NOW}
+    parked={[]} current={order(['Espresso'], 300)} currentOpenedAt={new Date(NOW - 3 * HOUR).toISOString()} />);
+  expect(screen.getByTestId('open-order-tab-current-age').textContent).toBe('3 h');
+  expect(screen.getByTestId('open-order-tab-current-amount').textContent).toBe('$3.00 · 3 h');
+  expect(screen.getByTestId('open-order-tab-current').getAttribute('aria-selected')).toBe('true');
+});
+
+test('(c3) a current cart first parked under an hour ago shows no age', () => {
+  const { onSelect, onNew, onError } = handlers();
+  render(<OpenOrderTabs currency={currency} onSelect={onSelect} onNew={onNew} onError={onError} now={() => NOW}
+    parked={[]} current={order(['Espresso'], 300)} currentOpenedAt={new Date(NOW - 59 * MINUTE).toISOString()} />);
+  expect(screen.queryByTestId('open-order-tab-current-age')).toBeNull();
+  expect(screen.getByTestId('open-order-tab-current-amount').textContent).toBe('$3.00');
 });
 
 test('(d) the open-orders count cell shows only when the tabs overflow, and opens the list', () => {

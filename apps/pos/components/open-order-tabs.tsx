@@ -143,7 +143,7 @@ export function OpenOrderTabs({ parked, current, currentOpenedAt, currency, loca
   }
 
   function tab(id: string, selected: boolean, who: string, totalMinor: number, onPress?: () => void, parkedAt?: string) {
-    // Only a parked cart has a start time; Tally's open sale has none, so its tab never shows an age.
+    // The age runs from when the cart was first parked (v2 TabContent: date created); a cart never parked has no start time, so it shows no age.
     const delta = parkedAt === undefined ? NaN : nowMs - Date.parse(parkedAt);
     const stale = delta >= STALE_AFTER_MS;
     return (
@@ -191,7 +191,7 @@ export function OpenOrderTabs({ parked, current, currentOpenedAt, currency, loca
         {sorted.map(cart => cart ? tab(cart.id, false,
           who(cart.customer?.name),
           cart.totalMinor, () => void run(() => onSelect(cart.id)), cart.parkedAt)
-          : tab(current.id, true, who(current.customer?.name), current.totalMinor))}
+          : tab(current.id, true, who(current.customer?.name), current.totalMinor, undefined, currentOpenedAt))}
       </ScrollView>
       <Pressable testID="new-order-tab" role="tab" aria-selected={fresh} accessibilityLabel="New order" disabled={busy}
         onPress={() => { if (!fresh) void run(onNew); }}
