@@ -41,6 +41,11 @@ export const CUSTOMERS_COLUMNS: readonly AreaColumn<CustomersColumnId>[] = [
 const COLUMN_CLASS: Partial<Record<CustomersColumnId, string>> = {
   avatar_url: 'w-16 flex-none', email: 'flex-[2]', billing: 'flex-[2]',
 };
+// v2 draws skeletonCount(height, 48) rows, at most SKELETON_MAX_ROWS = 12 (components/src/skeleton/index.tsx:22-27).
+// Nothing here measures the card, so the app draws the cap and clips it; a 1280×800 card is taller than 12 × 48.
+const SKELETON_ROWS = Array.from({ length: 12 }, (_, i) => i);
+// v2's Skeleton shape="line" (`h-5`, `bg-muted rounded-lg`, skeleton/index.tsx:8,18) at w-3/4 (data-table/skeleton.tsx:59-62).
+const BAR = 'h-5 w-3/4 rounded-lg bg-muted';
 // The columns the header sorts (customer-table.ts sorts the loaded rows on these).
 function sortable(id: CustomersColumnId): id is CustomerSortField {
   return id === 'first_name' || id === 'last_name' || id === 'email';
@@ -123,13 +128,44 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
   const columns = visibleAreaColumns(CUSTOMERS_COLUMNS, settings);
   const now = new Date();
 
+  const header = (
+    <TableHeader><TableRow>
+      {columns.map(({ id, label }) => <TableHead key={id} className={COLUMN_CLASS[id]}>
+        {/* v2 hides the avatar column's label (`hideLabel`). */}
+        {id === 'avatar_url' ? null : sortable(id)
+          ? <Pressable testID={`data-table-header-${id}`} accessibilityRole="button" onPress={() => setSort(s => nextSort(s, id))}>
+            <View testID={sort.field === id ? `data-table-sort-${id}-${sort.direction}` : undefined} className="flex-row items-center gap-1">
+              <Text>{label}</Text>
+              {sort.field === id ? (sort.direction === 'asc' ? <SortAscIcon size={12} /> : <SortDescIcon size={12} />) : null}
+            </View>
+          </Pressable>
+          : <Text>{label}</Text>}
+      </TableHead>)}
+      <TableHead className="w-16 flex-none" />
+    </TableRow></TableHeader>
+  );
+
   const body = error ? (
     <View className="gap-2 p-4">
       <Text testID="customers-error" accessibilityRole="alert" className="text-destructive">{error}</Text>
       <Button testID="customers-retry" variant="outline" onPress={retry}><Text>Try again</Text></Button>
     </View>
   ) : searching ? (
-    <Text testID="customers-searching" className={`py-4 text-muted-foreground ${gutter}`}>Searching…</Text>
+    // v2 customers/index.tsx:96 and data-table/skeleton.tsx:31-70,79-120: the header stays over placeholder rows, one
+    // line per visible column, in a body that clips; a phone (v2's coarse pointer) has no header.
+    <View testID="customers-skeleton" accessibilityLabel="Searching…" aria-busy className="flex-1 overflow-hidden">
+      {width < NARROW_WIDTH ? SKELETON_ROWS.map(i => (
+        <View key={i} testID={`customers-skeleton-row-${i}`} className="flex-row items-center gap-3 border-b border-border px-4 py-3">
+          <View className="h-12 w-12 rounded-full bg-muted" />
+          <View className="flex-1 gap-1"><View className={BAR} /><View className="h-5 w-1/2 rounded-lg bg-muted" /></View>
+        </View>
+      )) : <Table>{header}<TableBody>
+        {SKELETON_ROWS.map(i => <TableRow key={i} testID={`customers-skeleton-row-${i}`}>
+          {columns.map(({ id }) => <TableCell key={id} className={COLUMN_CLASS[id]}><View testID="customers-skeleton-bar" className={BAR} /></TableCell>)}
+          <TableCell className="w-16 flex-none"><View testID="customers-skeleton-bar" className={BAR} /></TableCell>
+        </TableRow>)}
+      </TableBody></Table>}
+    </View>
   ) : results.length === 0 ? (
     <EmptyState title={asked ? 'No customers match your search' : 'No customers yet'} description={asked ? undefined : 'Customers you add, and anyone who buys from you, will appear here.'} action={asked ? { label: 'Clear search', onPress: clear } : undefined} />
   ) : (
@@ -145,20 +181,7 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
             <ChevronRightIcon testID={`customers-row-chevron-${c.id}`} size={16} className="text-muted-foreground" />
           </View>
         )) : <Table>
-          <TableHeader><TableRow>
-            {columns.map(({ id, label }) => <TableHead key={id} className={COLUMN_CLASS[id]}>
-              {/* v2 hides the avatar column's label (`hideLabel`). */}
-              {id === 'avatar_url' ? null : sortable(id)
-                ? <Pressable testID={`data-table-header-${id}`} accessibilityRole="button" onPress={() => setSort(s => nextSort(s, id))}>
-                  <View testID={sort.field === id ? `data-table-sort-${id}-${sort.direction}` : undefined} className="flex-row items-center gap-1">
-                    <Text>{label}</Text>
-                    {sort.field === id ? (sort.direction === 'asc' ? <SortAscIcon size={12} /> : <SortDescIcon size={12} />) : null}
-                  </View>
-                </Pressable>
-                : <Text>{label}</Text>}
-            </TableHead>)}
-            <TableHead className="w-16 flex-none" />
-          </TableRow></TableHeader>
+          {header}
           <TableBody>
             {shown.map(c => <TableRow key={c.id} testID={`customers-row-${c.id}`}>
               {columns.map(({ id }) => customerCell(id, c, now))}
