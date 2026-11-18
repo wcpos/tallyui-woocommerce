@@ -3,17 +3,27 @@ import { View } from 'react-native';
 import { ClosureSheet, RegisterColumn, RegisterCount, RegisterPanel, Switch, Text } from '@tallyui/components';
 import { Portal } from '@tallyui/primitives';
 import { useRegister } from '../lib/register/register-context';
+import { SavedMark, savedKeys, useMarkSaved } from './settings/settings-form';
 import { ClosurePrint } from './closure-print';
 
 /** `inset` false drops the p-4 a settings group wants (the cart settings sheet's plain rows have none). */
 export function RegisterSwitch({ inset = true }: { inset?: boolean }) {
   const register = useRegister();
+  // Settings › General's Saved mark; outside a SavedFieldProvider both are the context default's no-ops.
+  const markSaved = useMarkSaved();
   if (!register) return null;
   return (
     <View testID="register-switch-row" className={inset ? 'flex-row items-center gap-3 p-4' : 'flex-row items-center gap-3'}>
-      <Switch size="sm" checked={register.setting} onCheckedChange={register.setSetting} accessibilityLabel="Use register sessions" />
+      <Switch size="sm" checked={register.setting} accessibilityLabel="Use register sessions" onCheckedChange={on => {
+        register.setSetting(on);
+        markSaved(savedKeys({ register: register.setting }, { register: on }));
+      }} />
       <View className="flex-1 gap-1">
-        <Text>Use register sessions</Text>
+        {/* The mark follows the key on its line, as barcode's Sound theme row (v2 property-row/index.tsx:150-178). */}
+        <View className="flex-row items-center gap-x-2">
+          <Text>Use register sessions</Text>
+          <SavedMark name="register" />
+        </View>
         <Text className="text-muted-foreground text-sm">A session starts with a counted float, records cash paid in and out, and closes with a count that shows any difference.</Text>
       </View>
     </View>
