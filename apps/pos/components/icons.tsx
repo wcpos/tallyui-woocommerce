@@ -26,3 +26,5 @@ export const MoreIcon = createSvgIcon('MoreIcon', () => <><Path d="M11 12a1 1 0 
 export const DiscountIcon = createSvgIcon('DiscountIcon', () => <><Path d="m9 15l6-6" />
   <Path d="M9 9.5a.5.5 0 1 0 1 0a.5.5 0 1 0-1 0m5 5a.5.5 0 1 0 1 0a.5.5 0 1 0-1 0" fill="currentColor" />
   <Path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0" /></>);
+// v2's `delete` glyph in its default set, tabler's trash at its 1.5 stroke (components/src/icon/svg/tabler/delete.svg).
+export const TrashIcon = createSvgIcon('TrashIcon', () => <Path d="M4 7h16m-10 4v6m4-6v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />);

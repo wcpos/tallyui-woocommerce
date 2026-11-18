@@ -1,13 +1,14 @@
-import { useState, type JSX } from 'react';
+import { useEffect, useState, type JSX } from 'react';
 import { Pressable, View } from 'react-native';
 import { Badge, Button, Card, Input, RadioGroup, RadioGroupItem, Slider, Switch, Text } from '@tallyui/components';
 import { useScanSettings } from '../../lib/scan/scan-settings';
+import { scanSuggestions } from '../../lib/scan/scan-suggestions';
 import {
   MAX_SCAN_SOUND_VOLUME, MIN_SCAN_SOUND_VOLUME, normalizeScanSoundTheme, playScanTone, SCAN_SOUND_THEMES, useScanSoundSettings,
   type ScanSoundTheme,
 } from '../../lib/scan/scan-sound';
 import { useWedgeScanner } from '../../lib/scan/use-wedge-scanner';
-import type { WedgeAttempt, WedgeResult } from '../../lib/scan/wedge';
+import type { ScanSettings, WedgeAttempt, WedgeResult } from '../../lib/scan/wedge';
 import { SettingsField, SettingsSection, SETTINGS_HELP_CLASS, SETTINGS_KEY_CLASS } from './settings-form';
 import { CheckIcon } from '../icons';
 import { DocsLink, SCANNER_DOCS_URL } from '../docs-link';
@@ -29,6 +30,8 @@ function verdict(attempt: WedgeAttempt | null): string {
 
 function CountField({ testID, label, value, onChange }: { testID: string; label: string; value: number; onChange(next: number): void }) {
   const [text, setText] = useState(String(value));
+  // A value set from outside (a test-panel Apply) replaces the text unless the text already says it.
+  useEffect(() => setText(prev => (/^\d+$/.test(prev.trim()) && Number(prev.trim()) === value ? prev : String(value))), [value]);
   return (
     <Input className="w-full"><Input.Field testID={testID} accessibilityLabel={label} keyboardType="number-pad" value={text}
       onChangeText={next => {
@@ -46,8 +49,8 @@ function TextField({ testID, label, value, onChange }: { testID: string; label: 
   );
 }
 
-// `threshold` is the page's own useScanSettings() value, so an edit above shows in the next verdict.
-function ScanTestPanel({ threshold }: { threshold: number }): JSX.Element {
+// `settings` is the page's own useScanSettings() value, so an edit above shows in the next verdict; Apply saves through `update`.
+function ScanTestPanel({ settings, update }: { settings: ScanSettings; update(patch: Partial<ScanSettings>): void }): JSX.Element {
   const [attempts, setAttempts] = useState<WedgeAttempt[]>([]);
   const attempt = attempts[0] ?? null;
   // Claims the wedge while the page is open, so a test scan never rings up on the till underneath.
@@ -69,7 +72,15 @@ function ScanTestPanel({ threshold }: { threshold: number }): JSX.Element {
         <Text testID="barcode-test-verdict" className={`flex-1 ${attempt?.result === 'scan' ? 'text-base font-medium text-foreground' : 'text-sm text-muted-foreground'}`}>{verdict(attempt)}</Text>
       </View>
       {attempt?.result === 'scan' && <Text testID="barcode-test-scan-detail" className={SETTINGS_HELP_CLASS}>
-        {`Average keystroke gap ${Math.round(attempt.avgGapMs ?? 0)}ms, under the ${threshold}ms threshold`}</Text>}
+        {`Average keystroke gap ${Math.round(attempt.avgGapMs ?? 0)}ms, under the ${settings.threshold}ms threshold`}</Text>}
+      {/* v2 test-panel.tsx:247-256: a Notice tone="info" per suggestion with one Apply action. */}
+      {attempt && scanSuggestions(attempt, settings).map(s => (
+        <View key={s.kind} testID={`barcode-test-suggestion-${s.kind}`} className="gap-2 rounded-lg border border-info bg-info/10 px-3 py-2.5">
+          <Text testID={`barcode-test-suggestion-${s.kind}-title`} className="text-sm text-foreground">{s.title}</Text>
+          <View className="flex-row"><Button variant="outline" size="sm" testID={`barcode-test-suggestion-${s.kind}-apply`}
+            onPress={() => update(s.patch)}><Text>Apply</Text></Button></View>
+        </View>
+      ))}
       {attempts.length > 0 && <RecentAttempts attempts={attempts} />}
     </View>
   );
@@ -196,7 +207,7 @@ export function BarcodeScanningSettings(): JSX.Element {
       </SettingsSection>
       <SoundSettings />
       <ScannerSection />
-      <SettingsSection title="Barcode Scanning Test" testID="settings-barcode-test"><ScanTestPanel threshold={settings.threshold} /></SettingsSection>
+      <SettingsSection title="Barcode Scanning Test" testID="settings-barcode-test"><ScanTestPanel settings={settings} update={update} /></SettingsSection>
     </View>
   );
 }

@@ -15,6 +15,7 @@ import { OnlineStatusContext, type OnlineStatus } from '../lib/online/online-sta
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { takeLeg } from './tender-helpers';
 
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
@@ -46,7 +47,7 @@ function OrderStoreReady() {
 }
 
 /** One Espresso ($3.00) in the cart of a store that takes one payment per order, then the cart's `button`. */
-async function startTender(button: 'Cash' | 'Card terminal', status: OnlineStatus = 'online-website-available') {
+async function startTender(button: 'Cash' | 'Card terminal', status: OnlineStatus = 'online-website-available', multi = false) {
   const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => ({
     kind: 'results',
     results: batch.map(envelope => ({ id: envelope.id, status: 'applied', serverRefs: { orderId: '115', totalMinor: 300 } })),
@@ -59,7 +60,7 @@ async function startTender(button: 'Cash' | 'Card terminal', status: OnlineStatu
           <OrderStoreReady />
           <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
             storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}}
-            multiplePayments={false} />
+            multiplePayments={multi} />
           <PortalHost />
         </OutboxProvider>
       </SessionProvider>
@@ -77,6 +78,21 @@ async function startTender(button: 'Cash' | 'Card terminal', status: OnlineStatu
 const press = (...keys: string[]) => { for (const key of keys) fireEvent.click(screen.getByTestId(`checkout-keypad-key-${key}`)); };
 const text = (testId: string) => screen.getByTestId(testId).textContent;
 const disabled = () => screen.getByTestId('checkout-commit').getAttribute('aria-disabled');
+
+// react-native-web drops className from the DOM, so read it off the component that took the testID (as coupons-screen.test).
+type Fiber = { memoizedProps?: { testID?: string; className?: unknown }; return?: Fiber; alternate?: Fiber };
+function classesOf(testID: string): string[] {
+  const node = screen.getByTestId(testID) as unknown as Record<string, unknown>;
+  const key = (prefix: string) => Object.keys(node).find(name => name.startsWith(prefix))!;
+  const created = node[key('__reactFiber$')] as Fiber;
+  let fiber: Fiber | undefined = created.memoizedProps === node[key('__reactProps$')] ? created : created.alternate;
+  const found: string[] = [];
+  for (; fiber; fiber = fiber.return) {
+    const { className, testID: id } = fiber.memoizedProps ?? {};
+    if (id === testID && typeof className === 'string') found.push(...className.split(/\s+/));
+  }
+  return found;
+}
 
 async function sentPayments(send: Awaited<ReturnType<typeof startTender>>) {
   await screen.findByTestId('receipt-order');
@@ -107,7 +123,7 @@ test('keypad clear and backspace edit the entry in minor units and an entry unde
   expect(text('checkout-entry')).toBe('$0.25');
   press('backspace');
   expect(text('checkout-entry')).toBe('$0.02');
-  expect(text('checkout-entry-hint')).toBe('$2.98 left');
+  expect(text('checkout-entry-hint')).toBe('Part payment · $2.98 left after this');
   expect(disabled()).toBe('true');
 }, 20_000);
 
@@ -213,4 +229,40 @@ test('online, the tiles carry no sent-later line', async () => {
   await startTender('Cash');
   expect(screen.queryByTestId('checkout-method-sent-later-pos_cash')).toBeNull();
   expect(screen.queryByTestId('checkout-method-sent-later-pos_card')).toBeNull();
+  expect(screen.queryByTestId('checkout-offline')).toBeNull();
+}, 20_000);
+
+// WCPOS v2: tender-pane.tsx:284-299, core.json pos_checkout.part_payment_left.
+test('a cash entry below the total is a part payment with what is left after it', async () => {
+  await startTender('Cash');
+  press('clear', '1', '0', '0');
+  expect(text('checkout-entry-hint')).toBe('Part payment · $2.00 left after this');
+}, 20_000);
+
+// WCPOS v2: tender-pane.tsx:437-440, AmountFigure tone="ok".
+test('change due reads in the success ink', async () => {
+  await startTender('Cash');
+  press('clear', '1', '0', '0', '0');
+  expect(text('checkout-entry-hint')).toBe('Change $7.00');
+  expect(classesOf('checkout-entry-hint')).toContain('text-success');
+  expect(classesOf('checkout-entry-hint')).not.toContain('text-foreground');
+}, 20_000);
+
+// WCPOS v2: tender-pane.tsx:441-449.
+test('multi: after one leg the Tendered line adds the order total; the first leg has none', async () => {
+  await startTender('Cash', 'online-website-available', true);
+  press('clear', '5', '0', '0');
+  expect(text('checkout-tendered-line')).toBe('Tendered $5.00');
+  takeLeg(100);
+  await waitFor(() => expect(text('checkout-label')).toBe('Payment 2 · $2.00 left'));
+  press('clear', '5', '0', '0');
+  expect(text('checkout-entry-hint')).toBe('Change $3.00');
+  expect(text('checkout-tendered-line')).toBe('Tendered $5.00 · Total $3.00');
+}, 20_000);
+
+// WCPOS v2: tender-pane.tsx:430-434, core.json pos_checkout.offline.
+test('offline, the To pay row ends with an Offline caption', async () => {
+  await startTender('Cash', 'offline');
+  expect(text('checkout-offline')).toBe('Offline');
+  expect(classesOf('checkout-offline')).toEqual(expect.arrayContaining(['text-xs', 'text-warning']));
 }, 20_000);
