@@ -369,7 +369,7 @@ test('multi: on a free order with no payment yet, a cash entry still reads as ch
 }, 20_000);
 
 // WCPOS v2: tender-pane.tsx:46-58, 106, 587-591; core.json pos_checkout.store_not_answering.
-const SLOW = "The store isn't answering. Keep waiting, or go back to the cart.";
+const SLOW = "The store isn't answering. Keep waiting.";
 /** Only setTimeout is faked, from before the press, so the pane's slow-save timer is the one these tests move. */
 const fakeTimers = () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 const advance = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });

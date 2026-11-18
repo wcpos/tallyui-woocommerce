@@ -199,8 +199,8 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
     {/* WCPOS v2: tender-pane.tsx:337-352, 485-584. */}
     {planned && <PlanStrip legs={planned.legs} taken={taken} paidMinor={taken.reduce((sum, row) => sum + row.minor, 0)} fmt={fmt} disabled={sale.saving}
       onChange={() => { dispatch({ type: 'clear-plan', balanceMinor: balance }); dispatch({ type: 'open-split' }); }} />}
-    {/* WCPOS v2: tender-pane.tsx:587-591, core.json pos_checkout.store_not_answering; v2's text-warning-text is the app's text-warning; v2's pane centres it (:383). */}
-    {slow ? <Text testID="checkout-save-slow" className="text-center text-sm text-warning">The store isn't answering. Keep waiting, or go back to the cart.</Text> : null}
+    {/* WCPOS v2: tender-pane.tsx:587-591, core.json pos_checkout.store_not_answering; v2's text-warning-text is the app's text-warning; v2's pane centres it (:383); v2's copy also says "or go back to the cart", dropped here because Back is refused while the save is in flight (front desk ruling, 18 Nov). */}
+    {slow ? <Text testID="checkout-save-slow" className="text-center text-sm text-warning">The store isn't answering. Keep waiting.</Text> : null}
     <View testID="checkout-keypad" className="gap-2">
       {KEY_ROWS.map(row => <View key={row.join()} className="flex-row gap-2">
         {row.map(key => <Pressable key={key} accessibilityRole="button" testID={`checkout-keypad-key-${key}`}
