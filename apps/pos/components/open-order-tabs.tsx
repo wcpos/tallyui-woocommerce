@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type JSX } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useEffect, useRef, useState, type JSX, type KeyboardEvent } from 'react';
+import { Platform, Pressable, ScrollView, View, type ViewProps } from 'react-native';
 import { Path } from 'react-native-svg';
 import { createSvgIcon, Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
@@ -142,12 +142,32 @@ export function OpenOrderTabs({ parked, current, currentOpenedAt, currency, loca
     }
   }
 
+  // v2 cart/tabs.tsx step: ←/→ move the open cart along the strip, + last; past either end is nowhere; run refuses one mid-action.
+  // Tally's select and park resolve once the cart has changed, so the focus is pending from then (v2 focusPending).
+  const focusPending = useRef(false);
+  const focusOpen = (open: boolean) => (node: unknown) => {
+    if (!open || !node || !focusPending.current) return;
+    focusPending.current = false;
+    (node as HTMLElement).focus?.({ preventScroll: true });
+  };
+  function step(delta: number) {
+    const at = (fresh ? ids.length : ids.indexOf(current.id)) + delta;
+    if (at < 0 || at > ids.length) return;
+    const action = at === ids.length ? onNew : () => onSelect(sorted[at]!.id);
+    void run(async () => { const result = await action(); focusPending.current = true; return result; });
+  }
+  // The arrows step from any tab, + included; the count cell is a button with keys of its own (v2, web only).
+  const stripKeys: { onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void } = Platform.OS === 'web' ? { onKeyDown: event => {
+    if ((event.target as HTMLElement).getAttribute?.('role') !== 'tab' || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') || event.defaultPrevented) return;
+    event.preventDefault();
+    step(event.key === 'ArrowLeft' ? -1 : 1);
+  } } : {};
   function tab(id: string, selected: boolean, who: string, totalMinor: number, onPress?: () => void, parkedAt?: string) {
     // Only a parked cart has a start time; Tally's open sale has none, so its tab never shows an age.
     const delta = parkedAt === undefined ? NaN : nowMs - Date.parse(parkedAt);
     const stale = delta >= STALE_AFTER_MS;
     return (
-      <Pressable key={id} testID={`open-order-tab-${id}`} role="tab" aria-selected={selected} disabled={busy} onPress={onPress}
+      <Pressable key={id} testID={`open-order-tab-${id}`} role="tab" aria-selected={selected} disabled={busy} onPress={onPress} ref={focusOpen(selected)}
         onLayout={({ nativeEvent: { layout: { width } } }) => setWidths(was => {
           if (was.get(id) === width) return was;
           const live = new Set(ids);
@@ -173,7 +193,7 @@ export function OpenOrderTabs({ parked, current, currentOpenedAt, currency, loca
 
   return (
     <View testID="open-order-strip" role="tablist" className="h-13 flex-row items-stretch border-t border-border bg-card"
-      onLayout={({ nativeEvent: { layout } }) => setStripWidth(layout.width)}>
+      onLayout={({ nativeEvent: { layout } }) => setStripWidth(layout.width)} {...stripKeys as ViewProps}>
       {overflow ? (
         <Pressable testID="open-orders-count" role="button" accessibilityLabel={`${openCount} open`} aria-expanded={listOpen} onPress={() => onOpenList?.()}
           className="h-full min-w-14 flex-row items-center justify-center gap-1 border-r border-border px-2.5 web:hover:bg-accent active:bg-accent">
@@ -193,7 +213,7 @@ export function OpenOrderTabs({ parked, current, currentOpenedAt, currency, loca
           cart.totalMinor, () => void run(() => onSelect(cart.id)), cart.parkedAt)
           : tab(current.id, true, who(current.customer?.name), current.totalMinor))}
       </ScrollView>
-      <Pressable testID="new-order-tab" role="tab" aria-selected={fresh} accessibilityLabel="New order" disabled={busy}
+      <Pressable testID="new-order-tab" role="tab" aria-selected={fresh} accessibilityLabel="New order" disabled={busy} ref={focusOpen(fresh)}
         onPress={() => { if (!fresh) void run(onNew); }}
         className={`h-full flex-row items-center justify-center gap-1.5 px-3 web:hover:bg-accent active:bg-accent ${fresh ? 'border-b-2 border-primary' : ''}`}>
         <Text className={`text-lg ${fresh ? 'text-primary' : ''}`}>+</Text>
