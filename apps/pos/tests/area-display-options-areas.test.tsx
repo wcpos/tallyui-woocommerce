@@ -260,7 +260,19 @@ test('Products: SKU, Tags and Date Modified switched on draw their headers in pl
   expect(screen.getByTestId('product-sku-1').textContent).toBe('SKU-1');
   expect(screen.getByTestId('product-sku-2').textContent).toBe('SKU-2');
   expect(screen.getByTestId('product-tags-1').textContent).toBe('Hot');
-  expect(screen.getByTestId('product-date_modified_gmt-1').textContent).toBe('Oct 5, 2026');
+  expect(screen.getByTestId('product-date_modified_gmt-1').textContent).toBe('October 5, 2026');
+});
+
+test("Products: Date Modified reads v2's relative words under a day, else the long-month date", () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-11-13T18:00:00Z'));
+  const aged = [['2026-11-13T17:59:50', 'less than a minute ago'], ['2026-11-13T17:55:00', '5 minutes ago'],
+    ['2026-11-13T16:00:00', 'about 2 hours ago'], ['2026-11-12T12:00:00', 'November 12, 2026'], ['', '']];
+  render(<ProductsScreen products={aged.map(([gmt], i) => product(i + 1, `P${i + 1}`, { date_modified_gmt: gmt }))}
+    connector={connector} currency="USD" locale="en_US" onBack={vi.fn()} />, { wrapper: ({ children }) => <>{children}<PortalHost /></> });
+  openPanel('products');
+  toggle('products', 'date_modified_gmt');
+  aged.forEach(([, reads], i) => expect(screen.getByTestId(`product-date_modified_gmt-${i + 1}`).textContent).toBe(reads));
 });
 
 test('Products: a narrow window keeps the trigger and its list', async () => {

@@ -126,7 +126,7 @@ export interface CouponsScreenProps {
 }
 
 /** v2's convertUTCStringToLocalDate (hooks/use-local-date.ts): WooCommerce's `_gmt` dates are UTC without the 'Z'. */
-function utcDate(value: string): Date {
+export function utcDate(value: string): Date {
   return new Date(value.endsWith('Z') ? value : `${value}Z`);
 }
 
@@ -156,8 +156,8 @@ function usageText(coupon: CouponDoc): string {
   return coupon.usage_limit != null && coupon.usage_limit > 0 ? `${count} / ${coupon.usage_limit}` : String(count);
 }
 
-/** v2 date-picker-input.tsx shows `d MMM yyyy`; here the same parts in the locale, with no time. The expiry column and
- *  the products area's date read this way; created and modified read v2's day words (`gmtDayWord`). */
+/** v2 date-picker-input.tsx shows `d MMM yyyy`; here the same parts in the locale, with no time. The expiry column reads
+ *  this way; created and modified read v2's day words (`gmtDayWord`). */
 export function gmtDayText(value: string | null | undefined, locale: string | undefined): string {
   if (!value) return '';
   const date = utcDate(value);
