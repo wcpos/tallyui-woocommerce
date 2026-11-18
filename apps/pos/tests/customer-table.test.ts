@@ -49,3 +49,21 @@ test('pressing the sorted column flips it and another column starts ascending', 
   expect(nextSort({ field: 'last_name', direction: 'desc' }, 'last_name')).toEqual({ field: 'last_name', direction: 'asc' });
   expect(nextSort({ field: 'last_name', direction: 'desc' }, 'email')).toEqual({ field: 'email', direction: 'asc' });
 });
+
+// v2 customers/index.tsx:51-60: id and date_created_gmt are sort fields.
+test('id sorts numerically: 9 before 10, descending reverses', () => {
+  const list: Customer[] = [{ id: '10', name: 'a' }, { id: '9', name: 'b' }, { id: '100', name: 'c' }];
+  expect(sortCustomers(list, { field: 'id', direction: 'asc' }).map(c => c.id)).toEqual(['9', '10', '100']);
+  expect(sortCustomers(list, { field: 'id', direction: 'desc' }).map(c => c.id)).toEqual(['100', '10', '9']);
+});
+
+test('date created sorts by time with no date first ascending, and descending reverses', () => {
+  const list: Customer[] = [
+    { id: '1', name: 'newest', createdAt: '2026-10-06T03:10:29Z' },
+    { id: '2', name: 'oldest', createdAt: '2023-08-21T12:00:00Z' },
+    { id: '3', name: 'none' },
+    { id: '4', name: 'newer', createdAt: '2025-01-02T00:00:00Z' },
+  ];
+  expect(sortCustomers(list, { field: 'date_created_gmt', direction: 'asc' }).map(c => c.name)).toEqual(['none', 'oldest', 'newer', 'newest']);
+  expect(sortCustomers(list, { field: 'date_created_gmt', direction: 'desc' }).map(c => c.name)).toEqual(['newest', 'newer', 'oldest', 'none']);
+});

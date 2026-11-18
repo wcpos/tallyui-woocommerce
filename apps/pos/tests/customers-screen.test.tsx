@@ -327,6 +327,31 @@ test('rows sort by Last Name and a header press flips or moves the sort', async 
   expect(screen.queryByTestId('data-table-header-billing')).toBeNull();
 });
 
+// v2 initial-settings.json customers.columns: id and date_created_gmt carry no disableSort.
+test('the ID and Date Created heads sort the rows and show the sorted chevron', async () => {
+  localStorage.setItem(areaColumnsKey('customers'), JSON.stringify([
+    { id: 'avatar_url', visible: true }, { id: 'id', visible: true }, { id: 'first_name', visible: true },
+    { id: 'last_name', visible: true }, { id: 'email', visible: true }, { id: 'billing', visible: true },
+    { id: 'date_created_gmt', visible: true },
+  ]));
+  await findRows(vi.fn<CustomerSource['search']>().mockResolvedValue([
+    { ...gee, id: '10', createdAt: '2023-08-21T12:00:00Z' },
+    { ...ada, id: '9', createdAt: '2026-10-06T03:10:29Z' },
+    { id: '100', name: 'Cy Brown', firstName: 'Cy', lastName: 'Brown', createdAt: '2025-01-02T00:00:00Z' },
+  ]));
+  const ids = () => screen.getAllByTestId(/^customers-row-/).map(r => r.getAttribute('data-testid')!.slice('customers-row-'.length));
+  fireEvent.click(screen.getByTestId('data-table-header-id'));
+  expect(ids()).toEqual(['9', '10', '100']);
+  expect(screen.getByTestId('data-table-sort-id-asc').contains(screen.getByTestId('customers-sort-chevron'))).toBe(true);
+  fireEvent.click(screen.getByTestId('data-table-header-date_created_gmt'));
+  expect(ids()).toEqual(['10', '100', '9']);
+  expect(screen.getByTestId('data-table-sort-date_created_gmt-asc').contains(screen.getByTestId('customers-sort-chevron'))).toBe(true);
+  expect(screen.queryByTestId('data-table-sort-id-asc')).toBeNull();
+  fireEvent.click(screen.getByTestId('data-table-header-date_created_gmt'));
+  expect(ids()).toEqual(['9', '100', '10']);
+  expect(screen.getByTestId('data-table-sort-date_created_gmt-desc')).not.toBeNull();
+});
+
 // The classes of the components that drew one DOM node: up its fibers to the next host element.
 function hostClasses(node: Element): string[] {
   type Fiber = { memoizedProps?: { className?: unknown }; return?: Fiber; stateNode?: unknown };
