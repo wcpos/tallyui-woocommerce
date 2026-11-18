@@ -26,6 +26,21 @@ export function formatDurationMs(ms: number | undefined): string | null {
   return `${Math.floor(ms / 60000)}m ${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}s`;
 }
 
+export function buildLogEntryReport(row: LogRecord): string {
+  const name = row.actor?.name?.trim();
+  const qualifiers = [row.actor?.role?.trim(), row.actor?.id && `id ${row.actor.id}`].filter(Boolean).join(', ');
+  const actor = name ? `${name}${qualifiers ? ` (${qualifiers})` : ''}` : qualifiers;
+  const duration = formatDurationMs(row.durationMs);
+  let detail = row.detail;
+  try { if (detail) detail = JSON.stringify(JSON.parse(detail), null, 2); } catch { /* Keep non-JSON details as stored. */ }
+  return [`${SOFTWARE_NAME} log entry — ${new Date(row.timestamp).toISOString()}`,
+    row.level && `Level: ${row.level}`, row.code && `Error code: ${row.code}`, row.scope && `Category: ${row.scope}`,
+    actor && `Actor: ${actor}`, row.outcome && `Outcome: ${row.outcome}`, row.message && `Message: ${row.message}`,
+    duration && `Request: ${duration}`, row.syncRecord && `Record: ${row.syncRecord.collection} ${row.syncRecord.recordId} · ${row.syncRecord.outcome}`,
+    row.syncRecord?.reason && `Reason: ${row.syncRecord.reason}`, row.id && `Log id: ${row.id}`, detail && `Details:\n${detail}`,
+  ].filter(Boolean).join('\n');
+}
+
 export function startOfLocalDay(now: number): number {
   const date = new Date(now);
   date.setHours(0, 0, 0, 0);

@@ -6,7 +6,7 @@ import type { LogLevel } from '@tallyui/pos';
 import { formatCadence } from '../lib/health/performance';
 import { useIsWide } from '../lib/layout/wide';
 import type { LogCollection, LogRecord } from '../lib/logs/log-store';
-import { IDLE_OUTBOX_STATE, buildDebugInfo, formatDurationMs, formatLogTime, logStats, matchesLogFilter, outboxSyncStats,
+import { IDLE_OUTBOX_STATE, buildDebugInfo, buildLogEntryReport, formatDurationMs, formatLogTime, logStats, matchesLogFilter, outboxSyncStats,
   type LogPreset, type OutboxSyncStats } from '../lib/logs/log-view';
 import { useVerboseDiagnostics } from '../lib/logs/verbose';
 import { useSearchTerm } from '../lib/search-term';
@@ -85,7 +85,7 @@ function StatusCell({ row, expanded, onToggle, className }: {
 }
 
 // v2's RowDetail (logs/row-detail.tsx:225): the row's facts as label and value, inline under the row.
-function RowDetail({ row, phone }: { row: LogRecord; phone: boolean }): JSX.Element {
+function RowDetail({ row, phone, copyText }: { row: LogRecord; phone: boolean; copyText: ((text: string) => Promise<void>) | null }): JSX.Element {
   const { actor, syncRecord } = row;
   const facts: [string, string | undefined][] = [
     ['Code', row.code], ['Outcome', row.outcome], ['Duration', formatDurationMs(row.durationMs) ?? undefined],
@@ -93,11 +93,16 @@ function RowDetail({ row, phone }: { row: LogRecord; phone: boolean }): JSX.Elem
     ['Record', syncRecord && `${syncRecord.collection} ${syncRecord.recordId} · ${syncRecord.outcome}`],
     ['Reason', syncRecord?.reason], ['Details', row.detail], ['Log id', row.id],
   ];
+  // v2 logs/row-detail.tsx:100-136: copy the whole entry from the first fact line.
   return <View testID={`logs-detail-${row.id}`} className={`${phone ? 'pl-4' : 'ml-42'} gap-1 py-2`}>
-    {facts.filter(([, value]) => value).map(([label, value]) => <View key={label} className="flex-row items-baseline gap-3">
+    {facts.filter(([, value]) => value).map(([label, value], index) => <View key={label} className="flex-row items-baseline gap-3">
       <Text className="w-24 text-sm text-muted-foreground">{label}</Text>
       <Text testID={`logs-detail-${row.id}-${label.toLowerCase().replace(' ', '-')}`} selectable
         className="flex-1 text-sm">{value}</Text>
+      {index === 0 && copyText && <Button testID={`logs-copy-event-${row.id}`} variant="ghost" size="sm" onPress={async () => {
+        try { await copyText(buildLogEntryReport(row)); toast({ type: 'success', title: 'Log entry copied' }); }
+        catch { toast({ type: 'error', title: "Couldn't copy the log entry" }); }
+      }}><Text>Copy</Text></Button>}
     </View>)}
   </View>;
 }
@@ -234,7 +239,7 @@ export function LogsScreen({ collection, storeName, siteUrl,
           <StatusCell row={row} expanded={!!expanded[row.id]} onToggle={() => toggle(row.id)}
             className="w-32 flex-row items-center justify-end gap-1.5" />
         </View>}
-        {expanded[row.id] && <RowDetail row={row} phone={phone} />}
+        {expanded[row.id] && <RowDetail row={row} phone={phone} copyText={copyText} />}
       </View>;
       })}
       {/* v2 ledger.tsx:418-424. */}
