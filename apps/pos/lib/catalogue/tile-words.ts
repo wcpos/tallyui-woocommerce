@@ -36,12 +36,15 @@ export function tileTaxLine(price: Money, taxStatus: 'taxable' | 'none' | undefi
   return `${tax.pricesIncludeTax ? 'incl.' : 'excl.'} ${formatTileMoney({ amount, currency: price.currency })} tax`;
 }
 
-// v2's useProductCount sums quantities under the product's parent id.
-export function inCartCounts(lines: readonly Pick<LineItem, 'productId' | 'quantity' | 'custom'>[]): Map<string, number> {
+// v2's useProductCount sums quantities under the parent id, and v2's variation tile (variation-tile.tsx:177 InCartCount)
+// counts that variation's lines, so a variation line also counts under its variantId. WooCommerce products and
+// variations share one post-id space, so the two kinds of key cannot collide.
+export function inCartCounts(lines: readonly Pick<LineItem, 'productId' | 'variantId' | 'quantity' | 'custom'>[]): Map<string, number> {
   const counts = new Map<string, number>();
   for (const line of lines) {
     if (line.custom) continue;
     counts.set(line.productId, (counts.get(line.productId) ?? 0) + line.quantity);
+    if (line.variantId && line.variantId !== line.productId) counts.set(line.variantId, (counts.get(line.variantId) ?? 0) + line.quantity);
   }
   return counts;
 }

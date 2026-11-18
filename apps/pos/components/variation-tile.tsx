@@ -9,6 +9,7 @@ import type { CatalogueTileFields } from '../lib/catalogue/catalogue-view-state'
 import { formatTileMoney } from '../lib/catalogue/tile-words';
 import type { TileTax } from '../lib/catalogue/tile-words';
 import { ChevronLeftIcon } from './icons';
+import { InCartBadge } from './in-cart-badge';
 import { ProductTile, TilePoster } from './product-tile';
 
 /** v2's ParentTile: the tapped product's tile, its back badge (v2's CIRCLE) where its cart count was. */
@@ -48,15 +49,18 @@ function useVariationParts(entry: CatalogueEntry<any>) {
 /**
  * v2's VariationTile: the parent's picture, its name small and muted, the variation's values as v2's OptionChips,
  * then its price in bold, or Sold out over a greyed picture. The tile is the add control.
+ * Its corner is v2's InCartCount (variation-tile.tsx:177), the count of that variation's lines.
  */
-export function VariationTile({ entry, onPress }: { entry: CatalogueEntry<any>; onPress(): void }): JSX.Element {
+export function VariationTile({ entry, inCart = 0, onPress }: { entry: CatalogueEntry<any>; inCart?: number; onPress(): void }): JSX.Element {
   const { id, out, name, label, chips, money } = useVariationParts(entry);
   const lines = [
     <Text key="name" className="text-xs text-muted-foreground" numberOfLines={1}>{name}</Text>, chips, money,
   ].filter(Boolean);
   return <Pressable accessibilityRole="button" accessibilityLabel={label}
     testID={`variation-tile-${id}`} onPress={onPress}>
-    <TilePoster doc={entry.product} testKey={`variation-${id}`} soldOut={out} lines={lines} />
+    <TilePoster doc={entry.product} testKey={`variation-${id}`} soldOut={out} lines={lines}>
+      <InCartBadge count={inCart} testID={`in-cart-variation-${id}`} className="absolute right-2 top-2 z-10" />
+    </TilePoster>
   </Pressable>;
 }
 
