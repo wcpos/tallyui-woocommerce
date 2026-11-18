@@ -284,13 +284,47 @@ test('narrow window: a list row per product with name, price and stock badge; Ba
   const beans = within(screen.getByTestId('products-row-2'));
   expect(beans.getByText('Beans')).not.toBeNull();
   expect(beans.getByText('$12.50')).not.toBeNull();
-  expect(beans.getByText('Out of Stock')).not.toBeNull();
+  expect(beans.getByText('0 · Out of Stock')).not.toBeNull();
   const tea = within(screen.getByTestId('products-row-1'));
   expect(tea.getByText('Tea')).not.toBeNull();
   expect(tea.getByText('$3.00')).not.toBeNull();
   expect(tea.getByText('In Stock')).not.toBeNull();
   fireEvent.click(screen.getByTestId('products-back'));
   expect(onBack).toHaveBeenCalledOnce();
+});
+
+test('a phone row shows the SKU under the name and the managed quantity in its stock badge', () => {
+  setWidth(400);
+  renderScreen([product(1, 'Tea', { manage_stock: true, stock_quantity: 7 })]);
+  const sku = screen.getByTestId('products-phone-sku-1');
+  expect(sku.textContent).toBe('SKU-1');
+  expect(screen.getByText('Tea').compareDocumentPosition(sku) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(text('product-stock-status-1')).toBe('7 · In Stock');
+  expect(within(screen.getByTestId('products-row-1')).getByText('$10.00')).not.toBeNull();
+});
+
+test('a phone row without a SKU draws no SKU line, and unmanaged stock shows the word alone', () => {
+  setWidth(400);
+  renderScreen([product(2, 'Beans', { sku: '' })]);
+  expect(screen.queryByTestId('products-phone-sku-2')).toBeNull();
+  expect(text('product-stock-status-2')).toBe('In Stock');
+});
+
+test('a variation row at phone width shows its SKU and the managed quantity, and none for a variation without them', () => {
+  setWidth(400);
+  renderScreen([product(3, 'Shirt', {
+    type: 'variable', sku: '', variations: [31, 32],
+    attributes: [{ id: 0, name: 'Size', position: 0, visible: true, variation: true, options: ['S', 'M'] }],
+    variation_docs: [
+      variation(31, { sku: 'SH-S', manage_stock: true, stock_quantity: 4, attributes: [{ name: 'Size', option: 'S' }] }),
+      variation(32, { attributes: [{ name: 'Size', option: 'M' }] }),
+    ],
+  })]);
+  fireEvent.click(screen.getByTestId('product-variations-3'));
+  expect(text('products-phone-sku-31')).toBe('SH-S');
+  expect(text('product-stock-status-31')).toBe('4 · In Stock');
+  expect(screen.queryByTestId('products-phone-sku-32')).toBeNull();
+  expect(text('product-stock-status-32')).toBe('In Stock');
 });
 
 const [espresso, coldBrew] = fixtureProducts;

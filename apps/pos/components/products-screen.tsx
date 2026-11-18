@@ -109,7 +109,7 @@ export interface ProductsScreenProps {
 }
 
 /** v2 cells/stock-quantity.tsx shows the quantity only for self-managed stock. */
-function stockQuantity(doc: ProductDoc): number | undefined {
+function stockQuantity(doc: ProductDoc | VariationDoc): number | undefined {
   return doc.manage_stock === true && typeof doc.stock_quantity === 'number' ? doc.stock_quantity : undefined;
 }
 
@@ -158,16 +158,18 @@ function priceText(doc: ProductDoc, field: PriceField, currency: string, locale:
   return `${money(range.min, currency, locale)} - ${money(range.max, currency, locale)}`;
 }
 
-function StockBadge({ doc }: { doc: ProductDoc | VariationDoc }): JSX.Element {
+/** v2's ProductStockBadge (cells/stock-status.tsx:43-57): a managed quantity reads before the word. */
+function StockBadge({ doc, quantity }: { doc: ProductDoc | VariationDoc; quantity?: number }): JSX.Element {
   const state = resolveStock(doc);
-  return <StatusDot testID={`product-stock-status-${doc.id}`} tone={STOCK_TONE[state]} label={STOCK_LABEL[state]} />;
+  return <StatusDot testID={`product-stock-status-${doc.id}`} tone={STOCK_TONE[state]} label={quantity === undefined ? STOCK_LABEL[state] : `${quantity} · ${STOCK_LABEL[state]}`} />;
 }
 
 /** v2's ProductName (cells/name.tsx): the name, then ProductAttributes for a variable product. */
-function NameCell({ doc, onDrill, numberOfLines }: { doc: ProductDoc; onDrill: OnDrill; numberOfLines?: number }): JSX.Element {
+function NameCell({ doc, onDrill, numberOfLines, showSku }: { doc: ProductDoc; onDrill: OnDrill; numberOfLines?: number; showSku?: boolean }): JSX.Element {
   return (
     <View className="gap-1">
       <Text numberOfLines={numberOfLines} className="font-medium text-foreground">{doc.name}</Text>
+      {showSku && doc.sku ? <Text testID={`products-phone-sku-${doc.id}`} numberOfLines={1} className="text-muted-foreground">{doc.sku}</Text> : null}
       {doc.type === 'variable' ? (
         <ProductAttributes id={doc.id} attributes={doc.attributes} count={doc.variations?.length ?? 0}
           onDrill={match => onDrill(doc, match)} />
@@ -314,9 +316,12 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
                 <ProductImage doc={drilled} size={IMAGE_SIZE} />
                 <View className="flex-1 gap-1">
                   <VariationNameCell variation={variation} parent={drilled} />
-                  <Text numberOfLines={1} className="text-muted-foreground">{money(variation.price, currency, locale)}</Text>
+                  {variation.sku ? <Text testID={`products-phone-sku-${variation.id}`} numberOfLines={1} className="text-muted-foreground">{variation.sku}</Text> : null}
                 </View>
-                <StockBadge doc={variation} />
+                <View className="items-end gap-1">
+                  <Text numberOfLines={1} className="text-foreground">{money(variation.price, currency, locale)}</Text>
+                  <StockBadge doc={variation} quantity={stockQuantity(variation)} />
+                </View>
               </View>
             ))}
           </ScrollView>
@@ -338,10 +343,12 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
             <View key={doc.id} testID={`products-row-${doc.id}`} className="flex-row items-center gap-3 border-b border-border px-4 py-3">
               <ProductImage doc={doc} size={IMAGE_SIZE} />
               <View className="flex-1 gap-1">
-                <NameCell doc={doc} onDrill={drillTo} numberOfLines={1} />
-                <Text numberOfLines={1} className="text-muted-foreground">{priceText(doc, 'price', currency, locale)}</Text>
+                <NameCell doc={doc} onDrill={drillTo} numberOfLines={1} showSku />
               </View>
-              <StockBadge doc={doc} />
+              <View className="items-end gap-1">
+                <Text numberOfLines={1} className="text-foreground">{priceText(doc, 'price', currency, locale)}</Text>
+                <StockBadge doc={doc} quantity={stockQuantity(doc)} />
+              </View>
             </View>
           ))}
         </ScrollView>
