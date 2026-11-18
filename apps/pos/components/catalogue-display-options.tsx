@@ -12,8 +12,8 @@ import { termOptions } from './catalogue-filter-chips';
 import { Segmented } from './segmented';
 import { LEFT_SHEET, RIGHT_SHEET, SHEET_TITLE, SheetCloseButton, RestoreDefaultsButton } from './sheet';
 import { ChevronDownIcon, FieldLabel, SELECT_FACE, SwitchRow } from './select-chevron';
+import { CheckIcon } from './icons';
 
-const CheckIcon = createSvgIcon('CheckIcon', () => <Path d="M20 6 9 17l-5-5" />);
 // lucide `sliders-horizontal`, v2's `filters` icon: the Product settings trigger and the areas' display options (area-display-options.tsx).
 export const SlidersIcon = createSvgIcon('SlidersIcon', () => <>
   <Path d="M21 4h-7" /><Path d="M10 4H3" /><Path d="M21 12h-9" /><Path d="M8 12H3" /><Path d="M21 20h-5" /><Path d="M12 20H3" />

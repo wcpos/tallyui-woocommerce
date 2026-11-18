@@ -8,7 +8,8 @@ import {
 } from '../../lib/scan/scan-sound';
 import { useWedgeScanner } from '../../lib/scan/use-wedge-scanner';
 import type { WedgeAttempt, WedgeResult } from '../../lib/scan/wedge';
-import { SettingsField, SettingsSection, SETTINGS_KEY_CLASS } from './settings-form';
+import { SettingsField, SettingsSection, SETTINGS_HELP_CLASS, SETTINGS_KEY_CLASS } from './settings-form';
+import { CheckIcon } from '../icons';
 import { DocsLink, SCANNER_DOCS_URL } from '../docs-link';
 
 // v2 settings.barcode_test_result_*; badge tones follow v2's History (ok, warning, muted).
@@ -43,7 +44,8 @@ function TextField({ testID, label, value, onChange }: { testID: string; label: 
   );
 }
 
-function ScanTestPanel(): JSX.Element {
+// `threshold` is the page's own useScanSettings() value, so an edit above shows in the next verdict.
+function ScanTestPanel({ threshold }: { threshold: number }): JSX.Element {
   const [attempt, setAttempt] = useState<WedgeAttempt | null>(null);
   // Claims the wedge while the page is open, so a test scan never rings up on the till underneath.
   useWedgeScanner(() => {}, true, setAttempt);
@@ -59,8 +61,12 @@ function ScanTestPanel(): JSX.Element {
       </View>
       <View className="flex-row items-center gap-2">
         {attempt && <Badge testID="barcode-test-result" variant={RESULT_VARIANTS[attempt.result]} label={RESULT_WORDS[attempt.result]} />}
-        <Text testID="barcode-test-verdict" className="flex-1 text-sm text-muted-foreground">{verdict(attempt)}</Text>
+        {/* v2 test-panel.tsx:226-240: a scan is the success check and a subheading, then its timing as help. */}
+        {attempt?.result === 'scan' && <CheckIcon testID="barcode-test-scan-check" size={16} className="text-success" />}
+        <Text testID="barcode-test-verdict" className={`flex-1 ${attempt?.result === 'scan' ? 'text-base font-medium text-foreground' : 'text-sm text-muted-foreground'}`}>{verdict(attempt)}</Text>
       </View>
+      {attempt?.result === 'scan' && <Text testID="barcode-test-scan-detail" className={SETTINGS_HELP_CLASS}>
+        {`Average keystroke gap ${Math.round(attempt.avgGapMs ?? 0)}ms, under the ${threshold}ms threshold`}</Text>}
     </View>
   );
 }
@@ -168,7 +174,7 @@ export function BarcodeScanningSettings(): JSX.Element {
       </SettingsSection>
       <SoundSettings />
       <ScannerSection />
-      <SettingsSection title="Barcode Scanning Test" testID="settings-barcode-test"><ScanTestPanel /></SettingsSection>
+      <SettingsSection title="Barcode Scanning Test" testID="settings-barcode-test"><ScanTestPanel threshold={settings.threshold} /></SettingsSection>
     </View>
   );
 }

@@ -2,6 +2,8 @@
 import { Path, Rect } from 'react-native-svg';
 import { createSvgIcon } from '@tallyui/components';
 
+// v2's `check` glyph.
+export const CheckIcon = createSvgIcon('CheckIcon', () => <Path d="M20 6 9 17l-5-5" />);
 // v2's chevronLeft glyph.
 export const ChevronLeftIcon = createSvgIcon('ChevronLeftIcon', () => <Path d="m15 18-6-6 6-6" />);
 // v2's `chevronRight` glyph.
