@@ -156,3 +156,13 @@ test('the clear button shows only with text and empties the box', () => {
   expect((screen.getByTestId('store-url-input') as HTMLInputElement).value).toBe('');
   expect(screen.queryByTestId('store-url-clear')).toBeNull();
 });
+
+test('the clear button hides while the store connects', async () => {
+  const startSignIn = vi.fn<StartSignIn>(() => new Promise<void>(() => {}));
+  render(<ConnectForm startSignIn={startSignIn} />);
+  fireEvent.change(screen.getByTestId('store-url-input'), { target: { value: 'shop.example' } });
+  expect(screen.getByTestId('store-url-clear')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('connect-store-button'));
+  await screen.findByTestId('connect-progress');
+  expect(screen.queryByTestId('store-url-clear')).toBeNull();
+});
