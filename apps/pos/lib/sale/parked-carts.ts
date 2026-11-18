@@ -78,9 +78,10 @@ function discountFields({ type, value, label, couponCode }: Discount): Discount 
   return { type, value, ...(label !== undefined ? { label } : {}), ...(couponCode !== undefined ? { couponCode } : {}) };
 }
 
-export function parkCart(order: Order, now = new Date()): ParkedCart {
+// A cart keeps its first parking time as its place in the strip (v2 sorts open orders by date_created).
+export function parkCart(order: Order, now = new Date(), openedAt?: string): ParkedCart {
   return {
-    id: crypto.randomUUID(), parkedAt: now.toISOString(),
+    id: crypto.randomUUID(), parkedAt: openedAt ?? now.toISOString(),
     ...(order.customer ? { customer: {
       id: order.customer.id, name: order.customer.name,
       ...(order.customer.email ? { email: order.customer.email } : {}),

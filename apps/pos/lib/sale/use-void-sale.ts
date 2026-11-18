@@ -11,12 +11,12 @@ export interface VoidSale {
 }
 
 /** v2 voids at once and offers Undo (pos/hooks/use-void-order.ts): Undo brings the voided cart back as resumeCart does. */
-export function useVoidSale(sale: ReturnType<typeof useSale>, context: { resumeCart(cart: ParkedCart): Promise<string | null>; say(message: string | undefined): void }): VoidSale {
+export function useVoidSale(sale: ReturnType<typeof useSale>, context: { resumeCart(cart: ParkedCart): Promise<string | null>; say(message: string | undefined): void; openedAt?: string }): VoidSale {
   const stageNow = useRef(sale.stage);
   stageNow.current = sale.stage;
 
   function voidSale() {
-    const voided = parkCart(sale.order);
+    const voided = parkCart(sale.order, undefined, context.openedAt);
     sale.newSale();
     toast({ type: 'success', title: 'Order removed', action: { label: 'Undo', onPress: () => { void undoVoid(voided); } } });
   }

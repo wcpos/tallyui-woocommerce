@@ -44,6 +44,8 @@ export interface OpenOrderTabsCurrent {
 export interface OpenOrderTabsProps {
   parked: readonly OpenOrderTabsParked[];
   current: OpenOrderTabsCurrent;
+  /** When the current cart was first parked: its place among the parked tabs. Without it the cart goes last. */
+  currentOpenedAt?: string;
   currency: string;
   locale?: string;
   /** Resume a parked cart (sale-screen's onResume): resolves null when done, or a message. */
@@ -62,7 +64,7 @@ export interface OpenOrderTabsProps {
 }
 
 /** The open-order strip under the cart: parked carts, the current sale, then + (WCPOS v2 cart/tabs.tsx). */
-export function OpenOrderTabs({ parked, current, currency, locale, onSelect, onNew, onError, onOpenList, listOpen = false, now = Date.now, compact = false }: OpenOrderTabsProps): JSX.Element {
+export function OpenOrderTabs({ parked, current, currentOpenedAt, currency, locale, onSelect, onNew, onError, onOpenList, listOpen = false, now = Date.now, compact = false }: OpenOrderTabsProps): JSX.Element {
   const pending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [nowMs, setNowMs] = useState(now);
@@ -93,10 +95,15 @@ export function OpenOrderTabs({ parked, current, currency, locale, onSelect, onN
   // reads "Guest $16.83", never the contents. Tally's walk-in cart has no customer, so the tab reads no contents.
   const who = (customerName: string | undefined) => tabWho({ customerName, lines: [] });
 
-  // Oldest first, newer carts join on the right. The store hands them over newest first, so sort a copy.
-  const sorted = [...parked].sort((a, b) => a.parkedAt.localeCompare(b.parkedAt));
+  // Oldest first, newer carts join on the right; the current cart keeps its place, so a press only selects (v2
+  // open-orders-scope.ts OPEN_ORDERS_SORT: date created, then id). The store hands them over newest first, so sort a copy.
+  const sorted: (OpenOrderTabsParked | null)[] = [...parked].sort((a, b) => a.parkedAt.localeCompare(b.parkedAt) || a.id.localeCompare(b.id));
+  const place = currentOpenedAt === undefined ? -1
+    : sorted.findIndex(cart => (cart!.parkedAt.localeCompare(currentOpenedAt) || cart!.id.localeCompare(current.id)) > 0);
+  // null marks the current cart's slot.
+  if (!fresh) sorted.splice(place < 0 ? sorted.length : place, 0, null);
   const openCount = parked.length + (fresh ? 0 : 1);
-  const ids = [...sorted.map(cart => cart.id), ...(fresh ? [] : [current.id])];
+  const ids = sorted.map(cart => cart?.id ?? current.id);
   const selectedId = fresh ? 'new' : current.id;
   // v2 cart/tab-window.ts tabOffsets: a tab's x is the sum of the measured widths before it; an unmeasured one stops the sum.
   let selected: { x: number; width: number } | undefined;
@@ -181,12 +188,10 @@ export function OpenOrderTabs({ parked, current, currency, locale, onSelect, onN
         onLayout={({ nativeEvent: { layout } }) => setViewportWidth(layout.width)}
         onContentSizeChange={width => setContentWidth(width)}
         onScrollBeginDrag={() => { dragged.current = true; }}>
-        {sorted.map(cart => tab(cart.id, false,
+        {sorted.map(cart => cart ? tab(cart.id, false,
           who(cart.customer?.name),
-          cart.totalMinor, () => void run(() => onSelect(cart.id)), cart.parkedAt))}
-        {fresh ? null : tab(current.id, true,
-          who(current.customer?.name),
-          current.totalMinor)}
+          cart.totalMinor, () => void run(() => onSelect(cart.id)), cart.parkedAt)
+          : tab(current.id, true, who(current.customer?.name), current.totalMinor))}
       </ScrollView>
       <Pressable testID="new-order-tab" role="tab" aria-selected={fresh} accessibilityLabel="New order" disabled={busy}
         onPress={() => { if (!fresh) void run(onNew); }}
