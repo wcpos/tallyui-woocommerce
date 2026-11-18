@@ -101,8 +101,11 @@ export function CashierSheet(props: {
   onRemove?(uuid: string): void;
   onAddAnother(): void;
   onSignOut(): void;
+  /** An open register asks to start its count before signing out. */
+  openRegister?: { title: string; onClose(): Promise<boolean> };
 }): JSX.Element {
   const [open, setOpen] = useState(false);
+  const [asking, setAsking] = useState(false);
   const [removing, setRemoving] = useState<CashierOption | null>(null);
   const n = props.awaitingStore ?? 0;
   // v2 user-sheet.tsx:496: counted while closed, so opening never flashes $0.00.
@@ -182,7 +185,7 @@ export function CashierSheet(props: {
             `outline-destructive` (button/index.tsx:53, border-destructive bg-card, the label in the foreground ink), apart
             on the left, and the Close dismiss on the right; a full-width rule over pt-4. */}
         <View testID="user-sheet-footer" className="-mx-4 flex-row items-center justify-between border-t border-border px-4 pt-4">
-          <Button variant="outline" testID="user-sheet-sign-out" className="h-11 border-destructive bg-card" onPress={() => { setOpen(false); props.onSignOut(); }}><Text>Sign out</Text></Button>
+          <Button variant="outline" testID="user-sheet-sign-out" className="h-11 border-destructive bg-card" onPress={() => { if (props.openRegister) { setAsking(true); } else { setOpen(false); props.onSignOut(); } }}><Text>Sign out</Text></Button>
           <SheetCloseButton testID="user-sheet-close" onPress={() => setOpen(false)} />
         </View>
       </DialogContent>
@@ -200,6 +203,20 @@ export function CashierSheet(props: {
           <AlertDialogAction asChild onPress={() => { props.onRemove?.(removing.uuid); setRemoving(null); }}>
             <Button variant="destructive" testID="user-sheet-remove-confirm"><Text>Remove</Text></Button>
           </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>}
+    {/* v2 switch-confirm.tsx:261-304: offer to close the register before signing out. */}
+    {asking && props.openRegister && <AlertDialog open onOpenChange={next => { if (!next) setAsking(false); }}>
+      <AlertDialogContent testID="sign-out-confirm">
+        <AlertDialogHeader>
+          <AlertDialogTitle>{props.openRegister.title}</AlertDialogTitle>
+          <AlertDialogDescription>A till left open stays open for the next cashier. The closure records who closed it.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel asChild onPress={() => setAsking(false)}><Button variant="outline" testID="sign-out-confirm-cancel"><Text>Cancel</Text></Button></AlertDialogCancel>
+          <Button variant="outline" testID="sign-out-confirm-anyway" onPress={() => { setAsking(false); setOpen(false); props.onSignOut(); }}><Text>Sign out anyway</Text></Button>
+          <AlertDialogAction asChild onPress={() => { const ask = props.openRegister!; setAsking(false); void ask.onClose().then(ok => { if (ok) setOpen(false); }); }}><Button testID="sign-out-confirm-close-register"><Text>Close register</Text></Button></AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>}

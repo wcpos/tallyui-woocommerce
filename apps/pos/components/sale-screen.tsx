@@ -11,6 +11,7 @@ import { createCustomersBlockedReason, type CashierCapabilities } from '../lib/a
 import { useRequestContext } from '../lib/auth/request-context';
 import { useSession } from '../lib/auth/session-context';
 import { drawerFigureText, drawerVerbs, sheetMoney } from '../lib/cashier/sheet-figures';
+import { signOutQuestion, startCountThen } from '../lib/cashier/sign-out-question';
 import { inCartCounts } from '../lib/catalogue/tile-words';
 import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
 import { SALE_SPLIT_MIN_WIDTH } from '../lib/layout/wide';
@@ -217,8 +218,10 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   });
 
   const drawerFigure = drawerFigureText(register, minor => sheetMoney(minor, currency, props.locale));
+  const signOutTitle = signOutQuestion(register, drawerFigure);
   const cashierControl = props.onSwitchCashier ? <CashierSheet name={props.cashierName} cashiers={props.cashiers ?? []}
       onSwitch={changeCashier} onAddAnother={() => changeCashier()} onSignOut={props.onSignOut}
+      openRegister={register && signOutTitle ? { title: signOutTitle, onClose: () => startCountThen(register, () => setCartOpen(true)) } : undefined}
       onRemove={props.onRemoveCashier}
       blockedReason={sale.stage.kind === 'tender' || sale.saving ? 'Finish or cancel the payment first.' : undefined}
       storeName={props.storeName}
