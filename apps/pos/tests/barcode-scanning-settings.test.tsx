@@ -312,3 +312,67 @@ test('Scanner setup guide opens the scanner docs', () => {
   fireEvent.click(link);
   expect(open).toHaveBeenCalledExactlyOnceWith('https://docs.wcpos.com/hardware/scanners/setup-wizard');
 });
+
+function suggestion(kind: string): string | null {
+  return screen.queryByTestId(`barcode-test-suggestion-${kind}-title`)?.textContent ?? null;
+}
+
+test('a fast burst under the minimum length offers lower-min-chars, and Apply sets Min length', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  burst('12', 5);
+  expect(suggestion('lower-min-chars')).toBe('Lower minimum length to 2 — this code is 2 characters');
+  expect(classesOf('barcode-test-suggestion-lower-min-chars')).toEqual(expect.arrayContaining(['border-info', 'bg-info/10']));
+  expect(screen.getByTestId('barcode-test-suggestion-lower-min-chars-apply').textContent).toBe('Apply');
+  fireEvent.click(screen.getByTestId('barcode-test-suggestion-lower-min-chars-apply'));
+  expect(value('settings-barcode-min-chars')).toBe('2');
+  expect(readScanSettings().minChars).toBe(2);
+  expect(screen.queryByTestId('barcode-test-suggestion-lower-min-chars')).toBeNull();
+  // The applied minimum now accepts the same code.
+  burst('12', 5);
+  expect(screen.getByTestId('barcode-test-result').textContent).toBe('scan');
+});
+
+test('a burst between the threshold and 60ms offers raise-threshold, and Apply sets the threshold', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  fireEvent.change(screen.getByTestId('settings-barcode-threshold'), { target: { value: '20' } });
+  burst('2000000000015', 30);
+  expect(screen.getByTestId('barcode-test-result').textContent).toBe('typing');
+  expect(suggestion('raise-threshold')).toBe('Raise threshold to 38ms — your scanner averages 30ms');
+  fireEvent.click(screen.getByTestId('barcode-test-suggestion-raise-threshold-apply'));
+  expect(value('settings-barcode-threshold')).toBe('38');
+  expect(readScanSettings().threshold).toBe(38);
+  expect(screen.queryByTestId('barcode-test-suggestion-raise-threshold')).toBeNull();
+});
+
+test('a burst at 70ms offers no suggestion', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  burst('2000000000015', 70);
+  expect(screen.getByTestId('barcode-test-result').textContent).toBe('typing');
+  expect(screen.queryByTestId(/^barcode-test-suggestion-/)).toBeNull();
+});
+
+test('a scan starting with ] offers set-prefix, and Apply sets the prefix; a saved prefix offers nothing', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  burst(']2000000000015', 5);
+  expect(suggestion('set-prefix')).toBe('Strip leading "]" — set it as your prefix');
+  fireEvent.click(screen.getByTestId('barcode-test-suggestion-set-prefix-apply'));
+  expect(value('settings-barcode-prefix')).toBe(']');
+  expect(readScanSettings().prefix).toBe(']');
+  expect(screen.queryByTestId('barcode-test-suggestion-set-prefix')).toBeNull();
+  fireEvent.change(screen.getByTestId('settings-barcode-prefix'), { target: { value: '~' } });
+  burst(']2000000000015', 5);
+  expect(screen.getByTestId('barcode-test-result').textContent).toBe('scan');
+  expect(screen.queryByTestId(/^barcode-test-suggestion-/)).toBeNull();
+});
+
+test('a clean scan of digits offers no suggestion', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  burst('2000000000015', 5);
+  expect(screen.getByTestId('barcode-test-result').textContent).toBe('scan');
+  expect(screen.queryByTestId(/^barcode-test-suggestion-/)).toBeNull();
+});
