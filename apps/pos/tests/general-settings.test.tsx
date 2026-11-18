@@ -7,11 +7,18 @@ import { TaxSettings } from '../components/settings/tax-settings';
 import type { DefaultCustomerSetting } from '../lib/customers/default-customer';
 import { classesOf } from './classes-of';
 
+// No RegisterProvider here: useRegister is null (no register section) unless a test hands General a register.
+const held = vi.hoisted(() => ({ register: null as null | { setting: boolean; setSetting: (on: boolean) => void } }));
+vi.mock('../lib/register/register-context', async importOriginal => ({
+  ...await importOriginal<typeof import('../lib/register/register-context')>(),
+  useRegister: () => held.register,
+}));
+
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
 });
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); held.register = null; });
 
 const siteHome = 'https://shop.example/';
 const store = { id: 1, name: 'Corner Café', currency: 'USD', locale: 'en_US' };
@@ -231,4 +238,60 @@ test('countryLabel names the region, and falls back for a code Intl cannot name'
   // Intl answers "Unknown Region" for an unassigned code, and throws on a malformed one.
   expect(countryLabel('ZZ')).toBe('Unknown Region (ZZ)');
   expect(countryLabel('not a code')).toBe('not a code');
+});
+
+// v2 general.tsx:178-182 with form/saved-mark.tsx: a changed setting shows "Saved" beside its key for 1200 ms.
+function marks(): string[] {
+  return screen.queryAllByTestId(/^saved-\w+$/).map(node => node.getAttribute('data-testid')!);
+}
+
+test('flipping "Default Customer is Cashier" shows Saved inside that row\'s key, and no other mark', () => {
+  vi.useFakeTimers();
+  renderDefaultCustomer({ customerId: 7, isCashier: false }, gee);
+  expect(marks()).toEqual([]);
+  fireEvent.click(screen.getByTestId('settings-general-default_customer_is_cashier-switch'));
+  expect(marks()).toEqual(['saved-default_customer_is_cashier']);
+  expect(screen.getByTestId('settings-general-default_customer_is_cashier-key')
+    .contains(screen.getByTestId('saved-default_customer_is_cashier'))).toBe(true);
+  expect(screen.getByTestId('saved-default_customer_is_cashier').textContent).toBe('Saved');
+});
+
+test('the General Saved mark clears after 1200 ms', () => {
+  vi.useFakeTimers();
+  renderDefaultCustomer({ customerId: 7, isCashier: false }, gee);
+  fireEvent.click(screen.getByTestId('settings-general-default_customer_is_cashier-switch'));
+  act(() => { vi.advanceTimersByTime(1199); });
+  expect(marks()).toEqual(['saved-default_customer_is_cashier']);
+  act(() => { vi.advanceTimersByTime(1); });
+  expect(marks()).toEqual([]);
+});
+
+test('choosing a customer in the Default Customer select shows Saved beside it', async () => {
+  renderDefaultCustomer({ customerId: 3, isCashier: false }, { id: '3', name: 'Anna Bell' });
+  fireEvent.click(defaultRow().getByTestId('settings-general-default_customer-select'));
+  fireEvent.change(screen.getByPlaceholderText('Search Customers'), { target: { value: 'gee' } });
+  fireEvent.click(await screen.findByLabelText('Gee Four, gee@example.invalid'));
+  expect(marks()).toEqual(['saved-default_customer']);
+  expect(screen.getByTestId('settings-general-default_customer-key').contains(screen.getByTestId('saved-default_customer'))).toBe(true);
+});
+
+test('choosing the customer already stored marks nothing', async () => {
+  const { onChange } = renderDefaultCustomer({ customerId: 7, isCashier: false }, gee);
+  fireEvent.click(defaultRow().getByTestId('settings-general-default_customer-select'));
+  fireEvent.change(screen.getByPlaceholderText('Search Customers'), { target: { value: 'gee' } });
+  fireEvent.click(await screen.findByLabelText('Gee Four, gee@example.invalid'));
+  expect(onChange).toHaveBeenLastCalledWith({ customerId: 7, isCashier: false });
+  expect(marks()).toEqual([]);
+});
+
+test('flipping the register switch shows Saved inside its row', () => {
+  vi.useFakeTimers();
+  const setSetting = vi.fn();
+  held.register = { setting: false, setSetting };
+  render(<GeneralSettings store={store} siteHome={siteHome} />);
+  expect(marks()).toEqual([]);
+  fireEvent.click(within(screen.getByTestId('settings-general-register')).getByRole('switch', { name: 'Use register sessions' }));
+  expect(setSetting).toHaveBeenCalledWith(true);
+  expect(marks()).toEqual(['saved-register']);
+  expect(screen.getByTestId('register-switch-row').contains(screen.getByTestId('saved-register'))).toBe(true);
 });

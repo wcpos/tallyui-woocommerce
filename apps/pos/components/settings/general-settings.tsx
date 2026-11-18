@@ -10,7 +10,7 @@ import { CUSTOMER_SELECT_FACE, CustomerPicker, CustomerSelectFace } from '../cus
 import { OpenExternalIcon } from '../docs-link';
 import { RegisterSwitch } from '../register-controls';
 import { ClearLocalData } from './clear-local-data';
-import { SETTINGS_KEY_CLASS, SettingsField, SettingsSection } from './settings-form';
+import { SavedFieldProvider, savedKeys, SETTINGS_KEY_CLASS, SettingsField, SettingsSection, useMarkSaved } from './settings-form';
 
 export function wooSettingsUrl(siteHome: string): string {
   return `${siteHome.replace(/\/+$/, '')}/wp-admin/admin.php?page=wc-settings`;
@@ -82,15 +82,19 @@ function DefaultCustomerRows({ setting, customer, source, onChange }: DefaultCus
   const [chosen, setChosen] = useState<CustomerSummary | null>();
   const shown = chosen !== undefined ? chosen : customer ?? null;
   const name = shown ? shown.name : 'Guest';
+  // v2 general.tsx:178-182: after a write, mark the v2 keys it really changed; choosing the stored customer marks nothing.
+  const markSaved = useMarkSaved();
   function choose(next: CustomerSummary | null) {
     const id = next ? Number(next.id) : 0;
+    const customerId = Number.isInteger(id) && id > 0 ? id : 0;
     setChosen(next);
-    onChange({ ...setting, customerId: Number.isInteger(id) && id > 0 ? id : 0 });
+    onChange({ ...setting, customerId });
+    markSaved(savedKeys({ default_customer: setting.customerId }, { default_customer: customerId }));
   }
   return (
     <>
       {/* v2 general.tsx:302-316: the help line under the key, the select in the value column. */}
-      <SettingsField testID="settings-general-default_customer" label="Default Customer"
+      <SettingsField name="default_customer" testID="settings-general-default_customer" label="Default Customer"
         help="Pre-selected on every new cart.">
         {source && !setting.isCashier
           ? <CustomerPicker face="select" label="Default Customer" testID="settings-general-default_customer-select"
@@ -103,9 +107,12 @@ function DefaultCustomerRows({ setting, customer, source, onChange }: DefaultCus
       </SettingsField>
       {/* v2 general.tsx:324-328: a control with no value is the value (property-row/index.tsx:143). */}
       {/* v2 core.json:1744 reads "Default Customer is cashier"; the demo's "Cashier" wins. */}
-      <SettingsField testID="settings-general-default_customer_is_cashier" label="Default Customer is Cashier">
+      <SettingsField name="default_customer_is_cashier" testID="settings-general-default_customer_is_cashier" label="Default Customer is Cashier">
         <Switch size="sm" testID="settings-general-default_customer_is_cashier-switch" accessibilityLabel="Default Customer is Cashier"
-          checked={setting.isCashier} onCheckedChange={isCashier => onChange({ ...setting, isCashier })} />
+          checked={setting.isCashier} onCheckedChange={isCashier => {
+            onChange({ ...setting, isCashier });
+            markSaved(savedKeys({ default_customer_is_cashier: setting.isCashier }, { default_customer_is_cashier: isCashier }));
+          }} />
       </SettingsField>
     </>
   );
@@ -120,7 +127,7 @@ export function GeneralSettings(props: {
   const register = useRegister();
   return (
     // v2 general.tsx:235-237: the sections stack in a gap-5 VStack, the first with no rule above it.
-    <View testID="screen-settings-general" className="gap-5">
+    <SavedFieldProvider><View testID="screen-settings-general" className="gap-5">
       <SettingsSection first title="Store" testID="settings-general-store">
         <LockedRow testID="settings-general-locked-name" label="Store Name" value={props.store.name} href={href} />
         <LockedRow testID="settings-general-locked-store_country" label="Store Base Country" value={countryLabel(address?.country)} href={href} />
@@ -149,6 +156,6 @@ export function GeneralSettings(props: {
       {register && <SettingsSection title="Register sessions" testID="settings-general-register"><RegisterSwitch inset={false} /></SettingsSection>}
       {/* v2 general.tsx:425-434: General ends with the local-data danger zone. */}
       <ClearLocalData />
-    </View>
+    </View></SavedFieldProvider>
   );
 }
