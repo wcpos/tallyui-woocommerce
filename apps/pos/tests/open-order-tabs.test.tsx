@@ -1,6 +1,7 @@
 import { EMPTY_CART_TEXT } from './cart-line-helpers';
 import { noTaxSettings } from './fixtures/store-settings';
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { useState } from 'react';
+import { act, cleanup, createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
@@ -536,4 +537,108 @@ test('tabs that fit the strip are never scrolled', () => {
   rowLayout(1280, 1232, { a: 100, b: 100, current: 100 });
   expect(screen.queryByTestId('open-orders-count')).toBeNull();
   expect(scrollTo).not.toHaveBeenCalled();
+});
+
+// kb-nav-tabs: v2 cart/tabs.tsx steps the open cart with ←/→ struck on a tab (web only), + last.
+const A = cart('a', '2026-11-10T10:00:00.000Z', ['Espresso'], 300);
+const B = cart('b', '2026-11-10T10:05:00.000Z', ['Cold Brew'], 400);
+
+function keyStrip(current = order(['Espresso'], 300), currentOpenedAt?: string) {
+  const calls = handlers();
+  render(<OpenOrderTabs currency={currency} {...calls} now={() => NOW} parked={[B, A]} current={current} currentOpenedAt={currentOpenedAt} />);
+  return calls;
+}
+
+// Strike a key on a cell; false when the strip took it (prevented its default).
+async function key(testID: string, name: string) {
+  let unprevented = true;
+  await act(async () => { unprevented = fireEvent.keyDown(screen.getByTestId(testID), { key: name }); });
+  return unprevented;
+}
+
+test('keyboard: ArrowLeft on the current tab selects the cart to its left', async () => {
+  const { onSelect, onNew, onError } = keyStrip();
+  expect(await key('open-order-tab-current', 'ArrowLeft')).toBe(false);
+  expect(onSelect).toHaveBeenCalledExactlyOnceWith('b');
+  expect(onNew).not.toHaveBeenCalled();
+  expect(onError).not.toHaveBeenCalled();
+});
+
+test('keyboard: ArrowRight on the last cart, the current one, parks it through onNew', async () => {
+  const { onSelect, onNew, onError } = keyStrip();
+  expect(await key('open-order-tab-current', 'ArrowRight')).toBe(false);
+  expect(onNew).toHaveBeenCalledTimes(1);
+  expect(onSelect).not.toHaveBeenCalled();
+  expect(onError).not.toHaveBeenCalled();
+});
+
+test('keyboard: ArrowLeft on + on the blank cart selects the last parked cart', async () => {
+  const { onSelect, onNew } = keyStrip(order([], 0));
+  expect(await key('new-order-tab', 'ArrowLeft')).toBe(false);
+  expect(onSelect).toHaveBeenCalledExactlyOnceWith('b');
+  expect(onNew).not.toHaveBeenCalled();
+});
+
+test('keyboard: no step past the first tab, nor past + on the blank cart', async () => {
+  // Opened before A, the current cart is the first tab.
+  const first = keyStrip(order(['Espresso'], 300), '2026-11-10T09:00:00.000Z');
+  expect(tabIds()[0]).toBe('open-order-tab-current');
+  await key('open-order-tab-current', 'ArrowLeft');
+  cleanup();
+  const fresh = keyStrip(order([], 0));
+  await key('new-order-tab', 'ArrowRight');
+  for (const { onSelect, onNew, onError } of [first, fresh]) {
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(onNew).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+  }
+});
+
+test('keyboard: other keys, a key on the count cell and a default-prevented arrow do nothing', async () => {
+  const { onSelect, onNew, onError } = keyStrip();
+  expect(await key('open-order-tab-current', 'ArrowUp')).toBe(true);
+  expect(await key('open-order-tab-current', 'Enter')).toBe(true);
+  stripLayout(300, 900);
+  expect(await key('open-orders-count', 'ArrowLeft')).toBe(true);
+  const tab = screen.getByTestId('open-order-tab-current');
+  const prevented = createEvent.keyDown(tab, { key: 'ArrowLeft' });
+  prevented.preventDefault();
+  await act(async () => { fireEvent(tab, prevented); });
+  expect(onSelect).not.toHaveBeenCalled();
+  expect(onNew).not.toHaveBeenCalled();
+  expect(onError).not.toHaveBeenCalled();
+});
+
+// The sale screen swaps the carts before its resume or park resolves; this strip does the same.
+function SteppingStrip() {
+  const [carts, setCarts] = useState<{ parked: OpenOrderTabsParked[]; current: OpenOrderTabsCurrent; openedAt?: string }>(
+    { parked: [A, B], current: order(['Espresso'], 300) });
+  const parkCurrent = (was: typeof carts) => cart(`parked-${was.current.id}`, '2026-11-10T10:08:00.000Z', ['Espresso'], was.current.totalMinor);
+  const onSelect = async (id: string) => {
+    setCarts(was => {
+      const picked = was.parked.find(entry => entry.id === id)!;
+      return { parked: [...was.parked.filter(entry => entry.id !== id), parkCurrent(was)], openedAt: picked.parkedAt,
+        current: { id: picked.id, lineItems: picked.lines, customer: null, totalMinor: picked.totalMinor } };
+    });
+    return null;
+  };
+  const onNew = async () => { setCarts(was => ({ parked: [...was.parked, parkCurrent(was)], current: { ...order([], 0), id: 'blank' } })); return null; };
+  return <OpenOrderTabs currency={currency} onSelect={onSelect} onNew={onNew} onError={vi.fn()} now={() => NOW}
+    parked={carts.parked} current={carts.current} currentOpenedAt={carts.openedAt} />;
+}
+
+test('keyboard: after a step the newly open tab has the focus, + included', async () => {
+  render(<SteppingStrip />);
+  act(() => { screen.getByTestId('open-order-tab-current').focus(); });
+  expect(document.activeElement).toBe(screen.getByTestId('open-order-tab-current'));
+  await key('open-order-tab-current', 'ArrowLeft');
+  expect(tabIds()).toEqual(['open-order-tab-a', 'open-order-tab-b', 'open-order-tab-parked-current', 'new-order-tab']);
+  expect(screen.getByTestId('open-order-tab-b').getAttribute('aria-selected')).toBe('true');
+  expect(document.activeElement).toBe(screen.getByTestId('open-order-tab-b'));
+  // Back right lands on the cart parked a step ago; once more, + parks it and is the blank cart's open tab.
+  await key('open-order-tab-b', 'ArrowRight');
+  expect(document.activeElement).toBe(screen.getByTestId('open-order-tab-parked-current'));
+  await key('open-order-tab-parked-current', 'ArrowRight');
+  expect(screen.getByTestId('new-order-tab').getAttribute('aria-selected')).toBe('true');
+  expect(document.activeElement).toBe(screen.getByTestId('new-order-tab'));
 });
