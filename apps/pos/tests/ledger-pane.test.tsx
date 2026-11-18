@@ -1,13 +1,16 @@
 import { setLineQuantity } from './cart-line-helpers';
+import { classesOf } from './classes-of';
 import { noTaxSettings } from './fixtures/store-settings';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import type { ComponentProps } from 'react';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import type { OrderCreateEnvelope } from '@tallyui/core';
-import type { CommandTransport, PosOrder } from '@tallyui/pos';
+import type { CommandTransport, Payment, PosOrder } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
+import { LedgerPane } from '../components/ledger-pane';
 import { SaleScreen } from '../components/sale-screen';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
@@ -305,3 +308,69 @@ test('a payment that throws leaves the next tap free', async () => {
   fireEvent.click(screen.getByTestId('checkout-commit'));
   expect(legs()).toHaveLength(1);
 }, 20_000);
+
+describe('ledger legs', () => {
+  type Order = ComponentProps<typeof LedgerPane>['order'];
+  const order = (payments: Payment[], totals: { total: number; paid: number; balance: number }) => ({
+    currency: 'USD', payments, totalMinor: totals.total, paidMinor: totals.paid, balanceDueMinor: totals.balance, changeDueMinor: 0,
+  }) as unknown as Order;
+  const cash20: Payment = { id: 'c1', method: 'cash', amountMinor: 1650, tenderedMinor: 2000, changeMinor: 350 };
+  const card: Payment = { id: 'k1', method: 'card', amountMinor: 350 };
+
+  test('a cash leg shows what was tendered and the change; a card leg does not', () => {
+    render(<LedgerPane order={order([cash20, card], { total: 2000, paid: 2000, balance: 0 })} />);
+    expect(text('checkout-tendered-leg-c1')).toBe('Tendered $20.00 · change $3.50');
+    expect(screen.queryByTestId('checkout-tendered-leg-k1')).toBeNull();
+  });
+
+  test("leg badges read v2's status labels", () => {
+    render(<LedgerPane order={order([
+      { id: 'a', method: 'cash', amountMinor: 100, status: 'captured' },
+      { id: 'b', method: 'card', amountMinor: 100 },
+      { id: 'c', method: 'card', amountMinor: 100, status: 'pending' },
+      { id: 'd', method: 'card', amountMinor: 100, status: 'failed' },
+    ], { total: 600, paid: 200, balance: 400 })} />);
+    expect(text('checkout-status-leg-a')).toBe('Paid');
+    expect(text('checkout-status-leg-b')).toBe('Captured');
+    expect(text('checkout-status-leg-c')).toBe('Pending');
+    expect(text('checkout-status-leg-d')).toBe('Failed');
+    expect(classesOf('checkout-status-leg-a')).toContain('bg-success/15');
+    expect(classesOf('checkout-status-leg-d')).not.toContain('bg-success/15');
+    expect(classesOf('checkout-status-leg-d')).toContain('bg-destructive/15');
+  });
+
+  test('closing and paid in full ends the totals with a green Paid in full and no amount', () => {
+    render(<LedgerPane closing order={order([cash20, card], { total: 2000, paid: 2000, balance: 0 })} />);
+    const totals = screen.getByTestId('checkout-ledger-totals');
+    expect(totals.textContent).toBe('Total$20.00Paid$20.00Paid in full');
+    expect(screen.getAllByTestId('checkout-ledger-paid-in-full')).toHaveLength(1);
+    expect(totals.lastElementChild).toBe(screen.getByTestId('checkout-ledger-paid-in-full'));
+    expect(classesOf('checkout-ledger-paid-in-full')).toContain('text-success');
+    expect(screen.queryByTestId('checkout-ledger-remaining')).toBeNull();
+  });
+
+  test('closing and part paid ends the totals with Remaining', () => {
+    render(<LedgerPane closing order={order([card], { total: 2000, paid: 350, balance: 1650 })} />);
+    expect(text('checkout-ledger-totals')).toBe('Total$20.00Paid$3.50Remaining$16.50');
+    expect(text('checkout-ledger-remaining')).toBe('$16.50');
+    expect(screen.queryByTestId('checkout-ledger-paid-in-full')).toBeNull();
+  });
+
+  test('not closing and paid in full shows the green line after the legs', () => {
+    render(<LedgerPane order={order([cash20, card], { total: 2000, paid: 2000, balance: 0 })} />);
+    const line = screen.getByTestId('checkout-ledger-paid-in-full');
+    expect(line.textContent).toBe('Paid in full');
+    expect(classesOf('checkout-ledger-paid-in-full')).toContain('text-success');
+    expect(screen.getByTestId('checkout-ledger').lastElementChild).toBe(line);
+    expect(screen.queryByTestId('checkout-ledger-totals')).toBeNull();
+  });
+
+  test('a zero balance with only a failed leg is not paid in full', () => {
+    render(<LedgerPane closing order={order([{ id: 'f', method: 'card', amountMinor: 0, status: 'failed' }],
+      { total: 0, paid: 0, balance: 0 })} />);
+    expect(screen.queryByTestId('checkout-ledger-paid-in-full')).toBeNull();
+    render(<LedgerPane order={order([{ id: 'g', method: 'card', amountMinor: 0, status: 'failed' }],
+      { total: 0, paid: 0, balance: 0 })} />);
+    expect(screen.queryByTestId('checkout-ledger-paid-in-full')).toBeNull();
+  });
+});
