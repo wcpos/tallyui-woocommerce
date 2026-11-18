@@ -16,6 +16,7 @@ export default function HealthLayoutRoute() {
   return (
     <SettingsArea items={HEALTH_NAV_ITEMS} currentHref={pathname} wide={wide} title="Store health" testIDPrefix="health"
       onNavigate={href => router.push(href as Href)}
+      onIndex={() => router.dismissTo('/health')}
       onBack={() => { router.canGoBack() ? router.back() : router.replace('/catalogue'); }}>
       <Slot />
     </SettingsArea>

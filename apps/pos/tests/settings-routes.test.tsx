@@ -7,7 +7,7 @@ import SettingsIndex from '../app/settings/index';
 
 const mocks = vi.hoisted(() => ({
   pathname: '/settings',
-  router: { push: vi.fn(), replace: vi.fn(), back: vi.fn(), navigate: vi.fn(), canGoBack: vi.fn(() => false) },
+  router: { push: vi.fn(), replace: vi.fn(), back: vi.fn(), dismissTo: vi.fn(), canGoBack: vi.fn(() => false) },
 }));
 
 vi.mock('expo-router', () => ({
@@ -43,4 +43,16 @@ test('on a phone /settings shows the list and pressing a row pushes its page', (
   expect(within(screen.getByTestId('screen-settings')).getByTestId('slot')).not.toBeNull();
   fireEvent.click(screen.getByTestId('settings-nav-tax'));
   expect(mocks.router.push).toHaveBeenCalledExactlyOnceWith('/settings/tax');
+});
+
+test('on a phone a Settings leaf goes back to /settings', () => {
+  setWidth(390);
+  mocks.pathname = '/settings/theme';
+  render(<SettingsLayoutRoute />);
+  expect(screen.getByTestId('settings-back').textContent).toBe('Settings');
+  expect(screen.getByTestId('settings-page-title').textContent).toBe('Theme');
+  fireEvent.click(screen.getByTestId('settings-back'));
+  expect(mocks.router.dismissTo).toHaveBeenCalledExactlyOnceWith('/settings');
+  expect(mocks.router.back).not.toHaveBeenCalled();
+  expect(mocks.router.replace).not.toHaveBeenCalled();
 });

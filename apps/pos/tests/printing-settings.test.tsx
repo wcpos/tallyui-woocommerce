@@ -51,7 +51,7 @@ test('each receipt template row shows its title, type tag and the auto printer',
 });
 
 test("the section headings read v2's words", () => {
-  render(<SettingsArea wide items={SETTINGS_NAV_ITEMS} currentHref="/settings/printing" onNavigate={vi.fn()} onBack={vi.fn()}>
+  render(<SettingsArea wide items={SETTINGS_NAV_ITEMS} currentHref="/settings/printing" onNavigate={vi.fn()} onBack={vi.fn()} onIndex={vi.fn()}>
     <PrintingSettings templates={templates} {...printing} />
   </SettingsArea>);
   expect(screen.getByTestId('settings-page-title').textContent).toBe('Printing');
