@@ -84,6 +84,65 @@ test('Open POS signs in the first user, or the one picked', async () => {
   expect(onOpenPos).toHaveBeenLastCalledWith(home, bUuid);
 });
 
+const radio = (uuid: string) => screen.getByTestId(`saved-user-select-${uuid}`);
+
+test('ArrowDown and ArrowRight move to the next user, select it, and wrap at the end', () => {
+  cleanup();
+  render(<><SavedSites sites={[{ site, cashiers: [a, b, c] }]} onOpenPos={onOpenPos}
+    onSignInAt={onSignInAt} onRemoveUser={onRemoveUser} onRemoveSite={onRemoveSite} /><PortalHost /></>);
+  radio(aUuid).focus();
+  fireEvent.keyDown(radio(aUuid), { key: 'ArrowDown' });
+  expect(document.activeElement).toBe(radio(bUuid));
+  expect(radio(bUuid).getAttribute('aria-checked')).toBe('true');
+  expect(radio(aUuid).getAttribute('aria-checked')).toBe('false');
+  fireEvent.keyDown(radio(bUuid), { key: 'ArrowRight' });
+  expect(document.activeElement).toBe(radio(cUuid));
+  expect(radio(cUuid).getAttribute('aria-checked')).toBe('true');
+  fireEvent.keyDown(radio(cUuid), { key: 'ArrowDown' });
+  expect(document.activeElement).toBe(radio(aUuid));
+  expect(radio(aUuid).getAttribute('aria-checked')).toBe('true');
+});
+
+test('ArrowUp and ArrowLeft move to the previous user and wrap at the start', () => {
+  cleanup();
+  render(<><SavedSites sites={[{ site, cashiers: [a, b, c] }]} onOpenPos={onOpenPos}
+    onSignInAt={onSignInAt} onRemoveUser={onRemoveUser} onRemoveSite={onRemoveSite} /><PortalHost /></>);
+  radio(aUuid).focus();
+  fireEvent.keyDown(radio(aUuid), { key: 'ArrowUp' });
+  expect(document.activeElement).toBe(radio(cUuid));
+  expect(radio(cUuid).getAttribute('aria-checked')).toBe('true');
+  fireEvent.keyDown(radio(cUuid), { key: 'ArrowLeft' });
+  expect(document.activeElement).toBe(radio(bUuid));
+  expect(radio(bUuid).getAttribute('aria-checked')).toBe('true');
+});
+
+test("only the selected user's radio is a Tab stop", () => {
+  expect(radio(aUuid).getAttribute('tabindex')).toBe('0');
+  expect(radio(bUuid).getAttribute('tabindex')).toBe('-1');
+  fireEvent.click(radio(bUuid));
+  expect(radio(bUuid).getAttribute('tabindex')).toBe('0');
+  expect(radio(aUuid).getAttribute('tabindex')).toBe('-1');
+});
+
+test('an arrow never signs a user in', async () => {
+  radio(aUuid).focus();
+  await act(async () => {
+    fireEvent.keyDown(radio(aUuid), { key: 'ArrowDown' });
+    fireEvent.keyDown(radio(bUuid), { key: 'ArrowRight' });
+    fireEvent.keyDown(radio(aUuid), { key: 'ArrowUp' });
+    fireEvent.keyDown(radio(bUuid), { key: 'ArrowLeft' });
+  });
+  expect(onOpenPos).not.toHaveBeenCalled();
+});
+
+test("keys other than the arrows, and arrows on a row's buttons, leave the selection alone", () => {
+  fireEvent.keyDown(radio(aUuid), { key: 'Home' });
+  expect(radio(aUuid).getAttribute('aria-checked')).toBe('true');
+  fireEvent.keyDown(screen.getByTestId(`saved-user-remove-${aUuid}`), { key: 'ArrowDown' });
+  expect(radio(aUuid).getAttribute('aria-checked')).toBe('true');
+  expect(radio(bUuid).getAttribute('aria-checked')).toBe('false');
+});
+
 test('a refused user reads Sign in again and offers Re-authenticate', async () => {
   onOpenPos.mockRejectedValue(new SessionExpiredError());
   await act(async () => { fireEvent.click(screen.getByTestId('open-pos-button')); });

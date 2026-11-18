@@ -1,5 +1,5 @@
-import { useState, type JSX } from 'react';
-import { Pressable, View } from 'react-native';
+import { useState, type JSX, type KeyboardEvent } from 'react';
+import { Platform, Pressable, View, type ViewProps } from 'react-native';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent, ChevronDownIcon,
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Avatar, Badge, Button, Card, DropdownMenu,
@@ -10,6 +10,24 @@ import { getNextExpansion } from '../lib/auth/sites-expansion';
 import type { StoreSite } from '../lib/auth/site';
 import { getInitials } from '../lib/cashier/initials';
 import { MoreIcon, PlusIcon } from './icons';
+
+// v2 wp-users.tsx:24-50: arrows focus and select the next saved user.
+const ARROW_STEP: Record<string, 1 | -1> = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
+const onUsersKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+  const step = ARROW_STEP[event.nativeEvent.key];
+  const target = event.target as unknown as HTMLElement;
+  if (!step || target.getAttribute('role') !== 'radio') return;
+  const group = event.currentTarget;
+  const radios = Array.from(group.querySelectorAll<HTMLElement>('[role="radio"]'));
+  const index = radios.indexOf(target);
+  if (index === -1) return;
+  event.preventDefault();
+  const next = radios[(index + step + radios.length) % radios.length];
+  next.focus();
+  next.click();
+};
+const usersKeys: ViewProps & { onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void } = Platform.OS === 'web'
+  ? { onKeyDown: onUsersKeyDown } : {};
 
 export interface SavedSitesProps {
   sites: SavedSite[];
@@ -89,13 +107,16 @@ function SiteBody({ site, cashiers, picked, onPick, onOpenPos, onSignInAt, onRem
   return <>
     <Text className="text-sm font-semibold">WordPress users</Text>
     <Text testID="saved-users-note" className="text-sm text-muted-foreground">Signed-out users stay saved on this device until you remove them.</Text>
-    <View role="radiogroup" aria-label="WordPress users" className="gap-2">
+    <View role="radiogroup" aria-label="WordPress users" className="gap-2"
+      {...usersKeys as ViewProps}>
       {cashiers.map(cashier => {
         const { uuid: u, displayName } = cashier.tokens.user;
         const name = displayName || 'Unknown user', selected = u === selectedUuid, expired = refused.has(u);
         return <View key={u} testID={`saved-user-${u}`} className={'flex-row items-center gap-2 rounded-lg border bg-card pr-2 ' +
           (selected ? 'border-primary bg-muted' : expired ? 'border-warning/40 bg-warning/10' : 'border-border')}>
           <Pressable testID={`saved-user-select-${u}`} role="radio" aria-checked={selected} onPress={() => onPick(u)}
+            // v2 wp-user.tsx:195: only the selected radio is a Tab stop.
+            tabIndex={selected ? 0 : -1}
             className="min-w-0 flex-1 flex-row items-center gap-3 py-2 pl-3">
             <Avatar size="md" tone="muted" fallback={getInitials(name)} />
             <View className="min-w-0 flex-1 gap-1">
