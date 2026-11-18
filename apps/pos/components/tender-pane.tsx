@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Text } from '@tallyui/components';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Loader, Text } from '@tallyui/components';
 import { formatMoney, minorUnitDigits } from '@tallyui/core';
 import { activePlan, appliedMinor, changeMinor, initTenderState, planLegs, quickTenderedAmounts, tenderReducer } from '@tallyui/pos';
 import type { TenderKey, useSale } from '@tallyui/pos';
@@ -223,6 +223,8 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
       value={reference} onChangeText={setReference} className="rounded-md border border-border px-3 py-2 text-foreground" /> : null}
     <Button size="lg" testID="checkout-commit" disabled={finish ? false : sale.saving || applied <= 0 || (!multi && applied < balance) || noChange}
       onPress={finish ? () => { void sale.complete(); } : press}>
+      {/* WCPOS v2: tender-pane.tsx:1055-1072 (loading while saving), button/index.tsx:258-266 (a Loader before the label). */}
+      {!finish && sale.saving ? <Loader size="sm" testID="checkout-commit-spinner" /> : null}
       <Text>{finish ? sale.error ? 'Retry' : 'Complete sale' : sale.saving ? 'Saving order…' : `Take ${fmt(applied)} in ${method.title}${suffix}`}</Text>
     </Button>
     {sale.error ? <Text accessibilityRole="alert" className="text-destructive">{sale.error}</Text> : null}
