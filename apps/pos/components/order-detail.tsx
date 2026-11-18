@@ -3,6 +3,7 @@ import { ScrollView, View } from 'react-native';
 import { Avatar, Button, Dialog, DialogContent, IconButton, Text, XIcon } from '@tallyui/components';
 import { formatMoney, type StoreOrder } from '@tallyui/core';
 import { customerInitials } from '../lib/customers/customer-table';
+import { orderCustomerName } from '../lib/orders/customer-name';
 import { wooStatusLabel } from '../lib/orders/order-history';
 import { dateTimeLabel } from '../lib/orders/order-days';
 
@@ -240,7 +241,7 @@ export function OrderDetailView({ order, onReceipt, onClose }: {
             <Avatar testID="order-modal-customer-avatar" size="md" tone={order.customer?.id || order.customer?.name ? 'primary' : 'muted'}
               fallback={order.customer?.id || order.customer?.name ? customerInitials({ name: order.customer.name || order.customer.email || '', email: order.customer.email }) : ''} />
             <View className="min-w-0 flex-1">
-              <Text className="font-medium text-foreground" numberOfLines={1}>{order.customer?.name || 'Guest'}</Text>
+              <Text className="font-medium text-foreground" numberOfLines={1}>{orderCustomerName(order.customer)}</Text>
               {order.customer?.email ? <Text className="text-xs text-muted-foreground" numberOfLines={1}>{order.customer.email}</Text> : null}
             </View>
           </View>

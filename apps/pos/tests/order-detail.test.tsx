@@ -203,6 +203,20 @@ test('the customer is named with the email, and Guest when there is none', () =>
   expect(part('order-modal-customer').getByText('ada@example.com')).not.toBeNull();
 });
 
+test('the name line falls back as v2: email for a nameless registered customer, then "ID: {id}", and Guest for a guest', () => {
+  // v2 orders/view/sections/customer.tsx:65-69 names the customer with hooks/use-customer-name-format.
+  show(make({ customer: { id: '8', email: 'jane.doe@shop.example' } }));
+  expect(part('order-modal-customer').getAllByText('jane.doe@shop.example')).toHaveLength(2); // the name line and the email line
+  expect(part('order-modal-customer').queryByText('Guest')).toBeNull();
+  cleanup();
+  show(make({ customer: { id: '9' } }));
+  expect(part('order-modal-customer').getByText('ID: 9')).not.toBeNull();
+  expect(part('order-modal-customer').queryByText('Guest')).toBeNull();
+  cleanup();
+  show(make({ customer: null }));
+  expect(part('order-modal-customer').getByText('Guest')).not.toBeNull();
+});
+
 test('a customer order shows the customer\'s initials avatar beside the name, as v2 (sections/customer.tsx:79)', () => {
   show(make({ customer: { id: '7', name: 'Ada Lovelace', email: 'shopper@example.com' } }));
   const avatar = screen.getByTestId('order-modal-customer-avatar');
@@ -223,7 +237,8 @@ test.each([null, { email: 'walkin@example.com' }])('a guest order shows v2\'s Gu
   const avatar = screen.getByTestId('order-modal-customer-avatar');
   expect(avatar).not.toBeNull();
   expect(avatar.textContent).toBe('');
-  expect(part('order-modal-customer').getByText('Guest')).not.toBeNull();
+  // v2 helpers.ts:56-57: a guest order with an email is named by it; with nothing, Guest.
+  expect(part('order-modal-customer').getAllByText(customer?.email ?? 'Guest').length).toBeGreaterThan(0);
   // v2 user-avatar/customer-avatar.tsx: a nameless guest gets the muted disc.
   expect(avatarDiscClasses()).toContain('bg-muted');
   expect(avatarDiscClasses()).not.toContain('bg-primary');
