@@ -20,7 +20,10 @@ import { UnreadBadge } from './unread-badge';
 const FRONT_DRAWER = 'left-0 right-auto top-0 h-full w-[200px] max-w-[200px] translate-x-0 translate-y-0 gap-1 rounded-none border-0 border-r border-rail-border bg-rail p-2';
 // v2's NavItem at size `drawer` (packages/components/src/nav-item/index.tsx:31-34, 54-71): 48 tall, `rounded-lg px-3 gap-3`,
 // the label in the rail's ink; the selected item on `bg-rail-selected` in `text-rail-selected-foreground`.
+// Hover and press wash the others in `rail-accent` (pressable-surface/index.tsx:29); the selected one keeps `rail-selected`.
 const ITEM = 'h-12 justify-start gap-3 rounded-lg px-3';
+const SELECTED = 'bg-rail-selected text-rail-selected-foreground web:hover:bg-rail-selected active:bg-rail-selected';
+const UNSELECTED = 'text-rail-foreground web:hover:bg-rail-accent active:bg-rail-accent';
 
 export interface DrawerAreaHandlers {
   onOpenProducts?(): void;
@@ -44,7 +47,7 @@ export function DrawerContent(props: DrawerAreaHandlers & { onClose(): void; unr
     const open = key === 'pos' ? onClose : handlers[key];
     return open && (
       <Button key={key} variant="ghost" testID={`drawer-item-${key}`}
-        className={`${ITEM} ${key === 'pos' ? 'bg-rail-selected text-rail-selected-foreground' : 'text-rail-foreground'}`}
+        className={`${ITEM} ${key === 'pos' ? SELECTED : UNSELECTED}`}
         accessibilityState={key === 'pos' ? { selected: true } : undefined} onPress={() => { if (key !== 'pos') onClose(); open(); }}>
         <Glyph size={24} data-testid={`drawer-glyph-${key}`} />
         <Text testID={`drawer-label-${key}`} className={key === 'pos' ? 'text-rail-selected-foreground' : 'text-rail-foreground'}>{RAIL_LABEL[key]}</Text>

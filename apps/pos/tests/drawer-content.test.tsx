@@ -115,6 +115,15 @@ test('the drawer draws in the rail tokens, the selected item on rail-selected', 
   expect(classesOf('drawer-label-pos')).toContain('text-rail-selected-foreground');
 });
 
+// v2 pressable-surface/index.tsx:29 (WASH.rail) and nav-item/index.tsx:69.
+test('a drawer item washes in rail-accent on hover and press; the selected one keeps rail-selected', () => {
+  render(<><DrawerSheet open onOpenChange={vi.fn()} onOpenOrders={vi.fn()} /><PortalHost /></>);
+  expect(classesOf('drawer-item-orders')).toEqual(expect.arrayContaining(['web:hover:bg-rail-accent', 'active:bg-rail-accent']));
+  expect(classesOf('drawer-item-orders')).not.toContain('active:bg-accent');
+  expect(classesOf('drawer-item-pos')).toEqual(expect.arrayContaining(['web:hover:bg-rail-selected', 'active:bg-rail-selected']));
+  expect(classesOf('drawer-item-pos')).not.toContain('web:hover:bg-rail-accent');
+});
+
 test('Store health carries the unread-error badge after its label, 99+ past 99, none at 0', () => {
   const drawer = (count: number) => <><UnreadLogsCount.Provider value={count}>
     <DrawerSheet open onOpenChange={vi.fn()} onOpenOrders={vi.fn()} onOpenCustomers={vi.fn()} onOpenReports={vi.fn()}

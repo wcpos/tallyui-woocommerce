@@ -40,7 +40,8 @@
    and sale v2's destructive (l.381, l.526). --color-input is left to @tallyui/theme (TallyUI #760).
    The rail tokens are the app's own (TallyUI has none), v2's --rail* (l.427-435 light, l.570-575 dark, mapped at
    l.104-109): v2's var(--card) is var(--color-card), and v2's --selected / --selected-foreground, which the app
-   lacks, are written out (l.400-401 light, l.543-544 dark). */
+   lacks, are written out (l.400-401 light, l.543-544 dark). rail-accent is v2's --rail-accent (mapped at l.107;
+   l.433 light, l.573 dark), the rail items' hover and press wash. */
 @theme {
   --color-background: oklch(0.97 0.005 262);
   --color-foreground: oklch(0.16 0.005 262);
@@ -74,6 +75,7 @@
   --color-rail-border: oklch(0.88 0.014 262);
   --color-rail-selected: var(--color-card);
   --color-rail-selected-foreground: oklch(0.42 0.17 262);
+  --color-rail-accent: oklch(0.895 0.075 262);
   /* v2's --selected pair (l.400-401 light, l.543-544 dark; themes.css has the other seven): an on chip's fill and
      its one ink (packages/components/src/chip/index.tsx:106, :163) */
   --color-selected: oklch(0.935 0.045 262);
@@ -148,6 +150,7 @@
       --color-rail-border: oklch(0.88 0.014 262);
       --color-rail-selected: var(--color-card);
       --color-rail-selected-foreground: oklch(0.42 0.17 262);
+      --color-rail-accent: oklch(0.895 0.075 262);
       --color-selected: oklch(0.935 0.045 262);
       --color-selected-foreground: oklch(0.42 0.17 262);
       /* v2 l.447-451: the five chart colours */
@@ -200,6 +203,7 @@
       --color-rail-border: oklch(0.25 0.02 250);
       --color-rail-selected: oklch(0.30 0.06 240);
       --color-rail-selected-foreground: oklch(0.82 0.13 240);
+      --color-rail-accent: var(--color-card);
       --color-selected: oklch(0.30 0.06 240);
       --color-selected-foreground: oklch(0.82 0.13 240);
       /* v2 l.587-591: the five chart colours */
