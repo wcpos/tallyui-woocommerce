@@ -22,3 +22,7 @@ export const PlusIcon = createSvgIcon('PlusIcon', () => <Path d="M12 5v14m-7-7h1
 // v2's `more` glyph in its default set, tabler's dots-vertical (components/src/icon/svg/tabler/more.svg, sets.ts:14).
 export const MoreIcon = createSvgIcon('MoreIcon', () => <><Path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0-2 0" />
   <Path d="M11 19a1 1 0 1 0 2 0a1 1 0 1 0-2 0" /><Path d="M11 5a1 1 0 1 0 2 0a1 1 0 1 0-2 0" /></>);
+// v2's tabler `discount` glyph, drawn at stroke 1.5 (monorepo packages/components/src/icon/svg/tabler/discount.svg).
+export const DiscountIcon = createSvgIcon('DiscountIcon', () => <><Path d="m9 15l6-6" />
+  <Path d="M9 9.5a.5.5 0 1 0 1 0a.5.5 0 1 0-1 0m5 5a.5.5 0 1 0 1 0a.5.5 0 1 0-1 0" fill="currentColor" />
+  <Path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0" /></>);

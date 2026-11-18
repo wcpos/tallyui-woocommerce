@@ -40,6 +40,28 @@ test('removing a coupon toasts Coupon removed', () => {
   expect(within(screen.getByTestId('info-toast')).getByText('Coupon removed')).not.toBeNull();
 });
 
+test("an applied coupon is v2's chip: the discount icon, the code and a remove control", () => {
+  render(<CouponRows sale={sale} />);
+  const chip = within(screen.getByTestId('coupon-chip-save10'));
+  expect(chip.getByText('save10')).not.toBeNull();
+  expect(chip.getByTestId('coupon-chip-icon-save10')).not.toBeNull();
+  const remove = chip.getByTestId('remove-coupon-save10');
+  expect(remove).toBe(screen.getByRole('button', { name: 'Remove coupon save10' }));
+});
+
+test('pressing remove-coupon-{code} removes the coupon and toasts Coupon removed', () => {
+  removeCoupon.mockReturnValue(null);
+  render(<><CouponRows sale={sale} /><Toaster /></>);
+  fireEvent.click(screen.getByTestId('remove-coupon-save10'));
+  expect(removeCoupon).toHaveBeenCalledWith('save10');
+  expect(within(screen.getByTestId('info-toast')).getByText('Coupon removed')).not.toBeNull();
+});
+
+test("the coupon row's amount is the negative discount", () => {
+  render(<CouponRows sale={sale} />);
+  expect(within(screen.getByTestId('coupon-chip-save10')).getByText('-$0.30')).not.toBeNull();
+});
+
 test('a refused coupon removal toasts the refusal as a warning, not an inline alert', () => {
   removeCoupon.mockReturnValue('Void the payments first');
   render(<><CouponRows sale={sale} /><Toaster /></>);

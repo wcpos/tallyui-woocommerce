@@ -3,9 +3,11 @@ import type { JSX } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { formatMoney, moneyFromDecimalString } from '@tallyui/core';
-import { Button, DialogFooter, Input, Text } from '@tallyui/components';
+import { Button, DialogFooter, Input, Text, XIcon } from '@tallyui/components';
 import type { useSale } from '@tallyui/pos';
 import { toast } from '../lib/toast/toast';
+import { chipToneClassName } from './catalogue-filter-chips';
+import { DiscountIcon } from './icons';
 
 const typeLabels: Record<string, string> = {
   percent: 'Percentage discount', fixed_cart: 'Fixed cart discount', fixed_product: 'Fixed product discount',
@@ -20,7 +22,8 @@ function couponAmount(coupon: CouponDoc, currency: string): string {
   return (money && formatMoney(money)) ?? amount;
 }
 
-// WCPOS v2's applied coupons: one row per coupon under the cart's Subtotal, a removable chip and its amount.
+// WCPOS v2's applied coupons (cart/totals.tsx:120-150): one row per coupon under the cart's Subtotal, a sm Chip
+// (discount icon, code, a close clear at its right edge; chip/index.tsx:152-166) and the negative discount.
 export function CouponRows({ sale }: { sale: ReturnType<typeof useSale> }): JSX.Element | null {
   const applied = sale.order.display.coupons ?? [];
   if (!applied.length) return null;
@@ -29,13 +32,14 @@ export function CouponRows({ sale }: { sale: ReturnType<typeof useSale> }): JSX.
     <>
       {applied.map(coupon => (
         <View key={coupon.code} testID={`coupon-chip-${coupon.code}`} className="flex-row items-center justify-between">
-          <View className="flex-row items-center gap-2 rounded-md border border-border bg-card px-2 py-1">
+          <View className={`h-8 flex-row items-center gap-1.5 self-start rounded-full border pl-2.5 ${chipToneClassName(false)}`}>
+            <DiscountIcon testID={`coupon-chip-icon-${coupon.code}`} size={16} strokeWidth={1.5} className="text-muted-foreground" />
             <Text className="text-sm text-foreground">{coupon.code}</Text>
-            <Button variant="ghost" size="sm" accessibilityLabel={`Remove coupon ${coupon.code}`}
-              onPress={() => {
+            <Pressable testID={`remove-coupon-${coupon.code}`} role="button" accessibilityLabel={`Remove coupon ${coupon.code}`}
+              className="min-w-8 items-center justify-center self-stretch" onPress={() => {
                 const refusal = sale.removeCoupon(coupon.code);
                 toast(refusal === null ? { type: 'info', title: 'Coupon removed' } : { type: 'warning', title: refusal });
-              }}><Text>×</Text></Button>
+              }}><XIcon size={14} className="text-muted-foreground" /></Pressable>
           </View>
           <Text className="text-sm">{minus(coupon.amountMinor)}</Text>
         </View>
