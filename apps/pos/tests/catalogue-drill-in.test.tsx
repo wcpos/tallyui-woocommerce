@@ -73,6 +73,23 @@ test('tapping a variation tile adds that entry, and the drill-in stays', () => {
   expect(screen.getByTestId('drill-back')).not.toBeNull();
 });
 
+// v2's variation-tile.tsx:177: each variation tile's corner is InCartCount, that variation's own lines.
+test('a variation tile\'s corner shows its own cart count; a sibling with none shows no badge', () => {
+  renderView(undefined, { inCartCounts: new Map([['102', 5], ['104', 2]]) });
+  drillIn();
+  const badge = within(screen.getByTestId('variation-tile-104')).getByTestId('in-cart-variation-104');
+  expect(badge.textContent).toBe('2');
+  expect(badge.getAttribute('aria-label')).toBe('In cart: 2');
+  expect(screen.queryByTestId('in-cart-variation-105')).toBeNull();
+  expect(screen.queryByTestId('in-cart-variation-106')).toBeNull();
+});
+
+test('with nothing in the cart no variation tile has a badge', () => {
+  renderView(undefined, { inCartCounts: new Map() });
+  drillIn();
+  expect(screen.queryAllByTestId(/^in-cart-variation-/)).toEqual([]);
+});
+
 test('the back badge returns to the product tiles', () => {
   renderView();
   drillIn();
@@ -205,6 +222,18 @@ test('on the till a variation tile adds its variant to the cart, with no picker'
   fireEvent.click(screen.getByTestId('variation-tile-106'));
   expect(cartTabCount()).toBe('1');
   expect(screen.getByTestId('drill-back')).not.toBeNull();
+});
+
+test('on the till two taps on one variation put 2 in its corner and none on its siblings', () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 600, height: 800, scale: 1, fontScale: 1 });
+  render(<><SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency={stores[0].currency}
+    products={[shirt]} storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}} /><PortalHost /></>);
+  drillIn();
+  fireEvent.click(screen.getByTestId('variation-tile-104'));
+  fireEvent.click(screen.getByTestId('variation-tile-104'));
+  expect(screen.getByTestId('in-cart-variation-104').textContent).toBe('2');
+  expect(screen.queryByTestId('in-cart-variation-105')).toBeNull();
+  expect(screen.queryByTestId('in-cart-variation-106')).toBeNull();
 });
 
 // v2's filter-bar.tsx: `level === 'variations'` dims every chip but Stock status (Chip `dimmed`: opacity-45, disabled).

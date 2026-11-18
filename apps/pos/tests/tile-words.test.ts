@@ -11,6 +11,25 @@ test('inCartCounts sums quantities per product, variations under their parent, a
   expect(inCartCounts([]).size).toBe(0);
 });
 
+test('inCartCounts also counts a variation\'s lines under its variantId, and its parent\'s sum stays', () => {
+  const counts = inCartCounts([
+    { productId: '102', variantId: '104', quantity: 1 }, { productId: '102', variantId: '104', quantity: 2 },
+    { productId: '102', variantId: '105', quantity: 1 },
+  ]);
+  expect(counts.get('104')).toBe(3);
+  expect(counts.get('105')).toBe(1);
+  expect(counts.get('102')).toBe(4);
+});
+
+test('inCartCounts counts a simple product\'s line once, even when its variantId is its own id', () => {
+  expect(inCartCounts([{ productId: '80', quantity: 2 }, { productId: '81', variantId: '81', quantity: 3 }]))
+    .toEqual(new Map([['80', 2], ['81', 3]]));
+});
+
+test('inCartCounts still skips custom lines that carry a variantId', () => {
+  expect(inCartCounts([{ productId: 'custom:x', variantId: 'v9', quantity: 4, custom: true }]).size).toBe(0);
+});
+
 test('tileStockMark counts managed stock that is left', () => {
   expect(tileStockMark({ status: 'in_stock', quantity: 100 }, false)).toEqual({ kind: 'count', value: 100, label: '100 left' });
 });
