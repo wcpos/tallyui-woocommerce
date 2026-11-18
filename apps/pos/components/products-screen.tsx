@@ -34,6 +34,7 @@ import { AreaToolbar, useAreaGutter } from './area-header';
 import { BrowseCrumb } from './browse-terms-view';
 import { CatalogueFilterChips } from './catalogue-filter-chips';
 import { EmptyState } from './empty-state';
+import { LevelBack } from './level-back';
 import { ProductAttributes, variationMatches, variationName } from './product-attributes';
 import type { ProductAttribute, VariationDoc, VariationMatch } from './product-attributes';
 import { gmtDayText } from './coupons-screen';
@@ -296,9 +297,10 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   );
   // v2's DrillIn: the crumb, then the pane on its own card, the variations under the table's labels.
   const pane = drilled ? (
-    <>
+    // v2's drill-in.tsx:58-70: the focused crumb and variations share Escape-to-back.
+    <LevelBack testID="products-variations-pane" onBack={() => setDrill(null)}>
       <View testID="products-crumb-row" className={`flex-row flex-wrap items-center gap-2 pb-2 ${gutter}`}>
-        <BrowseCrumb place={null} onRoot={() => setDrill(null)} product={{ name: drilled.name, onBack: () => setDrill(null) }} />
+        <BrowseCrumb key={drilled.id} autoFocus place={null} onRoot={() => setDrill(null)} product={{ name: drilled.name, onBack: () => setDrill(null) }} />
         {drill?.match ? (
           <Button testID="products-variation-match" accessibilityLabel={`Clear ${drill.match.name}: ${drill.match.option}`}
             variant="outline" size="sm" onPress={() => setDrill({ ...drill, match: undefined })}>
@@ -325,7 +327,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
           <ProductTable testID="products-variations-body" items={variations} columns={paneColumns} sortItems={false} showUnsellable />
         )}
       </TableSurface>
-    </>
+    </LevelBack>
   ) : null;
 
   const body = total === 0 ? (

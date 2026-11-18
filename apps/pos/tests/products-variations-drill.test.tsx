@@ -161,3 +161,38 @@ test('at phone width the list gets the same links and drill', () => {
   fireEvent.click(screen.getByTestId(`product-attribute-${shirt.id}-Size-M`));
   expect(rowIds('products-row-')).toEqual([106]);
 });
+
+test('drilling in focuses the crumb\'s Products back control, once and without scrolling', () => {
+  const focus = vi.spyOn(HTMLElement.prototype, 'focus');
+  renderScreen();
+  fireEvent.click(screen.getByTestId(`product-variations-${shirt.id}`));
+  expect(document.activeElement!.getAttribute('data-testid')).toBe('products-breadcrumb-back');
+  expect(document.activeElement!.getAttribute('aria-label')).toBe('Products');
+  expect(focus).toHaveBeenCalledTimes(1);
+  expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+});
+
+test('Escape on the focused crumb closes the drill and the product rows show again', () => {
+  renderScreen();
+  fireEvent.click(screen.getByTestId(`product-variations-${shirt.id}`));
+  fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+  expect(crumb()).toBeNull();
+  expect(screen.queryByTestId('products-variations-surface')).toBeNull();
+  expect(rowIds()).toEqual([coldBrew.id, espresso.id, shirt.id]);
+});
+
+test('Escape on a variation row closes the drill', () => {
+  renderScreen();
+  fireEvent.click(screen.getByTestId(`product-variations-${shirt.id}`));
+  fireEvent.keyDown(screen.getByTestId('product-row-104'), { key: 'Escape' });
+  expect(crumb()).toBeNull();
+  expect(rowIds()).toEqual([coldBrew.id, espresso.id, shirt.id]);
+});
+
+test('Escape in the search input while drilled changes nothing', () => {
+  renderScreen();
+  fireEvent.click(screen.getByTestId(`product-variations-${shirt.id}`));
+  fireEvent.keyDown(screen.getByTestId('search-products'), { key: 'Escape' });
+  expect(crumb()).not.toBeNull();
+  expect(rowIds()).toEqual([104, 105, 106]);
+});
