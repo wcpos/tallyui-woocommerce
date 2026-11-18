@@ -1,6 +1,7 @@
 import { formatMoney, type StoreOrder } from '@tallyui/core';
 import { orderReference } from '@tallyui/components';
 import type { PosOrder } from '@tallyui/pos';
+import { orderCustomerName } from './customer-name';
 import { wooStatusLabel } from './order-history';
 
 /** v2's status tones (packages/core/src/screens/main/orders/cells/status.tsx); any other status is 'default'. */
@@ -97,8 +98,8 @@ export interface OrderRowCells {
 
 /** The v2 columns this connector can fill: Status, Order Number, Customer, Date Created, Payment Method, Total. */
 export function orderRowCells(row: OrderTableRow, now: Date): OrderRowCells {
-  // v2's customer name fallback ends in "Guest" (common.guest).
-  const customer = row.order.customer?.name || row.order.customer?.email || 'Guest';
+  // v2 orders/row.tsx:47 names the customer with the same fallback as the order detail.
+  const customer = orderCustomerName(row.order.customer);
   const total = formatMoney({ amount: row.order.totalMinor, currency: row.order.currency }) ?? '';
   if (row.kind === 'store') {
     return { statusLabel: wooStatusLabel(row.order.status), tone: storeTone(row.order.status), number: row.order.reference,

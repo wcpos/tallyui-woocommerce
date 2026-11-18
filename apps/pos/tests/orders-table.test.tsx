@@ -91,6 +91,15 @@ test('a till row names its largest payment and its sync state', () => {
   expect(orderRowCells({ kind: 'local', order: posOrder({}) }, now).payment).toBe('');
 });
 
+test('orderRowCells names the customer as v2: email, then "ID: {id}", then Guest', () => {
+  // v2 hooks/use-customer-name-format: the name, else the email, else Guest for a guest id, else common.id_2.
+  const store = (customer: StoreOrder['customer']) => orderRowCells({ kind: 'store', order: { ...storeOrder, customer } }, now).customer;
+  expect(store({ id: '8', email: 'jane.doe@shop.example' })).toBe('jane.doe@shop.example');
+  expect(store({ id: '9' })).toBe('ID: 9');
+  expect(store(null)).toBe('Guest');
+  expect(orderRowCells({ kind: 'local', order: posOrder({ customer: { id: '12' } }) }, now).customer).toBe('ID: 12');
+});
+
 test("a till row's day comes from its createdAt", () => {
   const cells = orderRowCells({ kind: 'local', order: posOrder({ createdAt: at(2026, 11, 9, 9, 5) }) }, now);
   expect(cells.day).toBe('Yesterday');
