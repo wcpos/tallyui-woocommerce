@@ -309,3 +309,17 @@ test('keys on the chevron button are left to the button', () => {
   fireEvent.keyDown(screen.getByTestId('order-open-local-1'), { key: 'Enter' });
   expect(onOpen).not.toHaveBeenCalled();
 });
+
+// v2 table/index.tsx:67 and pressable-surface WASH.accent: accent is the hover and press wash, not muted.
+test("the phone row and the open button wash in v2's accent on hover, not muted", () => {
+  setWidth(390);
+  const { unmount } = render(<OrdersTable local={[]} store={[storeOrder]} onOpen={vi.fn()} now={() => now} />);
+  expect(classesOf('history-row-901')).toEqual(expect.arrayContaining(['active:bg-accent', 'web:hover:bg-accent']));
+  expect(classesOf('history-row-901')).not.toContain('web:hover:bg-muted');
+  expect(classesOf('history-row-901')).not.toContain('active:bg-muted');
+  unmount();
+  setWidth(1280);
+  render(<OrdersTable local={[]} store={[storeOrder]} onOpen={vi.fn()} now={() => now} />);
+  expect(classesOf('history-open-901')).toContain('web:hover:bg-accent');
+  expect(classesOf('history-open-901')).not.toContain('web:hover:bg-muted');
+});

@@ -74,7 +74,7 @@ function OrderPhoneRow({ item, cells, prefix, onOpen }: {
 }) {
   const rowId = `${prefix}-${item.order.id}`;
   return <Pressable accessibilityRole="button" testID={`${prefix}-row-${item.order.id}`} onPress={() => onOpen(item)}
-    className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2 active:bg-muted web:hover:bg-muted">
+    className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2 active:bg-accent web:hover:bg-accent">
     <View className="min-w-0 flex-1 gap-1">
       <View className="flex-row items-center gap-1">
         <Text testID={`${rowId}-number`}>#{cells.number}</Text>
@@ -184,7 +184,7 @@ export function OrdersTable({ local, store, onOpen, footer, active = false, onSy
                     {columns.map(({ id }) => orderCell(id, cells, `${prefix}-${item.order.id}`))}
                     <TableCell className="w-14 flex-none items-center justify-center px-0 py-0">
                       <Pressable accessibilityRole="button" accessibilityLabel="Open order" testID={`${prefix}-open-${item.order.id}`}
-                        onPress={() => onOpen(item)} className="size-9 items-center justify-center rounded-md web:hover:bg-muted">
+                        onPress={() => onOpen(item)} className="size-9 items-center justify-center rounded-md web:hover:bg-accent">
                         <ChevronRightIcon size={16} />
                       </Pressable>
                     </TableCell>
