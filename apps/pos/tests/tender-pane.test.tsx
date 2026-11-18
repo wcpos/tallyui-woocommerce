@@ -362,6 +362,92 @@ test('multi: paid in full by card legs alone shows no Change while it saves', as
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
 }, 20_000);
 
+// WCPOS v2: record-manual-payment.ts:198,274 (the last leg joins the ledger only once the store answers), checkout-body.ts:28
+// and tender-pane.tsx:383-396, 906-918: while the paying leg saves, the label and chip read what was due before it.
+test("multi: while a three-leg split's last leg saves, the label and Exact chip read what was due before it", async () => {
+  await startTender('Cash', 'online-website-available', true);
+  takeLeg(100);
+  await waitFor(() => expect(text('checkout-label')).toBe('Payment 2 · $2.00 left'));
+  takeLeg(100);
+  await waitFor(() => expect(text('checkout-label')).toBe('Payment 3 · $1.00 left'));
+  expect(text('checkout-quick-exact')).toBe('Exact $1.00');
+  const release = holdSave();
+  takeLeg(100);
+  await waitFor(() => expect(text('checkout-commit')).toBe('Saving order…'));
+  expect(text('checkout-label')).toBe('Payment 3 · $1.00 left');
+  expect(text('checkout-quick-exact')).toBe('Exact $1.00');
+  release();
+  expect(await screen.findByTestId('receipt-order')).not.toBeNull();
+  expect(screen.queryByTestId('checkout-label')).toBeNull();
+}, 20_000);
+
+test('multi: a last cash leg with change reads the balance it paid, not what was tendered', async () => {
+  await startTender('Cash', 'online-website-available', true);
+  takeLeg(100, 'pos_card');
+  await waitFor(() => expect(text('checkout-label')).toBe('Payment 2 · $2.00 left'));
+  const release = holdSave();
+  takeLeg(500);
+  await waitFor(() => expect(text('checkout-commit')).toBe('Saving order…'));
+  expect(text('checkout-label')).toBe('Payment 2 · $2.00 left');
+  expect(text('checkout-quick-exact')).toBe('Exact $2.00');
+  release();
+  expect(await screen.findByTestId('receipt-order')).not.toBeNull();
+}, 20_000);
+
+test('multi: a last card leg reads Full balance of what it paid while it saves', async () => {
+  await startTender('Cash', 'online-website-available', true);
+  takeLeg(100);
+  await waitFor(() => expect(text('checkout-label')).toBe('Payment 2 · $2.00 left'));
+  const release = holdSave();
+  takeLeg(200, 'pos_card');
+  await waitFor(() => expect(text('checkout-commit')).toBe('Saving order…'));
+  expect(text('checkout-label')).toBe('Payment 2 · $2.00 left');
+  expect(text('checkout-quick-balance')).toBe('Full balance');
+  release();
+  expect(await screen.findByTestId('receipt-order')).not.toBeNull();
+}, 20_000);
+
+test('multi: one leg paying it all reads To pay while it saves', async () => {
+  await startTender('Cash', 'online-website-available', true);
+  const release = holdSave();
+  takeLeg(300);
+  await waitFor(() => expect(text('checkout-commit')).toBe('Saving order…'));
+  expect(text('checkout-label')).toBe('To pay');
+  expect(text('checkout-quick-exact')).toBe('Exact $3.00');
+  release();
+  expect(await screen.findByTestId('receipt-order')).not.toBeNull();
+}, 20_000);
+
+test('multi: the last leg of an even 3-way plan reads its plan label while it saves', async () => {
+  await startTender('Cash', 'online-website-available', true);
+  fireEvent.click(screen.getByTestId('checkout-split-chip'));
+  fireEvent.click(screen.getByTestId('checkout-even-3'));
+  fireEvent.click(screen.getByTestId('checkout-commit'));
+  await waitFor(() => expect(text('checkout-label')).toBe('Payment 2 of 3 · $2.00 left'));
+  fireEvent.click(screen.getByTestId('checkout-commit'));
+  await waitFor(() => expect(text('checkout-label')).toBe('Payment 3 of 3 · $1.00 left'));
+  const release = holdSave();
+  fireEvent.click(screen.getByTestId('checkout-commit'));
+  await waitFor(() => expect(text('checkout-commit')).toBe('Saving order…'));
+  expect(text('checkout-label')).toBe('Payment 3 of 3 · $1.00 left');
+  expect(text('checkout-quick-exact')).toBe('Exact $1.00');
+  release();
+  expect(await screen.findByTestId('receipt-order')).not.toBeNull();
+}, 20_000);
+
+test('multi: a failed last-leg save keeps the pane on what was due before it', async () => {
+  await startTender('Cash', 'online-website-available', true);
+  takeLeg(100);
+  await waitFor(() => expect(text('checkout-label')).toBe('Payment 2 · $2.00 left'));
+  vi.spyOn(orders!, 'insert').mockRejectedValueOnce(new Error('disk full'));
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'], shouldAdvanceTime: true });
+  takeLeg(200);
+  await screen.findByText('The sale could not be saved: disk full');
+  expect(text('checkout-commit')).toBe('Retry');
+  expect(text('checkout-label')).toBe('Payment 2 · $2.00 left');
+  expect(text('checkout-quick-exact')).toBe('Exact $2.00');
+}, 20_000);
+
 test('multi: on a free order with no payment yet, a cash entry still reads as change', async () => {
   await startTender('Cash', 'online-website-available', true, '0.00');
   press('clear', '5', '0', '0');
