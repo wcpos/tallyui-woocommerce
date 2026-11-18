@@ -192,6 +192,34 @@ test('applying an expired coupon shows the refusal inline and keeps the dialog o
   expect(total().getByText('$3.00')).not.toBeNull();
 }, 20_000);
 
+test('picking another coupon clears the error, as v2 (add-coupon.tsx:62-68)', async () => {
+  await renderTill();
+  await addEspresso();
+  await applyCoupon('old');
+  await screen.findByText('Coupon old has expired');
+  fireEvent.click(screen.getByRole('button', { name: 'save10' }));
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(screen.queryByText('Coupon old has expired')).toBeNull();
+}, 20_000);
+
+test('typing in the search clears the error, as v2 (add-coupon.tsx:106,166-172)', async () => {
+  await renderTill();
+  await addEspresso();
+  await applyCoupon('old');
+  await screen.findByText('Coupon old has expired');
+  fireEvent.change(screen.getByPlaceholderText('Search coupons...'), { target: { value: 'five' } });
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(screen.queryByText('Coupon old has expired')).toBeNull();
+}, 20_000);
+
+test('the coupon error sits above the search field, as v2 (add-coupon.tsx:88-90)', async () => {
+  await renderTill();
+  await addEspresso();
+  await applyCoupon('old');
+  const alert = await screen.findByText('Coupon old has expired');
+  expect(alert.compareDocumentPosition(screen.getByPlaceholderText('Search coupons...')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+}, 20_000);
+
 test('a coupon of a type the POS cannot apply says so inline, as v2, and is not applied', async () => {
   await renderTill();
   await addEspresso();
