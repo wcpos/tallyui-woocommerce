@@ -79,7 +79,13 @@ test('the test panel shows a passing scan, then a too-short code', () => {
   burst('123', 5);
   expect(screen.getByTestId('barcode-test-result').textContent).toBe('too short');
   expect(screen.getByTestId('barcode-test-detected').textContent).toBe('—');
-  expect(screen.getByTestId('barcode-test-verdict').textContent).toBe('Lower minimum length to 3 — this code is 3 characters');
+  // v2 analyze-trace.ts:54: a too-short code is a detected scan, so it reads as one; the fix is the notice below.
+  expect(screen.getByTestId('barcode-test-verdict').textContent).toBe('Detected as a scan → 123');
+  expect(classesOf('barcode-test-verdict')).toEqual(expect.arrayContaining(['text-base', 'font-medium']));
+  expect(screen.getByTestId('barcode-test-scan-check')).not.toBeNull();
+  expect(screen.getByTestId('barcode-test-scan-detail').textContent).toBe('Average keystroke gap 5ms, under the 24ms threshold');
+  expect(screen.getByTestId('barcode-test-suggestion-lower-min-chars-title').textContent)
+    .toBe('Lower minimum length to 3 — this code is 3 characters');
 });
 
 test('the test panel shows typing, and a saved prefix applies to the next scan', () => {
@@ -118,16 +124,12 @@ test('a scan shows the check, then the average gap under the current threshold',
   expect(screen.getByTestId('barcode-test-scan-detail').textContent).toBe('Average keystroke gap 8ms, under the 40ms threshold');
 });
 
-test('typing and too short show no scan detail', () => {
+test('typing shows no scan detail', () => {
   vi.useFakeTimers();
   render(<BarcodeScanningSettings />);
   expect(screen.queryByTestId('barcode-test-scan-detail')).toBeNull();
   burst('abc', 100);
   expect(screen.getByTestId('barcode-test-result').textContent).toBe('typing');
-  expect(screen.queryByTestId('barcode-test-scan-detail')).toBeNull();
-  expect(screen.queryByTestId('barcode-test-scan-check')).toBeNull();
-  burst('123', 5);
-  expect(screen.getByTestId('barcode-test-result').textContent).toBe('too short');
   expect(screen.queryByTestId('barcode-test-scan-detail')).toBeNull();
   expect(screen.queryByTestId('barcode-test-scan-check')).toBeNull();
 });
