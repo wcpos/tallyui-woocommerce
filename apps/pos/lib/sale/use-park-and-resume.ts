@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ParkedOrderSummary, useSale } from '@tallyui/pos';
 import { parkCart, type ParkedCart } from './parked-carts';
 import type { ParkedCartStore } from './use-parked-carts';
@@ -20,6 +20,8 @@ export interface ParkAndResume {
   unhold(held: ParkedCart): Promise<string | null>;
   /** Deletes a parked cart; a failure is said, not thrown. */
   discard(id: string): Promise<void>;
+  /** The open cart's first parking time, its place in the strip; undefined for a cart never parked. */
+  currentOpenedAt: string | undefined;
 }
 export interface ParkAndResumeContext {
   store: ParkedCartStore;
@@ -35,6 +37,9 @@ export function useParkAndResume(sale: ReturnType<typeof useSale>, context: Park
   const currentOrder = useRef<typeof sale.order | null>(sale.order);
   currentOrder.current = sale.order;
   const heldAtMount = useRef<string | null>(null);
+  // Keyed to the order id: every new, completed or voided sale has a new id, which clears it.
+  const [opened, setOpened] = useState<{ id: string; at: string }>();
+  const currentOpenedAt = context.cartRestore.restoring?.parkedAt ?? (opened?.id === sale.order.id ? opened.at : undefined);
   useEffect(() => {
     try { heldAtMount.current = context.heldCartKey ? localStorage.getItem(context.heldCartKey) : null; } catch {}
   }, []);
@@ -44,7 +49,7 @@ export function useParkAndResume(sale: ReturnType<typeof useSale>, context: Park
   }));
 
   async function park() {
-    const cart = parkCart(sale.order);
+    const cart = parkCart(sale.order, undefined, currentOpenedAt);
     try {
       await context.store.park(cart);
     } catch (error) {
@@ -64,13 +69,15 @@ export function useParkAndResume(sale: ReturnType<typeof useSale>, context: Park
 
   async function resumeCart(selected: ParkedCart): Promise<string | null> {
     const { id } = selected;
-    const current = currentOrder.current?.lineItems.length ? parkCart(currentOrder.current) : undefined;
+    const current = currentOrder.current?.lineItems.length ? parkCart(currentOrder.current, undefined, currentOpenedAt) : undefined;
     try {
       await context.store.swap(id, current);
     } catch (error) {
       return error instanceof Error ? error.message : String(error);
     }
-    return context.cartRestore.restore(selected);
+    const restored = await context.cartRestore.restore(selected);
+    if (currentOrder.current) setOpened({ id: currentOrder.current.id, at: selected.parkedAt });
+    return restored;
   }
 
   // Parks a non-empty cart and records it under heldCartKey so it comes back after a redirect.
@@ -78,7 +85,7 @@ export function useParkAndResume(sale: ReturnType<typeof useSale>, context: Park
   async function hold(): Promise<ParkedCart | undefined | string> {
     // Only an open cart is parked: on the receipt stage the builder still holds the finished sale, which must never come back.
     if (sale.stage.kind !== 'cart' || !sale.order.lineItems.length) return undefined;
-    const held = parkCart(sale.order);
+    const held = parkCart(sale.order, undefined, currentOpenedAt);
     try {
       await context.store.park(held);
     } catch (error) {
@@ -113,5 +120,5 @@ export function useParkAndResume(sale: ReturnType<typeof useSale>, context: Park
     return resumeCart(held);
   }
 
-  return { summaries, park, resume, resumeCart, hold, unhold, discard };
+  return { summaries, park, resume, resumeCart, hold, unhold, discard, currentOpenedAt };
 }

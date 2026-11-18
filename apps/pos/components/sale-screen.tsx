@@ -157,7 +157,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const cartRestore = useCartRestore(sale, props.products, connector.traits.product, currency, setMessage);
   const parkedStore = useParkedCarts(parkedCarts);
   const { parked } = parkedStore;
-  const { summaries, park, resume, resumeCart, hold, unhold, discard } = useParkAndResume(sale, {
+  const { summaries, park, resume, resumeCart, hold, unhold, discard, currentOpenedAt } = useParkAndResume(sale, {
     store: parkedStore, cartRestore, heldCartKey: props.heldCartKey,
     catalogueReady: props.status === 'ready', say: setMessage,
   });
@@ -174,7 +174,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   // picks the method, and the ⋮'s one item opens the Order details sheet, which holds Void (cart/order-sheet.tsx).
   // v2 voids at once and offers Undo (pos/hooks/use-void-order.ts): Undo brings the voided cart back as resumeCart does.
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const voiding = useVoidSale(sale, { resumeCart, say: setMessage });
+  const voiding = useVoidSale(sale, { resumeCart, say: setMessage, openedAt: currentOpenedAt });
   const changeCashier = useLeaveTill(sale, { hold, unhold, onSwitchCashier: props.onSwitchCashier, onAddCashier: props.onAddCashier, say: setMessage });
   const checkout = {
     onCheckout: () => { void startTender('cash'); },
@@ -263,7 +263,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             customers={props.customers ?? null} createCustomersBlockedReason={createCustomersBlockedReason(effective, props.siteHome)}
             checkout={checkout}
             position={viewState.position} onPositionChange={position => setViewState({ ...viewState, position })}
-            openOrders={<OpenOrderTabs parked={parked} current={sale.order} currency={currency} locale={props.locale} onSelect={resume} onNew={park} onError={setMessage}
+            openOrders={<OpenOrderTabs parked={parked} current={sale.order} currentOpenedAt={currentOpenedAt} currency={currency} locale={props.locale} onSelect={resume} onNew={park} onError={setMessage}
               onOpenList={() => setParkedOpen(true)} listOpen={parkedOpen} compact={phoneLayout} />} />
           <OrderDetailsSheet open={detailsOpen} onOpenChange={setDetailsOpen} side={viewState.position}
             note={sale.order.note} onNoteChange={sale.setNote} onVoid={voiding.offered ? voiding.voidSale : undefined} />

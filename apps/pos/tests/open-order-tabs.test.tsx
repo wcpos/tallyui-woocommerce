@@ -1,6 +1,6 @@
 import { EMPTY_CART_TEXT } from './cart-line-helpers';
 import { noTaxSettings } from './fixtures/store-settings';
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
@@ -13,6 +13,9 @@ import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import { openParkedList, parkedTabs, stripLayout } from './open-orders-helpers';
+import { Toaster } from '../components/toaster';
+import { dismissToast } from '../lib/toast/toast';
+import { runBeforeLeave } from '../lib/sale/before-leave';
 
 function SaleScreen(props: SaleScreenProps) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
@@ -54,6 +57,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -152,6 +156,8 @@ test('a refusal from onSelect or onNew reaches onError', async () => {
 });
 
 test('sale screen: + parks the sale into a tab and the tab brings it back', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(Date.parse('2026-11-18T10:00:00.000Z'));
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
   render(<SaleScreen {...props} />);
   expect(screen.getByTestId('new-order-tab').getAttribute('aria-selected')).toBe('true');
@@ -170,20 +176,111 @@ test('sale screen: + parks the sale into a tab and the tab brings it back', asyn
 
   fireEvent.click(screen.getByText('Cold Brew'));
   expect(tabIds()).toHaveLength(3);
+  vi.setSystemTime(Date.parse('2026-11-18T10:01:00.000Z'));
   await act(async () => { fireEvent.click(strip()[0]); });
   await screen.findByLabelText('Edit quantity of Espresso');
   expect(screen.queryByLabelText('Edit quantity of Cold Brew')).toBeNull();
   expect(tabIds()).toHaveLength(3);
-  expect(strip()[0].textContent).toBe('Guest$4.00');
+  // The resumed cart keeps its place on the left (v2 sorts by date created); the Cold Brew cart parks after it.
+  expect(strip()[0].textContent).toBe('Guest$3.00');
+  expect(strip()[0].getAttribute('aria-selected')).toBe('true');
+  expect(strip()[1].textContent).toBe('Guest$4.00');
   expect(parkedTabs()).toHaveLength(1);
+}, 20_000);
+
+test('a resumed current cart sits in its openedAt place among the parked tabs, not last', () => {
+  const { onSelect, onNew, onError } = handlers();
+  render(<OpenOrderTabs currency={currency} onSelect={onSelect} onNew={onNew} onError={onError} now={() => NOW}
+    parked={[cart('c', '2026-11-10T10:07:00.000Z', ['Croissant'], 500), cart('a', '2026-11-10T10:00:00.000Z', ['Espresso'], 300)]}
+    current={order(['Cold Brew'], 400)} currentOpenedAt="2026-11-10T10:05:00.000Z" />);
+  expect(tabIds()).toEqual(['open-order-tab-a', 'open-order-tab-current', 'open-order-tab-c', 'new-order-tab']);
+  expect(screen.getByTestId('open-order-tab-current').getAttribute('aria-selected')).toBe('true');
+});
+
+// v2 lists open orders by date created (open-orders-scope.ts OPEN_ORDERS_SORT) and a press only selects (cart/tabs.tsx).
+const stripAmounts = () => within(screen.getByTestId('open-order-strip')).getAllByRole('tab')
+  .filter(tab => tab.getAttribute('data-testid') !== 'new-order-tab').map(tab => tab.textContent);
+const selectedAmount = () => within(screen.getByTestId('open-order-strip')).getAllByRole('tab')
+  .find(tab => tab.getAttribute('aria-selected') === 'true')?.textContent;
+
+const addTile = (id: number) => fireEvent.click(screen.getByTestId(`product-tile-${id}`));
+
+/** A ($3), B ($4) parked a minute apart, then C ($6) open in the cart; only Date is faked, so effects and promises run. */
+async function openThree() {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
+  render(<SaleScreen {...props} />);
+  vi.setSystemTime(Date.parse('2026-11-18T10:00:00.000Z'));
+  addTile(80);
+  await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
+  vi.setSystemTime(Date.parse('2026-11-18T10:01:00.000Z'));
+  addTile(84);
+  await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
+  addTile(80);
+  addTile(80);
+  expect(stripAmounts()).toEqual(['Guest$3.00', 'Guest$4.00', 'Guest$6.00']);
+}
+
+async function press(index: number, minute: number) {
+  vi.setSystemTime(Date.parse(`2026-11-18T10:${String(minute).padStart(2, '0')}:00.000Z`));
+  const amount = stripAmounts()[index];
+  await act(async () => { fireEvent.click(within(screen.getByTestId('open-order-strip')).getAllByRole('tab')[index]); });
+  await waitFor(() => expect(selectedAmount()).toBe(amount));
+}
+
+test('sale screen: resuming A then C keeps the strip reading A, B, C', async () => {
+  await openThree();
+  await press(0, 5);
+  expect(stripAmounts()).toEqual(['Guest$3.00', 'Guest$4.00', 'Guest$6.00']);
+  await press(2, 6);
+  expect(stripAmounts()).toEqual(['Guest$3.00', 'Guest$4.00', 'Guest$6.00']);
+  expect(selectedAmount()).toBe('Guest$6.00');
+}, 20_000);
+
+test('sale screen: a fresh cart parked after a resumed one joins at the right end', async () => {
+  await openThree();
+  await press(0, 5);
+  vi.setSystemTime(Date.parse('2026-11-18T10:06:00.000Z'));
+  await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
+  addTile(84);
+  addTile(84);
+  expect(stripAmounts()).toEqual(['Guest$3.00', 'Guest$4.00', 'Guest$6.00', 'Guest$8.00']);
+  vi.setSystemTime(Date.parse('2026-11-18T10:07:00.000Z'));
+  await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
+  expect(stripAmounts()).toEqual(['Guest$3.00', 'Guest$4.00', 'Guest$6.00', 'Guest$8.00']);
+}, 20_000);
+
+test('sale screen: voiding a resumed A, then Undo, brings A back in its place: the strip reads A, B, C again', async () => {
+  render(<Toaster />);
+  await openThree();
+  await press(0, 5);
+  vi.setSystemTime(Date.parse('2026-11-18T10:07:00.000Z'));
+  act(() => dismissToast());
+  fireEvent.click(screen.getByTestId('cart-foot-more'));
+  fireEvent.click(screen.getByText('Order details'));
+  fireEvent.click(screen.getByTestId('order-details-void'));
+  expect(stripAmounts()).toEqual(['Guest$4.00', 'Guest$6.00']);
+  vi.setSystemTime(Date.parse('2026-11-18T10:08:00.000Z'));
+  await act(async () => { fireEvent.click(within(screen.getByTestId('success-toast')).getByTestId('toast-action')); });
+  await waitFor(() => expect(selectedAmount()).toBe('Guest$3.00'));
+  expect(stripAmounts()).toEqual(['Guest$3.00', 'Guest$4.00', 'Guest$6.00']);
+}, 20_000);
+
+test('sale screen: holding a resumed A for a sign-in redirect parks it in its place: the strip reads A, B, C', async () => {
+  await openThree();
+  await press(0, 5);
+  vi.setSystemTime(Date.parse('2026-11-18T10:07:00.000Z'));
+  await act(async () => { expect(await runBeforeLeave()).toBeNull(); });
+  expect(screen.getByTestId('new-order-tab').getAttribute('aria-selected')).toBe('true');
+  expect(stripAmounts()).toEqual(['Guest$3.00', 'Guest$4.00', 'Guest$6.00']);
 }, 20_000);
 
 test('sale screen (e): nothing above the cart parks or lists; the strip\'s count cell opens the parked sheet', async () => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
   render(<SaleScreen {...props} />);
-  fireEvent.click(screen.getByText('Espresso'));
+  addTile(80);
   await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
-  fireEvent.click(screen.getByText('Cold Brew'));
+  addTile(84);
   expect(parkedTabs()).toHaveLength(1);
   expect(screen.queryByRole('button', { name: 'Park cart' })).toBeNull();
   expect(screen.queryByRole('button', { name: /^Parked \(/ })).toBeNull();

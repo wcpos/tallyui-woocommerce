@@ -59,6 +59,12 @@ function restore(parked: ParkedCart, catalogue = products, orderCreate: 1 | 2 | 
   return { order: result.current.order, problems };
 }
 
+test('parkCart keeps openedAt as parkedAt; without it parkedAt is now', () => {
+  const now = new Date('2026-11-18T10:30:00.000Z');
+  expect(parkCart(orderFixture(), now, '2026-11-18T09:00:00.000Z').parkedAt).toBe('2026-11-18T09:00:00.000Z');
+  expect(parkCart(orderFixture(), now).parkedAt).toBe(now.toISOString());
+});
+
 test('parks a real order with quantities, totals and only Discount fields', () => {
   const order = orderFixture();
   const now = new Date('2026-10-06T10:30:00.000Z');
