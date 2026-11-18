@@ -5,6 +5,10 @@ import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { addPosOrderCollection, type PosOrder } from '@tallyui/pos';
 import { RejectedOrdersPanel } from '../components/rejected-orders-panel';
+import { dismissToast, getToasts } from '../lib/toast/toast';
+
+const toasts = () => getToasts().map(({ type, title, description }) => ({ type, title, description }));
+const FAILED = { type: 'error', title: 'Couldn’t queue that again.', description: 'Try again. If it keeps failing, reload the app.' };
 
 let db: RxDatabase;
 let orders: RxCollection<PosOrder>;
@@ -13,7 +17,7 @@ beforeEach(async () => {
     storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }) });
   orders = await addPosOrderCollection(db);
 });
-afterEach(async () => { cleanup(); await db.close(); });
+afterEach(async () => { act(() => dismissToast()); cleanup(); await db.close(); });
 
 function insertOrder(id: string, extra: Partial<PosOrder>) {
   return orders.insert({ id, createdAt: '2026-10-07T09:00:00.000Z', updatedAt: '2026-10-07T09:00:00.000Z',
@@ -47,25 +51,30 @@ test('names one refused change in the singular', async () => {
   expect(await screen.findByText('1 change never reached your server')).not.toBeNull();
 });
 
-test('Send again requeues that order through the callback', async () => {
+test('Send again toasts v2’s Queued to send again.', async () => {
   await insertOrder('r1', { syncStatus: 'rejected' });
   const onRequeue = vi.fn(async () => 1);
   render(<RejectedOrdersPanel orders={orders} onRequeue={onRequeue} now={() => new Date('2026-10-07T10:00:00.000Z')} />);
   fireEvent.click(await screen.findByTestId('db-rejected-requeue-r1'));
   expect(onRequeue).toHaveBeenCalledExactlyOnceWith(['r1']);
-  await waitFor(() => expect(screen.getByTestId('db-rejected-message').textContent).toBe('Queued to send again.'));
+  await waitFor(() => expect(toasts()).toEqual([{ type: 'success', title: 'Queued to send again.', description: undefined }]));
+  expect(screen.queryByTestId('db-rejected-message')).toBeNull();
 });
 
-test('Send again says so when nothing was requeued', async () => {
+test('Send again toasts v2’s error and hint when nothing was requeued or it throws', async () => {
   await insertOrder('r1', { syncStatus: 'rejected' });
   const onRequeue = vi.fn(async () => 0);
   render(<RejectedOrdersPanel orders={orders} onRequeue={onRequeue} now={() => new Date('2026-10-07T10:00:00.000Z')} />);
-  fireEvent.click(await screen.findByTestId('db-rejected-requeue-r1'));
-  expect(await screen.findByText('Couldn’t queue that again.')).not.toBeNull();
+  const button = await screen.findByTestId('db-rejected-requeue-r1');
+  fireEvent.click(button);
+  await waitFor(() => expect(toasts()).toEqual([FAILED]));
+  act(() => dismissToast());
   onRequeue.mockRejectedValueOnce(new Error('closed'));
-  await act(async () => { fireEvent.click(screen.getByTestId('db-rejected-requeue-r1')); });
-  expect(screen.getByText('Couldn’t queue that again.')).not.toBeNull();
+  await waitFor(() => expect(button.getAttribute('aria-disabled')).not.toBe('true'));
+  fireEvent.click(button);
+  await waitFor(() => expect(toasts()).toEqual([FAILED]));
   expect(onRequeue).toHaveBeenCalledTimes(2);
+  expect(screen.queryByTestId('db-rejected-message')).toBeNull();
 });
 
 test('a second press while one requeue runs does nothing', async () => {
@@ -78,7 +87,7 @@ test('a second press while one requeue runs does nothing', async () => {
   act(() => { fireEvent.click(button); fireEvent.click(button); });
   expect(onRequeue).toHaveBeenCalledTimes(1);
   await act(async () => { resolve(1); await pending; });
-  expect(await screen.findByText('Queued to send again.')).not.toBeNull();
+  await waitFor(() => expect(toasts()).toEqual([{ type: 'success', title: 'Queued to send again.', description: undefined }]));
 });
 
 test('offers no Send again for a refusal kept for reconciliation', async () => {

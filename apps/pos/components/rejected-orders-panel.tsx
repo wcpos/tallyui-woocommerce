@@ -4,7 +4,11 @@ import type { RxCollection } from 'rxdb';
 import { Button, Text } from '@tallyui/components';
 import { isRequeueable, type PosOrder } from '@tallyui/pos';
 import { refusedReason, useRefusedOrders } from '../lib/orders/use-refused-orders';
+import { toast } from '../lib/toast/toast';
 import { queuedAgo } from './queued-emails-panel';
+
+// v2 core.json:2640 resolution_failed_hint, "reload WCPOS" as "reload the app" (the app never names itself to a cashier).
+const REQUEUE_FAILED = { type: 'error', title: 'Couldn’t queue that again.', description: 'Try again. If it keeps failing, reload the app.' } as const;
 
 export function RejectedOrdersPanel({ orders, onRequeue, now = () => new Date() }: {
   orders: RxCollection<PosOrder> | null;
@@ -13,7 +17,6 @@ export function RejectedOrdersPanel({ orders, onRequeue, now = () => new Date() 
 }): JSX.Element | null {
   const rows = useRefusedOrders(orders);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const guard = useRef(false);
 
   async function requeue(id: string) {
@@ -22,8 +25,9 @@ export function RejectedOrdersPanel({ orders, onRequeue, now = () => new Date() 
     setBusy(true);
     try {
       const count = await onRequeue([id]);
-      setMessage(count > 0 ? 'Queued to send again.' : 'Couldn’t queue that again.');
-    } catch { setMessage('Couldn’t queue that again.'); }
+      // v2 rejected-mutations.tsx:99-148: the result is a toast; a count of 0 is a failure.
+      toast(count > 0 ? { type: 'success', title: 'Queued to send again.' } : REQUEUE_FAILED);
+    } catch { toast(REQUEUE_FAILED); }
     finally { guard.current = false; setBusy(false); }
   }
   if (!rows.length) return null;
@@ -46,7 +50,6 @@ export function RejectedOrdersPanel({ orders, onRequeue, now = () => new Date() 
           </View>
         );
       })}
-      {message && <Text testID="db-rejected-message">{message}</Text>}
     </View>
   );
 }
