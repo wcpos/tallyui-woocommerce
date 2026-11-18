@@ -9,7 +9,7 @@ import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { BehaviorSubject } from 'rxjs';
 import { LogsScreen } from '../components/logs-screen';
 import { logRecordId, logRecordMigrationStrategies, logRecordSchema, type LogCollection, type LogRecord } from '../lib/logs/log-store';
-import { IDLE_OUTBOX_STATE, buildDebugInfo, buildLogEntryReport, formatDurationMs, formatLogTime, logStats, matchesLogFilter, outboxSyncStats,
+import { IDLE_OUTBOX_STATE, buildDebugInfo, buildLogEntryReport, displayKind, formatDurationMs, formatLogTime, logStats, matchesLogFilter, outboxSyncStats,
   type OutboxSyncStats } from '../lib/logs/log-view';
 import { setVerboseDiagnostics } from '../lib/logs/verbose';
 import { dismissToast, getToasts } from '../lib/toast/toast';
@@ -709,4 +709,79 @@ test('formatDurationMs follows v2', () => {
   expect(formatDurationMs(undefined)).toBeNull();
   expect(formatDurationMs(-1)).toBeNull();
   expect(formatDurationMs(NaN)).toBeNull();
+});
+
+// v2 displayKind (logs/logs-logic.ts:64-80): severity, then actor, then debug, then the sync domain, then the level.
+test('displayKind ranks severity over an actor, an actor over debug, and debug over the sync domain', () => {
+  const base: LogRecord = { id: 'k', timestamp: now(), level: 'info', scope: 'sale', message: 'Row' };
+  expect(displayKind({ ...base, level: 'error', actor })).toBe('error');
+  expect(displayKind({ ...base, level: 'warn', actor, scope: 'outbox' })).toBe('warn');
+  expect(displayKind({ ...base, actor })).toBe('action');
+  expect(displayKind({ ...base, level: 'debug', scope: 'sync' })).toBe('debug');
+  expect(displayKind({ ...base, scope: 'outbox' })).toBe('sync');
+  expect(displayKind({ ...base, scope: 'register-commands' })).toBe('sync');
+  expect(displayKind(base)).toBe('info');
+  expect(displayKind({ ...base, actor: { role: 'cashier' } })).toBe('info');
+});
+
+const actionRow: LogRecord = { id: logRecordId(now() + 2000, 8), timestamp: now() + 2000, level: 'info',
+  scope: 'register-facts', message: 'Drawer opened', outcome: 'ok', actor };
+const syncRow: LogRecord = { id: logRecordId(now() + 1000, 7), timestamp: now() + 1000, level: 'info',
+  scope: 'outbox', message: 'Order sent' };
+
+test('an actor row reads action with the primary dot and a sync-scope row reads sync with the info dot, wide and on a phone', async () => {
+  await collection.bulkInsert([actionRow, syncRow]);
+  render(<LogsScreen {...props} collection={collection} />);
+  await screen.findByTestId(`logs-pill-${actionRow.id}`);
+  expect(screen.getByTestId(`logs-pill-${actionRow.id}`).textContent).toBe('action');
+  expect(classesOf(`logs-pill-${actionRow.id}-dot`)).toContain('bg-primary');
+  expect(screen.getByTestId(`logs-pill-${syncRow.id}`).textContent).toBe('sync');
+  expect(classesOf(`logs-pill-${syncRow.id}-dot`)).toContain('bg-info');
+  expect(screen.getByTestId(`logs-pill-${rows[2].id}`).textContent).toBe('info');
+  expect(classesOf(`logs-pill-${rows[2].id}-dot`)).toContain('bg-muted-foreground');
+  expect(screen.getByTestId(`logs-toggle-${actionRow.id}`).getAttribute('aria-label')).toContain(' · action · Drawer opened');
+  cleanup();
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  render(<LogsScreen {...props} collection={collection} />);
+  await screen.findByTestId(`logs-level-sm-${actionRow.id}`);
+  expect(screen.getByTestId(`logs-level-sm-${actionRow.id}`).textContent).toBe('action');
+  expect(classesOf(`logs-level-sm-${actionRow.id}-dot`)).toContain('bg-primary');
+  expect(screen.getByTestId(`logs-level-sm-${syncRow.id}`).textContent).toBe('sync');
+  expect(classesOf(`logs-level-sm-${syncRow.id}-dot`)).toContain('bg-info');
+  expect(screen.getByTestId(`logs-row-sm-${syncRow.id}`).getAttribute('aria-label')).toContain(' · sync · Order sent');
+});
+
+test('an action row with outcome ok shows ✓ ok, and a sync row with outcome ok does not', async () => {
+  await collection.bulkInsert([actionRow, { ...syncRow, outcome: 'ok' }]);
+  render(<LogsScreen {...props} collection={collection} />);
+  expect((await screen.findByTestId(`logs-ok-${actionRow.id}`)).textContent).toBe('✓ ok');
+  expect(screen.getByTestId(`logs-row-${syncRow.id}`)).not.toBeNull();
+  expect(screen.queryByTestId(`logs-ok-${syncRow.id}`)).toBeNull();
+});
+
+test('tapping an action pill leaves only action rows behind the action chip, and tapping it again clears it', async () => {
+  await collection.bulkInsert([actionRow, syncRow]);
+  render(<LogsScreen {...props} collection={collection} />);
+  fireEvent.click(await screen.findByTestId(`logs-pill-${actionRow.id}`));
+  expect(shownRows()).toEqual([`logs-row-${actionRow.id}`]);
+  expect(screen.getByTestId('logs-chip-kind').textContent).toBe('action ×');
+  expect(screen.getByTestId(`logs-pill-${actionRow.id}`).getAttribute('aria-selected')).toBe('true');
+  fireEvent.click(screen.getByTestId(`logs-pill-${actionRow.id}`));
+  expect(screen.queryByTestId('logs-chip-kind')).toBeNull();
+  expect(shownRows()).toHaveLength(rows.length + 2);
+});
+
+test('the Sync preset with verbose on keeps debug sync rows, and the sync pill leaves them out', async () => {
+  const debugSync: LogRecord = { id: logRecordId(now() + 3000, 9), timestamp: now() + 3000, level: 'debug',
+    scope: 'sync', message: 'Pull deferred' };
+  await collection.bulkInsert([syncRow, debugSync]);
+  setVerboseDiagnostics(true, now());
+  render(<LogsScreen {...props} collection={collection} />);
+  await screen.findByTestId(`logs-row-${debugSync.id}`);
+  fireEvent.click(screen.getByTestId('logs-chip-sync'));
+  expect(shownRows()).toEqual([`logs-row-${debugSync.id}`, `logs-row-${syncRow.id}`, `logs-row-${rows[1].id}`]);
+  expect(screen.getByTestId(`logs-pill-${debugSync.id}`).textContent).toBe('debug');
+  fireEvent.click(screen.getByTestId(`logs-pill-${syncRow.id}`));
+  expect(shownRows()).toEqual([`logs-row-${syncRow.id}`]);
+  expect(screen.getByTestId('logs-chip-kind').textContent).toBe('sync ×');
 });
