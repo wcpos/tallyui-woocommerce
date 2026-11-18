@@ -54,3 +54,10 @@ test("the till's drawer opens Products at /products and Coupons at /coupons", ()
   mocks.props.onOpenOrders!();
   expect(mocks.router.push.mock.calls).toEqual([['/products'], ['/coupons'], ['/orders']]);
 });
+
+test('Store health in the rail and drawer opens the area index at /health', () => {
+  render(<Catalogue />);
+  mocks.router.push.mockClear();
+  mocks.props.onOpenHealth!();
+  expect(mocks.router.push.mock.calls).toEqual([['/health']]);
+});
