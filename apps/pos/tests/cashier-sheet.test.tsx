@@ -384,3 +384,73 @@ test('an opener with no name shows no avatar', () => {
   expect(screen.getByTestId('user-sheet-drawer-opener').textContent).toBe('opened 09:00');
   expect(screen.queryByTestId('user-sheet-drawer-opener-avatar')).toBeNull();
 });
+
+test('with the register open, Sign out asks first and does not sign out', () => {
+  const openRegister = { title: 'Main is still open at $12.00. Close it first?', onClose: vi.fn(async () => true) };
+  const { onSignOut } = openSheet({ openRegister });
+  fireEvent.click(screen.getByTestId('user-sheet-sign-out'));
+  expect(screen.getByText(openRegister.title)).not.toBeNull();
+  expect(screen.getByText('A till left open stays open for the next cashier. The closure records who closed it.')).not.toBeNull();
+  expect(onSignOut).not.toHaveBeenCalled();
+  expect(screen.getByTestId('user-sheet')).not.toBeNull();
+});
+
+test('Sign out anyway signs out once', () => {
+  const openRegister = { title: 'Main is still open at $12.00. Close it first?', onClose: vi.fn(async () => true) };
+  const { onSignOut } = openSheet({ openRegister });
+  fireEvent.click(screen.getByTestId('user-sheet-sign-out'));
+  fireEvent.click(screen.getByTestId('sign-out-confirm-anyway'));
+  expect(onSignOut).toHaveBeenCalledTimes(1);
+  expect(openRegister.onClose).not.toHaveBeenCalled();
+  expect(screen.queryByTestId('user-sheet')).toBeNull();
+  expect(screen.queryByTestId('sign-out-confirm')).toBeNull();
+});
+
+test('Cancel on the sign-out question calls neither and keeps the sheet', () => {
+  const openRegister = { title: 'Main is still open at $12.00. Close it first?', onClose: vi.fn(async () => true) };
+  const { onSignOut } = openSheet({ openRegister });
+  fireEvent.click(screen.getByTestId('user-sheet-sign-out'));
+  fireEvent.click(screen.getByTestId('sign-out-confirm-cancel'));
+  expect(onSignOut).not.toHaveBeenCalled();
+  expect(openRegister.onClose).not.toHaveBeenCalled();
+  expect(screen.queryByTestId('sign-out-confirm')).toBeNull();
+  expect(screen.getByTestId('user-sheet')).not.toBeNull();
+});
+
+test('Close register starts the close and does not sign out', async () => {
+  const openRegister = { title: 'Main is still open at $12.00. Close it first?', onClose: vi.fn(async () => true) };
+  const { onSignOut } = openSheet({ openRegister });
+  fireEvent.click(screen.getByTestId('user-sheet-sign-out'));
+  fireEvent.click(screen.getByTestId('sign-out-confirm-close-register'));
+  expect(openRegister.onClose).toHaveBeenCalledTimes(1);
+  expect(onSignOut).not.toHaveBeenCalled();
+  await waitFor(() => expect(screen.queryByTestId('user-sheet')).toBeNull());
+});
+
+test('a Close register that could not start keeps the sheet', async () => {
+  const openRegister = { title: 'Main is still open at $12.00. Close it first?', onClose: vi.fn(async () => false) };
+  const { onSignOut } = openSheet({ openRegister });
+  fireEvent.click(screen.getByTestId('user-sheet-sign-out'));
+  fireEvent.click(screen.getByTestId('sign-out-confirm-close-register'));
+  await act(async () => {});
+  expect(screen.getByTestId('user-sheet')).not.toBeNull();
+  expect(onSignOut).not.toHaveBeenCalled();
+});
+
+test('the sign-out question orders Cancel, Sign out anyway, Close register', () => {
+  openSheet({ openRegister: { title: 'Main is still open at $12.00. Close it first?', onClose: vi.fn(async () => true) } });
+  fireEvent.click(screen.getByTestId('user-sheet-sign-out'));
+  const question = within(screen.getByTestId('sign-out-confirm'));
+  const cancel = question.getByTestId('sign-out-confirm-cancel');
+  const anyway = question.getByTestId('sign-out-confirm-anyway');
+  const close = question.getByTestId('sign-out-confirm-close-register');
+  expect(Boolean(cancel.compareDocumentPosition(anyway) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+  expect(Boolean(anyway.compareDocumentPosition(close) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+});
+
+test('without openRegister, Sign out signs out at once', () => {
+  const { onSignOut } = openSheet();
+  fireEvent.click(screen.getByTestId('user-sheet-sign-out'));
+  expect(onSignOut).toHaveBeenCalledTimes(1);
+  expect(screen.queryByTestId('sign-out-confirm')).toBeNull();
+});
