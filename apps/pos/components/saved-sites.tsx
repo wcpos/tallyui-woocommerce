@@ -37,6 +37,9 @@ export interface SavedSitesProps {
   onSignInAt(site: StoreSite): void;
   onRemoveUser(home: string, uuid: string): void;
   onRemoveSite(home: string): void;
+  /** v2 sites.tsx:94: the open connect form folds every site; expanding one calls onExpand. */
+  collapsed?: boolean;
+  onExpand?(): void;
 }
 
 export function SavedSites(props: SavedSitesProps): JSX.Element {
@@ -45,7 +48,9 @@ export function SavedSites(props: SavedSitesProps): JSX.Element {
   const [expansion, setExpansion] = useState(() => getNextExpansion({ homes: [], expanded: undefined }, homes));
   const next = getNextExpansion(expansion, homes);
   if (next !== expansion) setExpansion(next);
-  if (props.sites.length === 1) return <View className="w-full gap-5">
+  const expanded = props.collapsed ? '' : next.expanded ?? ''; // v2 sites.tsx:94
+  // v2 sites.tsx:96-98: a folded single site takes the accordion row, so its header is the way back in.
+  if (props.sites.length === 1 && !props.collapsed) return <View className="w-full gap-5">
     {props.sites.map(saved => <Card key={saved.site.home} testID="saved-site" className="w-full gap-3 p-3">
       <View className="flex-row items-center gap-3">
         <SiteHeader site={saved.site} /><SiteMenu site={saved.site} onRemoveSite={props.onRemoveSite} />
@@ -55,9 +60,10 @@ export function SavedSites(props: SavedSitesProps): JSX.Element {
     </Card>)}
   </View>;
   return <View className="w-full gap-2">
-    <Text testID="saved-sites-heading" className="text-sm font-semibold">Your sites</Text>
-    <Accordion type="single" collapsible className="gap-2" value={next.expanded ?? ''}
-      onValueChange={value => setExpansion(current => ({ ...current, expanded: value }))}>
+    {props.sites.length > 1 && <Text testID="saved-sites-heading" className="text-sm font-semibold">Your sites</Text>}
+    {/* v2 sites.tsx:111, :121-123: heading for several sites; expanding a site closes the form. */}
+    <Accordion type="single" collapsible className="gap-2" value={expanded}
+      onValueChange={value => { setExpansion(current => ({ ...current, expanded: value })); if (value) props.onExpand?.(); }}>
       {props.sites.map(saved => {
         const home = saved.site.home, n = saved.cashiers.length;
         return <Card key={home} testID="saved-site" className="w-full p-3">
@@ -65,7 +71,7 @@ export function SavedSites(props: SavedSitesProps): JSX.Element {
             <View className="flex-row items-center gap-2">
               <View className="min-w-0 flex-1">
               <AccordionTrigger testID="saved-site-trigger" className="min-h-11 justify-start gap-3 py-2 web:hover:no-underline">
-                <View className={next.expanded === home ? 'rotate-180' : undefined}>
+                <View className={expanded === home ? 'rotate-180' : undefined}>
                   <ChevronDownIcon size={16} strokeWidth={1.5} className="text-muted-foreground" />
                 </View>
                 <SiteHeader site={saved.site} />

@@ -255,3 +255,46 @@ test('a pick in the second site stays with that site', () => {
   fireEvent.click(screen.getAllByTestId('saved-site-trigger')[1]);
   expect([checked(dUuid), checked(cUuid)]).toEqual(['true', 'false']);
 });
+
+function renderFolded(sites: SavedSitesProps['sites'], onExpand = vi.fn()) {
+  cleanup();
+  const ui = (collapsed: boolean) => <><SavedSites sites={sites} collapsed={collapsed} onExpand={onExpand} onOpenPos={onOpenPos}
+    onSignInAt={onSignInAt} onRemoveUser={onRemoveUser} onRemoveSite={onRemoveSite} /><PortalHost /></>;
+  const { rerender } = render(ui(true));
+  return { onExpand, unfold: () => rerender(ui(false)) };
+}
+
+test('a folded single site keeps its header and hides its body; expanding it calls onExpand', () => {
+  const { onExpand } = renderFolded([{ site, cashiers: [a, b] }]);
+  const trigger = screen.getByTestId('saved-site-trigger');
+  expect(trigger.getAttribute('aria-expanded')).toBe('false');
+  expect(within(trigger).getByTestId('saved-site-name').textContent).toBe('Store');
+  expect(screen.queryByTestId('open-pos-button')).toBeNull();
+  expect(screen.queryByTestId(`saved-user-select-${aUuid}`)).toBeNull();
+  expect(screen.queryByTestId('saved-sites-heading')).toBeNull();
+  expect(onExpand).not.toHaveBeenCalled();
+  fireEvent.click(trigger);
+  expect(onExpand).toHaveBeenCalledOnce();
+});
+
+test('a folded single site opens again once the form closes', () => {
+  const { unfold } = renderFolded([{ site, cashiers: [a, b] }]);
+  fireEvent.click(screen.getByTestId('saved-site-trigger'));
+  unfold();
+  expect(screen.queryByTestId('saved-site-trigger')).toBeNull();
+  expect(screen.getByTestId('open-pos-button')).not.toBeNull();
+  expect(screen.getByTestId(`saved-user-select-${aUuid}`).getAttribute('aria-checked')).toBe('true');
+});
+
+test('with the form open, two sites are both folded and expanding one calls onExpand', () => {
+  const { onExpand, unfold } = renderFolded([{ site, cashiers: [a, b] }, { site: second, cashiers: [c] }]);
+  expect(screen.getByTestId('saved-sites-heading').textContent).toBe('Your sites');
+  const triggers = () => screen.getAllByTestId('saved-site-trigger').map(trigger => trigger.getAttribute('aria-expanded'));
+  expect(triggers()).toEqual(['false', 'false']);
+  expect(screen.queryByTestId('open-pos-button')).toBeNull();
+  fireEvent.click(screen.getAllByTestId('saved-site-trigger')[1]);
+  expect(onExpand).toHaveBeenCalledOnce();
+  unfold();
+  expect(triggers()).toEqual(['false', 'true']);
+  expect(within(screen.getAllByTestId('saved-site')[1]).getByTestId('open-pos-button')).not.toBeNull();
+});

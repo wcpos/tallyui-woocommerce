@@ -8,7 +8,8 @@ import type { StartSignIn } from '../lib/auth/use-connect-discovery';
 export interface ConnectFormProps {
   startSignIn: StartSignIn;
   signInError?: string; // the `error` query param from the sign-in callback
-  saved?: ReactNode;
+  /** v2 connect.tsx:57-58: the saved sites, folded while the address form is open. */
+  saved?: (fold: { collapsed: boolean; onExpand(): void }) => ReactNode;
 }
 
 export function ConnectForm({ startSignIn, signInError, saved }: ConnectFormProps): JSX.Element {
@@ -36,7 +37,7 @@ export function ConnectForm({ startSignIn, signInError, saved }: ConnectFormProp
       contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 16 }}
       keyboardShouldPersistTaps="handled">
       <View className="w-full max-w-[460px] gap-5 py-4">
-      {saved}
+      {saved?.({ collapsed: formOpen, onExpand: () => setFormOpen(false) })}
       {saved && !formOpen ? <Button variant="ghost" testID="connect-another-store" onPress={() => setFormOpen(true)}>
         <Text>Connect another store</Text>
       </Button> : null}
