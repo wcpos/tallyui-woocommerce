@@ -456,6 +456,39 @@ test('multi: on a free order with no payment yet, a cash entry still reads as ch
   expect(text('checkout-entry-hint')).toBe('Change $5.00');
 }, 20_000);
 
+// WCPOS v2: tender-pane.tsx:1055-1072 (the commit is `loading` while it saves) and button/index.tsx:258-266 (a Loader before
+// the label); tender-pane.tsx:120-125, 437-449 (the keypad keeps the entry it had, so its change still reads while it saves).
+test('the commit spins while the take saves and still reads Saving order…', async () => {
+  await startTender('Cash');
+  press('clear', '5', '0', '0');
+  const release = holdSave();
+  fireEvent.click(screen.getByTestId('checkout-commit'));
+  await waitFor(() => expect(text('checkout-commit')).toBe('Saving order…'));
+  expect(within(screen.getByTestId('checkout-commit')).getByTestId('checkout-commit-spinner')).not.toBeNull();
+  expect(text('checkout-entry-hint')).toBe('Change $2.00');
+  release();
+  expect(await screen.findByTestId('receipt-order')).not.toBeNull();
+}, 20_000);
+
+test('the commit does not spin before the press, enabled or disabled', async () => {
+  await startTender('Cash');
+  expect(disabled()).not.toBe('true');
+  expect(screen.queryByTestId('checkout-commit-spinner')).toBeNull();
+  press('clear');
+  expect(disabled()).toBe('true');
+  expect(screen.queryByTestId('checkout-commit-spinner')).toBeNull();
+}, 20_000);
+
+test('multi: a failed save reads Retry and does not spin', async () => {
+  await startTender('Cash', 'online-website-available', true);
+  vi.spyOn(orders!, 'insert').mockRejectedValueOnce(new Error('disk full'));
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'], shouldAdvanceTime: true });
+  takeLeg(300);
+  await screen.findByText('The sale could not be saved: disk full');
+  expect(text('checkout-commit')).toBe('Retry');
+  expect(screen.queryByTestId('checkout-commit-spinner')).toBeNull();
+}, 20_000);
+
 // WCPOS v2: tender-pane.tsx:46-58, 106, 587-591; core.json pos_checkout.store_not_answering.
 const SLOW = "The store isn't answering. Keep waiting.";
 /** Only setTimeout is faked, from before the press, so the pane's slow-save timer is the one these tests move. */
