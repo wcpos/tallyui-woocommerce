@@ -30,6 +30,7 @@ import {
   CHIP_CLEAR_CELL_CLASS, CHIP_CLEAR_GLYPH_SIZE, chipInkClassName, filterChipClassName, filterChipTextClassName,
 } from './catalogue-filter-chips';
 import { EmptyState } from './empty-state';
+import { InfoIcon } from './icons';
 import { StatusDot } from './status-dot';
 import type { StatusTone } from './status-dot';
 import { CaptionRowInset, TableCount, TableSurface, useCatalogueSync } from './table-surface';
@@ -57,8 +58,7 @@ const PRESET_LABELS: Record<DatePreset, string> = {
 // offers the report date presets, as device-local days.
 const EXPIRES_CHOICES: Choice[] = DATE_PRESETS.map(value => ({ value, label: PRESET_LABELS[value], testID: `coupon-filter-expires-${value}` }));
 
-// The chips' icons, after v2's `info`, `percent` and `calendar` (lucide).
-const InfoIcon = createSvgIcon('InfoIcon', () => <><Circle cx={12} cy={12} r={10} /><Path d="M12 16v-4" /><Path d="M12 8h.01" /></>);
+// The chips' icons, after v2's `info` (./icons), `percent` and `calendar` (lucide).
 const PercentIcon = createSvgIcon('PercentIcon', () => <>
   <Path d="M19 5 5 19" /><Circle cx={6.5} cy={6.5} r={2.5} /><Circle cx={17.5} cy={17.5} r={2.5} />
 </>);
@@ -301,9 +301,9 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
   const columns = visibleAreaColumns(COUPONS_COLUMNS, settings);
 
   const body = all === null ? null : total === 0 ? (
-    <EmptyState title="No coupons yet" description="Coupons you create will appear here." />
+    <EmptyState kind="empty" title="No coupons yet" description="Coupons you create will appear here." />
   ) : shown.length === 0 ? (
-    <EmptyState title="No coupons match these filters" action={{ label: 'Clear filters', onPress: clear }} />
+    <EmptyState kind="no-results" title="No coupons match these filters" action={{ label: 'Clear filters', onPress: clear }} />
   ) : (
       <ScrollView testID="coupons-body">
         {width < NARROW_WIDTH ? shown.map(c => (

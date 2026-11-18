@@ -249,7 +249,7 @@ export function CatalogueView({
   const clearFilters = () => dispatch({ type: 'appliedQuickFilterGone', baseline });
   // v2 counts no products: nothing narrows the baseline (pos/products/index.tsx:361, `!browsePlace && !conditionsOn`).
   const emptyStore = level === null && !conditionsOn;
-  const emptyState = <EmptyState title={emptyStore ? 'No products yet' : 'Nothing here matches the filters'}
+  const emptyState = <EmptyState kind={emptyStore ? 'empty' : 'no-results'} title={emptyStore ? 'No products yet' : 'Nothing here matches the filters'}
     description={emptyStore ? 'Products you add to the store will appear here.' : undefined}
     action={conditionsOn ? { label: 'Clear filters', onPress: clearFilters } : undefined} />;
   const syncing = status === 'syncing' || status === 'starting';

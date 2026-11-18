@@ -262,6 +262,9 @@ test('with nothing matching it says so and Clear filters lists every order again
   const input = screen.getByPlaceholderText('Search Orders') as HTMLInputElement;
   fireEvent.change(input, { target: { value: 'nope' } });
   expect(await screen.findByText('No orders match these filters')).not.toBeNull();
+  // v2 list-frame/index.tsx:142-147: a filter miss is kind no-results, drawn with the search glyph.
+  expect(screen.getByTestId('no-data-message').getAttribute('data-kind')).toBe('no-results');
+  expect(screen.getByTestId('no-data-message-glyph').getAttribute('data-glyph')).toBe('search');
   fireEvent.click(screen.getByTestId('no-data-message-action'));
   expect(await screen.findByTestId('history-row-901')).not.toBeNull();
   expect(input.value).toBe('');
@@ -273,6 +276,9 @@ test("with no orders it shows v2's empty copy", async () => {
   await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
   expect((await screen.findByTestId('no-data-message-title')).textContent).toBe('No orders yet');
   expect(screen.getByTestId('no-data-message-description').textContent).toBe('Sales you take will appear here.');
+  // v2 list-frame/index.tsx:149: an empty list is kind empty, drawn with the info glyph.
+  expect(screen.getByTestId('no-data-message').getAttribute('data-kind')).toBe('empty');
+  expect(screen.getByTestId('no-data-message-glyph').getAttribute('data-glyph')).toBe('info');
   expect(screen.queryByTestId('no-data-message-action')).toBeNull();
 });
 

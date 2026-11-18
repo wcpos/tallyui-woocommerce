@@ -313,7 +313,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   const paneColumns = useMemo(() => drilled ? centred(variationColumns(tableColumns, drilled)) : [], [drilled, tableColumns]);
 
   const noVariations = (
-    <EmptyState title="No variations found" />
+    <EmptyState kind="no-results" title="No variations found" />
   );
   // v2's DrillIn: the crumb, then the pane on its own card, the variations under the table's labels.
   const pane = drilled ? (
@@ -354,9 +354,9 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   ) : null;
 
   const body = total === 0 ? (
-    <EmptyState title="No products yet" description="Products you add to the store will appear here." />
+    <EmptyState kind="empty" title="No products yet" description="Products you add to the store will appear here." />
   ) : shown.length === 0 ? (
-    <EmptyState title="Nothing here matches the filters" action={{ label: 'Clear filters', onPress: clear }} />
+    <EmptyState kind="no-results" title="Nothing here matches the filters" action={{ label: 'Clear filters', onPress: clear }} />
   ) : narrow ? (
         <ScrollView testID="products-body">
           {listed.map(doc => (
