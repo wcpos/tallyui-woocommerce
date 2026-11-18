@@ -4,7 +4,7 @@ import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { Circle, Line, Path } from 'react-native-svg';
 import { ConnectorUnauthorizedError, CustomerServiceError } from '@tallyui/core';
 import type { Customer, CustomerPage } from '@tallyui/core';
-import { Avatar, Button, IconButton, SearchInput, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Text, createSvgIcon } from '@tallyui/components';
+import { Avatar, Button, IconButton, SearchInput, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Text, Tooltip, TooltipContent, TooltipTrigger, createSvgIcon } from '@tallyui/components';
 import { useAreaColumns, visibleAreaColumns } from '../lib/area-columns';
 import type { AreaColumn } from '../lib/area-columns';
 import type { CustomerSource } from '../lib/customers/customer-source';
@@ -171,19 +171,23 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
       </ScrollView>
   );
   const listing = !error && !searching && results.length > 0;
+  const addButton = <IconButton testID="customers-add-button" accessibilityLabel="Add new customer" variant="ghost" accessibilityHint={createBlockedReason}
+    disabled={createBlockedReason !== undefined} onPress={() => setAdding(true)}><AddCustomerIcon size={20} /></IconButton>;
 
   return (
     <View testID="screen-customers" className="flex-1 bg-background">
       <AreaToolbar area="customers" title="Customers" onBack={onBack}
         search={source ? <SearchInput testID="search-customers" value={term} onChangeText={type} placeholder="Search Customers" /> : null}>
-        {source ? <IconButton testID="customers-add-button" accessibilityLabel="Add new customer" variant="ghost"
-          disabled={createBlockedReason !== undefined} onPress={() => setAdding(true)}><AddCustomerIcon size={20} /></IconButton> : null}
+        {source ? createBlockedReason === undefined ? addButton : <Tooltip>
+          {/* v2 customers/index.tsx:162-181: a greyed add button says why in its tooltip. The disabled button takes
+              no pointer (web:pointer-events-none), so a wrapper takes the hover, as v2's capability-tooltip.tsx:17-23. */}
+          <TooltipTrigger asChild><Pressable testID="customers-add-trigger" role="none" focusable={false}>{addButton}</Pressable></TooltipTrigger>
+          <TooltipContent><Text>{createBlockedReason}</Text></TooltipContent>
+        </Tooltip> : null}
         {/* v2's order: add, then the settings icon, then the bell and the avatar. */}
         <AreaDisplayOptions area="customers" columns={CUSTOMERS_COLUMNS} settings={settings} onChange={setSettings} />
       </AreaToolbar>
       {source ? <>
-        {createBlockedReason !== undefined
-          ? <Text testID="customers-add-blocked" className={`pb-2 text-sm text-muted-foreground ${gutter}`}>{createBlockedReason}</Text> : null}
         <TableSurface testID="customers-table-surface">{body}</TableSurface>
         {/* The store's count of every match, when it gives one (v2 data-table/footer.tsx:58-63). */}
         {listing ? <CaptionRowInset><TableCount shown={shown.length} total={total} active={searching} onSync={retry} /></CaptionRowInset> : null}

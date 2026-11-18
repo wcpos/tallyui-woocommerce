@@ -345,16 +345,34 @@ test('Cancel closes Add Customer without saving', () => {
   expect(create).not.toHaveBeenCalled();
 });
 
-test('without the create capability Add new customer is disabled and says why', () => {
+// v2 customers/index.tsx:162-181: the reason sits in the greyed button's tooltip, on a wrapper that takes the hover.
+test('without the create capability the greyed Add new customer button says why in its tooltip', () => {
   renderScreen(undefined, undefined, { createBlockedReason: CREATE_CUSTOMERS_DENIED });
   const add = screen.getByRole('button', { name: 'Add new customer' });
   expect(add.getAttribute('aria-disabled')).toBe('true');
-  expect(screen.getByTestId('customers-add-blocked').textContent).toBe(CREATE_CUSTOMERS_DENIED);
+  expect(screen.queryByRole('tooltip')).toBeNull();
+  const trigger = screen.getByTestId('customers-add-trigger');
+  expect(trigger.contains(add)).toBe(true);
+  fireEvent.pointerEnter(trigger);
+  expect(screen.getByRole('tooltip').textContent).toBe(CREATE_CUSTOMERS_DENIED);
   fireEvent.click(add);
   expect(screen.queryByTestId('customer-form')).toBeNull();
-  cleanup();
-  renderScreen();
+});
+
+test('without the create capability there is no reason line under the toolbar', () => {
+  renderScreen(undefined, undefined, { createBlockedReason: CREATE_CUSTOMERS_DENIED });
   expect(screen.queryByTestId('customers-add-blocked')).toBeNull();
+  expect(screen.queryByText(CREATE_CUSTOMERS_DENIED)).toBeNull();
+});
+
+test('with the create capability Add new customer has no tooltip and opens the add dialog', () => {
+  renderScreen();
+  expect(screen.queryByTestId('customers-add-trigger')).toBeNull();
+  const add = screen.getByRole('button', { name: 'Add new customer' });
+  fireEvent.pointerEnter(add);
+  expect(screen.queryByRole('tooltip')).toBeNull();
+  fireEvent.click(add);
+  expect(screen.getByTestId('customer-form')).not.toBeNull();
 });
 
 test('the drawer lists Customers after Orders only when an onOpenCustomers handler is supplied', () => {

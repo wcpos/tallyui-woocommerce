@@ -144,7 +144,7 @@ const order = { id: '901', reference: '901', status: 'completed', placedAt: new 
   payments: [], discountMinor: 0, discountTaxMinor: 0, taxMinor: 0, totalMinor: 600 } as unknown as StoreOrder;
 const gutterAreas: [string, () => ReactNode, string | null][] = [
   ['orders', () => <OrdersScreen onBack={vi.fn()} history={{ list: async () => ({ orders: [order], hasMore: false }) }} storeName="Shop" cashierName="Paul" />, null],
-  ['customers', () => <CustomersScreen source={{ search: async () => [], create: vi.fn() }} onBack={vi.fn()} createBlockedReason="No" />, 'customers-add-blocked'],
+  ['customers', () => <CustomersScreen source={{ search: async () => [], create: vi.fn() }} onBack={vi.fn()} createBlockedReason="No" />, null],
   ['products', areas[2][1], 'products-filter-row'],
   ['coupons', areas[3][1], 'coupons-filter-row'],
 ];
