@@ -14,13 +14,31 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 const LOGIN_HINT = "Nothing is lost — unsent changes send once you're signed in. Try logging in again.";
 
 test('with saved stores the address form waits behind Connect another store', () => {
-  render(<ConnectForm startSignIn={vi.fn()} saved={<Text testID="saved-slot">saved</Text>} />);
+  render(<ConnectForm startSignIn={vi.fn()} saved={() => <Text testID="saved-slot">saved</Text>} />);
   expect(screen.getByTestId('saved-slot')).not.toBeNull();
   expect(screen.queryByTestId('store-url-input')).toBeNull();
   expect(screen.getByTestId('connect-another-store').textContent).toBe('Connect another store');
   fireEvent.click(screen.getByTestId('connect-another-store'));
   expect(screen.getByTestId('store-url-input')).not.toBeNull();
   expect(screen.queryByTestId('connect-another-store')).toBeNull();
+});
+
+test('opening the address form folds the saved sites, and expanding one closes it', () => {
+  const folds: boolean[] = [];
+  let expand!: () => void;
+  render(<ConnectForm startSignIn={vi.fn()} saved={({ collapsed, onExpand }) => {
+    folds.push(collapsed);
+    expand = onExpand;
+    return <Text testID="saved-slot">saved</Text>;
+  }} />);
+  expect(folds.at(-1)).toBe(false);
+  fireEvent.click(screen.getByTestId('connect-another-store'));
+  expect(folds.at(-1)).toBe(true);
+  expect(screen.getByTestId('store-url-input')).not.toBeNull();
+  act(() => { expand(); });
+  expect(folds.at(-1)).toBe(false);
+  expect(screen.queryByTestId('store-url-input')).toBeNull();
+  expect(screen.getByTestId('connect-another-store')).not.toBeNull();
 });
 
 test('without saved stores only the address form shows', () => {
@@ -30,7 +48,7 @@ test('without saved stores only the address form shows', () => {
 });
 
 test('a sign-in callback error opens the address form even with saved stores', () => {
-  render(<ConnectForm startSignIn={vi.fn()} saved={<Text testID="saved-slot">saved</Text>} signInError="state_mismatch" />);
+  render(<ConnectForm startSignIn={vi.fn()} saved={() => <Text testID="saved-slot">saved</Text>} signInError="state_mismatch" />);
   expect(screen.getByTestId('connect-error-message').textContent).toBe("The login didn't complete.");
   expect(screen.getByTestId('connect-error-hint').textContent).toBe(LOGIN_HINT);
 });
