@@ -16,7 +16,7 @@ export default function HealthDatabase() {
     <CatalogueUnavailable message={error ?? `Connecting to ${session.site.name}…`} />
     </>
   );
-  return <><SessionHoldBanner /><HealthScreen receiptEmails={catalogue.receiptEmails}
+  return <><SessionHoldBanner /><HealthScreen receiptEmails={catalogue.receiptEmails} runner={catalogue.cadence}
     collections={[
       { key: 'products', label: 'Products', collection: catalogue.db.products, onSyncNow: () => catalogue.replication.resume() },
       { key: 'coupons', label: 'Coupons', collection: catalogue.coupons, onSyncNow: () => catalogue.couponReplication.resume() },

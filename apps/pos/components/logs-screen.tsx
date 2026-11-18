@@ -3,7 +3,7 @@ import { Pressable, View } from 'react-native';
 import { Button, SearchInput, Text } from '@tallyui/components';
 import type { SyncCadenceRunner } from '@tallyui/database';
 import type { LogLevel } from '@tallyui/pos';
-import { formatCadence } from '../lib/health/performance';
+import { useCheckStatusLabel } from '../lib/health/use-check-status';
 import { useIsWide } from '../lib/layout/wide';
 import type { LogCollection, LogRecord } from '../lib/logs/log-store';
 import { IDLE_OUTBOX_STATE, buildDebugInfo, buildLogEntryReport, formatDurationMs, formatLogTime, logStats, matchesLogFilter, outboxSyncStats,
@@ -13,9 +13,6 @@ import { useSearchTerm } from '../lib/search-term';
 import { toast } from '../lib/toast/toast';
 import { chipInkClassName, chipToneClassName } from './catalogue-filter-chips';
 import { EmptyState } from './empty-state';
-
-// v2 logs/index.tsx:44: the status line's clock.
-const NOW_TICK_MS = 5_000;
 
 // v2's Stat (packages/components/src/stat): the number above a muted label, pressable as a filter when it has onPress.
 // v2's tones: bad reads destructive, good reads success.
@@ -122,20 +119,12 @@ export function LogsScreen({ collection, storeName, siteUrl,
   const [rows, setRows] = useState<LogRecord[]>([]);
   const [preset, setPreset] = useState<LogPreset>('all');
   const [level, setLevel] = useState<LogLevel>();
-  const [nextDueAtMs, setNextDueAtMs] = useState<number | undefined>(undefined);
-  const [nowMs, setNowMs] = useState(now);
   const { verbose, setVerbose } = useVerboseDiagnostics(now);
   useEffect(() => {
     const subscription = collection.find({ sort: [{ id: 'desc' }] }).$.subscribe(
       docs => setRows(docs.map(doc => doc.toJSON())));
     return () => subscription.unsubscribe();
   }, [collection]);
-  useEffect(() => {
-    if (!runner) return;
-    const subscription = runner.nextDueAtMs$.subscribe(next => { setNextDueAtMs(next); setNowMs(now()); });
-    const interval = setInterval(() => setNowMs(now()), NOW_TICK_MS);
-    return () => { subscription.unsubscribe(); clearInterval(interval); };
-  }, [runner, now]);
   const { term, query: search, type } = useSearchTerm();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggle = (id: string) => setExpanded(previous => ({ ...previous, [id]: !previous[id] }));
@@ -146,9 +135,7 @@ export function LogsScreen({ collection, storeName, siteUrl,
   // The footer's total is what All shows for the search, as v2's count follows its search.
   const searched = counted.filter(row => matchesSearch(row, search));
   const stats = logStats(counted, now());
-  const next = nextDueAtMs === undefined ? null : formatCadence(nextDueAtMs - nowMs);
-  // v2 logs/index.tsx:85-89 reads First check pending… before a last tick; Tally has none, so a runner with nothing due stands in.
-  const label = nextDueAtMs === undefined ? 'First check pending…' : next ? `Watching for changes · next check ~${next.value} ${next.unit}` : 'Watching for changes';
+  const label = useCheckStatusLabel(runner, now);
   async function copyDebugInfo() {
     if (!copyText) return;
     try {

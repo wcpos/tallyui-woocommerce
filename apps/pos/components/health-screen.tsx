@@ -1,8 +1,11 @@
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
-import { Text } from '@tallyui/components';
+import { Button, Loader, Text } from '@tallyui/components';
+import type { SyncCadenceRunner } from '@tallyui/database';
 import type { ReceiptEmailCollection } from '../lib/receipts/receipt-emails';
 import { useStorageEstimate } from '../lib/health/use-storage-estimate';
+import { useCheckStatusLabel } from '../lib/health/use-check-status';
+import { useManualSync } from '../lib/health/use-manual-sync';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { isReadyToSell } from '../lib/health/database-stats';
 import { useOnlineStatus } from '../lib/online/online-status';
@@ -12,12 +15,14 @@ import { DatabaseStats } from './database-stats';
 import { RejectedOrdersPanel } from './rejected-orders-panel';
 import { StuckRecordsBanner } from './stuck-records-banner';
 
-export function HealthScreen({ receiptEmails, collections }: {
+export function HealthScreen({ receiptEmails, collections, runner }: {
   receiptEmails: ReceiptEmailCollection; collections: DatabaseCountRow[];
+  /** The catalogue polling runner, for the check line (as Logs reads it). */
+  runner?: Pick<SyncCadenceRunner, 'nextDueAtMs$'>;
 }) {
   const outbox = useOutbox();
   const orders = outbox.enabled ? outbox.orders : null;
-  const rows = orders ? [...collections, { key: 'orders', label: 'Orders', collection: orders }] : collections;
+  const rows: DatabaseCountRow[] = orders ? [...collections, { key: 'orders', label: 'Orders', collection: orders }] : collections;
   const [reported, setReported] = useState<Record<string, number>>({});
   const onCount = useCallback((key: string, count: number) =>
     setReported(prev => (prev[key] === count ? prev : { ...prev, [key]: count })), []);
@@ -27,6 +32,12 @@ export function HealthScreen({ receiptEmails, collections }: {
   const offline = useOnlineStatus().status === 'offline';
   // database-stats.tsx's "Ready to sell" signal
   const ready = typeof counts.products === 'number' && isReadyToSell(counts.products);
+  const label = useCheckStatusLabel(runner);
+  // v2's Check everything now: every row's check at once, one toast at most for the press.
+  const everything = useManualSync(async () => {
+    const results = await Promise.allSettled(rows.flatMap(row => (row.onSyncNow ? [row.onSyncNow()] : [])));
+    if (results.some(result => result.status === 'rejected')) throw new Error('A check failed');
+  });
   // The Store health area (app/health/_layout.tsx) draws the scroll, the page title and the way back.
   return (
     <View testID="screen-health-database">
@@ -44,6 +55,18 @@ export function HealthScreen({ receiptEmails, collections }: {
         </View>}
         <DatabaseCounts rows={rows} onCount={onCount} />
         <QueuedEmailsPanel collection={receiptEmails} orders={orders} />
+        {/* v2 database.tsx:815-863, the Freshness station. Last check and a failed check wait on a last-tick value from
+            @tallyui/database, so the line reads as Logs' does; the totals line and How syncing works need the connector. */}
+        <View testID="db-freshness" className="flex-row flex-wrap items-end justify-between gap-3 pt-1">
+          {runner && <View testID="db-freshness-status" className="flex-row items-center gap-1.5">
+            <View aria-hidden className="size-1.5 shrink-0 rounded-full bg-success" />
+            <Text testID="db-freshness-label" className="text-xs text-muted-foreground">{label}</Text>
+          </View>}
+          <Button testID="db-check-everything" variant="outline" size="sm" className="ml-auto" disabled={everything.syncing}
+            onPress={() => void everything.sync()}>
+            {everything.syncing && <Loader size="sm" />}<Text>Check everything now</Text>
+          </Button>
+        </View>
       </View>
     </View>
   );

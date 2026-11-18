@@ -6,8 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
   Text } from '@tallyui/components';
 import { countFresh } from '@tallyui/pos';
 import { estimateCollectionSize, formatBytes } from '../lib/health/database-stats';
-import { useOnlineStatus } from '../lib/online/online-status';
-import { toast } from '../lib/toast/toast';
+import { useManualSync } from '../lib/health/use-manual-sync';
 import { MoreIcon } from './icons';
 
 export interface DatabaseCountRow {
@@ -54,9 +53,7 @@ export function DatabaseCounts({ rows, onCount }: {
 function CountRow({ row, onCount }: { row: DatabaseCountRow; onCount?(key: string, count: number): void }): JSX.Element {
   const [count, setCount] = useState<number | null>(null);
   const [size, setSize] = useState<number | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const guard = useRef(false);
-  const offline = useOnlineStatus().status === 'offline';
+  const { syncing, sync } = useManualSync(() => row.onSyncNow!());
   // Read through a ref so a new callback never resubscribes: one count subscription per collection
   const report = useRef({ key: row.key, onCount });
   report.current = { key: row.key, onCount };
@@ -76,17 +73,6 @@ function CountRow({ row, onCount }: { row: DatabaseCountRow; onCount?(key: strin
     return () => subscription.unsubscribe();
   }, [row.collection]);
 
-  async function sync() {
-    // v2 use-manual-sync.ts:40-53: an offline device skips the tick and says so.
-    if (offline) return void toast({ type: 'warning', title: 'Sync didn’t run.', description: 'This device is offline.' });
-    if (guard.current) return;
-    guard.current = true;
-    setSyncing(true);
-    // v2 use-manual-sync.ts:33-39, :117-125: a failed check toasts, a good one is quiet.
-    try { await row.onSyncNow!(); }
-    catch { toast({ type: 'error', title: 'Couldn’t sync with the server.', description: 'Check your connection and try again. Logs has the details.' }); }
-    finally { guard.current = false; setSyncing(false); }
-  }
   const sizeText = formatBytes(size);
   return (
     <View testID={`db-row-${row.key}`} className={ROW}>
