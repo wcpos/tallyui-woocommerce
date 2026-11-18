@@ -5,6 +5,7 @@ import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { PortalHost } from '@tallyui/primitives';
 import { DatabaseCounts, type DatabaseCountRow } from '../components/database-counts';
+import { OnlineStatusContext } from '../lib/online/online-status';
 import { dismissToast, getToasts } from '../lib/toast/toast';
 import { classesOf } from './classes-of';
 
@@ -127,6 +128,16 @@ test('a failed check toasts v2’s error and hint, a good one is quiet', async (
   // Settled once the ⋮ is enabled again: a good check leaves no toast
   await waitFor(() => expect(screen.getByTestId('db-row-menu-products').getAttribute('aria-disabled')).not.toBe('true'));
   expect(toasts()).toEqual([]);
+});
+
+test('offline, Check for changes now toasts v2’s Sync didn’t run warning and does not sync', () => {
+  // v2 use-manual-sync.ts:40-53 (health.database.sync_skipped, sync_skipped_offline)
+  const onSyncNow = vi.fn(async () => {});
+  rows[0].onSyncNow = onSyncNow;
+  render(<OnlineStatusContext.Provider value={{ status: 'offline' }}><DatabaseCounts rows={rows} /><PortalHost /></OnlineStatusContext.Provider>);
+  syncNow('products');
+  expect(onSyncNow).not.toHaveBeenCalled();
+  expect(toasts()).toEqual([{ type: 'warning', title: 'Sync didn’t run.', description: 'This device is offline.' }]);
 });
 
 test('v2\'s flat table: caption-rank heads, ruled rows at 61 px, no inner box', async () => {
