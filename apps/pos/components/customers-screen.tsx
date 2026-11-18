@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
-import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
+import { Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { Circle, Line, Path } from 'react-native-svg';
 import { ConnectorUnauthorizedError, CustomerServiceError } from '@tallyui/core';
 import type { Customer, CustomerPage } from '@tallyui/core';
@@ -54,6 +54,7 @@ function sortable(id: CustomersColumnId): id is CustomerSortField {
 function customerCell(id: CustomersColumnId, c: Customer, now: Date): JSX.Element {
   const className = COLUMN_CLASS[id];
   switch (id) {
+    // v2 cells/avatar.tsx:19-23 draws size="lg", which is v2's size-10 (components/src/avatar/index.tsx:45): TallyUI's md, h-10.
     case 'avatar_url': return <TableCell key={id} className={className}><Avatar size="md" fallback={customerInitials(c)} /></TableCell>;
     case 'id': return <TableCell key={id}><Text>{c.id}</Text></TableCell>;
     case 'first_name': return <TableCell key={id}><Text>{c.firstName ?? ''}</Text></TableCell>;
@@ -201,8 +202,12 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
     <View testID="screen-customers" className="flex-1 bg-background">
       <AreaToolbar area="customers" title="Customers" onBack={onBack}
         search={source ? <SearchInput testID="search-customers" value={term} onChangeText={type} placeholder="Search Customers" /> : null}>
-        {source ? createBlockedReason === undefined ? addButton : <Tooltip>
-          {/* v2 customers/index.tsx:162-181: a greyed add button says why in its tooltip. The disabled button takes
+        {source ? createBlockedReason === undefined ? Platform.OS === 'web' ? <Tooltip>
+          <TooltipTrigger asChild>{addButton}</TooltipTrigger>
+          <TooltipContent side="bottom"><Text>Add new customer</Text></TooltipContent>
+        </Tooltip> : addButton : <Tooltip>
+          {/* v2 customers/index.tsx:162-181: an allowed add button's tooltip reads common.add_new_customer, "Add new
+              customer", on the web only (showOnNative is false). A greyed add button says why in its tooltip. The disabled button takes
               no pointer (web:pointer-events-none), so a wrapper takes the hover, as v2's capability-tooltip.tsx:17-23. Below the
               bar, where v2's Radix flips it: TallyUI clamps a top tooltip onto the button, which closes it under the pointer. */}
           <TooltipTrigger asChild><Pressable testID="customers-add-trigger" role="none" focusable={false}>{addButton}</Pressable></TooltipTrigger>
