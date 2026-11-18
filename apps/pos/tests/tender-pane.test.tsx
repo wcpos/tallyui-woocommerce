@@ -1,5 +1,5 @@
 import { noTaxSettings } from './fixtures/store-settings';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
@@ -8,6 +8,7 @@ import type { OrderCreateEnvelope } from '@tallyui/core';
 import type { CommandTransport } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
 import { SaleScreen } from '../components/sale-screen';
+import { useElapsed } from '../components/tender-pane';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
@@ -36,6 +37,7 @@ beforeEach(() => {
 beforeEach(() => { localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all' })); });
 
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -345,3 +347,70 @@ test('multi: on a free order with no payment yet, a cash entry still reads as ch
   press('clear', '5', '0', '0');
   expect(text('checkout-entry-hint')).toBe('Change $5.00');
 }, 20_000);
+
+// WCPOS v2: tender-pane.tsx:46-58, 106, 587-591; core.json pos_checkout.store_not_answering.
+const SLOW = "The store isn't answering. Keep waiting, or go back to the cart.";
+/** Only setTimeout is faked, from before the press, so the pane's slow-save timer is the one these tests move. */
+const fakeTimers = () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+const advance = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
+
+test("a save held past 4 s says the store isn't answering, and the line goes with the save", async () => {
+  await startTender('Cash');
+  const release = holdSave();
+  fakeTimers();
+  fireEvent.click(screen.getByTestId('checkout-commit'));
+  expect(text('checkout-commit')).toBe('Saving order…');
+  advance(3_900);
+  expect(screen.queryByTestId('checkout-save-slow')).toBeNull();
+  advance(100);
+  expect(text('checkout-save-slow')).toBe(SLOW);
+  expect(classesOf('checkout-save-slow')).toEqual(expect.arrayContaining(['text-sm', 'text-warning']));
+  vi.useRealTimers();
+  release();
+  expect(await screen.findByTestId('receipt-order')).not.toBeNull();
+  expect(screen.queryByTestId('checkout-save-slow')).toBeNull();
+}, 20_000);
+
+test("multi: the paying leg's save says the store isn't answering after 4 s", async () => {
+  await startTender('Cash', 'online-website-available', true);
+  const release = holdSave();
+  fakeTimers();
+  takeLeg(300);
+  expect(text('checkout-commit')).toBe('Saving order…');
+  advance(3_900);
+  expect(screen.queryByTestId('checkout-save-slow')).toBeNull();
+  advance(100);
+  expect(text('checkout-save-slow')).toBe(SLOW);
+  vi.useRealTimers();
+  release();
+  expect(await screen.findByTestId('receipt-order')).not.toBeNull();
+  expect(screen.queryByTestId('checkout-save-slow')).toBeNull();
+}, 20_000);
+
+// The failing insert is ledger-pane.test's pattern; this file had none of its own.
+test("a failed save does not say the store isn't answering", async () => {
+  await startTender('Cash');
+  vi.spyOn(orders!, 'insert').mockRejectedValueOnce(new Error('disk full'));
+  // The failed save waits on a timer of its own before the error lands, so fake time also follows the clock here.
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'], shouldAdvanceTime: true });
+  fireEvent.click(screen.getByTestId('checkout-commit'));
+  await screen.findByText('The sale could not be saved: disk full');
+  advance(4_000);
+  expect(screen.queryByTestId('checkout-save-slow')).toBeNull();
+}, 20_000);
+
+// In the pane a failed save keeps its error until success, which unmounts it, so the reset is read at the hook.
+test('useElapsed resets when active changes, so a second save waits the full delay again', () => {
+  vi.useFakeTimers();
+  const { result, rerender } = renderHook(({ active }) => useElapsed(active, 4_000), { initialProps: { active: true } });
+  advance(4_000);
+  expect(result.current).toBe(true);
+  rerender({ active: false });
+  expect(result.current).toBe(false);
+  rerender({ active: true });
+  expect(result.current).toBe(false);
+  advance(3_900);
+  expect(result.current).toBe(false);
+  advance(100);
+  expect(result.current).toBe(true);
+});
