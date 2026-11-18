@@ -61,8 +61,15 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
   const change = changeMinor(state.entryMinor, applied, method.givesChange);
   const noChange = !method.givesChange && state.entryMinor > balance;
   const fmt = (amount: number) => formatMoney({ amount, currency: sale.order.currency }) ?? '';
+  // WCPOS v2: tender-figures.ts:134,147 and tender-pane.tsx:285-334. A plan is measured against this payment's planned
+  // share, not the balance: keeping the share reads empty, and less than it says where the shortfall goes.
+  const shareDue = planned ? planned.thisPaymentMinor : balance;
+  const toCome = planned ? planned.legs.filter(leg => leg.state === 'todo').length : 0;
+  const short = `Less than planned · ${fmt(shareDue - applied)} moves to`;
   const hint = noChange ? `Only ${fmt(balance)} is due — ${method.title} can't give change`
-    : state.entryMinor > 0 && applied < balance ? planned ? `${fmt(balance - applied)} left` : `Part payment · ${fmt(balance - applied)} left after this` : '';
+    : state.entryMinor > 0 && applied < shareDue ? !planned ? `Part payment · ${fmt(balance - applied)} left after this`
+      : toCome === 2 ? `${short} payments ${planned.label.n + 1} and ${planned.label.n + 2}`
+        : toCome > 2 ? `${short} the next ${toCome} payments` : `${short} the next payment` : '';
   const legs = sale.order.payments.length;
   const suffix = planned ? ` · ${planned.label.n} of ${planned.label.ways}` : !multi ? '' : applied < balance ? ` · ${fmt(balance - applied)} left` : legs > 0 ? ' · pays it off' : '';
   // A failed save (saving with an error) offers Retry; paid in full with nothing saving offers the completion again.
