@@ -517,7 +517,7 @@ test('default tiles show name and price without optional fields', () => {
   const tile = within(screen.getByTestId('product-tile-80'));
   expect(tile.getByText('Espresso')).not.toBeNull();
   expect(tile.getByText('$3.00')).not.toBeNull();
-  expect(tile.queryByText('SKU COF-ESP')).toBeNull();
+  expect(tile.queryByTestId('tile-sku-80')).toBeNull();
   expect(tile.queryByText('2000000000015')).toBeNull();
   expect(tile.queryByText('Coffee')).toBeNull();
   expect(screen.getByTestId('product-tile-80').textContent).not.toContain('In Stock');
@@ -527,11 +527,11 @@ test('the SKU tile switch updates immediately, saves and survives a remount', ()
   const { unmount } = render(<><CatalogueView {...props} /><PortalHost /></>);
   fireEvent.click(screen.getByTestId('catalogue-settings-button'));
   fireEvent.click(screen.getByRole('switch', { name: 'Show SKU on tiles' }));
-  expect(within(screen.getByTestId('product-tile-80')).getByText('SKU COF-ESP')).not.toBeNull();
+  expect(within(screen.getByTestId('product-tile-80')).getByTestId('tile-sku-80').textContent).toBe('SKU COF-ESP');
   expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!).tileFields.sku).toBe(true);
   unmount();
   render(<><CatalogueView {...props} /><PortalHost /></>);
-  expect(within(screen.getByTestId('product-tile-80')).getByText('SKU COF-ESP')).not.toBeNull();
+  expect(within(screen.getByTestId('product-tile-80')).getByTestId('tile-sku-80').textContent).toBe('SKU COF-ESP');
 });
 
 test('category, barcode and stock switches show their tile fields', () => {
@@ -574,7 +574,7 @@ test('restore resets tile fields and saves the complete defaults', () => {
   const tile = within(screen.getByTestId('product-tile-80'));
   expect(tile.getByText('Espresso')).not.toBeNull();
   expect(tile.getByText('$3.00')).not.toBeNull();
-  expect(tile.queryByText('SKU COF-ESP')).toBeNull();
+  expect(tile.queryByTestId('tile-sku-80')).toBeNull();
   expect(localStorage.getItem(CATALOGUE_VIEW_KEY)).toBe(JSON.stringify(CATALOGUE_VIEW_DEFAULTS));
 });
 

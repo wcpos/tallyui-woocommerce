@@ -25,6 +25,8 @@ const FILL = { width: '100%', height: '100%' } as const;
 // v2's POSTER_BAND (packages/components/src/poster-tile/scrim-stops.ts l.78) at its 14 px base: one line of name
 // (14 x 1.25 = 17.5), the money row (14 x 1.35 = 18.9) and --spacing x 3 (12) for the gap and the foot.
 export const BAND = { height: 48.4 };
+// v2's factsRow: one wrapping row, three text-xs lines at most plus the two 1 px gaps between them.
+const FACTS_ROW = 'max-h-[calc(3*var(--text-xs--line-height)+0.125rem)] flex-row flex-wrap gap-x-2.5 gap-y-px overflow-hidden';
 // v2's scrim-stops.ts: the fade reaches 48 px above the words and eases up to 92% card colour.
 const SCRIM_REACH = 48;
 const SCRIM_STRENGTH = 0.92;
@@ -60,14 +62,18 @@ export function ProductTile({ doc, fields, onPress, tax, inCart = 0 }: ProductTi
   const barcode = traits.getBarcode(doc);
   const options = variable ? optionsLabel(traits.getVariantCount(doc)) : null;
   const compact = useCompactTiles();
+  // v2's factsRow (tiles/tile-words.tsx): SKU, barcode, categories, each only when on and set.
+  const facts = [
+    fields.sku && sku && <Text key="sku" testID={`tile-sku-${id}`} className="text-xs" numberOfLines={1}><Text testID={`tile-sku-label-${id}`} className="text-xs text-foreground/65">SKU </Text>{sku}</Text>,
+    fields.barcode && barcode && <Text key="barcode" testID={`tile-barcode-${id}`} className="text-xs" numberOfLines={1}>{barcode}</Text>,
+    fields.category && category && <Text key="category" testID={`tile-category-${id}`} className="w-full text-xs" numberOfLines={1}>{category}</Text>,
+  ].filter(Boolean);
   const lines: ReactNode[] = [
     fields.name && <ProductTitle key="name" testID={`tile-name-${id}`} doc={doc} className={`${tileNameSize(compact)} font-bold leading-tight`} numberOfLines={2} />,
     soldOut ? (fields.price || fields.stock) && <Text key="money" testID={`tile-sold-out-${id}`} className="text-base font-bold">Sold out</Text>
       : fields.price && <TileMoney key="money" doc={doc} id={id} fields={fields} tax={tax} variable={variable} />,
     options && <Text key="options" testID={`tile-options-${id}`} className="text-xs text-foreground/70">{options}</Text>,
-    fields.sku && sku && <Text key="sku" testID={`tile-sku-${id}`} className="text-xs text-muted-foreground" numberOfLines={1}>SKU {sku}</Text>,
-    fields.barcode && barcode && <Text key="barcode" testID={`tile-barcode-${id}`} className="text-xs text-muted-foreground" numberOfLines={1}>{barcode}</Text>,
-    fields.category && category && <Text key="category" testID={`tile-category-${id}`} className="text-xs text-muted-foreground" numberOfLines={1}>{category}</Text>,
+    facts.length > 0 && <View key="facts" testID={`tile-facts-${id}`} className={FACTS_ROW}>{facts}</View>,
   ].filter(Boolean);
   const content = <View testID={`product-tile-${id}`} className="relative">
     {variable && <View testID={`tile-stack-${id}`} pointerEvents="none" style={StyleSheet.absoluteFill}>
