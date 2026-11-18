@@ -8,6 +8,8 @@ export const CheckIcon = createSvgIcon('CheckIcon', () => <Path d="M20 6 9 17l-5
 export const ChevronLeftIcon = createSvgIcon('ChevronLeftIcon', () => <Path d="m15 18-6-6 6-6" />);
 // v2's `chevronRight` glyph.
 export const ChevronRightIcon = createSvgIcon('ChevronRightIcon', () => <Path d="m9 18 6-6-6-6" />);
+// v2's `chevronDown` glyph (components/src/icon/svg/tabler/chevron-down.svg).
+export const ChevronDownIcon = createSvgIcon('ChevronDownIcon', () => <Path d="m6 9 6 6 6-6" />);
 // v2's `folder` glyph.
 export const FolderIcon = createSvgIcon('FolderIcon', () => <>
   <Path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
