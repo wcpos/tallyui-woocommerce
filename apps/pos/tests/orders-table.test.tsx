@@ -114,6 +114,23 @@ test("the table shows v2's columns, a day band and a count, and the chevron open
   expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ kind: 'store', order: storeOrder }));
 });
 
+const twenty = Array.from({ length: 20 }, (_, i) => ({ ...storeOrder, id: String(i + 1), reference: String(i + 1) }));
+
+test("with the store's total of 40 and 20 rows the count reads v2's Showing 20 of 40", () => {
+  render(<OrdersTable local={[]} store={twenty} total={40} onOpen={vi.fn()} now={() => now} />);
+  expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 20 of 40');
+});
+
+test('a local order on top counts in both numbers: Showing 21 of 41', () => {
+  render(<OrdersTable local={[posOrder({ id: 'local-1' })]} store={twenty} total={40} onOpen={vi.fn()} now={() => now} />);
+  expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 21 of 41');
+});
+
+test('with no total the count stays Showing N', () => {
+  render(<OrdersTable local={[]} store={twenty} onOpen={vi.fn()} now={() => now} />);
+  expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 20');
+});
+
 test("at 1280 the orders table sits on the areas' shared card, with the count under it", () => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1280, height: 800, scale: 1, fontScale: 1 });
   render(<OrdersTable local={[]} store={[storeOrder]} onOpen={vi.fn()} now={() => now} />);
