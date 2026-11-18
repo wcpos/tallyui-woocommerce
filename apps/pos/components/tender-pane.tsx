@@ -132,6 +132,30 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
   }
 
   return <View dataSet={{ print: 'hide' }} testID="checkout-tender" className="gap-4 p-4">
+    {/* WCPOS v2: tender-pane.tsx:415-429. */}
+    <View className="flex-row items-center justify-center gap-2">
+      <Text testID="checkout-label" className="text-center text-sm text-muted-foreground">
+        {planned ? `Payment ${planned.label.n} of ${planned.label.ways} · ${fmt(balance)} left` : multi && legs > 0 ? `Payment ${legs + 1} · ${fmt(balance)} left`
+          : <>To pay{state.entryMinor !== balance ? <>{' '}<Text testID="checkout-balance" className="tabular-nums">{fmt(balance)}</Text></> : null}</>}
+      </Text>
+      {multi && balance > 0 && <Pressable accessibilityRole="button" testID="checkout-split-chip" aria-pressed={on}
+        className={filterChipClassName(on)} disabled={sale.saving}
+        onPress={() => dispatch(on ? { type: 'clear-plan', balanceMinor: balance } : { type: 'open-split' })}>
+        <Text className={filterChipTextClassName(on)}>Split</Text>
+      </Pressable>}
+      {/* WCPOS v2: tender-pane.tsx:430-434. */}
+      {!online && <Text testID="checkout-offline" className="text-xs text-warning">Offline</Text>}
+    </View>
+    {change > 0 ? <>
+      {/* WCPOS v2: tender-pane.tsx:437-449; change is the ok tone, and a later leg names the order total. */}
+      <Text testID="checkout-entry-hint" className="text-center text-3xl font-semibold text-success">{`Change ${fmt(change)}`}</Text>
+      <Text testID="checkout-tendered-line" className="text-center text-base text-muted-foreground">Tendered <Text testID="checkout-entry" className="tabular-nums">{fmt(state.entryMinor)}</Text>
+        {sale.order.totalMinor !== balance ? ` · Total ${fmt(sale.order.totalMinor)}` : ''}</Text>
+    </> : <>
+      <Text testID="checkout-entry" className={`text-center text-4xl font-semibold tabular-nums text-foreground ${state.entryDirty ? '' : 'opacity-70'}`}>{fmt(state.entryMinor)}</Text>
+      <Text testID="checkout-entry-hint" className={`min-h-6 text-center ${noChange ? 'text-warning' : 'text-muted-foreground'}`}>{hint}</Text>
+    </>}
+    {/* WCPOS v2: tender-pane.tsx:475-483 draws the method tiles under the figure and its hint, before the plan strip and the quick amounts. */}
     <View className="flex-row gap-2">
       {METHODS.map(m => {
         const selected = m.id === state.methodId;
@@ -156,29 +180,6 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
         </Pressable>;
       })}
     </View>
-    {/* WCPOS v2: tender-pane.tsx:415-429. */}
-    <View className="flex-row items-center justify-center gap-2">
-      <Text testID="checkout-label" className="text-center text-sm text-muted-foreground">
-        {planned ? `Payment ${planned.label.n} of ${planned.label.ways} · ${fmt(balance)} left` : multi && legs > 0 ? `Payment ${legs + 1} · ${fmt(balance)} left`
-          : <>To pay{state.entryMinor !== balance ? <>{' '}<Text testID="checkout-balance" className="tabular-nums">{fmt(balance)}</Text></> : null}</>}
-      </Text>
-      {multi && balance > 0 && <Pressable accessibilityRole="button" testID="checkout-split-chip" aria-pressed={on}
-        className={filterChipClassName(on)} disabled={sale.saving}
-        onPress={() => dispatch(on ? { type: 'clear-plan', balanceMinor: balance } : { type: 'open-split' })}>
-        <Text className={filterChipTextClassName(on)}>Split</Text>
-      </Pressable>}
-      {/* WCPOS v2: tender-pane.tsx:430-434. */}
-      {!online && <Text testID="checkout-offline" className="text-xs text-warning">Offline</Text>}
-    </View>
-    {change > 0 ? <>
-      {/* WCPOS v2: tender-pane.tsx:437-449; change is the ok tone, and a later leg names the order total. */}
-      <Text testID="checkout-entry-hint" className="text-center text-3xl font-semibold text-success">{`Change ${fmt(change)}`}</Text>
-      <Text testID="checkout-tendered-line" className="text-center text-base text-muted-foreground">Tendered <Text testID="checkout-entry" className="tabular-nums">{fmt(state.entryMinor)}</Text>
-        {sale.order.totalMinor !== balance ? ` · Total ${fmt(sale.order.totalMinor)}` : ''}</Text>
-    </> : <>
-      <Text testID="checkout-entry" className={`text-center text-4xl font-semibold tabular-nums text-foreground ${state.entryDirty ? '' : 'opacity-70'}`}>{fmt(state.entryMinor)}</Text>
-      <Text testID="checkout-entry-hint" className={`min-h-6 text-center ${noChange ? 'text-warning' : 'text-muted-foreground'}`}>{hint}</Text>
-    </>}
     {/* WCPOS v2: tender-pane.tsx:721 and 893-918. */}
     <View testID="checkout-helpers" className="w-full flex-row flex-wrap justify-center gap-2">
       {/* WCPOS v2: tender-pane.tsx:732-777. */}
