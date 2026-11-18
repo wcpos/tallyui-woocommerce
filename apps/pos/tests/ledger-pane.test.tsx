@@ -318,7 +318,8 @@ describe('ledger legs', () => {
   const card: Payment = { id: 'k1', method: 'card', amountMinor: 350 };
 
   test('a cash leg shows what was tendered and the change; a card leg does not', () => {
-    render(<LedgerPane order={order([cash20, card], { total: 2000, paid: 2000, balance: 0 })} />);
+    // A card leg never shows a tendered line, even if a figure were set on it (v2 guards on kind === 'cash').
+    render(<LedgerPane order={order([cash20, { ...card, tenderedMinor: 350 }], { total: 2000, paid: 2000, balance: 0 })} />);
     expect(text('checkout-tendered-leg-c1')).toBe('Tendered $20.00 · change $3.50');
     expect(screen.queryByTestId('checkout-tendered-leg-k1')).toBeNull();
   });
