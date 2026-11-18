@@ -8,15 +8,17 @@ import { Avatar, Button, IconButton, SearchInput, Table, TableBody, TableCell, T
 import { useAreaColumns, visibleAreaColumns } from '../lib/area-columns';
 import type { AreaColumn } from '../lib/area-columns';
 import type { CustomerSource } from '../lib/customers/customer-source';
-import { DEFAULT_CUSTOMER_SORT, billingLines, customerInitials, nextSort, sortCustomers } from '../lib/customers/customer-table';
+import { DEFAULT_CUSTOMER_SORT, billingLines, customerInitials, sortCustomers } from '../lib/customers/customer-table';
 import type { CustomerSort, CustomerSortField } from '../lib/customers/customer-table';
 import { NARROW_WIDTH } from '../lib/layout/wide';
 import { dayLabel } from '../lib/orders/order-days';
 import { useSearchTerm } from '../lib/search-term';
+import { nextSort } from '../lib/table-sort';
 import { AddCustomerDialog } from './add-customer-dialog';
 import { AreaDisplayOptions } from './area-display-options';
 import { AreaToolbar, useAreaGutter } from './area-header';
 import { EmptyState } from './empty-state';
+import { SortHead } from './sort-head';
 import { CaptionRowInset, TableCount, TableSurface } from './table-surface';
 
 // The customer picker's floor (components/customer-picker.tsx:46); the store search is online. Below it the
@@ -72,8 +74,6 @@ function customerCell(id: CustomersColumnId, c: Customer, now: Date): JSX.Elemen
 }
 
 const ChevronRightIcon = createSvgIcon('ChevronRightIcon', () => <><Line x1={9} y1={6} x2={15} y2={12} /><Line x1={15} y1={12} x2={9} y2={18} /></>);
-const SortAscIcon = createSvgIcon('SortAscIcon', () => <><Line x1={6} y1={15} x2={12} y2={9} /><Line x1={12} y1={9} x2={18} y2={15} /></>);
-const SortDescIcon = createSvgIcon('SortDescIcon', () => <><Line x1={6} y1={9} x2={12} y2={15} /><Line x1={12} y1={15} x2={18} y2={9} /></>);
 const AddCustomerIcon = createSvgIcon('AddCustomerIcon', () => <><Circle cx={9} cy={8} r={4} />
   <Path d="M2 21c0-3.9 3.1-7 7-7s7 3.1 7 7" /><Line x1={19} y1={8} x2={19} y2={14} /><Line x1={16} y1={11} x2={22} y2={11} /></>);
 
@@ -138,17 +138,9 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
   const header = (
     <TableHeader><TableRow>
       {columns.map(({ id, label }) => <TableHead key={id} className={`${HEAD} ${COLUMN_CLASS[id] ?? ''}`}>
-        {/* v2 hides the avatar column's label (`hideLabel`). v2 header.tsx:40-80, sort-icon/index.tsx: one-line labels, the sorted
-            chevron text-foreground, a muted up chevron on a hovered unsorted head (Pressable's `hovered`), else none. */}
+        {/* v2 hides the avatar column's label (`hideLabel`); the sortable heads are v2's (sort-head.tsx). */}
         {id === 'avatar_url' ? null : sortable(id)
-          ? <Pressable testID={`data-table-header-${id}`} accessibilityRole="button" onPress={() => setSort(s => nextSort(s, id))}>
-            {({ hovered }: { hovered?: boolean }) => <View testID={sort.field === id ? `data-table-sort-${id}-${sort.direction}` : undefined} className="max-w-full flex-row items-center gap-1">
-              <Text numberOfLines={1} className="shrink">{label}</Text>
-              {sort.field === id ? (sort.direction === 'asc' ? <SortAscIcon testID="customers-sort-chevron" size={12} className="text-foreground" />
-                : <SortDescIcon testID="customers-sort-chevron" size={12} className="text-foreground" />)
-                : hovered ? <SortAscIcon testID={`data-table-sort-${id}-hover`} size={12} className="text-muted-foreground" /> : null}
-            </View>}
-          </Pressable>
+          ? <SortHead id={id} label={label} sort={sort} chevronTestID="customers-sort-chevron" onSort={() => setSort(s => nextSort(s, id))} />
           : <Text numberOfLines={1}>{label}</Text>}
       </TableHead>)}
       <TableHead className={`${HEAD} w-16 flex-none`} />

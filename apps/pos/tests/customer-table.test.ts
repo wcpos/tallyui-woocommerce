@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import type { Customer } from '@tallyui/core';
-import { DEFAULT_CUSTOMER_SORT, billingLines, customerInitials, nextSort, sortCustomers } from '../lib/customers/customer-table';
+import { DEFAULT_CUSTOMER_SORT, billingLines, customerInitials, sortCustomers } from '../lib/customers/customer-table';
+import { nextSort } from '../lib/table-sort';
 
 test('initials take the first and last word, two letters of one word, and ? for none', () => {
   expect(customerInitials({ name: 'Gee Four' })).toBe('GF');
