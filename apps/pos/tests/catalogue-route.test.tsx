@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('expo-router', () => ({
   useRouter: () => mocks.router,
+  usePathname: () => '/catalogue',
   Redirect: () => <span data-testid="redirect" />,
 }));
 

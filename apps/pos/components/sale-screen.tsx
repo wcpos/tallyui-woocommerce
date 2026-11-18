@@ -242,6 +242,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     <VariantChooser entries={variants} currency={currency} traits={connector.traits.product} onSelect={onAdd} onClose={() => setVariants(undefined)} />
   ) : <CatalogueView {...props} onSelect={onSelect} onAddEntry={onAdd} onScan={onScan} message={message}
     tax={tax} inCartCounts={inCart} hideBar
+    // v2's `onTill`: Alt+F only on the till's own route, never at checkout; the phone till brings Products forward.
+    searchChord={props.searchChord !== false && sale.stage.kind === 'cart'} onRevealSearch={phoneLayout ? () => setCartOpen(false) : undefined}
     viewState={viewState} onViewStateChange={setViewState} cashierControl={cashierControl} />;
   // v2's cart column paints its own surface, white in Light (pos/cart/index.tsx:75 `isColumn ? 'bg-cart'`, :187), and
   // its rows sit 8 px in (cart/foot.tsx:35 `gap-2 p-2`; cart-header.tsx:119 `px-2 py-2`).

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Redirect, useRouter, type Href } from 'expo-router';
+import { Redirect, usePathname, useRouter, type Href } from 'expo-router';
 import { CatalogueUnavailable } from '../components/catalogue-unavailable';
 import { SaleScreen } from '../components/sale-screen';
 import { SessionHoldBanner } from '../components/session-hold-banner';
@@ -22,6 +22,8 @@ export default function Catalogue() {
   const store = useTillStoreSettings(session);
   const { catalogue, products, status, notice, error } = useCatalogue();
   const router = useRouter();
+  // The web stack keeps the till mounted under a pushed screen (display none): its Alt+F is live only while it shows.
+  const tillShown = usePathname() === '/catalogue';
   const connector = catalogue?.connector;
   const context = useRequestContext(connector, session);
   const customers = useMemo(() => connector ? customerSource(connector, context) : null, [connector, context]);
@@ -60,6 +62,7 @@ export default function Catalogue() {
       storeName={catalogue.store.name}
       adminUrl={`${session.site.home}/wp-admin`}
       siteHome={session.site.home}
+      searchChord={tillShown}
       cashierName={session.tokens.user.displayName}
       cashierRef={String(session.tokens.user.id)}
       cashiers={cashiers.map(c => ({ uuid: c.tokens.user.uuid, name: c.tokens.user.displayName }))}

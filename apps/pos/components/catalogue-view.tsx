@@ -18,6 +18,7 @@ import type { TileTax } from '../lib/catalogue/tile-words';
 import { needsAnyPick, variantMatchesStock } from '../lib/catalogue/variation-match';
 import { useIsWide } from '../lib/layout/wide';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
+import { useSearchChord } from '../lib/sale/use-search-chord';
 import { categoriesLabel, categoryTerms, filtersAtBaseline, productsInCategory, productsLabel } from '../lib/catalogue/browse-terms';
 import { BrowseCrumb, BrowseRootGrid, BrowseRootTable, ParentTermTile } from './browse-terms-view';
 import { CatalogueDisplayOptions, CatalogueSettingsButton } from './catalogue-display-options';
@@ -74,6 +75,10 @@ export interface CatalogueViewProps {
   /** SaleScreen draws the PosBar itself, over the cart column (v2 cart/index.tsx RegisterBar) or over both phone
    *  panes, so the catalogue leaves its own out and starts with its search row. */
   hideBar?: boolean;
+  /** Alt+F focuses the search (v2 `pos.search.focus`); SaleScreen turns it off off the till or at checkout. Default on. */
+  searchChord?: boolean;
+  /** Shows the pane the search sits in before Alt+F focuses it (the phone till's Products tab). */
+  onRevealSearch?(): void;
 }
 
 export type PosBarProps = Pick<CatalogueViewProps, 'storeName' | 'cashierName' | 'cashierControl' | 'onSignOut'
@@ -97,7 +102,7 @@ export function PosBar({ storeName, cashierName, cashierControl, onSignOut,
 export function CatalogueView({
   connector, currency, products, storeName, cashierName, cashierControl, status, notice, onSignOut, onOpenProducts, onOpenOrders, onOpenCoupons, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings, onOpenSupport, onSelect, onAddEntry, onScan, message,
   viewState: controlledViewState, onViewStateChange,
-  tax, inCartCounts, onSync, hideBar,
+  tax, inCartCounts, onSync, hideBar, searchChord, onRevealSearch,
 }: CatalogueViewProps): JSX.Element {
   const [quickFilters, setQuickFilters] = useQuickFilters();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -108,6 +113,12 @@ export function CatalogueView({
     else if (result === 'search') dispatch({ type: 'search', term: code });
   }
   useWedgeScanner(scan, Boolean(onScan));
+  // v2 products/index.tsx:203-216: a hidden phone pane is shown first, and the input focuses once it is. TallyUI's
+  // SearchInput types no ref, so the web-only chord finds its input by testID.
+  useSearchChord(() => {
+    onRevealSearch?.();
+    setTimeout(() => document.querySelector<HTMLElement>('[data-testid="catalogue-search"]')?.focus(), 0);
+  }, searchChord !== false);
   const [ownViewState, setOwnViewState] = useCatalogueView();
   const viewState = controlledViewState ?? ownViewState;
   const setViewState = onViewStateChange ?? setOwnViewState;
