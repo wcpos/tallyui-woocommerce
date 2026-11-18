@@ -29,19 +29,19 @@ const testIdsIn = (group: string) =>
 
 const bar = <RegisterBarShell storeName="Corner Café" avatar={null} onOpenMenu={() => {}} />;
 
-test('the rail lists POS, Products, Orders, Coupons, Customers and Reports, then Store health and Settings at the foot, then the version', () => {
+test('the rail lists POS, Products, Orders, Coupons, Customers and Reports, then Store health, Settings and Support at the foot, then the version', () => {
   render(<AppRail active="pos" onNavigate={() => {}} />);
   expect(testIdsIn('drawer-top-group')).toEqual(['drawer-item-pos', 'drawer-item-products', 'drawer-item-orders', 'drawer-item-coupons', 'drawer-item-customers', 'drawer-item-reports']);
-  expect(testIdsIn('drawer-bottom-group')).toEqual(['drawer-item-health', 'drawer-item-settings']);
+  expect(testIdsIn('drawer-bottom-group')).toEqual(['drawer-item-health', 'drawer-item-settings', 'drawer-item-support']);
   expect(screen.getByTestId('drawer-version').textContent).toBe('v 0.1.0');
   // Logs is a Store health page (v2), not a rail item.
-  for (const id of ['drawer-item-support', 'drawer-item-logs']) expect(screen.queryByTestId(id)).toBeNull();
+  expect(screen.queryByTestId('drawer-item-logs')).toBeNull();
 });
 
 test('each rail item is an icon button named for its area', () => {
   render(<AppRail active="pos" onNavigate={() => {}} />);
   const items = [['POS', 'drawer-item-pos'], ['Products', 'drawer-item-products'], ['Orders', 'drawer-item-orders'], ['Coupons', 'drawer-item-coupons'], ['Customers', 'drawer-item-customers'],
-    ['Reports', 'drawer-item-reports'], ['Store health', 'drawer-item-health'], ['Settings', 'drawer-item-settings']];
+    ['Reports', 'drawer-item-reports'], ['Store health', 'drawer-item-health'], ['Settings', 'drawer-item-settings'], ['Support', 'drawer-item-support']];
   for (const [label, testID] of items) expect(screen.getByRole('button', { name: label }).getAttribute('data-testid')).toBe(testID);
 });
 
@@ -51,6 +51,19 @@ test('Settings shows v2\'s gear (its tabler settings paths), not the old sliders
   const paths = Array.from(glyph.querySelectorAll('path')).map(path => path.getAttribute('d')?.slice(0, 14));
   expect(paths).toEqual(['M10.325 4.317c', 'M9 12a3 3 0 1 ']);
   expect(glyph.querySelectorAll('line')).toHaveLength(0);
+});
+
+test('Support shows v2\'s support glyph, tabler message-question', () => {
+  render(<AppRail active="pos" onNavigate={() => {}} />);
+  const glyph = screen.getByTestId('drawer-item-support').querySelector('[data-testid="drawer-glyph-support"]')!;
+  expect(Array.from(glyph.querySelectorAll('path')).map(path => path.getAttribute('d')?.slice(0, 12))).toEqual(['M8 9h8m-8 4h']);
+});
+
+test('Support navigates to its area from the rail', () => {
+  const onNavigate = vi.fn();
+  render(<AppRail active="settings" onNavigate={onNavigate} />);
+  fireEvent.click(screen.getByTestId('drawer-item-support'));
+  expect(onNavigate).toHaveBeenCalledWith('support');
 });
 
 test('the active item is selected and pressing it does nothing; another item navigates to its area', () => {

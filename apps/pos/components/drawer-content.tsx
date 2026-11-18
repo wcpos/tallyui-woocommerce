@@ -33,6 +33,7 @@ export interface DrawerAreaHandlers {
   onOpenReports?(): void;
   onOpenHealth?(): void;
   onOpenSettings?(): void;
+  onOpenSupport?(): void;
 }
 
 /** The drawer's body: one item per area, the top group and the bottom group, then the version. */
@@ -40,7 +41,7 @@ export function DrawerContent(props: DrawerAreaHandlers & { onClose(): void; unr
   const { onClose, unreadErrors } = props;
   const handlers: Record<Exclude<RailKey, 'pos'>, (() => void) | undefined> = {
     products: props.onOpenProducts, orders: props.onOpenOrders, coupons: props.onOpenCoupons, customers: props.onOpenCustomers,
-    reports: props.onOpenReports, health: props.onOpenHealth, settings: props.onOpenSettings,
+    reports: props.onOpenReports, health: props.onOpenHealth, settings: props.onOpenSettings, support: props.onOpenSupport,
   };
   const item = (key: RailKey) => {
     const Glyph = RAIL_GLYPH[key];

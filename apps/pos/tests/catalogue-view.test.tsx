@@ -95,6 +95,19 @@ test('Store health and Settings are in the drawer only when their handlers are s
   expect(screen.queryByTestId('drawer-item-settings')).toBeNull();
 });
 
+test('the menu drawer\'s Support item, after Settings in the bottom group, opens its handler', () => {
+  const onOpenSettings = vi.fn();
+  const onOpenSupport = vi.fn();
+  render(<><CatalogueView {...props} onOpenSettings={onOpenSettings} onOpenSupport={onOpenSupport} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('pos-drawer-open-button'));
+  const foot = Array.from(screen.getByTestId('drawer-bottom-group').querySelectorAll('[data-testid^="drawer-item-"]'));
+  expect(foot.map(el => el.getAttribute('data-testid'))).toEqual(['drawer-item-settings', 'drawer-item-support']);
+  fireEvent.click(screen.getByTestId('drawer-item-support'));
+  expect(onOpenSupport).toHaveBeenCalledOnce();
+  expect(onOpenSettings).not.toHaveBeenCalled();
+  expect(screen.queryByTestId('drawer-panel')).toBeNull();
+});
+
 test('shows the syncing status', () => {
   render(<CatalogueView {...props} status="syncing" />);
   expect(screen.getByText('Syncing products…')).not.toBeNull();

@@ -14,7 +14,7 @@ const itemIds = () => screen.getAllByTestId(/^drawer-item-/).map(el => el.getAtt
 
 test("the drawer lists every area the rail lists, in rail order, each with the rail's glyph", () => {
   render(<><DrawerSheet open onOpenChange={vi.fn()} onOpenProducts={vi.fn()} onOpenOrders={vi.fn()} onOpenCoupons={vi.fn()}
-    onOpenCustomers={vi.fn()} onOpenReports={vi.fn()} onOpenHealth={vi.fn()} onOpenSettings={vi.fn()} /><PortalHost /></>);
+    onOpenCustomers={vi.fn()} onOpenReports={vi.fn()} onOpenHealth={vi.fn()} onOpenSettings={vi.fn()} onOpenSupport={vi.fn()} /><PortalHost /></>);
   const keys = [...RAIL_TOP, ...RAIL_FOOT];
   const drawerIds = itemIds();
   expect(drawerIds).toEqual(keys.map(key => `drawer-item-${key}`));
@@ -36,7 +36,7 @@ test("the drawer lists every area the rail lists, in rail order, each with the r
 
 test('each item draws its glyph before its label', () => {
   render(<><DrawerSheet open onOpenChange={vi.fn()} onOpenProducts={vi.fn()} onOpenOrders={vi.fn()} onOpenCoupons={vi.fn()}
-    onOpenCustomers={vi.fn()} onOpenReports={vi.fn()} onOpenHealth={vi.fn()} onOpenSettings={vi.fn()} /><PortalHost /></>);
+    onOpenCustomers={vi.fn()} onOpenReports={vi.fn()} onOpenHealth={vi.fn()} onOpenSettings={vi.fn()} onOpenSupport={vi.fn()} /><PortalHost /></>);
   for (const key of [...RAIL_TOP, ...RAIL_FOOT]) {
     const item = within(screen.getByTestId(`drawer-item-${key}`));
     const glyph = item.getAllByTestId(/^drawer-glyph-/)[0];
@@ -60,12 +60,22 @@ test('Products and Coupons close the drawer, then open their areas', () => {
 
 test('the drawer lists the areas in v2 order with Store health starting the bottom group, then the version', () => {
   render(<><DrawerSheet open onOpenChange={vi.fn()} onOpenOrders={vi.fn()} onOpenCustomers={vi.fn()} onOpenReports={vi.fn()}
-    onOpenHealth={vi.fn()} onOpenSettings={vi.fn()} /><PortalHost /></>);
-  expect(itemIds()).toEqual(['drawer-item-pos', 'drawer-item-orders', 'drawer-item-customers', 'drawer-item-reports', 'drawer-item-health', 'drawer-item-settings']);
-  expect(screen.getAllByTestId(/^drawer-item-/).map(el => el.textContent)).toEqual(['POS', 'Orders', 'Customers', 'Reports', 'Store health', 'Settings']);
+    onOpenHealth={vi.fn()} onOpenSettings={vi.fn()} onOpenSupport={vi.fn()} /><PortalHost /></>);
+  expect(itemIds()).toEqual(['drawer-item-pos', 'drawer-item-orders', 'drawer-item-customers', 'drawer-item-reports', 'drawer-item-health', 'drawer-item-settings', 'drawer-item-support']);
+  expect(screen.getAllByTestId(/^drawer-item-/).map(el => el.textContent)).toEqual(['POS', 'Orders', 'Customers', 'Reports', 'Store health', 'Settings', 'Support']);
   expect(within(screen.getByTestId('drawer-top-group')).queryByTestId('drawer-item-health')).toBeNull();
   expect(within(screen.getByTestId('drawer-bottom-group')).getAllByTestId(/^drawer-item-/)[0].getAttribute('data-testid')).toBe('drawer-item-health');
   expect(screen.getByTestId('drawer-version').textContent).toBe(`Version ${SOFTWARE_VERSION}`);
+});
+
+test('Support closes the drawer and opens its area', () => {
+  const calls: string[] = [];
+  render(<><DrawerSheet open onOpenChange={open => calls.push(`open:${open}`)} onOpenSettings={() => calls.push('settings')}
+    onOpenSupport={() => calls.push('support')} /><PortalHost /></>);
+  expect(within(screen.getByTestId('drawer-bottom-group')).getAllByTestId(/^drawer-item-/).map(el => el.getAttribute('data-testid')))
+    .toEqual(['drawer-item-settings', 'drawer-item-support']);
+  fireEvent.click(screen.getByTestId('drawer-item-support'));
+  expect(calls).toEqual(['open:false', 'support']);
 });
 
 test('an item closes the drawer, then opens its area', () => {
