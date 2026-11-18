@@ -555,14 +555,16 @@ test('an overdue check reads only Watching for changes', () => {
   expect(screen.getByTestId('logs-status-line-label').textContent).toBe('Watching for changes');
 });
 
-test('no runner, or a runner with nothing due, draws no status line', () => {
+test('no runner draws no status line; before the first check it reads First check pending…', () => {
   const subject = new BehaviorSubject<number | undefined>(undefined);
   const { rerender } = render(<LogsScreen {...props} collection={collection} />);
   expect(screen.queryByTestId('logs-status-line')).toBeNull();
   rerender(<LogsScreen {...props} collection={collection} runner={{ nextDueAtMs$: subject }} />);
-  expect(screen.queryByTestId('logs-status-line')).toBeNull();
+  // v2 logs/index.tsx:85-89, health.database.first_check_pending.
+  expect(screen.getByTestId('logs-status-line-label').textContent).toBe('First check pending…');
+  expect(classesOf('logs-status-line-dot')).toEqual(expect.arrayContaining(['bg-success', 'size-1.5']));
   act(() => subject.next(now() + 42_000));
-  expect(screen.getByTestId('logs-status-line')).not.toBeNull();
+  expect(screen.getByTestId('logs-status-line-label').textContent).toBe('Watching for changes · next check ~42 s');
 });
 
 test('the countdown follows the 5 s clock', () => {

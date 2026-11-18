@@ -11,6 +11,7 @@ const table = {
   rows: [{ key: 'a', cells: ['62bcae34 · #228', '13:05', 'Card terminal', '$3.33'] }],
   total: ['Total', '', '', '$3.33'],
   status: '1 order · $3.33',
+  empty: 'No orders in this period',
 };
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -40,7 +41,7 @@ test('wide rows retain columns', () => {
 test('phone empty state keeps only populated total values', () => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 800, scale: 1, fontScale: 1 });
   render(<><SalesTable table={{ ...table, rows: [], total: ['Total', '', '', '$0.00'] }} scope="Today · This till" onClose={vi.fn()} /><PortalHost /></>);
-  expect(screen.getByText('No sales yet today.')).not.toBeNull();
+  expect(screen.getByText('No orders in this period')).not.toBeNull();
   expect(within(screen.getByTestId('sales-table-total')).getAllByText(/./).map(cell => cell.textContent)).toEqual([
     'Total', 'Total', '$0.00',
   ]);

@@ -9,12 +9,15 @@ export type SalesTable = {
   rows: { key: string; cells: string[] }[];
   total: string[];
   status: string;
+  /** The empty line, from v2: orders-panel.tsx:86, cards/payments.tsx:44, cards/where-sold.tsx:80 (taxes has none, so the generic one). */
+  empty: string;
 };
 
 export function paymentsTable(period: Period, money: (minor: number) => string | undefined): SalesTable {
   const format = (minor: number) => money(minor) ?? '';
   return {
     title: 'Sales by payment method',
+    empty: 'No payments in this period',
     head: ['Method', 'Orders', 'Amount', 'Share'],
     align: ['left', 'right', 'right', 'right'],
     rows: [...period.byMethod].sort((a, b) => b.totalMinor - a.totalMinor || a.label.localeCompare(b.label)).map(row => ({
@@ -33,6 +36,7 @@ export function whereSoldTable(period: Period, money: (minor: number) => string 
   const share = period.totalMinor === 0 ? '—' : '100.0%';
   return {
     title: 'Channels',
+    empty: 'No sales in this period',
     head: ['Channel', 'Orders', 'Amount', 'Share'],
     align: ['left', 'right', 'right', 'right'],
     rows: period.count === 0 ? [] : [{
@@ -47,6 +51,7 @@ export function taxesTable(period: Period, money: (minor: number) => string | un
   const format = (minor: number) => money(minor) ?? '';
   return {
     title: 'Taxes collected',
+    empty: 'No sales in this period',
     head: ['Rate', 'Net', 'Tax', 'Gross'],
     align: ['left', 'right', 'right', 'right'],
     rows: [...period.taxRates].sort((a, b) => a.ratePpm - b.ratePpm).map(row => ({
@@ -70,6 +75,7 @@ export function ordersTable(
   const sum = today.reduce((total, order) => total + order.totalMinor, 0);
   return {
     title: 'Orders',
+    empty: 'No orders in this period',
     head: ['Order', 'Time', 'Paid by', 'Total'],
     align: ['left', 'left', 'left', 'right'],
     rows: today.map(order => {

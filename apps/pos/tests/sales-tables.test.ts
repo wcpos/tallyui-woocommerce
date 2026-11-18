@@ -112,6 +112,14 @@ test('an empty period has no rows and a zero total', () => {
   expect(taxesTable(empty, money).rows).toEqual([]);
 }, 20_000);
 
+test('each table has its own empty line, from v2, with no full stop', () => {
+  const empty = salesRoom([], { now, currency: 'USD', ...day }).today;
+  expect(paymentsTable(empty, money).empty).toBe('No payments in this period');
+  expect(whereSoldTable(empty, money).empty).toBe('No sales in this period');
+  expect(taxesTable(empty, money).empty).toBe('No sales in this period');
+  expect(ordersTable([], { range: day.range, currency: 'USD', money }).empty).toBe('No orders in this period');
+});
+
 test('heads and alignment', () => {
   const payments = paymentsTable(today, money);
   const taxes = taxesTable(today, money);

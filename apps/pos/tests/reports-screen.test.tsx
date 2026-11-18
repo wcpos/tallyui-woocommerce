@@ -936,7 +936,7 @@ test('an open table follows live data', async () => {
   await act(async () => { await order.incrementalPatch({ createdAt }); });
   await waitFor(() => {
     const table = within(screen.getByTestId('sales-table'));
-    expect(table.getByText('No sales yet today.')).not.toBeNull();
+    expect(table.getByText('No payments in this period')).not.toBeNull();
     expect(table.getByTestId('sales-table-status').textContent).toBe('0 orders · $0.00');
   });
   expect(screen.getByTestId('sales-table')).not.toBeNull();
@@ -1013,7 +1013,7 @@ test('an open Orders table follows live data', async () => {
   await act(async () => { await order.incrementalPatch({ createdAt }); });
   await waitFor(() => {
     const table = within(screen.getByTestId('sales-table'));
-    expect(table.getByText('No sales yet today.')).not.toBeNull();
+    expect(table.getByText('No orders in this period')).not.toBeNull();
     expect(table.getByTestId('sales-table-status').textContent).toBe('0 orders · $0.00');
   });
 }, 20_000);
