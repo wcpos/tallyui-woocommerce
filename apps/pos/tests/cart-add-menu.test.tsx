@@ -17,6 +17,7 @@ import { Toaster } from '../components/toaster';
 import { CREATE_CUSTOMERS_DENIED, CREATE_CUSTOMERS_DENIED_DEMO, DEMO_STORE_HOME, type CashierCapabilities } from '../lib/auth/capabilities';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { dismissToast } from '../lib/toast/toast';
+import { classesOf } from './classes-of';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
@@ -305,7 +306,11 @@ test('Add new customer requires an email, omits empty fields, toasts and attache
   await renderTill(COUPONS, { customers, cashier: CAN_CREATE });
   expect(chip()).toBe('Customer: Guest');
   openAddMenuItem('customer');
-  expect(screen.getByRole('heading', { name: 'Add Customer' })).not.toBeNull();
+  // v2 pos/cart/add-customer.tsx:190-197: a right side sheet, size lg, titled common.add_new_customer.
+  expect(screen.getByRole('heading', { name: 'Add new customer' })).not.toBeNull();
+  expect(screen.queryByRole('heading', { name: 'Add Customer' })).toBeNull();
+  expect(classesOf('add-customer-dialog')).toEqual(expect.arrayContaining(['right-0', 'top-0', 'h-full', 'max-w-lg', 'border-l']));
+  expect(classesOf('add-customer-dialog')).not.toContain('-translate-x-1/2');
   expect(form().queryByPlaceholderText('Street address')).toBeNull();
   fireEvent.change(form().getByPlaceholderText('email@example.com'), { target: { value: '   ' } });
   submit();

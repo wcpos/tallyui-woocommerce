@@ -42,8 +42,10 @@ export function AddCustomerDialog({ source, onClose, onCreated }: AddCustomerDia
 
   return (
     <Dialog open onOpenChange={next => { if (!next) onClose(); }}>
-      <DialogContent className="w-full max-w-lg">
-        <DialogHeader><DialogTitle>Add Customer</DialogTitle></DialogHeader>
+      {/* v2 customers/add.tsx:88 is a right sheet, size xl (560px, apps/main/global.css:53), titled "Add Customer";
+          the cart's pos/cart/add-customer.tsx:190-197 is size lg (TallyUI's max-w-lg), titled "Add new customer". */}
+      <DialogContent side="right" testID="add-customer-dialog" className={onCreated ? undefined : 'max-w-[560px]'}>
+        <DialogHeader><DialogTitle>{onCreated ? 'Add new customer' : 'Add Customer'}</DialogTitle></DialogHeader>
         <CustomerForm testID="customer-form" values={values} onChangeField={(field, value) => setValues(v => ({ ...v, [field]: value }))}
           onSubmit={save} showAddress={false} submitLabel="Add Customer" />
         {error ? <Text testID="customer-form-error" accessibilityRole="alert" className="text-destructive">{error}</Text> : null}
