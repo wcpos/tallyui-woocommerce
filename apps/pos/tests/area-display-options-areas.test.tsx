@@ -281,7 +281,7 @@ test('Products: a narrow window keeps the trigger and its list', async () => {
   expect(screen.getByTestId('products-bar-display')).not.toBeNull();
   openPanel('products');
   toggle('products', 'price');
-  await waitFor(() => expect(screen.getAllByTestId(/^products-row-/).map(node => node.getAttribute('data-testid')))
+  await waitFor(() => expect(screen.getAllByTestId(/^products-row-\d+$/).map(node => node.getAttribute('data-testid')))
     .toEqual(['products-row-2', 'products-row-1']));
   expect(within(screen.getByTestId('products-row-1')).getByText('$10.00')).not.toBeNull();
 });

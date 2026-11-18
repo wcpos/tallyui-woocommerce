@@ -276,7 +276,9 @@ test('a simple product keeps its own prices, and a narrow row shows a variable p
       variation(22, { price: '57', regular_price: '57' }),
     ],
   })]);
-  expect(screen.getByTestId('products-row-2').textContent).toContain('$25.00 - $57.00');
+  // v2's phone row (row.tsx:136-143): an en dash (U+2013) with no spaces between min and max.
+  expect(text('products-phone-price-2')).toBe('$25.00\u2013$57.00');
+  expect(screen.getByTestId('products-row-2').textContent).not.toContain(' - ');
   expect(screen.getByTestId('products-row-2').textContent).not.toContain('$99.00');
 });
 
@@ -390,7 +392,7 @@ test('narrow window: a list row per product with name, price and stock badge; Ba
     product(2, 'Beans', { price: '12.5', manage_stock: true, stock_quantity: 0 }),
   ]);
   expect(screen.queryByRole('table')).toBeNull();
-  expect(screen.getAllByTestId(/^products-row-/).map(el => el.getAttribute('data-testid'))).toEqual(['products-row-2', 'products-row-1']);
+  expect(screen.getAllByTestId(/^products-row-\d+$/).map(el => el.getAttribute('data-testid'))).toEqual(['products-row-2', 'products-row-1']);
   const beans = within(screen.getByTestId('products-row-2'));
   expect(beans.getByText('Beans')).not.toBeNull();
   expect(beans.getByText('$12.50')).not.toBeNull();
@@ -411,6 +413,29 @@ test('a phone row shows the SKU under the name and the managed quantity in its s
   expect(screen.getByText('Tea').compareDocumentPosition(sku) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(text('product-stock-status-1')).toBe('7 · In Stock');
   expect(within(screen.getByTestId('products-row-1')).getByText('$10.00')).not.toBeNull();
+});
+
+test('a phone row draws v2\'s price column: even-width figures, a single price with no dash, and a muted chevron', () => {
+  setWidth(400);
+  renderScreen([product(1, 'Tea')]);
+  expect(text('products-phone-price-1')).toBe('$10.00');
+  expect(text('products-phone-price-1')).not.toMatch(/[-\u2013]/);
+  expect(classesOf('products-phone-figures-1')).toContain('tabular-nums');
+  expect(within(screen.getByTestId('products-row-1')).getByTestId('products-row-chevron-1')).not.toBeNull();
+  expect(classesOf('products-row-chevron-1')).toContain('text-muted-foreground');
+});
+
+test('a drilled variation row at phone width ends in the chevron with an even-width price', () => {
+  setWidth(400);
+  renderScreen([product(3, 'Shirt', {
+    type: 'variable', sku: '', variations: [31],
+    attributes: [{ id: 0, name: 'Size', position: 0, visible: true, variation: true, options: ['S'] }],
+    variation_docs: [variation(31, { attributes: [{ name: 'Size', option: 'S' }] })],
+  })]);
+  fireEvent.click(screen.getByTestId('product-variations-3'));
+  expect(text('products-phone-price-31')).toBe('$10.00');
+  expect(classesOf('products-phone-figures-31')).toContain('tabular-nums');
+  expect(within(screen.getByTestId('products-row-31')).getByTestId('products-row-chevron-31')).not.toBeNull();
 });
 
 test('a phone row without a SKU draws no SKU line, and unmanaged stock shows the word alone', () => {
