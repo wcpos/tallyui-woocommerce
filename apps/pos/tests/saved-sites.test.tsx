@@ -187,6 +187,13 @@ test('removing the site asks first', () => {
   expect(onRemoveSite).toHaveBeenCalledExactlyOnceWith(home);
 });
 
+test('Remove site carries the trash icon', () => {
+  fireEvent.click(screen.getByTestId('saved-site-menu'));
+  const item = screen.getByTestId('saved-site-remove');
+  const icon = within(item).getByTestId('saved-site-remove-icon');
+  expect(icon.compareDocumentPosition(within(item).getByText('Remove site')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
 test('Add another user starts a sign-in at the saved store', () => {
   fireEvent.click(screen.getByTestId('saved-add-user'));
   expect(onSignInAt).toHaveBeenCalledExactlyOnceWith(site);

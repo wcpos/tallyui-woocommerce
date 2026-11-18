@@ -9,6 +9,9 @@ import type { StartSignIn } from '../lib/auth/use-connect-discovery';
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
+// v2 core.json auth.login_did_not_complete_hint.
+const LOGIN_HINT = "Nothing is lost — unsent changes send once you're signed in. Try logging in again.";
+
 test('with saved stores the address form waits behind Connect another store', () => {
   render(<ConnectForm startSignIn={vi.fn()} saved={<Text testID="saved-slot">saved</Text>} />);
   expect(screen.getByTestId('saved-slot')).not.toBeNull();
@@ -27,7 +30,8 @@ test('without saved stores only the address form shows', () => {
 
 test('a sign-in callback error opens the address form even with saved stores', () => {
   render(<ConnectForm startSignIn={vi.fn()} saved={<Text testID="saved-slot">saved</Text>} signInError="state_mismatch" />);
-  expect(screen.getByTestId('connect-error-message').textContent).toBe('Sign-in could not be verified. Try again.');
+  expect(screen.getByTestId('connect-error-message').textContent).toBe("The login didn't complete.");
+  expect(screen.getByTestId('connect-error-hint').textContent).toBe(LOGIN_HINT);
 });
 
 test('names each discovery stage while the store connects', async () => {
@@ -112,15 +116,43 @@ test('clears the error when the address changes', async () => {
   expect(document.querySelector('[data-testid^="connect-error-docs-link-"]')).toBeNull();
 });
 
-test.each([
-  ['state_mismatch', 'Sign-in could not be verified. Try again.'],
-  ['missing_token', 'The store did not return a sign-in token. Try again.'],
-  ['no_pending', 'That sign-in link has expired. Try again.'],
-  ['other', 'Sign-in failed. Try again.'],
-])('shows the sign-in callback error %s until the address changes', (code, message) => {
-  const startSignIn = vi.fn<StartSignIn>();
-  render(<ConnectForm startSignIn={startSignIn} signInError={code} />);
-  expect(screen.getByTestId('connect-error-message').textContent).toBe(message);
+test.each(['state_mismatch', 'missing_token', 'no_pending', 'other'])(
+  'shows the sign-in callback error %s until the address changes', code => {
+    const startSignIn = vi.fn<StartSignIn>();
+    render(<ConnectForm startSignIn={startSignIn} signInError={code} />);
+    expect(screen.getByTestId('connect-error-message').textContent).toBe("The login didn't complete.");
+    expect(screen.getByTestId('connect-error-hint').textContent).toBe(LOGIN_HINT);
+    fireEvent.change(screen.getByTestId('store-url-input'), { target: { value: 'shop.example' } });
+    expect(screen.queryByTestId('connect-error-message')).toBeNull();
+    expect(screen.queryByTestId('connect-error-hint')).toBeNull();
+  });
+
+test('a discovery error shows no login hint', async () => {
+  const startSignIn = vi.fn<StartSignIn>().mockRejectedValue(new SiteError('no_wcpos', 'Missing WCPOS'));
+  render(<ConnectForm startSignIn={startSignIn} signInError="state_mismatch" />);
   fireEvent.change(screen.getByTestId('store-url-input'), { target: { value: 'shop.example' } });
-  expect(screen.queryByTestId('connect-error-message')).toBeNull();
+  fireEvent.click(screen.getByTestId('connect-store-button'));
+  expect((await screen.findByTestId('connect-error-message')).textContent).toBe('Missing WCPOS');
+  expect(screen.queryByTestId('connect-error-hint')).toBeNull();
+});
+
+test('the form has no card title', () => {
+  render(<ConnectForm startSignIn={vi.fn()} />);
+  expect(screen.queryByText('Connect to your store')).toBeNull();
+  expect(screen.getByText("Your store's address")).not.toBeNull();
+});
+
+test('the address field takes focus on open', () => {
+  render(<ConnectForm startSignIn={vi.fn()} />);
+  expect(document.activeElement).toBe(screen.getByTestId('store-url-input'));
+});
+
+test('the clear button shows only with text and empties the box', () => {
+  render(<ConnectForm startSignIn={vi.fn()} />);
+  expect(screen.queryByTestId('store-url-clear')).toBeNull();
+  fireEvent.change(screen.getByTestId('store-url-input'), { target: { value: 'shop.example' } });
+  expect(screen.getByTestId('store-url-clear').getAttribute('aria-label')).toBe('Clear');
+  fireEvent.click(screen.getByTestId('store-url-clear'));
+  expect((screen.getByTestId('store-url-input') as HTMLInputElement).value).toBe('');
+  expect(screen.queryByTestId('store-url-clear')).toBeNull();
 });
