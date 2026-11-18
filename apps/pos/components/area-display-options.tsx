@@ -19,14 +19,16 @@ const TITLES: Record<AreaId, { trigger: string; title: string }> = {
 };
 
 /** The area bar's settings icon and its panel. `columns` is the area's list in its order with v2's labels and
- *  defaults; `settings` the current rows; Restore sets the defaults back. */
-export function AreaDisplayOptions<Id extends string>({ area, columns, settings, onChange }: {
+ *  defaults; `settings` the current rows; Restore sets the defaults back; `onOpenChange` hears the panel open and close. */
+export function AreaDisplayOptions<Id extends string>({ area, columns, settings, onChange, onOpenChange }: {
   area: AreaId;
   columns: readonly AreaColumn<Id>[];
   settings: readonly AreaColumnSetting<Id>[];
   onChange(next: AreaColumnSetting<Id>[]): void;
+  onOpenChange?(open: boolean): void;
 }): JSX.Element {
-  const [open, setOpen] = useState(false);
+  const [open, setOpenState] = useState(false);
+  function setOpen(next: boolean) { setOpenState(next); onOpenChange?.(next); }
   const { trigger, title } = TITLES[area];
   const shown = (id: Id) => settings.find(setting => setting.id === id)?.visible ?? false;
   return <>
