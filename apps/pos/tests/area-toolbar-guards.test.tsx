@@ -86,6 +86,18 @@ test('a press at rest syncs once', () => {
   expect(onSync).toHaveBeenCalledTimes(1);
 });
 
+// v2 sync-button.tsx:33-58: a hover over the sync button shows common.sync, "Sync", and a press after it syncs once.
+test("hovering the sync button shows v2's Sync tooltip, and a press still syncs once", () => {
+  const onSync = vi.fn();
+  render(<><TableCount shown={1} total={1} active={false} onSync={onSync} /><PortalHost /></>);
+  const button = screen.getByTestId('data-table-sync');
+  expect(screen.queryByRole('tooltip')).toBeNull();
+  fireEvent.pointerEnter(button);
+  expect(screen.getByRole('tooltip').textContent).toBe('Sync');
+  fireEvent.click(button);
+  expect(onSync).toHaveBeenCalledTimes(1);
+});
+
 test('with nothing to sync the button stays disabled', () => {
   render(<TableCount shown={1} total={1} active={false} />);
   expect(syncDisabled()).toBe('true');

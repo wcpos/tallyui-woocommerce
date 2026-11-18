@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { View, type ViewProps } from 'react-native';
 import { Path } from 'react-native-svg';
-import { createSvgIcon, IconButton, Text } from '@tallyui/components';
+import { createSvgIcon, IconButton, Text, Tooltip, TooltipContent, TooltipTrigger } from '@tallyui/components';
 import { useCatalogue } from '../lib/catalogue/catalogue-context';
 import { useIsWide } from '../lib/layout/wide';
 
@@ -42,9 +42,12 @@ export function TableCount({ shown, total, active, onSync }: { shown: number; to
       <Text testID="data-table-count" className="text-sm text-muted-foreground">{count}</Text>
       {/* v2 sync-button.tsx:39-53 never disables it: the turning glyph is the motion, at full strength. A press while
           it turns does nothing, so one re-sync runs at a time. */}
-      <IconButton testID="data-table-sync" accessibilityLabel="Sync" variant="ghost" size="sm" disabled={!onSync} onPress={active ? undefined : onSync}>
-        <View testID={active ? 'data-table-sync-active' : undefined} className={active ? 'animate-spin' : undefined}><SyncIcon size={14} /></View>
-      </IconButton>
+      {/* v2 sync-button.tsx:33-58 wraps the button in a Tooltip that reads common.sync, "Sync". */}
+      <Tooltip><TooltipTrigger asChild>
+        <IconButton testID="data-table-sync" accessibilityLabel="Sync" variant="ghost" size="sm" disabled={!onSync} onPress={active ? undefined : onSync}>
+          <View testID={active ? 'data-table-sync-active' : undefined} className={active ? 'animate-spin' : undefined}><SyncIcon size={14} /></View>
+        </IconButton>
+      </TooltipTrigger><TooltipContent><Text>Sync</Text></TooltipContent></Tooltip>
     </View>
   );
 }
