@@ -3,6 +3,7 @@ import { Pressable, View } from 'react-native';
 import { Badge, Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
 import type { Payment, useSale } from '@tallyui/pos';
+import { cashLegFigures } from '../lib/sale/cash-leg-figures';
 
 // v2 `statusLabel` / `statusVariant` (checkout/tender/labels.ts:6-28): a captured cash leg reads Paid; no status is captured.
 const STATUS_LABEL = { pending: 'Pending', authorized: 'Authorized', captured: 'Captured', failed: 'Failed', voided: 'Voided' };
@@ -29,6 +30,9 @@ export function LedgerPane({ order, onRemove, closing = false }: {
   const partPaid = order.payments.length > 0 && order.balanceDueMinor > 0;
   // v2: a zero balance with nothing settled (every leg failed or voided) is not paid.
   const paidInFull = order.balanceDueMinor === 0 && order.payments.some(settled);
+  // v2 (ledger-pane.tsx:196, :259): each leg and Paid read the applied amounts, the change taken out of the cash legs.
+  const figures = cashLegFigures(order.payments, order.changeDueMinor);
+  const paid = order.paidMinor - order.changeDueMinor;
   const row = (label: string, id: string, amount: number) => <View className="flex-row justify-between">
     <Text className="text-muted-foreground">{label}</Text>
     <Text testID={id} className="tabular-nums text-foreground">{fmt(amount)}</Text>
@@ -41,12 +45,12 @@ export function LedgerPane({ order, onRemove, closing = false }: {
         {fmt(partPaid ? order.balanceDueMinor : order.totalMinor)}
       </Text>
       {partPaid ? <Text testID="checkout-ledger-paid-of" className="text-sm text-muted-foreground">
-        {`${fmt(order.paidMinor)} of ${fmt(order.totalMinor)} paid`}
+        {`${fmt(paid)} of ${fmt(order.totalMinor)} paid`}
       </Text> : null}
     </View>
     <View testID="checkout-ledger" className="gap-2">
       {order.payments.length === 0 ? <Text testID="checkout-ledger-empty" className="text-muted-foreground">No payments yet</Text>
-        : order.payments.map(p => <View key={p.id} testID={`checkout-leg-${p.id}`} className="flex-row items-center gap-2 border-b border-border py-2">
+        : order.payments.map(leg => ({ ...leg, ...figures.get(leg.id) })).map(p => <View key={p.id} testID={`checkout-leg-${p.id}`} className="flex-row items-center gap-2 border-b border-border py-2">
           <View className="flex-1 gap-1">
             <Text className="text-foreground">{p.method === 'cash' ? 'Cash' : 'Card'}</Text>
             {p.reference ? <Text className="text-sm text-muted-foreground">{p.reference}</Text> : null}
@@ -64,7 +68,7 @@ export function LedgerPane({ order, onRemove, closing = false }: {
     </View>
     {closing ? <View testID="checkout-ledger-totals" className="gap-1 border-t border-border pt-2">
       {row('Total', 'checkout-order-total', order.totalMinor)}
-      {row('Paid', 'checkout-ledger-paid', order.paidMinor)}
+      {row('Paid', 'checkout-ledger-paid', paid)}
       {paidInFull ? <Text testID="checkout-ledger-paid-in-full" className="font-semibold text-success">Paid in full</Text>
         : order.balanceDueMinor > 0 ? row('Remaining', 'checkout-ledger-remaining', order.balanceDueMinor) : null}
       {order.changeDueMinor > 0 ? row('Change', 'checkout-ledger-change', order.changeDueMinor) : null}

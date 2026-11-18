@@ -311,8 +311,9 @@ test('a payment that throws leaves the next tap free', async () => {
 
 describe('ledger legs', () => {
   type Order = ComponentProps<typeof LedgerPane>['order'];
-  const order = (payments: Payment[], totals: { total: number; paid: number; balance: number }) => ({
-    currency: 'USD', payments, totalMinor: totals.total, paidMinor: totals.paid, balanceDueMinor: totals.balance, changeDueMinor: 0,
+  const order = (payments: Payment[], totals: { total: number; paid: number; balance: number; change?: number }) => ({
+    currency: 'USD', payments, totalMinor: totals.total, paidMinor: totals.paid, balanceDueMinor: totals.balance,
+    changeDueMinor: totals.change ?? 0,
   }) as unknown as Order;
   const cash20: Payment = { id: 'c1', method: 'cash', amountMinor: 1650, tenderedMinor: 2000, changeMinor: 350 };
   const card: Payment = { id: 'k1', method: 'card', amountMinor: 350 };
@@ -322,6 +323,16 @@ describe('ledger legs', () => {
     render(<LedgerPane order={order([cash20, { ...card, tenderedMinor: 350 }], { total: 2000, paid: 2000, balance: 0 })} />);
     expect(text('checkout-tendered-leg-c1')).toBe('Tendered $20.00 · change $3.50');
     expect(screen.queryByTestId('checkout-tendered-leg-k1')).toBeNull();
+  });
+
+  test('an open cash leg shows the applied amount, its tendered line and Paid at the total', () => {
+    // Before finalize the cash leg still holds the $20 tendered; useSale's paid is $30 and its change $18.
+    render(<LedgerPane closing order={order([{ id: 'k2', method: 'card', amountMinor: 1000 }, { id: 'c2', method: 'cash', amountMinor: 2000 }],
+      { total: 1200, paid: 3000, balance: 0, change: 1800 })} />);
+    expect(within(screen.getByTestId('checkout-leg-c2')).getByText('$2.00')).toBeTruthy();
+    expect(within(screen.getByTestId('checkout-leg-k2')).getByText('$10.00')).toBeTruthy();
+    expect(text('checkout-tendered-leg-c2')).toBe('Tendered $20.00 · change $18.00');
+    expect(text('checkout-ledger-paid')).toBe('$12.00');
   });
 
   test("leg badges read v2's status labels", () => {
