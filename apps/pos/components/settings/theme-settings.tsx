@@ -81,7 +81,7 @@ export function ThemeSettings(): JSX.Element {
             line at the top) and the section's gap-1 makes the 48, so the cards start 44 below the line's middle, not 30. */}
         <View testID="settings-theme-status-row" className="min-h-11 py-1">
           <Text testID="settings-theme-status" className="text-sm text-muted-foreground">
-            {choice === 'system' ? 'Following system theme' : `Current Theme: ${label}`}
+            {choice === 'system' ? 'Following system theme' : `Current theme: ${label}`}
           </Text>
         </View>
         {/* v2's measured grid under the row (theme.tsx:141-142, tile-grid/index.tsx:27). */}

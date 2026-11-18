@@ -17,6 +17,8 @@ beforeEach(() => {
 afterEach(() => { cleanup(); dismissToast(); vi.restoreAllMocks(); });
 
 const row = 'Products, customers and orders are downloaded again from your server.';
+// v2 common.clear_all_local_data_body (settings/general.tsx:425-431).
+const body = 'Everything stored on this device is deleted and downloaded again from your server.';
 const signsOut = "You will be signed out, and the saved cashiers and this device's settings are removed.";
 const clean: LocalDataCheck = { unsent: 0, localOnly: 0, unchecked: [] };
 async function openConfirm(props: { schedule?: () => boolean; reload?: () => void; check?: LocalDataCheck } = {}) {
@@ -31,7 +33,7 @@ test('General ends with the Clear All Local Data row in v2 copy', () => {
   render(<><GeneralSettings store={{ id: 1, name: 'Corner Café', currency: 'USD', locale: 'en_US' }}
     siteHome="https://shop.example/" /><PortalHost /></>);
   expect(screen.getByTestId('screen-settings-general').lastElementChild).toBe(screen.getByTestId('settings-general-clear-local-data-zone'));
-  expect(screen.getByTestId('settings-general-clear-local-data-body').textContent).toBe(row);
+  expect(screen.getByTestId('settings-general-clear-local-data-body').textContent).toBe(body);
   expect(screen.getByTestId('settings-general-clear-local-data').textContent).toBe('Clear All Local Data');
 });
 
