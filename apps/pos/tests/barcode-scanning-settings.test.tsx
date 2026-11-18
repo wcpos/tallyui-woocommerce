@@ -95,6 +95,43 @@ test('the test panel shows typing, and a saved prefix applies to the next scan',
   expect(screen.getByTestId('barcode-test-result').textContent).toBe('scan');
 });
 
+test('a scan shows the check, then the average gap under the current threshold', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  fireEvent.change(screen.getByTestId('settings-barcode-threshold'), { target: { value: '40' } });
+  burst('2000000000015', 7);
+  expect(screen.getByTestId('barcode-test-verdict').textContent).toBe('Detected as a scan → 2000000000015');
+  expect(classesOf('barcode-test-verdict')).toEqual(expect.arrayContaining(['text-base', 'font-medium']));
+  expect(screen.getByTestId('barcode-test-scan-check')).not.toBeNull();
+  expect(screen.getByTestId('barcode-test-scan-detail').textContent).toBe('Average keystroke gap 7ms, under the 40ms threshold');
+  expect(classesOf('barcode-test-scan-detail')).toEqual(expect.arrayContaining(['text-muted-foreground', 'text-xs']));
+  // Gaps of 7ms, then a last one of 8ms, fold to 7.5ms: shown rounded, as v2's Math.round.
+  act(() => {
+    for (const key of '2000000000015') {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+      vi.advanceTimersByTime(7);
+    }
+    vi.advanceTimersByTime(1);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: '9', bubbles: true, cancelable: true }));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  });
+  expect(screen.getByTestId('barcode-test-scan-detail').textContent).toBe('Average keystroke gap 8ms, under the 40ms threshold');
+});
+
+test('typing and too short show no scan detail', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  expect(screen.queryByTestId('barcode-test-scan-detail')).toBeNull();
+  burst('abc', 100);
+  expect(screen.getByTestId('barcode-test-result').textContent).toBe('typing');
+  expect(screen.queryByTestId('barcode-test-scan-detail')).toBeNull();
+  expect(screen.queryByTestId('barcode-test-scan-check')).toBeNull();
+  burst('123', 5);
+  expect(screen.getByTestId('barcode-test-result').textContent).toBe('too short');
+  expect(screen.queryByTestId('barcode-test-scan-detail')).toBeNull();
+  expect(screen.queryByTestId('barcode-test-scan-check')).toBeNull();
+});
+
 test('a test scan never reaches the till underneath', () => {
   vi.useFakeTimers();
   const till = vi.fn();
