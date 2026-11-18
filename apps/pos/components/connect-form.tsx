@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { JSX, ReactNode } from 'react';
 import { Linking, ScrollView, View } from 'react-native';
-import { Button, IconButton, Input, Label, Text, XIcon } from '@tallyui/components';
+import { Button, IconButton, Input, Label, Loader, Text, XIcon } from '@tallyui/components';
 import { CONNECT_STAGE_COPY, errorCodeDocUrl, useConnectDiscovery } from '../lib/auth/use-connect-discovery';
 import type { StartSignIn } from '../lib/auth/use-connect-discovery';
 
@@ -40,7 +40,8 @@ export function ConnectForm({ startSignIn, signInError, saved }: ConnectFormProp
       {saved && !formOpen ? <Button variant="ghost" testID="connect-another-store" onPress={() => setFormOpen(true)}>
         <Text>Connect another store</Text>
       </Button> : null}
-      {!saved || formOpen ? <View className="w-full gap-4">
+      {/* v2 url-input.tsx:37 gap-2 stack, :55-62 loading Connect button, :69-71 text-bad text-sm error. */}
+      {!saved || formOpen ? <View testID="connect-url-form" className="w-full gap-2">
           <Label nativeID="store-url-label">Your store's address</Label>
           <Input disabled={busy}>
             <Input.Field testID="store-url-input" accessibilityLabelledBy="store-url-label"
@@ -50,10 +51,11 @@ export function ConnectForm({ startSignIn, signInError, saved }: ConnectFormProp
               onPress={() => onChangeText('')}><XIcon size={16} className="text-muted-foreground" /></IconButton></Input.Right> : null}
           </Input>
           <Button testID="connect-store-button" disabled={busy || siteInput.trim() === ''}
-            accessibilityState={{ busy }} onPress={connect}><Text>Connect</Text></Button>
+            accessibilityState={{ busy }} onPress={connect}>
+            {busy ? <Loader size="sm" testID="connect-store-spinner" /> : null}<Text>Connect</Text></Button>
           {stage ? <Text testID="connect-progress" accessibilityLiveRegion="polite"
             className="text-sm text-muted-foreground">{CONNECT_STAGE_COPY[stage]}</Text> : null}
-          {message ? <Text testID="connect-error-message" className="text-destructive">{message}</Text> : null}
+          {message ? <Text testID="connect-error-message" className="text-sm text-destructive">{message}</Text> : null}
           {hint ? <Text testID="connect-error-hint" className="text-sm text-muted-foreground">
             Nothing is lost — unsent changes send once you're signed in. Try logging in again.</Text> : null}
           {errorCode ? <Button testID={`connect-error-docs-link-${errorCode}`} variant="link" size="sm"
