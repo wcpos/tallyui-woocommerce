@@ -18,6 +18,7 @@ import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { sessionsOff } from './cart-head-helpers';
 import { classesOf } from './classes-of';
+import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
@@ -145,6 +146,27 @@ test('the drawer door names its verbs and opener, and opens the register panel (
   expect(await screen.findByTestId('register-panel')).not.toBeNull();
 }, 20_000);
 
+// Front desk ruling, 2026-11-18: in the tender stage the sheet still opens, but its drawer door no longer reaches the
+// register panel (Close register, Paid in/out) mid-payment.
+test('in the tender stage the drawer door is held and the register panel stays shut', async () => {
+  localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all' }));
+  const app = await setup();
+  act(() => app.register.setSetting(true));
+  await act(async () => { await app.register.actions.openSession({ expectedFloatMinor: 10000, countedFloatMinor: 10000 }); });
+  await waitFor(() => expect(app.register.session?.status).toBe('open'));
+  fireEvent.click(screen.getByText('Espresso'));
+  // At 900px the cart is already open alongside the catalogue.
+  fireEvent.click(screen.getByTestId('cart-checkout'));
+  fireEvent.click(screen.getByTestId('register-bar-avatar'));
+  // With a register the tender starts asynchronously; the hold notice shows once the sheet is paying.
+  expect((await screen.findByTestId('user-sheet-hold')).textContent).toBe('Finish the payment first');
+  const door = screen.getByTestId('user-sheet-drawer');
+  expect(door.getAttribute('aria-disabled') === 'true' || door.hasAttribute('disabled')).toBe(true);
+  fireEvent.click(door);
+  expect(screen.getByTestId('user-sheet')).not.toBeNull();
+  expect(screen.queryByTestId('register-panel')).toBeNull();
+}, 20_000);
+
 test('on a narrow screen the drawer door opens the cart so the register panel shows', async () => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 600, height: 800, scale: 1, fontScale: 1 });
   await openSessionAndSheet();
@@ -156,14 +178,27 @@ test('on a narrow screen the drawer door opens the cart so the register panel sh
   expect(screen.getByTestId('pos-pane-cart').style.display).not.toBe('none');
 }, 20_000);
 
-// v2 user-sheet.tsx:688-691: the drawer door takes only `busy`, so a payment in flight does not hold it.
-test('while paying the drawer door stays pressable and opens the drawer', () => {
+function openDoorSheet(paying: boolean) {
   const onOpenDrawer = vi.fn();
   render(<><CashierSheet name="Bob Ross" cashiers={[]} onSwitch={() => {}} onAddAnother={() => {}}
     onSignOut={() => {}} drawer={{ figure: '$12.00', verbs: 'Pay in · Pay out · Close register' }} onOpenDrawer={onOpenDrawer}
-    paying /><PortalHost /></>);
+    paying={paying} /><PortalHost /></>);
   fireEvent.click(screen.getByTestId('register-bar-avatar'));
-  const door = screen.getByTestId('user-sheet-drawer');
+  return { onOpenDrawer, door: screen.getByTestId('user-sheet-drawer') };
+}
+
+// Front desk ruling, 2026-11-18: v2's checkout is a modal route over the bar, so its drawer door is never reachable
+// mid-payment; Tally's tender is inline, so the sheet holds the door while paying.
+test('while paying the drawer door is held and does not open the drawer', () => {
+  const { onOpenDrawer, door } = openDoorSheet(true);
+  expect(door.getAttribute('aria-disabled') === 'true' || door.hasAttribute('disabled')).toBe(true);
+  fireEvent.click(door);
+  expect(onOpenDrawer).not.toHaveBeenCalled();
+  expect(screen.getByTestId('user-sheet')).not.toBeNull();
+});
+
+test('without paying the drawer door is pressable and opens the drawer', () => {
+  const { onOpenDrawer, door } = openDoorSheet(false);
   expect(door.getAttribute('aria-disabled')).not.toBe('true');
   fireEvent.click(door);
   expect(onOpenDrawer).toHaveBeenCalledTimes(1);

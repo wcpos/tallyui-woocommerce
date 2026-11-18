@@ -50,12 +50,12 @@ function SalesTodayRow({ total, currency, locale }: {
 export interface SheetDrawer { figure: string; verbs: string; opener?: string; openerName?: string }
 
 /** v2's DrawerDoor (packages/core/src/screens/main/pos/cart/user-sheet.tsx): the drawer tile over a row of its verbs. */
-function DrawerDoor({ drawer, onPress }: { drawer: SheetDrawer; onPress(): void }) {
+function DrawerDoor({ drawer, disabled, onPress }: { drawer: SheetDrawer; disabled?: boolean; onPress(): void }) {
   const { openerName } = drawer;
   // v2's DrawerDoor (user-sheet.tsx:199-205): a PressableSurface with no fill of its own, so it shows the sheet's bg-card,
   // with its border, radius and the accent press and hover wash (pressable-surface/index.tsx:28).
   return <Pressable testID="user-sheet-drawer" role="button" accessibilityLabel={`In the drawer, ${drawer.figure}`}
-    onPress={onPress} className="rounded-lg border border-border active:bg-accent web:hover:bg-accent">
+    onPress={onPress} disabled={disabled} className="rounded-lg border border-border active:bg-accent web:hover:bg-accent">
     <View className="flex-row items-center gap-3 px-3 py-2.5">
       {/* v2's `ToneDisc tone="muted" icon="register" size="sm"` (user-sheet.tsx:207; tone-disc/index.tsx:11,28-30;
           lib/tone.ts:53,55): a size-11 bg-muted disc, the glyph at the default 18 px (icon/index.tsx:27), muted. */}
@@ -89,7 +89,7 @@ export interface CashierOption { uuid: string; name: string }
 export function CashierSheet(props: {
   name: string;
   cashiers: CashierOption[];
-  /** v2's usePaymentInFlight (user-sheet.tsx:498): the sheet still opens, but holds the hand-over and Sign out. */
+  /** v2's usePaymentInFlight (user-sheet.tsx:498): the sheet still opens, but holds the hand-over, Sign out and the drawer door. */
   paying?: boolean;
   storeName?: string;
   signedInAt?: number;
@@ -148,7 +148,7 @@ export function CashierSheet(props: {
             DialogBody's base `py-1` (dialog/index.tsx:277) is the 4 px between the header and "Your sales today". */}
         <View testID="user-sheet-body" className="flex-1 gap-0 py-1">
         {props.sales && <SalesTodayRow total={salesToday} currency={props.sales.currency} locale={props.sales.locale} />}
-        {props.drawer && (props.onOpenDrawer ? <DrawerDoor drawer={props.drawer}
+        {props.drawer && (props.onOpenDrawer ? <DrawerDoor drawer={props.drawer} disabled={props.paying}
           onPress={() => { setOpen(false); props.onOpenDrawer!(); }} />
           : <View testID="user-sheet-drawer" className="flex-row items-center justify-between rounded-lg border border-border px-3 py-2.5">
             <Text className={KEY_LABEL}>In the drawer</Text>
