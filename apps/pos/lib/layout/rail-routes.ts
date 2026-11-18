@@ -1,20 +1,20 @@
-// The app rail's areas, in v2's rail order (WCPOS monorepo `apps/main/app/(app)/(drawer)/_layout.tsx`).
+// The app rail's areas, in v2's rail order (WCPOS monorepo `apps/main/app/(app)/(drawer)/_layout.tsx`; Support last, :146).
 // Logs lives under Store health (/health/logs), as in v2, so it has no rail item.
-export type RailKey = 'pos' | 'products' | 'orders' | 'coupons' | 'customers' | 'reports' | 'health' | 'settings';
+export type RailKey = 'pos' | 'products' | 'orders' | 'coupons' | 'customers' | 'reports' | 'health' | 'settings' | 'support';
 
 /** Top group, then foot group, in rail order. */
 export const RAIL_TOP: readonly RailKey[] = ['pos', 'products', 'orders', 'coupons', 'customers', 'reports'];
-export const RAIL_FOOT: readonly RailKey[] = ['health', 'settings'];
+export const RAIL_FOOT: readonly RailKey[] = ['health', 'settings', 'support'];
 
 // An area's root. Store health and Settings redirect to their first page; railKeyForPath matches their pages by prefix.
 export const RAIL_HREF: Record<RailKey, string> = {
   pos: '/catalogue', products: '/products', orders: '/orders', coupons: '/coupons', customers: '/customers', reports: '/reports',
-  health: '/health', settings: '/settings',
+  health: '/health', settings: '/settings', support: '/support',
 };
 
 export const RAIL_LABEL: Record<RailKey, string> = {
   pos: 'POS', products: 'Products', orders: 'Orders', coupons: 'Coupons', customers: 'Customers', reports: 'Reports',
-  health: 'Store health', settings: 'Settings',
+  health: 'Store health', settings: 'Settings', support: 'Support',
 };
 
 const RAIL_KEYS: readonly RailKey[] = [...RAIL_TOP, ...RAIL_FOOT];

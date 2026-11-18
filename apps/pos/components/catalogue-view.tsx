@@ -62,6 +62,7 @@ export interface CatalogueViewProps {
   onOpenReports?(): void;
   onOpenHealth?(): void;
   onOpenSettings?(): void;
+  onOpenSupport?(): void;
   viewState?: AppCatalogueViewState;
   onViewStateChange?(next: AppCatalogueViewState): void;
   /** The till's tax, for the tiles' Tax field; without it the field shows nothing. */
@@ -76,12 +77,12 @@ export interface CatalogueViewProps {
 }
 
 export type PosBarProps = Pick<CatalogueViewProps, 'storeName' | 'cashierName' | 'cashierControl' | 'onSignOut'
-  | 'onOpenProducts' | 'onOpenOrders' | 'onOpenCoupons' | 'onOpenCustomers' | 'onOpenReports' | 'onOpenHealth' | 'onOpenSettings'>;
+  | 'onOpenProducts' | 'onOpenOrders' | 'onOpenCoupons' | 'onOpenCustomers' | 'onOpenReports' | 'onOpenHealth' | 'onOpenSettings' | 'onOpenSupport'>;
 
 /** The till's top bar and the drawer its menu button opens: the bar owns the drawer's open state. */
 export function PosBar({ storeName, cashierName, cashierControl, onSignOut,
-  onOpenProducts, onOpenOrders, onOpenCoupons, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings }: PosBarProps): JSX.Element {
-  const areas = { onOpenProducts, onOpenOrders, onOpenCoupons, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings };
+  onOpenProducts, onOpenOrders, onOpenCoupons, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings, onOpenSupport }: PosBarProps): JSX.Element {
+  const areas = { onOpenProducts, onOpenOrders, onOpenCoupons, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings, onOpenSupport };
   const [drawerOpen, setDrawerOpen] = useState(false);
   return <>
     <RegisterBarShell storeName={storeName} onOpenMenu={() => setDrawerOpen(true)}
@@ -94,7 +95,7 @@ export function PosBar({ storeName, cashierName, cashierControl, onSignOut,
 }
 
 export function CatalogueView({
-  connector, currency, products, storeName, cashierName, cashierControl, status, notice, onSignOut, onOpenProducts, onOpenOrders, onOpenCoupons, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings, onSelect, onAddEntry, onScan, message,
+  connector, currency, products, storeName, cashierName, cashierControl, status, notice, onSignOut, onOpenProducts, onOpenOrders, onOpenCoupons, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings, onOpenSupport, onSelect, onAddEntry, onScan, message,
   viewState: controlledViewState, onViewStateChange,
   tax, inCartCounts, onSync, hideBar,
 }: CatalogueViewProps): JSX.Element {
@@ -309,7 +310,7 @@ export function CatalogueView({
       <View className="flex-1 bg-background">
         {hideBar ? null : <PosBar storeName={storeName} cashierName={cashierName} cashierControl={cashierControl}
           onSignOut={onSignOut} onOpenProducts={onOpenProducts} onOpenOrders={onOpenOrders} onOpenCoupons={onOpenCoupons} onOpenCustomers={onOpenCustomers}
-          onOpenReports={onOpenReports} onOpenHealth={onOpenHealth} onOpenSettings={onOpenSettings} />}
+          onOpenReports={onOpenReports} onOpenHealth={onOpenHealth} onOpenSettings={onOpenSettings} onOpenSupport={onOpenSupport} />}
         {/* No inset of its own: the search row, the chips and the grid sit in TallyUI's px-3, v2's 12 px page gutter
             (monorepo apps/main/global.css:30 `--spacing-gutter: calc(var(--spacing) * 3)`; pos/products/index.tsx:551). */}
         <View testID="pos-products-column" className="flex-1">

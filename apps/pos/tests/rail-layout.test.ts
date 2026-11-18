@@ -20,13 +20,14 @@ test('railKeyForPath: each area by its route, settings pages under settings, nul
   expect(railKeyForPath('/health')).toBe('health');
   expect(railKeyForPath('/settings')).toBe('settings');
   expect(railKeyForPath('/settings/theme')).toBe('settings');
+  expect(railKeyForPath('/support')).toBe('support');
   for (const pathname of ['/', '/connect', '/auth/callback', '/ordersx']) expect(railKeyForPath(pathname)).toBeNull();
 });
 
 test('Logs is a Store health page: /health/logs and /health/database select Store health, and the foot has no Logs item', () => {
   expect(railKeyForPath('/health/logs')).toBe('health');
   expect(railKeyForPath('/health/database')).toBe('health');
-  expect(RAIL_FOOT).toEqual(['health', 'settings']);
+  expect(RAIL_FOOT).toEqual(['health', 'settings', 'support']);
   expect(Object.keys(RAIL_HREF)).not.toContain('logs');
   expect(Object.keys(RAIL_LABEL)).not.toContain('logs');
 });
@@ -37,4 +38,11 @@ test('railNavigation: POS dismisses to the till, the till pushes an area, an are
   expect(railNavigation('pos', 'orders')).toEqual({ method: 'push', href: '/orders' });
   expect(railNavigation('orders', 'customers')).toEqual({ method: 'replace', href: '/customers' });
   expect(railNavigation('health', 'settings')).toEqual({ method: 'replace', href: '/settings' });
+  expect(railNavigation('settings', 'support')).toEqual({ method: 'replace', href: '/support' });
+});
+
+test('Support is last in the foot, after Settings, as v2 (drawer/_layout.tsx:146), and opens /support', () => {
+  expect(RAIL_FOOT.slice(-2)).toEqual(['settings', 'support']);
+  expect(RAIL_HREF.support).toBe('/support');
+  expect(RAIL_LABEL.support).toBe('Support');
 });

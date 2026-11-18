@@ -7,7 +7,7 @@
 // Products sits between POS and Orders as in v2, with v2's `gift` glyph (a wrapped box with a bow); Coupons sits
 // between Orders and Customers as in v2, with v2's `discount` glyph (a circle with a percent sign).
 // Logs is a Store health page (/health/logs), as in v2, not a rail item.
-// Deviations: no Support item (this app has no such area); no hover tooltip. The version opens the About dialog (about-dialog.tsx).
+// Deviations: no hover tooltip. The version opens the About dialog (about-dialog.tsx).
 // Colours are the app's rail tokens (global.css / themes.css, v2's --rail* in apps/main/global.css l.104-109):
 // the rail and its border, `rail-foreground` items, and the selected item on `rail-selected` (nav-item/index.tsx:54-71),
 // the version in `rail-foreground` at half opacity as v2's version.tsx draws it. Unselected items wash in `rail-accent`
@@ -21,6 +21,7 @@ import { RAIL_FOOT, RAIL_LABEL, RAIL_TOP, railKeyForPath } from '../lib/layout/r
 import type { RailKey } from '../lib/layout/rail-routes';
 import { useUnreadLogsCount } from '../lib/logs/unread-errors';
 import { VersionAbout } from './about-dialog';
+import { SupportIcon } from './icons';
 import { UnreadBadge } from './unread-badge';
 
 const RegisterIcon = createSvgIcon('RegisterIcon', () => <><Rect x={3} y={9} width={18} height={12} rx={2} /><Line x1={7} y1={4} x2={17} y2={4} /><Line x1={12} y1={4} x2={12} y2={9} /><Line x1={7} y1={15} x2={17} y2={15} /></>);
@@ -36,7 +37,7 @@ const GearIcon = createSvgIcon('GearIcon', () => <><Path d="M10.325 4.317c.426-1
 // The phone drawer reads this glyph map too.
 export const RAIL_GLYPH: Record<RailKey, typeof RegisterIcon> = {
   pos: RegisterIcon, products: ProductsIcon, orders: ReceiptIcon, coupons: CouponsIcon, customers: CustomersIcon, reports: ReportsIcon,
-  health: HealthIcon, settings: GearIcon,
+  health: HealthIcon, settings: GearIcon, support: SupportIcon,
 };
 
 /** True while AppFrame draws the rail; the register bar then draws no menu button. */
