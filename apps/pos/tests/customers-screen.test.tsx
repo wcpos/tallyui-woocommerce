@@ -400,14 +400,32 @@ test('without the create capability there is no reason line under the toolbar', 
   expect(screen.queryByText(CREATE_CUSTOMERS_DENIED)).toBeNull();
 });
 
-test('with the create capability Add new customer has no tooltip and opens the add dialog', () => {
+// v2 customers/index.tsx:162-181: the allowed add button's tooltip reads common.add_new_customer (web only).
+test('with the create capability Add new customer shows its tooltip on hover and opens the add dialog', () => {
   renderScreen();
   expect(screen.queryByTestId('customers-add-trigger')).toBeNull();
   const add = screen.getByRole('button', { name: 'Add new customer' });
-  fireEvent.pointerEnter(add);
   expect(screen.queryByRole('tooltip')).toBeNull();
+  fireEvent.pointerEnter(add);
+  expect(screen.getByRole('tooltip').textContent).toBe('Add new customer');
   fireEvent.click(add);
   expect(screen.getByTestId('customer-form')).not.toBeNull();
+});
+
+// v2 cells/avatar.tsx:19-23: the table avatar is v2's lg, size-10 (components/src/avatar/index.tsx:45), 40 px: TallyUI's md.
+test('a wide-table row draws its avatar at v2\'s 40 px, TallyUI md', async () => {
+  await findRows();
+  const initials = within(screen.getByTestId('customers-row-7')).getByText('GF') as unknown as Record<string, unknown>;
+  type Fiber = { memoizedProps?: { className?: unknown; size?: unknown; fallback?: unknown }; return?: Fiber };
+  // Up from the initials to the Avatar that drew them, gathering the classes of the views in between.
+  let fiber = initials[Object.keys(initials).find(name => name.startsWith('__reactFiber$'))!] as Fiber | undefined;
+  const classes: string[] = [];
+  for (; fiber && fiber.memoizedProps?.fallback !== 'GF'; fiber = fiber.return) {
+    if (typeof fiber.memoizedProps?.className === 'string') classes.push(...fiber.memoizedProps.className.split(/\s+/));
+  }
+  expect(fiber?.memoizedProps?.size).toBe('md');
+  expect(classes).toEqual(expect.arrayContaining(['h-10', 'w-10']));
+  expect(classes).not.toContain('h-12');
 });
 
 test('the drawer lists Customers after Orders only when an onOpenCustomers handler is supplied', () => {
