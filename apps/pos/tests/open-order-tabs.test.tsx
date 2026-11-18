@@ -13,6 +13,9 @@ import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import { openParkedList, parkedTabs, stripLayout } from './open-orders-helpers';
+import { Toaster } from '../components/toaster';
+import { dismissToast } from '../lib/toast/toast';
+import { runBeforeLeave } from '../lib/sale/before-leave';
 
 function SaleScreen(props: SaleScreenProps) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
@@ -245,6 +248,31 @@ test('sale screen: a fresh cart parked after a resumed one joins at the right en
   vi.setSystemTime(Date.parse('2026-11-18T10:07:00.000Z'));
   await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
   expect(stripAmounts()).toEqual(['Guest$3.00', 'Guest$4.00', 'Guest$6.00', 'Guest$8.00']);
+}, 20_000);
+
+test('sale screen: voiding a resumed A, then Undo, brings A back in its place: the strip reads A, B, C again', async () => {
+  render(<Toaster />);
+  await openThree();
+  await press(0, 5);
+  vi.setSystemTime(Date.parse('2026-11-18T10:07:00.000Z'));
+  act(() => dismissToast());
+  fireEvent.click(screen.getByTestId('cart-foot-more'));
+  fireEvent.click(screen.getByText('Order details'));
+  fireEvent.click(screen.getByTestId('order-details-void'));
+  expect(stripAmounts()).toEqual(['Guest$4.00', 'Guest$6.00']);
+  vi.setSystemTime(Date.parse('2026-11-18T10:08:00.000Z'));
+  await act(async () => { fireEvent.click(within(screen.getByTestId('success-toast')).getByTestId('toast-action')); });
+  await waitFor(() => expect(selectedAmount()).toBe('Guest$3.00'));
+  expect(stripAmounts()).toEqual(['Guest$3.00', 'Guest$4.00', 'Guest$6.00']);
+}, 20_000);
+
+test('sale screen: holding a resumed A for a sign-in redirect parks it in its place: the strip reads A, B, C', async () => {
+  await openThree();
+  await press(0, 5);
+  vi.setSystemTime(Date.parse('2026-11-18T10:07:00.000Z'));
+  await act(async () => { expect(await runBeforeLeave()).toBeNull(); });
+  expect(screen.getByTestId('new-order-tab').getAttribute('aria-selected')).toBe('true');
+  expect(stripAmounts()).toEqual(['Guest$3.00', 'Guest$4.00', 'Guest$6.00']);
 }, 20_000);
 
 test('sale screen (e): nothing above the cart parks or lists; the strip\'s count cell opens the parked sheet', async () => {
