@@ -139,6 +139,8 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
               <Text className="font-medium text-foreground">{c.name}</Text>
               {c.email ? <Text testID={`customer-email-${c.email}`} numberOfLines={1} className="text-muted-foreground">{c.email}</Text> : null}
             </View>
+            {/* v2 customers/row.tsx:50 ends the row in chevronRight; city and country wait on the connector. */}
+            <ChevronRightIcon testID={`customers-row-chevron-${c.id}`} size={16} className="text-muted-foreground" />
           </View>
         )) : <Table>
           <TableHeader><TableRow>

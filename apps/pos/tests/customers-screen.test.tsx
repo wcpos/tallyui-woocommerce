@@ -190,6 +190,8 @@ test('a narrow window lists name and email rows', async () => {
   expect(within(row).getByTestId('customer-email-gee@example.invalid')).not.toBeNull();
   expect(within(row).getByText('GF')).not.toBeNull();
   expect(within(row).queryByRole('button', { name: 'Open customer' })).toBeNull();
+  // v2 customers/row.tsx:50: the row ends in the chevron.
+  expect(row.lastElementChild).toBe(within(row).getByTestId('customers-row-chevron-7'));
   expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 1');
   expect(screen.queryByText('123')).toBeNull();
   expect(screen.queryByText('Four Co')).toBeNull();
