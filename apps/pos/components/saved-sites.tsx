@@ -9,7 +9,7 @@ import { SessionExpiredError } from '../lib/auth/session';
 import { getNextExpansion } from '../lib/auth/sites-expansion';
 import type { StoreSite } from '../lib/auth/site';
 import { getInitials } from '../lib/cashier/initials';
-import { MoreIcon, PlusIcon } from './icons';
+import { MoreIcon, PlusIcon, TrashIcon } from './icons';
 
 // v2 wp-users.tsx:24-50: arrows focus and select the next saved user.
 const ARROW_STEP: Record<string, 1 | -1> = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
@@ -179,7 +179,8 @@ function SiteMenu({ site, onRemoveSite }: { site: StoreSite; onRemoveSite: Saved
         </IconButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem testID="saved-site-remove" onPress={() => setRemovingSite(true)}>
+        <DropdownMenuItem testID="saved-site-remove" className="gap-2" onPress={() => setRemovingSite(true)}>
+          <TrashIcon testID="saved-site-remove-icon" size={16} className="text-destructive" />
           <Text className="text-destructive">Remove site</Text>
         </DropdownMenuItem>
       </DropdownMenuContent>
