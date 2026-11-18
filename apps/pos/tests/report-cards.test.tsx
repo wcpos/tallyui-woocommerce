@@ -1,5 +1,6 @@
-// Uniwind's runtime does not load under Vitest (theme-settings.test mocks it too); the ring reads fixed colours.
-vi.mock('uniwind', () => ({ useCSSVariable: (names: string[]) => names.map(() => '#000000') }));
+// Uniwind's runtime does not load under Vitest (theme-settings.test mocks it too); each colour reads back as the
+// variable it was asked for, so a stroke names its chart token.
+vi.mock('uniwind', () => ({ useCSSVariable: (names: string[]) => names.map(name => `var(${name})`) }));
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import { Donut, ReportCards, type DonutPart } from '../components/report-cards';
@@ -148,6 +149,16 @@ test('exactly six donut parts fold the sixth into Other', () => {
     'donut-row-p0', 'donut-row-p1', 'donut-row-p2', 'donut-row-p3', 'donut-row-p4', 'donut-row-other',
   ]);
   expect(text('donut-row-other-value')).toBe('$2.50');
+});
+
+// v2 reports/cards/donut.tsx:41-45 reads --color-c1..c5 for the ring.
+test("the Donut rings its parts in v2's chart colours c1 to c5, the sixth part and on folded into Other on c5", () => {
+  render(<Donut testID="donut" parts={parts([100, 100, 100, 100, 100, 100, 50])} total={650} money={money}
+    centre={{ figure: '$7', label: '7 ways' }} />);
+  const stroke = (key: string) => screen.getByTestId(`donut-arc-${key}`).getAttribute('stroke');
+  expect(['p0', 'p1', 'p2', 'p3', 'p4', 'other'].map(stroke)).toEqual([
+    'var(--color-c1)', 'var(--color-c2)', 'var(--color-c3)', 'var(--color-c4)', 'var(--color-c5)', 'var(--color-c5)',
+  ]);
 });
 
 const C = 2 * Math.PI * 46;
@@ -312,6 +323,17 @@ test('the Taxes card reads the tax collected, a legend per rate and Net / Tax / 
   fireEvent.click(screen.getByTestId('card-taxes-open'));
   expect(onOpenTable).toHaveBeenCalledOnce();
   expect(onOpenTable).toHaveBeenCalledWith('taxes');
+});
+
+// v2 reports/cards/taxes.tsx:10: five shared hues, cycled, so a sixth rate takes the first again.
+test('the taxes bar and legend cycle bg-c1 to bg-c5, a sixth rate taking bg-c1 again', () => {
+  const rates = [10000, 20000, 30000, 40000, 50000, 60000];
+  cards({ period: { ...period, taxMinor: 210, taxRates: rates.map((ratePpm, index) => (
+    { ratePpm, label: `Tax ${index}`, netMinor: 1000, taxMinor: 10 * (index + 1), grossMinor: 1000 + 10 * (index + 1) })) } });
+  const hues = ['bg-c1', 'bg-c2', 'bg-c3', 'bg-c4', 'bg-c5', 'bg-c1'];
+  const hue = (testID: string) => classesOf(testID).filter(name => name.startsWith('bg-'));
+  expect(rates.map(ratePpm => hue(`card-taxes-bar-${ratePpm}`))).toEqual(hues.map(name => [name]));
+  expect(rates.map(ratePpm => hue(`card-taxes-rate-${ratePpm}-swatch`))).toEqual(hues.map(name => [name]));
 });
 
 test('the Taxes card reads an empty period', () => {
