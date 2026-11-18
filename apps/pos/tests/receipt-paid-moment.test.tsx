@@ -81,6 +81,34 @@ test('Close calls onClose once', () => {
   expect(onClose).toHaveBeenCalledTimes(1);
 });
 
+// v2's ToneDisc size="lg" (tone-disc/index.tsx:9-14, lib/tone.ts): size-24 round, the tone's wash, its glyph at 36px.
+const glyph = () => screen.getByTestId('receipt-paid-glyph');
+const CHECK_PATH = 'M20 6 9 17l-5-5';
+const CLOCK_PATH = 'M3 12a9 9 0 1 0 18 0a9 9 0 0 0-18 0';
+
+test("paid shows v2's check on the ok wash, 96px round", () => {
+  show([cash(600)]);
+  const disc = classesOf('receipt-paid-disc');
+  expect(disc).toEqual(expect.arrayContaining(['size-24', 'rounded-full', 'bg-ok-bg']));
+  expect(disc).not.toContain('bg-success');
+  expect(disc).not.toContain('size-12');
+  expect(glyph().querySelector('path')?.getAttribute('d')).toBe(CHECK_PATH);
+  expect([glyph().getAttribute('width'), glyph().getAttribute('height')]).toEqual(['36', '36']);
+  expect(classesOf('receipt-paid-glyph')).toContain('text-success');
+  expect(screen.getByTestId('receipt-paid-disc').textContent).not.toContain('✓');
+});
+
+test("awaiting shows v2's clock on the warning wash", () => {
+  show([cash(600)], 'pending');
+  const disc = classesOf('receipt-paid-disc');
+  expect(disc).toEqual(expect.arrayContaining(['size-24', 'rounded-full', 'bg-warning-bg']));
+  expect(disc).not.toContain('bg-warning');
+  expect(glyph().querySelector('path')?.getAttribute('d')).toBe(CLOCK_PATH);
+  expect([glyph().getAttribute('width'), glyph().getAttribute('height')]).toEqual(['36', '36']);
+  expect(classesOf('receipt-paid-glyph')).toContain('text-warning-text');
+  expect(screen.getByTestId('receipt-paid-disc').textContent).not.toContain('…');
+});
+
 // v2's AmountFigure hero (amount-figure/index.tsx:18-24): text-amt (40px, line 1.1), font-bold tabular-nums, centred.
 const HERO = ['text-[40px]', 'leading-[44px]', 'font-bold', 'tabular-nums', 'text-center'];
 

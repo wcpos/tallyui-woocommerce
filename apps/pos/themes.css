@@ -2,7 +2,9 @@
    TallyUI's token names: input takes v2's border, price v2's success and sale
    v2's destructive. The rail tokens are v2's --rail* (v2's var(--card) is var(--color-card); v2's --selected
    pair, which the app lacks, is written out). warning-text is v2's --warning-text (l.717 ocean, l.855 sunset,
-   l.991 monochrome: var(--warning); l.1098 paper, l.1201 warm, l.1304 bold, l.1411 market). Uniwind requires every theme to define the same
+   l.991 monochrome: var(--warning); l.1098 paper, l.1201 warm, l.1304 bold, l.1411 market); ok-bg / warning-bg are
+   v2's --ok-bg / --warning-bg (l.715/718 ocean, l.853/856 sunset, l.989/992 monochrome, l.1096/1099 paper,
+   l.1199/1202 warm, l.1302/1305 bold, l.1409/1412 market). Uniwind requires every theme to define the same
    variables as light and dark; register each name in metro.config.js.
    Each `@variant` sits directly in `@layer theme`, as @tallyui/theme's tokens.css does, never inside `:root`:
    on web uniwind 1.4.0's CSS visitor rewrites a theme's first `&:where(.x, .x *)` rule to plain `.x`
@@ -31,6 +33,8 @@
     --color-warning: oklch(0.78 0.15 75);
     --color-warning-foreground: oklch(0.15 0.04 55);
     --color-warning-text: var(--color-warning);
+    --color-ok-bg: oklch(0.28 0.04 155);
+    --color-warning-bg: oklch(0.30 0.05 80);
     --color-info: oklch(0.70 0.13 240);
     --color-info-foreground: oklch(0.15 0.04 210);
     --color-border: oklch(0.34 0.035 225);
@@ -85,6 +89,8 @@
     --color-warning: oklch(0.78 0.15 75);
     --color-warning-foreground: oklch(0.18 0.06 55);
     --color-warning-text: var(--color-warning);
+    --color-ok-bg: oklch(0.28 0.04 155);
+    --color-warning-bg: oklch(0.30 0.05 80);
     --color-info: oklch(0.70 0.13 240);
     --color-info-foreground: oklch(0.18 0.05 260);
     --color-border: oklch(0.35 0.045 322);
@@ -139,6 +145,8 @@
     --color-warning: oklch(0.78 0.15 75);
     --color-warning-foreground: oklch(0.12 0 0);
     --color-warning-text: var(--color-warning);
+    --color-ok-bg: oklch(0.28 0.04 155);
+    --color-warning-bg: oklch(0.30 0.05 80);
     --color-info: oklch(0.70 0.13 240);
     --color-info-foreground: oklch(0.12 0 0);
     --color-border: oklch(0.36 0 0);
@@ -193,6 +201,8 @@
     --color-warning: oklch(0.68 0.16 70);
     --color-warning-foreground: oklch(0.25 0.03 90);
     --color-warning-text: oklch(0.50 0.13 70);
+    --color-ok-bg: oklch(0.96 0.03 155);
+    --color-warning-bg: oklch(0.97 0.04 85);
     --color-info: oklch(0.48 0.12 262);
     --color-info-foreground: oklch(0.98 0.01 240);
     --color-border: oklch(0.852 0.031 84);
@@ -247,6 +257,8 @@
     --color-warning: oklch(0.68 0.16 70);
     --color-warning-foreground: oklch(0.25 0.03 90);
     --color-warning-text: oklch(0.50 0.13 70);
+    --color-ok-bg: oklch(0.96 0.03 155);
+    --color-warning-bg: oklch(0.97 0.04 85);
     --color-info: oklch(0.48 0.12 262);
     --color-info-foreground: oklch(0.98 0.01 240);
     --color-border: oklch(0.895 0.017 76);
@@ -301,6 +313,8 @@
     --color-warning: oklch(0.68 0.16 70);
     --color-warning-foreground: oklch(0.25 0.03 90);
     --color-warning-text: oklch(0.50 0.13 70);
+    --color-ok-bg: oklch(0.96 0.03 155);
+    --color-warning-bg: oklch(0.97 0.04 85);
     --color-info: oklch(0.48 0.12 262);
     --color-info-foreground: oklch(0.98 0.01 240);
     --color-border: oklch(0.925 0 0);
@@ -355,6 +369,8 @@
     --color-warning: oklch(0.68 0.16 70);
     --color-warning-foreground: oklch(0.25 0.03 90);
     --color-warning-text: oklch(0.50 0.13 70);
+    --color-ok-bg: oklch(0.96 0.03 155);
+    --color-warning-bg: oklch(0.97 0.04 85);
     --color-info: oklch(0.48 0.12 262);
     --color-info-foreground: oklch(0.98 0.01 240);
     --color-border: oklch(0.926 0.017 85);
