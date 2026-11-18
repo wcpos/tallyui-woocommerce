@@ -16,6 +16,7 @@ import stores from './fixtures/stores.json';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import { parkedTabs } from './open-orders-helpers';
 import { CashierSheet } from '../components/cashier-sheet';
+import { OnlineStatusContext, type OnlineStatus } from '../lib/online/online-status';
 import { classesOf } from './classes-of';
 import { memoryStorage } from './memory-storage';
 
@@ -269,9 +270,11 @@ test('a cart held for a switch that is still pending stays parked on the same sc
 
 // v2's sheet layout (monorepo packages/core/src/screens/main/pos/cart/user-sheet.tsx): × and avatar in the header,
 // a quiet + row under the caption, the WordPress Admin link with its glyph, Sign out and Close in the footer.
-function openSheet(extra: Partial<Parameters<typeof CashierSheet>[0]> = {}) {
+function openSheet(extra: Partial<Parameters<typeof CashierSheet>[0]> = {}, status: OnlineStatus = 'online-website-available') {
   const handlers = { onAddAnother: vi.fn(), onSignOut: vi.fn() };
-  render(<><CashierSheet name="Bob Ross" cashiers={[]} onSwitch={() => {}} {...handlers} {...extra} /><PortalHost /></>);
+  render(<OnlineStatusContext.Provider value={{ status }}>
+    <CashierSheet name="Bob Ross" cashiers={[]} onSwitch={() => {}} {...handlers} {...extra} /><PortalHost />
+  </OnlineStatusContext.Provider>);
   fireEvent.click(screen.getByTestId('register-bar-avatar'));
   return handlers;
 }
@@ -293,6 +296,18 @@ test('Another account is a quiet + row, not a filled button', () => {
   expect(classesOf('user-sheet-another-account')).not.toContain('bg-primary');
   fireEvent.click(row);
   expect(onAddAnother).toHaveBeenCalledTimes(1);
+});
+
+test.each(['offline', 'online-website-unavailable'] as const)('Another account… is hidden while the till is offline, as v2 (user-sheet.tsx:720-722)', status => {
+  openSheet({}, status);
+  expect(screen.getByTestId('user-sheet')).not.toBeNull();
+  expect(screen.queryByTestId('user-sheet-another-account')).toBeNull();
+  expect(screen.queryByText('Another account…')).toBeNull();
+});
+
+test('Another account… shows while the till is online', () => {
+  openSheet({}, 'online-website-available');
+  expect(screen.getByTestId('user-sheet-another-account').textContent).toBe('Another account…');
 });
 
 test('Sign out is an outline button with the red border, in the footer beside Close', () => {

@@ -8,6 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { getInitials } from '../lib/cashier/initials';
 import { sheetMoney, tillAgeLabel, tillSinceTime, useCashierSalesToday } from '../lib/cashier/sheet-figures';
 import type { SalesTotal } from '../lib/cashier/sheet-figures';
+import { useIsOnline } from '../lib/online/online-status';
 import { useMinuteClock } from '../lib/reports/use-minute-clock';
 import { SheetCloseButton } from './sheet';
 import { OpenExternalIcon } from './docs-link';
@@ -104,6 +105,7 @@ export function CashierSheet(props: {
   /** An open register asks to start its count before signing out. */
   openRegister?: { title: string; onClose(): Promise<boolean> };
 }): JSX.Element {
+  const online = useIsOnline();
   const [open, setOpen] = useState(false);
   const [asking, setAsking] = useState(false);
   const [removing, setRemoving] = useState<CashierOption | null>(null);
@@ -174,12 +176,14 @@ export function CashierSheet(props: {
             onPress={() => setRemoving(cashier)}><Text>Remove</Text></Button>}
         </View>)}
           {/* v2's compact AddUserButton (add-user-button.tsx:106-113): a quiet MenuRow (menu-row/index.tsx:69, min-h-row 44 px,
-              accent wash) with a muted + at the default 18 px, not a filled button. */}
+              accent wash) with a muted + at the default 18 px, not a filled button. Shown only under v2's `online` condition (user-sheet.tsx:720-722). */}
+          {online && (
           <Pressable testID="user-sheet-another-account" role="button" onPress={() => { setOpen(false); props.onAddAnother(); }}
             className="min-h-11 w-full flex-row items-center gap-2 rounded-md px-2.5 py-1.5 web:hover:bg-accent active:bg-accent">
             <PlusIcon testID="user-sheet-another-account-icon" size={18} strokeWidth={1.5} className="text-muted-foreground" />
             <Text numberOfLines={1} className="min-w-0 flex-1 text-base text-foreground">Another account…</Text>
           </Pressable>
+          )}
         </View>
         {/* v2's StoreRow (user-sheet.tsx:435-470,725-733): a PropertyRow under the users, off a phone one line, min-h-ctl
             gap-3 py-1, the `key` rank in a w-32 key column, then the name (property-row/index.tsx). One store, no Switch. */}
