@@ -13,6 +13,7 @@ import { useSearchTerm } from '../lib/search-term';
 import { toast } from '../lib/toast/toast';
 import { chipInkClassName, chipToneClassName } from './catalogue-filter-chips';
 import { EmptyState } from './empty-state';
+import { ChevronDownIcon, ChevronRightIcon } from './icons';
 
 // v2's Stat (packages/components/src/stat): the number above a muted label, pressable as a filter when it has onPress.
 // v2's tones: bad reads destructive, good reads success.
@@ -68,15 +69,24 @@ function LevelMark({ level }: { level: LogLevel }): JSX.Element {
 function StatusCell({ row, expanded, onToggle, className }: {
   row: LogRecord; expanded: boolean; onToggle(): void; className: string;
 }): JSX.Element {
-  return <View className={className}>
+  // v2 logs/ledger.tsx:163-167: box-none with passive text, so only the chip and chevron take presses and the rest
+  // falls through to the row. react-native-web gives each View z-index 0, so the wide caller lifts the cell (z-20).
+  return <View testID={`logs-status-${row.id}`} pointerEvents="box-none" className={className}>
+    {/* v2's CodeChip (components/src/code-chip/index.tsx), pressable to toggle the row (logs/ledger.tsx:152-155);
+        v2's bad is the destructive red (apps/main/global.css:441, --bad: var(--destructive)). */}
     {(row.level === 'warn' || row.level === 'error') && row.code
-      ? <Text testID={`logs-code-${row.id}`} className="text-xs">{row.code}</Text>
-      : row.level === 'info' && row.outcome === 'ok'
+      ? <Pressable testID={`logs-code-${row.id}`} role="button" aria-label={row.code} onPress={onToggle}
+        className="z-20 self-end rounded-md bg-destructive/15 px-2 py-0.5 web:hover:bg-destructive/20">
+        <Text testID={`logs-code-${row.id}-label`} className="font-mono text-xs font-semibold text-destructive">{row.code}</Text>
+      </Pressable>
+      : <View pointerEvents="none">{row.level === 'info' && row.outcome === 'ok'
         ? <Text testID={`logs-ok-${row.id}`} className="text-xs font-semibold text-success">✓ ok</Text>
-        : <Text className="text-xs text-muted-foreground/50">—</Text>}
+        : <Text className="text-xs text-muted-foreground/50">—</Text>}</View>}
+    {/* v2 logs/ledger.tsx:170-176: chevronDown or chevronRight at size sm (size-4, icon/index.tsx:29). */}
     <Pressable testID={`logs-chevron-${row.id}`} role="button" aria-label="Details" onPress={onToggle}
       className="z-20 px-1">
-      <Text className="text-muted-foreground/60">{expanded ? '⌄' : '›'}</Text>
+      {expanded ? <ChevronDownIcon testID={`logs-chevron-${row.id}-down`} size={16} className="text-muted-foreground/60" />
+        : <ChevronRightIcon testID={`logs-chevron-${row.id}-right`} size={16} className="text-muted-foreground/60" />}
     </Pressable>
   </View>;
 }
@@ -174,26 +184,28 @@ export function LogsScreen({ collection, storeName, siteUrl,
         <Chip testID="logs-chip-verbose" label={`Verbose diagnostics: ${verbose ? 'on' : 'off'}`} on={verbose}
           pressed={verbose} onPress={() => setVerbose(!verbose)} />
       </View>
-      {/* v2's ledger head (logs/ledger.tsx:391); the duration column keeps v2's testID, "took". */}
+      {/* v2's ledger head (logs/ledger.tsx:391); the duration column reads v2's "Took" (ledger.tsx:402-404). */}
       {!phone && /* v2 logs/ledger.tsx:391: hide the head on a phone. */ <View className="h-9 flex-row items-center gap-3 border-b border-border">
         <Text testID="logs-heading-time" className={`w-20 ${HEAD}`}>Time</Text>
         <Text testID="logs-heading-level" className={`w-16 ${HEAD}`}>Level</Text>
         <Text testID="logs-heading-event" className={`flex-1 ${HEAD}`}>Event</Text>
-        <Text testID="logs-heading-took" className={`w-16 text-right ${HEAD}`}>Duration</Text>
+        <Text testID="logs-heading-took" className={`w-16 text-right ${HEAD}`}>Took</Text>
         <Text testID="logs-heading-status" className={`w-32 text-right ${HEAD}`}>Status</Text>
       </View>}
       {/* v2's LedgerRow (logs/ledger.tsx:244): the whole row toggles its detail through an overlay under the
           level and chevron buttons, since a button inside a button is invalid on the web. */}
       {filtered.map(row => {
         const took = formatDurationMs(row.durationMs);
-        return <View key={row.id} testID={`logs-row-${row.id}`} className="border-b border-border">
+        const time = formatLogTime(row.timestamp, now());
+        // v2 logs/ledger.tsx:246 (hairline rule) and :288 (the press target's label).
+        return <View key={row.id} testID={`logs-row-${row.id}`} className="border-b border-border/50">
         {/* v2 logs/ledger.tsx:296-320: the phone row, with status beside its first line. */}
         {phone ? <View className="relative">
           <Pressable testID={`logs-row-sm-${row.id}`} role="button" aria-expanded={!!expanded[row.id]}
-            aria-label={`${row.level} · ${row.message}`} onPress={() => toggle(row.id)} className="gap-0.5 py-2">
+            aria-label={`${time} · ${row.level} · ${row.message}`} onPress={() => toggle(row.id)} className="gap-0.5 py-2">
             <View testID={`logs-line-sm-${row.id}`} className="flex-row items-center gap-2 pr-32">
               <Text testID={`logs-time-sm-${row.id}`} className="font-mono text-sm tabular-nums text-muted-foreground">
-                {formatLogTime(row.timestamp, now())}</Text>
+                {time}</Text>
               <View testID={`logs-level-sm-${row.id}`} className="flex-row items-center gap-1.5"><LevelMark level={row.level} /></View>
             </View>
             <Text testID={`logs-event-sm-${row.id}`} className="text-sm">{row.message}</Text>
@@ -207,8 +219,8 @@ export function LogsScreen({ collection, storeName, siteUrl,
             className="absolute right-0 top-2 z-10 flex-row items-center justify-end gap-1.5" />
         </View> : <View className="relative flex-row items-baseline gap-3 py-2 web:hover:bg-accent/20">
           <Pressable testID={`logs-toggle-${row.id}`} role="button" aria-expanded={!!expanded[row.id]}
-            aria-label={`${row.level} · ${row.message}`} onPress={() => toggle(row.id)} className="absolute inset-0 z-10" />
-          <Text className="w-20 font-mono text-sm tabular-nums text-muted-foreground">{formatLogTime(row.timestamp, now())}</Text>
+            aria-label={`${time} · ${row.level} · ${row.message}`} onPress={() => toggle(row.id)} className="absolute inset-0 z-10" />
+          <Text className="w-20 font-mono text-sm tabular-nums text-muted-foreground">{time}</Text>
           <View className="z-20 w-16">
             <Pressable testID={`logs-pill-${row.id}`} role="button" aria-selected={level === row.level}
               onPress={() => setLevel(level === row.level ? undefined : row.level)}
@@ -224,7 +236,7 @@ export function LogsScreen({ collection, storeName, siteUrl,
           <Text testID={`logs-took-${row.id}`} className="w-16 text-right font-mono text-sm tabular-nums text-muted-foreground">
             {took ?? '—'}</Text>
           <StatusCell row={row} expanded={!!expanded[row.id]} onToggle={() => toggle(row.id)}
-            className="w-32 flex-row items-center justify-end gap-1.5" />
+            className="z-20 w-32 flex-row items-center justify-end gap-1.5" />
         </View>}
         {expanded[row.id] && <RowDetail row={row} phone={phone} copyText={copyText} />}
       </View>;

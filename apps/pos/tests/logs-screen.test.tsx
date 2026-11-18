@@ -79,7 +79,7 @@ test('shows the v2 columns with the newest row first', async () => {
   await screen.findByTestId(`logs-row-${rows[0].id}`);
   expect(screen.getAllByTestId(/^logs-heading-/).map(cell => [cell.getAttribute('data-testid'), cell.textContent]))
     .toEqual([['logs-heading-time', 'Time'], ['logs-heading-level', 'Level'], ['logs-heading-event', 'Event'],
-      ['logs-heading-took', 'Duration'], ['logs-heading-status', 'Status']]);
+      ['logs-heading-took', 'Took'], ['logs-heading-status', 'Status']]);
   for (const id of ['time', 'level', 'event', 'took', 'status']) {
     expect(classesOf(`logs-heading-${id}`)).toEqual(expect.arrayContaining(['uppercase', 'text-xs', 'text-muted-foreground']));
   }
@@ -130,7 +130,8 @@ test('pressing a phone row opens its detail, indented as v2 does on a phone, and
   expect(row.getAttribute('aria-expanded')).toBe('true');
   expect(classesOf(`logs-detail-${id}`)).toContain('pl-4');
   expect(classesOf(`logs-detail-${id}`)).not.toContain('ml-42');
-  expect(screen.getByTestId(`logs-chevron-${id}`).textContent).toBe('⌄');
+  expect(screen.getByTestId(`logs-chevron-${id}-down`)).not.toBeNull();
+  expect(screen.queryByTestId(`logs-chevron-${id}-right`)).toBeNull();
   fireEvent.click(row);
   expect(screen.queryByTestId(`logs-detail-${id}`)).toBeNull();
 });
@@ -211,7 +212,7 @@ test('the search combines with the Errors preset, and no match shows the empty t
 test("each row's chevron opens its detail with the row's fields, and pressing again hides it", async () => {
   render(<LogsScreen {...props} collection={collection} />);
   await screen.findByTestId(`logs-row-${rows[0].id}`);
-  for (const row of rows) expect(screen.getByTestId(`logs-chevron-${row.id}`).textContent).toBe('›');
+  for (const row of rows) expect(screen.getByTestId(`logs-chevron-${row.id}-right`)).not.toBeNull();
   const id = rows[1].id;
   expect(screen.queryByTestId(`logs-detail-${id}`)).toBeNull();
   fireEvent.click(screen.getByTestId(`logs-chevron-${id}`));
@@ -224,6 +225,57 @@ test("each row's chevron opens its detail with the row's fields, and pressing ag
   expect(screen.queryByTestId(`logs-detail-${id}`)).toBeNull();
   fireEvent.click(screen.getByTestId(`logs-toggle-${id}`));
   expect(screen.getByTestId(`logs-detail-${id}`)).not.toBeNull();
+});
+
+test("an error or warn row with a code shows v2's code chip in the destructive tint, and pressing it toggles the row", async () => {
+  render(<LogsScreen {...props} collection={collection} />);
+  const id = rows[1].id;
+  const chip = await screen.findByTestId(`logs-code-${id}`);
+  expect(classesOf(`logs-code-${id}`)).toEqual(expect.arrayContaining(['bg-destructive/15', 'rounded-md', 'px-2', 'py-0.5', 'z-20']));
+  expect(classesOf(`logs-code-${id}-label`)).toEqual(expect.arrayContaining(['text-destructive', 'font-mono', 'font-semibold', 'text-xs']));
+  expect(chip.getAttribute('role')).toBe('button');
+  expect(chip.getAttribute('aria-label')).toBe('refused');
+  // react-native-web gives each View z-index 0: the status cell itself sits above the row's z-10 overlay.
+  expect(classesOf(`logs-status-${id}`)).toContain('z-20');
+  expect(screen.queryByTestId(`logs-detail-${id}`)).toBeNull();
+  fireEvent.click(chip);
+  expect(screen.getByTestId(`logs-detail-${id}`)).not.toBeNull();
+  fireEvent.click(screen.getByTestId(`logs-code-${id}`));
+  expect(screen.queryByTestId(`logs-detail-${id}`)).toBeNull();
+});
+
+test("the chevron is v2's right icon while collapsed and its down icon while expanded, with no text glyph", async () => {
+  render(<LogsScreen {...props} collection={collection} />);
+  const id = rows[1].id;
+  const chevron = await screen.findByTestId(`logs-chevron-${id}`);
+  expect(screen.getByTestId(`logs-chevron-${id}-right`)).not.toBeNull();
+  expect(screen.queryByTestId(`logs-chevron-${id}-down`)).toBeNull();
+  expect(chevron.textContent).not.toMatch(/[›⌄]/);
+  expect(classesOf(`logs-chevron-${id}-right`)).toContain('text-muted-foreground/60');
+  fireEvent.click(screen.getByTestId(`logs-toggle-${id}`));
+  expect(screen.getByTestId(`logs-chevron-${id}-down`)).not.toBeNull();
+  expect(screen.queryByTestId(`logs-chevron-${id}-right`)).toBeNull();
+  expect(classesOf(`logs-chevron-${id}-down`)).toContain('text-muted-foreground/60');
+});
+
+test("each row has v2's hairline rule", async () => {
+  render(<LogsScreen {...props} collection={collection} />);
+  await screen.findByTestId(`logs-row-${rows[0].id}`);
+  for (const row of rows) {
+    expect(classesOf(`logs-row-${row.id}`)).toContain('border-border/50');
+    expect(classesOf(`logs-row-${row.id}`)).not.toContain('border-border');
+  }
+});
+
+test("the row's press target is labelled time · level · message, wide and on a phone", async () => {
+  const id = rows[1].id;
+  const label = `${formatLogTime(rows[1].timestamp, now())} · warn · Order refused`;
+  render(<LogsScreen {...props} collection={collection} />);
+  expect((await screen.findByTestId(`logs-toggle-${id}`)).getAttribute('aria-label')).toBe(label);
+  cleanup();
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  render(<LogsScreen {...props} collection={collection} />);
+  expect((await screen.findByTestId(`logs-row-sm-${id}`)).getAttribute('aria-label')).toBe(label);
 });
 
 test('the chips are rounded, in v2\'s borderless selected tint and ink when on, and keep aria-pressed as they are pressed', async () => {
