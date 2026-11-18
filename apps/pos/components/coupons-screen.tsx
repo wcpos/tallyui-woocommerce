@@ -22,6 +22,7 @@ import type { SvgIconProps } from '@tallyui/components';
 import { useAreaColumns, visibleAreaColumns } from '../lib/area-columns';
 import type { AreaColumn } from '../lib/area-columns';
 import { NARROW_WIDTH } from '../lib/layout/wide';
+import { dayLabel } from '../lib/orders/order-days';
 import { useSearchTerm } from '../lib/search-term';
 import { AreaDisplayOptions } from './area-display-options';
 import { AreaToolbar, useAreaGutter } from './area-header';
@@ -155,8 +156,8 @@ function usageText(coupon: CouponDoc): string {
   return coupon.usage_limit != null && coupon.usage_limit > 0 ? `${count} / ${coupon.usage_limit}` : String(count);
 }
 
-/** v2 date-picker-input.tsx shows `d MMM yyyy`; here the same parts in the locale, with no time. The other date
- *  columns (created, modified) and the products area's date read the same way. */
+/** v2 date-picker-input.tsx shows `d MMM yyyy`; here the same parts in the locale, with no time. The expiry column and
+ *  the products area's date read this way; created and modified read v2's day words (`gmtDayWord`). */
 export function gmtDayText(value: string | null | undefined, locale: string | undefined): string {
   if (!value) return '';
   const date = utcDate(value);
@@ -167,6 +168,12 @@ export function gmtDayText(value: string | null | undefined, locale: string | un
   } catch {
     return date.toLocaleDateString(undefined, options);
   }
+}
+
+/** v2 coupons/cells/date.tsx: `day` of the UTC instant (Today, Yesterday, else 'EEE d MMM'); '' when empty or unreadable. */
+function gmtDayWord(value: string | null | undefined, now: Date): string {
+  const date = value ? utcDate(value) : null;
+  return date && !Number.isNaN(date.getTime()) ? dayLabel(date.toISOString(), now) : '';
 }
 
 /** date_created_gmt desc (v2's default sort); a coupon without one goes after, and code asc breaks ties. */
@@ -251,7 +258,7 @@ function couponContent(id: CouponsColumnId, c: CouponDoc, now: Date, currency: s
     }
     case 'date_created_gmt':
     case 'date_modified_gmt':
-      return <Text testID={`coupon-${id}-${c.code}`}>{gmtDayText(c[id], locale)}</Text>;
+      return <Text testID={`coupon-${id}-${c.code}`}>{gmtDayWord(c[id], now)}</Text>;
   }
 }
 

@@ -7,6 +7,7 @@ import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { createTallyDatabase } from '@tallyui/database';
 import { PortalHost } from '@tallyui/primitives';
 import { CouponsScreen, gmtDayText } from '../components/coupons-screen';
+import { areaColumnsKey } from '../lib/area-columns';
 import { CARD_CLASSES } from './classes-of';
 
 const connector = createWooCommerceConnector();
@@ -330,5 +331,33 @@ test("each head is v2's 44 px (ResizeHead's min-h-row), its label centred", asyn
   expect(heads.length).toBeGreaterThan(0);
   for (const head of heads) {
     expect(classesOf(head.getAttribute('data-testid')!)).toEqual(expect.arrayContaining(['min-h-11', 'justify-center']));
+  }
+});
+
+// v2 coupons/index.tsx:57-58 and cells/date.tsx: created and modified print use-store-day-label's `day`.
+test("Date Created and Date Modified read v2's day words: Today, Yesterday, else EEE d MMM; the expiry keeps its date", async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 9, 20, 12));
+  const shown = JSON.stringify([{ id: 'date_created_gmt', visible: true }, { id: 'date_modified_gmt', visible: true }]);
+  vi.stubGlobal('localStorage', { getItem: (key: string) => (key === areaColumnsKey('coupons') ? shown : null), setItem: () => {} });
+  try {
+    const gmt = (date: Date) => date.toISOString().slice(0, 19);
+    const expires = gmt(new Date(2027, 0, 15, 12));
+    await db.coupons.bulkInsert([
+      { uuid: 'c-5', id: 5, code: 'fresh', discount_type: 'percent', amount: '5', date_created_gmt: gmt(new Date(2026, 9, 20, 9)),
+        date_modified_gmt: gmt(new Date(2026, 9, 19, 18)), ...base },
+      { uuid: 'c-6', id: 6, code: 'older', discount_type: 'percent', amount: '5', date_created_gmt: gmt(new Date(2026, 9, 5, 12)),
+        date_expires_gmt: expires, ...base },
+    ]);
+    renderScreen();
+    await screen.findByTestId('coupons-row-fresh');
+    expect(row('fresh').getByTestId('coupon-date_created_gmt-fresh').textContent).toBe('Today');
+    expect(row('fresh').getByTestId('coupon-date_modified_gmt-fresh').textContent).toBe('Yesterday');
+    expect(row('older').getByTestId('coupon-date_created_gmt-older').textContent).toBe('Mon 5 Oct');
+    expect(row('older').getByTestId('coupon-date_modified_gmt-older').textContent).toBe('');
+    expect(row('older').getByTestId('coupon-expiry-older').textContent).toBe(gmtDayText(expires, 'en-US'));
+  } finally {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
   }
 });
