@@ -67,6 +67,13 @@ test('status reloads page one with the resting scope', async () => {
   await vi.waitFor(() => expect(list).toHaveBeenLastCalledWith(1, undefined, { ...scope, status: 'processing' }));
 });
 
+test("the Status filter lists v2's POS open and POS partial", async () => {
+  await setup();
+  fireEvent.click(screen.getByTestId('order-filter-status'));
+  expect((await screen.findByTestId('order-filter-status-pos-open')).textContent).toContain('POS open');
+  expect(screen.getByTestId('order-filter-status-pos-partial').textContent).toContain('POS partial');
+});
+
 test('customer search passes text and filters by the chosen customer', async () => {
   const { list, onCustomerSearch } = await setup();
   fireEvent.click(screen.getByTestId('order-filter-customer'));

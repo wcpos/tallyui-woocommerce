@@ -53,10 +53,11 @@ export function matchesOrderSearch(order: SearchableOrder, search: string): bool
     .some(value => value?.toLowerCase().includes(needle));
 }
 
-// These are WooCommerce's own status names.
+// WooCommerce's own status names, and WCPOS's two (v2's use-order-status-label.ts).
 export const WOO_STATUS_LABELS: Record<string, string> = {
   pending: 'Pending payment', processing: 'Processing', 'on-hold': 'On hold', completed: 'Completed',
   cancelled: 'Cancelled', refunded: 'Refunded', failed: 'Failed', 'checkout-draft': 'Draft',
+  'pos-open': 'POS open', 'pos-partial': 'POS partial',
 };
 
 /** WooCommerce's own name for a status word, else the word capitalised. */
