@@ -24,9 +24,9 @@ test('Tax shows the calculation rows read-only, each set in WooCommerce', () => 
   expect(screen.getByTestId('settings-tax-calculation')).not.toBeNull();
   expect(screen.queryByText('Tax')).toBeNull();
   expect(screen.getByText('Calculation')).not.toBeNull();
-  expect(screen.getByText('Prices Entered with Tax')).not.toBeNull();
-  expect(screen.getByText('Shipping Tax Class')).not.toBeNull();
-  expect(screen.getByText('Round Tax at Subtotal Level')).not.toBeNull();
+  expect(screen.getByText('Prices entered with tax')).not.toBeNull();
+  expect(screen.getByText('Shipping tax class')).not.toBeNull();
+  expect(screen.getByText('Round tax at subtotal level')).not.toBeNull();
   expect(screen.getAllByText('Set in WooCommerce')).toHaveLength(9);
   expect(screen.getByTestId('settings-tax-locked-prices_include_tax-switch').getAttribute('aria-checked')).toBe('true');
   expect(screen.getByTestId('settings-tax-locked-prices_include_tax-switch').getAttribute('aria-disabled')).toBe('true');
@@ -48,9 +48,9 @@ test('the Display section shows WooCommerce\'s display options read-only, each s
   expect(display.getByText('Display')).not.toBeNull();
   expect(display.getAllByText('Set in WooCommerce')).toHaveLength(4);
   const labels = display.getAllByText(
-    /^(Display Tax Totals|Display Prices in the Shop|Display Prices During Cart and Checkout|Price Display Suffix)$/);
+    /^(Display tax totals|Display prices in the shop|Display prices during cart and checkout|Price display suffix)$/);
   expect(labels.map(node => node.textContent)).toEqual([
-    'Display Tax Totals', 'Display Prices in the Shop', 'Display Prices During Cart and Checkout', 'Price Display Suffix',
+    'Display tax totals', 'Display prices in the shop', 'Display prices during cart and checkout', 'Price display suffix',
   ]);
   for (const [field, value, label, checked] of [
     ['tax_total_display', 'single', 'As a single total', 'false'],
@@ -85,7 +85,7 @@ test('before the store says, the Display rows read the dash', () => {
 
 test('the sections read Calculation, Display, Tax Rates', () => {
   render(<TaxSettings settings={settings} siteHome={siteHome} />);
-  expect(screen.getAllByRole('heading').map(h => h.textContent)).toEqual(['Calculation', 'Display', 'Tax Rates']);
+  expect(screen.getAllByRole('heading').map(h => h.textContent)).toEqual(['Calculation', 'Display', 'Tax rates']);
 });
 
 test('Open on a Display row opens the WooCommerce tax settings tab', () => {
@@ -98,9 +98,9 @@ test('Open on a Display row opens the WooCommerce tax settings tab', () => {
 test('the Calculation rows read in the demo order and labels', () => {
   render(<TaxSettings settings={settings} store={{ taxBasedOn: 'base', calcTaxes: true }} siteHome={siteHome} />);
   const labels = within(screen.getByTestId('settings-tax-calculation')).getAllByText(
-    /^(Calculate tax based on|Enable Taxes|Prices Entered with Tax|Shipping Tax Class|Round Tax at Subtotal Level)$/);
+    /^(Calculate tax based on|Enable taxes|Prices entered with tax|Shipping tax class|Round tax at subtotal level)$/);
   expect(labels.map(node => node.textContent)).toEqual([
-    'Calculate tax based on', 'Enable Taxes', 'Prices Entered with Tax', 'Shipping Tax Class', 'Round Tax at Subtotal Level',
+    'Calculate tax based on', 'Enable taxes', 'Prices entered with tax', 'Shipping tax class', 'Round tax at subtotal level',
   ]);
 });
 
@@ -142,7 +142,7 @@ test('the Tax Rates section holds only the View all tax rates button', () => {
   const page = { ...settings, taxRates: inline, allTaxRates, taxClassSlugs };
   render(<TaxSettings siteHome={siteHome} settings={page} />);
   const section = within(screen.getByTestId('settings-tax-rates'));
-  expect(section.getByText('Tax Rates')).not.toBeNull();
+  expect(section.getByText('Tax rates')).not.toBeNull();
   expect(section.getByText('View all tax rates')).not.toBeNull();
   expect(screen.queryAllByTestId(/^settings-tax-rate-/)).toHaveLength(0);
   expect(screen.queryByText('State Tax')).toBeNull();
