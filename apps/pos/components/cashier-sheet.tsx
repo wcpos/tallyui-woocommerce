@@ -158,10 +158,19 @@ export function CashierSheet(props: {
           {/* v2's `caption` rank (user-sheet.tsx:703; text/ladder.ts:18): muted, text-xs, tracking-wide, uppercase, on an
               `h-band` row (user-sheet.tsx:702): seven spacing units, 28 px (apps/main/global.css:33). */}
           <View testID="user-sheet-switch-band" className="mt-2 h-7 flex-row items-center justify-between border-b border-border px-2.5"><Text className="text-xs uppercase tracking-wide text-muted-foreground">Hand the till to</Text></View>
-        {props.cashiers.map(cashier => <View key={cashier.uuid} className="flex-row gap-2">
-          <Button testID={`user-sheet-user-${cashier.uuid}`}
-            onPress={() => { setOpen(false); props.onSwitch(cashier.uuid); }}><Text>{`Switch to ${cashier.name}`}</Text></Button>
-          {props.onRemove && <Button testID={`user-sheet-remove-${cashier.uuid}`} accessibilityLabel={`Remove ${cashier.name}`}
+        {/* v2's CashierRow (user-sheet.tsx:245-288): a quiet MenuRow (menu-row/index.tsx) led by the Avatar `md` (size-9,
+            text-xs initials on bg-primary; avatar/index.tsx), the name its only label. Remove is the app's own, a ghost
+            sibling, so no press nests inside a press. */}
+        {props.cashiers.map(cashier => <View key={cashier.uuid} className="flex-row items-center gap-2">
+          <Pressable testID={`user-sheet-user-${cashier.uuid}`} role="button" accessibilityLabel={cashier.name}
+            disabled={Boolean(props.blockedReason)} onPress={() => { setOpen(false); props.onSwitch(cashier.uuid); }}
+            className="min-h-11 min-w-0 flex-1 flex-row items-center gap-2 rounded-md px-2.5 py-1.5 web:hover:bg-accent active:bg-accent">
+            <View testID={`user-sheet-user-${cashier.uuid}-avatar`} className="size-9 items-center justify-center rounded-full bg-primary">
+              <Text className="text-xs font-medium text-primary-foreground">{getInitials(cashier.name)}</Text>
+            </View>
+            <Text numberOfLines={1} className="min-w-0 flex-1 text-base text-foreground">{cashier.name}</Text>
+          </Pressable>
+          {props.onRemove && <Button variant="ghost" testID={`user-sheet-remove-${cashier.uuid}`} accessibilityLabel={`Remove ${cashier.name}`}
             onPress={() => setRemoving(cashier)}><Text>Remove</Text></Button>}
         </View>)}
           {/* v2's compact AddUserButton (add-user-button.tsx:106-113): a quiet MenuRow (menu-row/index.tsx:69, min-h-row 44 px,
@@ -172,6 +181,14 @@ export function CashierSheet(props: {
             <Text numberOfLines={1} className="min-w-0 flex-1 text-base text-foreground">Another account…</Text>
           </Pressable>
         </View>
+        {/* v2's StoreRow (user-sheet.tsx:435-470,725-733): a PropertyRow under the users, off a phone one line, min-h-ctl
+            gap-3 py-1, the `key` rank in a w-32 key column, then the name (property-row/index.tsx). One store, no Switch. */}
+        {props.storeName && <View className="mt-2">
+          <View testID="user-sheet-row-store" className="min-h-11 flex-row items-center gap-3 py-1">
+            <View className="min-h-9 w-32 shrink-0 justify-center"><Text className={KEY_LABEL}>Store</Text></View>
+            <Text className="min-w-0 flex-1 text-base text-foreground">{props.storeName}</Text>
+          </View>
+        </View>}
         </View>
         {/* v2's foot (user-sheet.tsx:773-787): the open-external glyph (size sm, muted) before the `key` rank label.
             `-mx-4` takes the rule to the sheet's edges, as v2's, past the sheet's px-4. */}

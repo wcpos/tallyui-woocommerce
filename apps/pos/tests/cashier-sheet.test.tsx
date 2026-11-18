@@ -87,7 +87,9 @@ test('the sheet lists the other cashiers and switches to the chosen one', async 
     const onSwitchCashier = vi.fn(async () => null);
     render(<SaleScreen {...props} parkedCarts={parkedCarts} onSwitchCashier={onSwitchCashier} />);
     fireEvent.click(screen.getByTestId('register-bar-avatar'));
-    expect(within(screen.getByTestId('user-sheet')).getByText('Switch to Sam')).not.toBeNull();
+    expect(within(screen.getByTestId('user-sheet-user-b')).getByText('Sam')).not.toBeNull();
+    expect(screen.getByTestId('user-sheet-user-b-avatar').textContent).toBe('SA');
+    expect(within(screen.getByTestId('user-sheet')).queryByText(/Switch to/)).toBeNull();
     fireEvent.click(screen.getByTestId('user-sheet-user-b'));
     await waitFor(() => expect(onSwitchCashier).toHaveBeenCalledWith('b'));
     expect(screen.queryByTestId('user-sheet')).toBeNull();
@@ -126,7 +128,7 @@ test('cancelling a remove keeps the cashier', async () => {
     fireEvent.click(screen.getByTestId('user-sheet-remove-cancel'));
     expect(onRemoveCashier).not.toHaveBeenCalled();
     expect(screen.queryByText('Are you sure you want to remove this user? Removing a user from the POS will not affect any data on the server.')).toBeNull();
-    expect(screen.getByText('Switch to Sam')).not.toBeNull();
+    expect(screen.getByTestId('user-sheet-user-b')).not.toBeNull();
   });
 });
 
@@ -453,4 +455,48 @@ test('without openRegister, Sign out signs out at once', () => {
   fireEvent.click(screen.getByTestId('user-sheet-sign-out'));
   expect(onSignOut).toHaveBeenCalledTimes(1);
   expect(screen.queryByTestId('sign-out-confirm')).toBeNull();
+});
+
+test('a cashier row is a quiet avatar row named for the cashier, with no "Switch to"', () => {
+  openSheet({ cashiers: [{ uuid: 'b', name: 'Sam Lee' }] });
+  const row = screen.getByTestId('user-sheet-user-b');
+  expect(row.getAttribute('aria-label')).toBe('Sam Lee');
+  expect(row.textContent).toBe('SLSam Lee');
+  expect(classesOf('user-sheet-user-b')).toEqual(expect.arrayContaining(['min-h-11', 'px-2.5', 'web:hover:bg-accent']));
+  expect(classesOf('user-sheet-user-b')).not.toContain('bg-primary');
+  expect(classesOf('user-sheet-user-b-avatar')).toEqual(expect.arrayContaining(['size-9', 'bg-primary']));
+  expect(screen.getByTestId('user-sheet').textContent).not.toContain('Switch to');
+});
+
+test('Remove is a quiet ghost button beside the row, and still asks', () => {
+  const onSwitch = vi.fn();
+  openSheet({ cashiers: [{ uuid: 'b', name: 'Sam' }], onRemove: vi.fn(), onSwitch });
+  const remove = screen.getByTestId('user-sheet-remove-b');
+  expect(screen.getByTestId('user-sheet-user-b').contains(remove)).toBe(false);
+  expect(classesOf('user-sheet-remove-b')).not.toContain('bg-primary');
+  fireEvent.click(remove);
+  expect(screen.getByText('Remove Sam')).not.toBeNull();
+  expect(onSwitch).not.toHaveBeenCalled();
+});
+
+test("a blocked sheet's cashier row is disabled and does not switch", () => {
+  const onSwitch = vi.fn();
+  const sheet = (blockedReason?: string) => <><CashierSheet name="Bob Ross" cashiers={[{ uuid: 'b', name: 'Sam' }]} blockedReason={blockedReason}
+    onSwitch={onSwitch} onAddAnother={() => {}} onSignOut={() => {}} /><PortalHost /></>;
+  const view = render(sheet());
+  fireEvent.click(screen.getByTestId('register-bar-avatar'));
+  view.rerender(sheet('Finish or cancel the payment first.'));
+  const row = screen.getByTestId('user-sheet-user-b');
+  expect(row.getAttribute('aria-disabled') === 'true' || row.hasAttribute('disabled')).toBe(true);
+  fireEvent.click(row);
+  expect(onSwitch).not.toHaveBeenCalled();
+  expect(screen.getByTestId('user-sheet')).not.toBeNull();
+});
+
+test('the Store row shows Store and the store name, and is absent without one', () => {
+  openSheet({ storeName: 'Main Street' });
+  expect(screen.getByTestId('user-sheet-row-store').textContent).toBe('StoreMain Street');
+  cleanup();
+  openSheet();
+  expect(screen.queryByTestId('user-sheet-row-store')).toBeNull();
 });
