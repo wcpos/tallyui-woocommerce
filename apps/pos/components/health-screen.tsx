@@ -1,8 +1,11 @@
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
+import { Text } from '@tallyui/components';
 import type { ReceiptEmailCollection } from '../lib/receipts/receipt-emails';
 import { useStorageEstimate } from '../lib/health/use-storage-estimate';
 import { useOutbox } from '../lib/sale/outbox-context';
+import { isReadyToSell } from '../lib/health/database-stats';
+import { useOnlineStatus } from '../lib/online/online-status';
 import { QueuedEmailsPanel } from './queued-emails-panel';
 import { DatabaseCounts, type DatabaseCountRow } from './database-counts';
 import { DatabaseStats } from './database-stats';
@@ -21,6 +24,9 @@ export function HealthScreen({ receiptEmails, collections }: {
   // Only the rows shown now; a row still counting is null
   const counts = Object.fromEntries(rows.map(row => [row.key, reported[row.key] ?? null]));
   const storageBytes = useStorageEstimate();
+  const offline = useOnlineStatus().status === 'offline';
+  // database-stats.tsx's "Ready to sell" signal
+  const ready = typeof counts.products === 'number' && isReadyToSell(counts.products);
   // The Store health area (app/health/_layout.tsx) draws the scroll, the page title and the way back.
   return (
     <View testID="screen-health-database">
@@ -30,6 +36,12 @@ export function HealthScreen({ receiptEmails, collections }: {
         {/* v2 database.tsx: the attention panel follows the stat strip. */}
         <StuckRecordsBanner />
         <RejectedOrdersPanel orders={orders} onRequeue={ids => (outbox.enabled ? outbox.requeue(ids) : Promise.resolve(0))} />
+        {/* v2 database.tsx:708-715, a warning Notice (TallyUI has none): v2 notice band, warning tone. */}
+        {offline && <View testID="db-offline-notice" className="rounded-lg border border-warning/45 bg-warning/15 px-3 py-2.5">
+          <Text testID="db-offline-notice-title" className="font-medium text-foreground">{ready
+            ? "You're offline. Sales keep working — anything you make is stored here and delivered when your server is back."
+            : "You're offline and still setting up — this till can't sell until its catalog finishes downloading."}</Text>
+        </View>}
         <DatabaseCounts rows={rows} onCount={onCount} />
         <QueuedEmailsPanel collection={receiptEmails} orders={orders} />
       </View>
