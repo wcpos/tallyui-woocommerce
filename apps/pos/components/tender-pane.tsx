@@ -62,7 +62,7 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
   const noChange = !method.givesChange && state.entryMinor > balance;
   const fmt = (amount: number) => formatMoney({ amount, currency: sale.order.currency }) ?? '';
   const hint = noChange ? `Only ${fmt(balance)} is due — ${method.title} can't give change`
-    : state.entryMinor > 0 && applied < balance ? `${fmt(balance - applied)} left` : '';
+    : state.entryMinor > 0 && applied < balance ? planned ? `${fmt(balance - applied)} left` : `Part payment · ${fmt(balance - applied)} left after this` : '';
   const legs = sale.order.payments.length;
   const suffix = planned ? ` · ${planned.label.n} of ${planned.label.ways}` : !multi ? '' : applied < balance ? ` · ${fmt(balance - applied)} left` : legs > 0 ? ' · pays it off' : '';
   // A failed save (saving with an error) offers Retry; paid in full with nothing saving offers the completion again.
@@ -136,10 +136,14 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
         onPress={() => dispatch(on ? { type: 'clear-plan', balanceMinor: balance } : { type: 'open-split' })}>
         <Text className={filterChipTextClassName(on)}>Split</Text>
       </Pressable>}
+      {/* WCPOS v2: tender-pane.tsx:430-434. */}
+      {!online && <Text testID="checkout-offline" className="text-xs text-warning">Offline</Text>}
     </View>
     {change > 0 ? <>
-      <Text testID="checkout-entry-hint" className="text-center text-3xl font-semibold text-foreground">{`Change ${fmt(change)}`}</Text>
-      <Text testID="checkout-tendered-line" className="text-center text-base text-muted-foreground">Tendered <Text testID="checkout-entry" className="tabular-nums">{fmt(state.entryMinor)}</Text></Text>
+      {/* WCPOS v2: tender-pane.tsx:437-449; change is the ok tone, and a later leg names the order total. */}
+      <Text testID="checkout-entry-hint" className="text-center text-3xl font-semibold text-success">{`Change ${fmt(change)}`}</Text>
+      <Text testID="checkout-tendered-line" className="text-center text-base text-muted-foreground">Tendered <Text testID="checkout-entry" className="tabular-nums">{fmt(state.entryMinor)}</Text>
+        {sale.order.totalMinor !== balance ? ` · Total ${fmt(sale.order.totalMinor)}` : ''}</Text>
     </> : <>
       <Text testID="checkout-entry" className={`text-center text-4xl font-semibold tabular-nums text-foreground ${state.entryDirty ? '' : 'opacity-70'}`}>{fmt(state.entryMinor)}</Text>
       <Text testID="checkout-entry-hint" className={`min-h-6 text-center ${noChange ? 'text-warning' : 'text-muted-foreground'}`}>{hint}</Text>
