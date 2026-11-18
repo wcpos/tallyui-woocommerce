@@ -14,6 +14,7 @@ import { UnreadLogsProvider } from '../lib/logs/unread-errors';
 import { Toaster } from '../components/toaster';
 import { LocalDataResetGate } from '../components/local-data-reset-gate';
 import { AppFrame } from '../components/app-rail';
+import { UpdateRequiredGate } from '../components/update-required';
 import { railNavigation } from '../lib/layout/rail-routes';
 import { useIsWide } from '../lib/layout/wide';
 import { applyStoredTheme } from '../lib/theme/theme-setting';
@@ -44,7 +45,8 @@ export default function RootLayout() {
             <OutboxProvider>
               <RegisterProvider>
                 <UnreadLogsProvider>
-                  <RailFrame><Stack screenOptions={{ headerShown: false }} /></RailFrame>
+                  {/* v2 (app)/_layout.tsx:306-322: the gate sits below every provider, so it never unmounts the catalogue. */}
+                  <UpdateRequiredGate><RailFrame><Stack screenOptions={{ headerShown: false }} /></RailFrame></UpdateRequiredGate>
                   <PortalHost />
                 </UnreadLogsProvider>
               </RegisterProvider>
