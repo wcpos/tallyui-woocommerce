@@ -1,9 +1,11 @@
 // v2's Coupons area (WCPOS monorepo `packages/core/src/screens/main/coupons/index.tsx`), read-only: the default
-// columns of ui-settings `initial-settings.json` "coupons" without Actions, newest first (date_created_gmt desc),
-// and the cell rules of cells/active.tsx, usage.tsx, editable-amount.tsx, editable-date.tsx and discount-type.tsx.
+// columns of ui-settings `initial-settings.json` "coupons" without Actions, with its widths (each column's `flex`)
+// and its sort: newest first (sortBy date_created_gmt, desc), and Code, Date Created and Date Modified, the columns
+// without `disableSort`, sort when their head is tapped (data-table/header.tsx, as Customers' heads; sort-head.tsx).
+// The cell rules are cells/active.tsx, usage.tsx, editable-amount.tsx, editable-date.tsx and discount-type.tsx.
 // The Status, Discount Type and Expires filter chips and Clear all follow v2's coupons/filter-bar/, combined with the
 // search (AND). The bar's display options switch v2's columns (area-display-options.tsx). Deviations: no inline
-// editing, Add, Actions column, column reordering or sortable headers, since edits must go through the store's REST
+// editing, Add, Actions column or column reordering, since edits must go through the store's REST
 // API; the coupons collection is replicated from the server, so this screen never writes to it. The expiry date shows in the device's time zone, not the store's (v2's date-picker-input.tsx), and the
 // Expires chip offers the report date presets instead of v2's calendar.
 import { useEffect, useState } from 'react';
@@ -24,6 +26,8 @@ import type { AreaColumn } from '../lib/area-columns';
 import { NARROW_WIDTH } from '../lib/layout/wide';
 import { dayLabel } from '../lib/orders/order-days';
 import { useSearchTerm } from '../lib/search-term';
+import { nextSort } from '../lib/table-sort';
+import type { TableSort } from '../lib/table-sort';
 import { AreaDisplayOptions } from './area-display-options';
 import { AreaToolbar, useAreaGutter } from './area-header';
 import {
@@ -31,6 +35,7 @@ import {
 } from './catalogue-filter-chips';
 import { EmptyState } from './empty-state';
 import { InfoIcon } from './icons';
+import { SortHead } from './sort-head';
 import { StatusDot } from './status-dot';
 import type { StatusTone } from './status-dot';
 import { CaptionRowInset, TableCount, TableSurface, useCatalogueSync } from './table-surface';
@@ -72,11 +77,12 @@ type CouponFilters = Partial<Record<FilterKey, string>>;
 export type CouponsColumnId = 'active' | 'code' | 'amount' | 'discount_type' | 'description' | 'usage_count'
   | 'date_expires_gmt' | 'status' | 'date_created_gmt' | 'date_modified_gmt';
 // v2's coupons columns (ui-settings/initial-settings.json `coupons.columns`), in its order, with v2's keys, its `show`
-// and its labels (use-ui-label.ts), without Actions; className sizes each cell in the row's flex layout. Every one
+// and its labels (use-ui-label.ts), without Actions; className is v2's `flex` (active 1.4, code and description 2),
+// and a column without one takes v2's default 1 from TableHead's and TableCell's own `flex-1`. Every one
 // of them is a field of the replicated coupon doc.
 export const COUPONS_COLUMNS: readonly (AreaColumn<CouponsColumnId> & { className?: string })[] = [
-  { id: 'active', label: 'Active', visible: true, className: 'w-28 flex-none' },
-  { id: 'code', label: 'Code', visible: true },
+  { id: 'active', label: 'Active', visible: true, className: 'flex-[1.4]' },
+  { id: 'code', label: 'Code', visible: true, className: 'flex-[2]' },
   { id: 'amount', label: 'Amount', visible: true },
   { id: 'discount_type', label: 'Type', visible: true },
   { id: 'description', label: 'Description', visible: true, className: 'flex-[2]' },
@@ -176,16 +182,26 @@ function gmtDayWord(value: string | null | undefined, now: Date): string {
   return date && !Number.isNaN(date.getTime()) ? dayLabel(date.toISOString(), now) : '';
 }
 
-/** date_created_gmt desc (v2's default sort); a coupon without one goes after, and code asc breaks ties. */
-function newestFirst(a: CouponDoc, b: CouponDoc): number {
-  const left = a.date_created_gmt ?? '';
-  const right = b.date_created_gmt ?? '';
-  if (left !== right) {
-    if (!left) return 1;
-    if (!right) return -1;
-    return left < right ? 1 : -1;
-  }
-  return a.code.localeCompare(b.code);
+// v2's sortable coupon columns, those without `disableSort` (initial-settings.json `coupons.columns`), and its default
+// sort (`sortBy: date_created_gmt`, `sortDirection: desc`).
+type CouponSortField = 'code' | 'date_created_gmt' | 'date_modified_gmt';
+type CouponSort = TableSort<CouponSortField>;
+const DEFAULT_COUPON_SORT: CouponSort = { field: 'date_created_gmt', direction: 'desc' };
+function sortable(id: CouponsColumnId): id is CouponSortField {
+  return id === 'code' || id === 'date_created_gmt' || id === 'date_modified_gmt';
+}
+
+/** The coupons in `sort`: code by base letters, a date as its ISO string, so a coupon without one comes first
+ *  ascending and last descending; ties go code ascending whatever the direction. */
+function sortCoupons(list: readonly CouponDoc[], { field, direction }: CouponSort): CouponDoc[] {
+  const sign = direction === 'desc' ? -1 : 1;
+  const byField = (a: CouponDoc, b: CouponDoc): number => {
+    if (field === 'code') return a.code.localeCompare(b.code, undefined, { sensitivity: 'base' });
+    const left = a[field] ?? '';
+    const right = b[field] ?? '';
+    return left === right ? 0 : left < right ? -1 : 1;
+  };
+  return [...list].sort((a, b) => sign * byField(a, b) || a.code.localeCompare(b.code));
 }
 
 function matches(coupon: CouponDoc, query: string): boolean {
@@ -268,6 +284,8 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
   const gutter = useAreaGutter();
   const { term, query, type, set } = useSearchTerm();
   const [filters, setFilters] = useState<CouponFilters>({});
+  // Not persisted, as Customers' sort.
+  const [sort, setSort] = useState<CouponSort>(DEFAULT_COUPON_SORT);
   const [settings, setSettings] = useAreaColumns('coupons', COUPONS_COLUMNS);
   const { width } = useWindowDimensions();
   const sync = useCatalogueSync();
@@ -275,7 +293,7 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
 
   useEffect(() => {
     const subscription = coupons.find().$.subscribe(docs => {
-      setAll(docs.map(doc => doc.toJSON() as CouponDoc).sort(newestFirst));
+      setAll(docs.map(doc => doc.toJSON() as CouponDoc));
     });
     return () => subscription.unsubscribe();
   }, [coupons]);
@@ -295,7 +313,7 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
   }
 
   const now = new Date();
-  const shown = all ? all.filter(coupon => (!query || matches(coupon, query)) && passes(coupon, filters, now)) : [];
+  const shown = all ? sortCoupons(all.filter(coupon => (!query || matches(coupon, query)) && passes(coupon, filters, now)), sort) : [];
   const total = all?.length ?? 0;
   // The columns the display options leave on, in the area's order.
   const columns = visibleAreaColumns(COUPONS_COLUMNS, settings);
@@ -321,7 +339,9 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
           <TableHeader><TableRow>
             {columns.map(({ id, label, className }) => (
               <TableHead key={id} testID={`coupons-head-${id}`} className={classes(HEAD, ALIGN[id], className)}>
-                <Text testID={`coupons-header-${id}`}>{label}</Text>
+                {sortable(id)
+                  ? <SortHead id={id} label={label} sort={sort} chevronTestID="coupons-sort-chevron" onSort={() => setSort(s => nextSort(s, id))} />
+                  : <Text testID={`coupons-header-${id}`}>{label}</Text>}
               </TableHead>
             ))}
           </TableRow></TableHeader>
