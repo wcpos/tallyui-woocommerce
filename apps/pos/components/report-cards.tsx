@@ -59,10 +59,8 @@ const DONUT_ROW_MIN_WIDTH = 360;
 export function Donut({ testID, parts, centre, total, money }: {
   testID: string; parts: DonutPart[]; centre: { figure: string; label: string }; total: number; money: Money;
 }) {
-  // v2 reads chart tokens c1–c5; Tally's theme has none, so the ring borrows these theme colours.
-  const colors = useCSSVariable([
-    '--color-primary', '--color-success', '--color-warning', '--color-info', '--color-muted-foreground',
-  ]).map(value => value === undefined ? undefined : String(value));
+  // v2 donut.tsx:41-45: the ring takes the five chart colours (global.css --color-c1..c5, set per theme).
+  const colors = useCSSVariable(['--color-c1', '--color-c2', '--color-c3', '--color-c4', '--color-c5']).map(value => value === undefined ? undefined : String(value));
   const [width, setWidth] = useState(0);
   const other = parts.slice(5).reduce((sum, part) => sum + part.value, 0);
   const rows: DonutPart[] = parts.length > 5
@@ -230,8 +228,8 @@ export function CashiersCard({ period, money, moneyWhole, cashiers }: CardProps 
   );
 }
 
-// v2 cards/taxes.tsx:10 cycles five hues; Tally's theme has no chart tokens, so these are the Donut's theme colours.
-const TAX_COLORS = ['bg-primary', 'bg-success', 'bg-warning', 'bg-info', 'bg-muted-foreground'];
+// v2 cards/taxes.tsx:10: five shared hues, cycled, so a sixth rate takes the first hue again, never its neighbour's.
+const TAX_COLORS = ['bg-c1', 'bg-c2', 'bg-c3', 'bg-c4', 'bg-c5'];
 
 /** v2 reports/cards/taxes.tsx: tax collected, each rate's share and Net / Tax / Gross. */
 export function TaxesCard({ period, money, onOpen }: Omit<CardProps, 'moneyWhole'> & { onOpen(): void }) {
@@ -240,13 +238,13 @@ export function TaxesCard({ period, money, onOpen }: Omit<CardProps, 'moneyWhole
       <View testID="card-taxes-bar" className="h-2 w-full flex-row overflow-hidden rounded-md">
         {period.taxRates.some(row => row.taxMinor > 0)
           ? period.taxRates.map((row, index) => row.taxMinor > 0 &&
-            <View key={row.ratePpm} className={TAX_COLORS[index % 5]} style={{ flex: row.taxMinor }} />)
+            <View key={row.ratePpm} testID={`card-taxes-bar-${row.ratePpm}`} className={TAX_COLORS[index % 5]} style={{ flex: row.taxMinor }} />)
           : <View className="bg-muted" style={{ flex: 1 }} />}
       </View>
       {period.taxRates.length > 0 && <View className="flex-row flex-wrap gap-x-4 gap-y-1">
         {period.taxRates.map((row, index) => (
           <View key={row.ratePpm} testID={`card-taxes-rate-${row.ratePpm}`} className="flex-row items-center gap-2">
-            <View className={`size-2.5 ${TAX_COLORS[index % 5]}`} />
+            <View testID={`card-taxes-rate-${row.ratePpm}-swatch`} className={`size-2.5 ${TAX_COLORS[index % 5]}`} />
             <Text>{row.label}</Text>
             <Text className="font-semibold tabular-nums">{money(row.taxMinor)}</Text>
             <Text className="text-sm text-muted-foreground">{`on ${money(row.netMinor)}`}</Text>

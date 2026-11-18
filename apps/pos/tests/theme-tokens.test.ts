@@ -34,7 +34,8 @@ const value = (theme: string, name: string): string | undefined =>
 const lightNames = [...new Set([...names(variantBlock(tokensCss, 'light')), ...names(variantBlock(globalCss, 'light'))])].sort();
 
 test('every extra theme defines exactly the variables light defines, once each', () => {
-  expect(lightNames).toHaveLength(41); // 38 plus v2's --selected pair (apps/main/global.css l.400-401), plus TallyUI 3.20.0's --color-scrim
+  // 38 plus v2's --selected pair (apps/main/global.css l.400-401), TallyUI 3.20.0's --color-scrim and v2's chart c1-c5
+  expect(lightNames).toHaveLength(46);
   expect(lightNames).toContain('--color-tile-tint-5');
   for (const theme of EXTRA_THEMES) {
     const declared = names(variantBlock(themesCss, theme));
@@ -220,4 +221,26 @@ test("the light and dark themes take v2's palette, with sale as v2's destructive
   }
   const tokens = themeTokens(globalCss);
   for (const [name, expected] of Object.entries(V2_PALETTE.light)) expect(tokens.get(name), `default ${name}`).toBe(expected);
+});
+
+// v2 apps/main/global.css --c1..c5 per theme (mapped to --color-c1..c5 at l.118-122).
+const V2_BLUE = ['oklch(0.50 0.18 240)', 'oklch(0.62 0.15 160)', 'oklch(0.72 0.15 70)', 'oklch(0.58 0.16 320)', 'oklch(0.70 0.02 250)'];
+const V2_CHART: Record<string, string[]> = {
+  light: ['oklch(0.42 0.24 262)', 'oklch(0.62 0.15 160)', 'oklch(0.72 0.15 70)', 'oklch(0.58 0.16 320)', 'oklch(0.70 0.02 262)'], // l.447-451
+  dark: V2_BLUE, ocean: V2_BLUE, sunset: V2_BLUE, monochrome: V2_BLUE, // l.587-591, l.725-729, l.863-867, l.999-1003
+  paper: ['oklch(0.52 0.12 45)', 'oklch(0.55 0.10 150)', 'oklch(0.70 0.13 80)', 'oklch(0.50 0.10 320)', 'oklch(0.65 0.03 84)'], // l.1104-1108
+  warm: ['oklch(0.484 0.092 41)', 'oklch(0.60 0.07 131)', 'oklch(0.72 0.12 80)', 'oklch(0.55 0.12 330)', 'oklch(0.70 0.02 76)'], // l.1207-1211
+  bold: ['oklch(0.145 0 0)', 'oklch(0.82 0.18 123)', 'oklch(0.72 0.15 70)', 'oklch(0.58 0.16 320)', 'oklch(0.70 0 0)'], // l.1310-1314
+  market: ['oklch(0.52 0.20 34)', 'oklch(0.62 0.15 160)', 'oklch(0.80 0.15 98)', 'oklch(0.58 0.16 300)', 'oklch(0.70 0.02 290)'], // l.1417-1421
+};
+const CHART_TOKENS = ['--color-c1', '--color-c2', '--color-c3', '--color-c4', '--color-c5'];
+
+test("light, dark and the seven extra themes define v2's chart colours c1 to c5, and the default is light's", () => {
+  const sources: [string, string][] = [['light', globalCss], ['dark', globalCss], ...EXTRA_THEMES.map(theme => [theme, themesCss] as [string, string])];
+  for (const [theme, css] of sources) {
+    const declared = Object.fromEntries(declarations(variantBlock(css, theme)));
+    expect(CHART_TOKENS.map(name => declared[name]), theme).toEqual(V2_CHART[theme]);
+  }
+  const tokens = themeTokens(globalCss);
+  expect(CHART_TOKENS.map(name => tokens.get(name)), 'default').toEqual(V2_CHART.light);
 });

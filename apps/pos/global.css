@@ -72,6 +72,13 @@
      its one ink (packages/components/src/chip/index.tsx:106, :163) */
   --color-selected: oklch(0.935 0.045 262);
   --color-selected-foreground: oklch(0.42 0.17 262);
+  /* v2's five chart colours, mapped at l.118-122 (light l.447-451, dark l.587-591; themes.css has the other seven):
+     the report donuts' ring (reports/cards/donut.tsx:41-45) and the taxes bar (cards/taxes.tsx:10). */
+  --color-c1: oklch(0.42 0.24 262);
+  --color-c2: oklch(0.62 0.15 160);
+  --color-c3: oklch(0.72 0.15 70);
+  --color-c4: oklch(0.58 0.16 320);
+  --color-c5: oklch(0.70 0.02 262);
 }
 
 /* v2's destructive (apps/main/global.css l.381-382 light, l.526-527 dark), over @tallyui/theme's #dc2626 and
@@ -134,6 +141,12 @@
       --color-rail-selected-foreground: oklch(0.42 0.17 262);
       --color-selected: oklch(0.935 0.045 262);
       --color-selected-foreground: oklch(0.42 0.17 262);
+      /* v2 l.447-451: the five chart colours */
+      --color-c1: oklch(0.42 0.24 262);
+      --color-c2: oklch(0.62 0.15 160);
+      --color-c3: oklch(0.72 0.15 70);
+      --color-c4: oklch(0.58 0.16 320);
+      --color-c5: oklch(0.70 0.02 262);
     }
 
     @variant dark {
@@ -177,6 +190,12 @@
       --color-rail-selected-foreground: oklch(0.82 0.13 240);
       --color-selected: oklch(0.30 0.06 240);
       --color-selected-foreground: oklch(0.82 0.13 240);
+      /* v2 l.587-591: the five chart colours */
+      --color-c1: oklch(0.50 0.18 240);
+      --color-c2: oklch(0.62 0.15 160);
+      --color-c3: oklch(0.72 0.15 70);
+      --color-c4: oklch(0.58 0.16 320);
+      --color-c5: oklch(0.70 0.02 250);
     }
   }
 }
