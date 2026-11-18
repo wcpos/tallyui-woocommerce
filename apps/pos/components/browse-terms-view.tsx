@@ -1,9 +1,9 @@
 // v2's browse stage pieces, flat (WCPOS monorepo `packages/core/src/screens/main/pos/products/browse/`):
 // the term set as poster tiles (term-tile.tsx, term-grid.tsx) or as table rows (term-row.tsx,
 // term-table.tsx), and the crumb above a level (packages/components/src/breadcrumb).
-import { Fragment } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
 import type { JSX, ReactNode } from 'react';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Text, VStack } from '@tallyui/components';
 import { productsLabel } from '../lib/catalogue/browse-terms';
 import type { BrowseTerm } from '../lib/catalogue/browse-terms';
@@ -172,9 +172,16 @@ export const PRODUCTS_LABEL = 'Products';
  * crumb) the place becomes a parent too, the way back to its products, and the product's name ends the
  * row in bold. The last parent carries v2's back testID.
  */
-export function BrowseCrumb({ place, onRoot, product, className = 'min-h-9' }: {
-  place: BrowsePlace | null; onRoot(): void; product?: { name: string; onBack(): void }; className?: string;
+export function BrowseCrumb({ place, onRoot, product, className = 'min-h-9', autoFocus }: {
+  place: BrowsePlace | null; onRoot(): void; product?: { name: string; onBack(): void }; className?: string; autoFocus?: boolean;
 }): JSX.Element {
+  // v2's Breadcrumb autoFocus (breadcrumb/index.tsx:30-41): the back control takes focus once, on mount, never on a
+  // change of parents, and without scrolling it into view.
+  const backRef = useRef<View>(null);
+  const focusOnMount = useRef(autoFocus);
+  useEffect(() => {
+    if (focusOnMount.current && Platform.OS === 'web') (backRef.current as unknown as HTMLElement | null)?.focus({ preventScroll: true });
+  }, []);
   const placeName = place === null ? null : place.kind === 'all' ? ALL_PRODUCTS_LABEL : place.name;
   const parents = [
     ...place === null ? [] : [{ label: CATEGORIES_LABEL, onPress: onRoot }],
@@ -182,7 +189,7 @@ export function BrowseCrumb({ place, onRoot, product, className = 'min-h-9' }: {
   ];
   return <View testID="products-breadcrumb" className={`flex-row flex-wrap items-center gap-1 ${className}`}>
     {parents.map(({ label, onPress }, index) => <Fragment key={label}>
-      <Pressable role="button" accessibilityLabel={label} onPress={onPress}
+      <Pressable role="button" accessibilityLabel={label} onPress={onPress} ref={index === parents.length - 1 ? backRef : undefined}
         testID={index === parents.length - 1 ? 'products-breadcrumb-back' : 'products-breadcrumb-root'}
         className="justify-center rounded-md px-2 py-1 web:hover:bg-muted active:bg-muted">
         <Text className="font-medium text-foreground">{label}</Text>
