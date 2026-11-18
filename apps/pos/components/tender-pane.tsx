@@ -21,6 +21,21 @@ const KEY_ROWS: TenderKey[][] = [['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9
 const QUICK_TENDER_STEPS = [5, 10, 50] as const;
 /** order.create's bound on `payments[].reference`, in UTF-16 units: a typed reference never goes past what finalize keeps. */
 const REFERENCE_MAX = 255;
+// WCPOS v2: tender-pane.tsx:46-58. Long enough that a normal save never shows it, short enough that a cashier is not left guessing.
+const SLOW_SAVE_NOTICE_MS = 4_000;
+/** True once `active` has held for `ms`; it resets when `active` changes. Exported for its test. */
+export function useElapsed(active: boolean, ms: number): boolean {
+  const [elapsed, setElapsed] = useState(false);
+  // A timer is an external system; this effect only arms and releases that timer.
+  useEffect(() => {
+    if (!active) return;
+    const timer = setTimeout(() => setElapsed(true), ms);
+    return () => clearTimeout(timer);
+  }, [active, ms]);
+  const [wasActive, setWasActive] = useState(active);
+  if (wasActive !== active) { setWasActive(active); setElapsed(false); }
+  return active && elapsed;
+}
 
 /**
  * WCPOS v2's tender pane for a store that takes one payment per order: tiles, keypad, change or refusal hint, one commit.
@@ -33,6 +48,8 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
   const [reference, setReference] = useState('');
   const [asking, setAsking] = useState(false);
   const online = useIsOnline();
+  // WCPOS v2: tender-pane.tsx:106. Only a save in flight counts: a failed one already says so through Retry and its error.
+  const slow = useElapsed(sale.saving && sale.error === null, SLOW_SAVE_NOTICE_MS);
   const due = multi ? sale.order.balanceDueMinor : sale.order.totalMinor;
   // WCPOS v2: tender-pane.tsx:337-352, 485-584.
   const since = sale.order.payments.slice(state.plan?.from ?? 0)
@@ -181,6 +198,8 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
     {/* WCPOS v2: tender-pane.tsx:337-352, 485-584. */}
     {planned && <PlanStrip legs={planned.legs} taken={taken} paidMinor={taken.reduce((sum, row) => sum + row.minor, 0)} fmt={fmt} disabled={sale.saving}
       onChange={() => { dispatch({ type: 'clear-plan', balanceMinor: balance }); dispatch({ type: 'open-split' }); }} />}
+    {/* WCPOS v2: tender-pane.tsx:587-591, core.json pos_checkout.store_not_answering; v2's text-warning-text is the app's text-warning; v2's pane centres it (:383). */}
+    {slow ? <Text testID="checkout-save-slow" className="text-center text-sm text-warning">The store isn't answering. Keep waiting, or go back to the cart.</Text> : null}
     <View testID="checkout-keypad" className="gap-2">
       {KEY_ROWS.map(row => <View key={row.join()} className="flex-row gap-2">
         {row.map(key => <Pressable key={key} accessibilityRole="button" testID={`checkout-keypad-key-${key}`}
