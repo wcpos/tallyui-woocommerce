@@ -10,7 +10,7 @@ interface CatalogueContextValue {
   catalogue: Catalogue | null;
   products: any[];
   status: 'idle' | 'starting' | 'syncing' | 'ready' | 'error';
-  notice?: { code: string; message?: string };
+  notice?: { code: string; message?: string; fixedBy?: 'till' | 'store' };
   error?: string;
 }
 
