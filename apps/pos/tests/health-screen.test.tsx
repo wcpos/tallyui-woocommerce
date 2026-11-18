@@ -7,7 +7,9 @@ import { addPosOrderCollection, type PosOrder } from '@tallyui/pos';
 import { HealthScreen } from '../components/health-screen';
 import type { DatabaseCountRow } from '../components/database-counts';
 import type { ReceiptEmailCollection } from '../lib/receipts/receipt-emails';
+import { BehaviorSubject } from 'rxjs';
 import { OnlineStatusContext, type OnlineStatus } from '../lib/online/online-status';
+import { dismissToast, getToasts } from '../lib/toast/toast';
 
 const mocks = vi.hoisted(() => ({ outbox: { enabled: false } as any }));
 vi.mock('../lib/sale/outbox-context', () => ({ useOutbox: () => mocks.outbox }));
@@ -213,4 +215,69 @@ test('online: no offline notice', async () => {
   renderWith('online-website-unavailable');
   await waitFor(() => expect(textOf('db-row-count-products')).toBe('0'));
   expect(screen.queryByTestId('db-offline-notice')).toBeNull();
+});
+
+// v2 database.tsx:815-863, the Freshness station.
+const toasts = () => getToasts().map(({ type, title, description }) => ({ type, title, description }));
+function checkRows(products: () => Promise<void>, coupons: () => Promise<void>): DatabaseCountRow[] {
+  return [{ ...collections[0], onSyncNow: products }, { key: 'coupons', label: 'Coupons', collection: collections[0].collection, onSyncNow: coupons },
+    { key: 'parked', label: 'Parked sales', collection: collections[0].collection }];
+}
+
+test('the freshness line reads First check pending… with no due time and Watching for changes with one', () => {
+  const subject = new BehaviorSubject<number | undefined>(undefined);
+  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} runner={{ nextDueAtMs$: subject }} />);
+  expect(textOf('db-freshness-label')).toBe('First check pending…');
+  act(() => subject.next(Date.now() + 42_000));
+  expect(textOf('db-freshness-label')).toBe('Watching for changes · next check ~42 s');
+  expect(textOf('db-check-everything')).toBe('Check everything now');
+});
+
+test('Check everything now runs every row\'s check once', async () => {
+  act(() => dismissToast());
+  const products = vi.fn(async () => {}), coupons = vi.fn(async () => {});
+  render(<HealthScreen receiptEmails={receiptEmails} collections={checkRows(products, coupons)} />);
+  fireEvent.click(screen.getByTestId('db-check-everything'));
+  await waitFor(() => expect(screen.getByTestId('db-check-everything').getAttribute('aria-disabled')).not.toBe('true'));
+  expect(products).toHaveBeenCalledTimes(1);
+  expect(coupons).toHaveBeenCalledTimes(1);
+  expect(toasts()).toEqual([]);
+});
+
+test('offline, Check everything now runs none and toasts Sync didn’t run', () => {
+  act(() => dismissToast());
+  const products = vi.fn(async () => {}), coupons = vi.fn(async () => {});
+  render(<OnlineStatusContext.Provider value={{ status: 'offline' }}>
+    <HealthScreen receiptEmails={receiptEmails} collections={checkRows(products, coupons)} /></OnlineStatusContext.Provider>);
+  fireEvent.click(screen.getByTestId('db-check-everything'));
+  expect(products).not.toHaveBeenCalled();
+  expect(coupons).not.toHaveBeenCalled();
+  expect(toasts()).toEqual([{ type: 'warning', title: 'Sync didn’t run.', description: 'This device is offline.' }]);
+  act(() => dismissToast());
+});
+
+test('a failing row makes Check everything now toast Couldn’t sync with the server once', async () => {
+  act(() => dismissToast());
+  const products = vi.fn(async () => { throw new Error('down'); }), coupons = vi.fn(async () => {});
+  render(<HealthScreen receiptEmails={receiptEmails} collections={checkRows(products, coupons)} />);
+  fireEvent.click(screen.getByTestId('db-check-everything'));
+  await waitFor(() => expect(toasts()).toEqual([{ type: 'error', title: 'Couldn’t sync with the server.',
+    description: 'Check your connection and try again. Logs has the details.' }]));
+  expect(coupons).toHaveBeenCalledTimes(1);
+  act(() => dismissToast());
+});
+
+test('a second press while it runs does nothing', async () => {
+  let resolve!: () => void;
+  const pending = new Promise<void>(done => { resolve = done; });
+  const products = vi.fn(() => pending), coupons = vi.fn(async () => {});
+  render(<HealthScreen receiptEmails={receiptEmails} collections={checkRows(products, coupons)} />);
+  const button = screen.getByTestId('db-check-everything');
+  // Both presses land before React re-renders the button disabled, as a fast double tap can.
+  act(() => { fireEvent.click(button); fireEvent.click(button); });
+  expect(screen.getByTestId('db-check-everything').getAttribute('aria-disabled')).toBe('true');
+  fireEvent.click(screen.getByTestId('db-check-everything'));
+  await act(async () => { resolve(); await pending; });
+  expect(products).toHaveBeenCalledTimes(1);
+  expect(coupons).toHaveBeenCalledTimes(1);
 });
