@@ -35,7 +35,7 @@ export function ClearLocalData({
       ? 'mt-2 flex-row items-center justify-between gap-3 border-t border-border pt-4'
       : 'mt-2 gap-3 border-t border-border pt-4'}>
       <Text testID="settings-general-clear-local-data-body" className={wide ? `${SETTINGS_HELP_CLASS} max-w-96 flex-1` : SETTINGS_HELP_CLASS}>
-        Products, customers and orders are downloaded again from your server.
+        Everything stored on this device is deleted and downloaded again from your server.
       </Text>
       <Button testID="settings-general-clear-local-data" variant="outline" className="h-11 border-destructive"
         disabled={checking} onPress={() => { void start(); }}><Text>Clear All Local Data</Text></Button>

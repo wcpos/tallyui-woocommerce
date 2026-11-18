@@ -34,7 +34,7 @@ test("the Printers section shows v2's empty state with only the Print Dialog", (
   expect(screen.getByTestId('printers-empty-state-description').textContent).toBe(
     'Add a printer to send receipts straight to your hardware. You can always use the Print Dialog without one.');
   expect(screen.getByTestId('settings-printing-printers-description').textContent).toBe('Devices receipts can be sent to.');
-  expect(screen.getByTestId('printing-add-printer-button').textContent).toBe('Add printer');
+  expect(screen.getByTestId('printing-add-printer-button').textContent).toBe('Add Printer');
 });
 
 test('each receipt template row shows its title, type tag and the auto printer', () => {

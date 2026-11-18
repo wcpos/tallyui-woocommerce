@@ -112,7 +112,7 @@ export function PrintingSettings(props: {
         <Button testID="printing-add-printer-button" size="sm" className="self-start"
           variant={props.profiles.length === 0 ? 'default' : 'outline'} onPress={() => setEditing(null)}>
           <PlusIcon size={16} className={props.profiles.length === 0 ? 'text-primary-foreground' : 'text-foreground'} />
-          <Text>Add printer</Text>
+          <Text>Add Printer</Text>
         </Button>
         {/* v2 printing/index.tsx:290-292: `<DocsLink testID="printing-having-trouble">`, always shown. */}
         <DocsLink testID="printing-having-trouble" href={PRINTER_DOCS_URL}>Having trouble?</DocsLink>

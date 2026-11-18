@@ -89,7 +89,7 @@ test('the saved choice is selected and named in the status line', () => {
   expect(screen.getByTestId('theme-option-dark').getAttribute('aria-selected')).toBe('true');
   expect(screen.getByTestId('theme-option-system').getAttribute('aria-selected')).toBe('false');
   expect(screen.getByTestId('theme-option-light').getAttribute('aria-selected')).toBe('false');
-  expect(screen.getByTestId('settings-theme-status').textContent).toBe('Current Theme: Dark');
+  expect(screen.getByTestId('settings-theme-status').textContent).toBe('Current theme: Dark');
 });
 
 test('pressing a tile saves the choice before applying it', () => {
@@ -100,7 +100,7 @@ test('pressing a tile saves the choice before applying it', () => {
   expect(Uniwind.setTheme).toHaveBeenCalledExactlyOnceWith('light');
   expect(setItem.mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(Uniwind.setTheme).mock.invocationCallOrder[0]);
   expect(screen.getByTestId('theme-option-light').getAttribute('aria-selected')).toBe('true');
-  expect(screen.getByTestId('settings-theme-status').textContent).toBe('Current Theme: Light');
+  expect(screen.getByTestId('settings-theme-status').textContent).toBe('Current theme: Light');
 });
 
 test('choosing System again follows the device', () => {
@@ -152,17 +152,17 @@ test('choosing Paper till saves and applies paper and names it in the status lin
   expect(Uniwind.setTheme).toHaveBeenCalledExactlyOnceWith('paper');
   expect(screen.getByTestId('theme-option-paper').getAttribute('aria-selected')).toBe('true');
   expect(screen.getByTestId('theme-option-system').getAttribute('aria-selected')).toBe('false');
-  expect(screen.getByTestId('settings-theme-status').textContent).toBe('Current Theme: Paper till');
+  expect(screen.getByTestId('settings-theme-status').textContent).toBe('Current theme: Paper till');
 });
 
-test('the status line reads v2\'s "Current Theme: <name>" for a chosen theme and "Following system theme" for System', () => {
+test('the status line reads v2\'s "Current theme: <name>" for a chosen theme and "Following system theme" for System', () => {
   localStorage.setItem('tallywoo.theme', 'ocean');
   render(<ThemeSettings />);
-  expect(screen.getByTestId('settings-theme-status').textContent).toBe('Current Theme: Ocean');
+  expect(screen.getByTestId('settings-theme-status').textContent).toBe('Current theme: Ocean');
   fireEvent.click(screen.getByTestId('theme-option-system'));
   expect(screen.getByTestId('settings-theme-status').textContent).toBe('Following system theme');
   fireEvent.click(screen.getByTestId('theme-option-market'));
-  expect(screen.getByTestId('settings-theme-status').textContent).toBe('Current Theme: Market stall');
+  expect(screen.getByTestId('settings-theme-status').textContent).toBe('Current theme: Market stall');
 });
 
 test('every theme card carries v2\'s icon above its name', () => {
