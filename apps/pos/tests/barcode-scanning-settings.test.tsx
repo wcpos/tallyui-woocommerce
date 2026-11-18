@@ -390,3 +390,64 @@ test('a clean scan of digits offers no suggestion', () => {
   expect(screen.getByTestId('barcode-test-result').textContent).toBe('scan');
   expect(screen.queryByTestId(/^barcode-test-suggestion-/)).toBeNull();
 });
+
+// v2 form/saved-mark.tsx: a changed setting shows a check and "Saved" beside its key for 1200 ms.
+function marks(): string[] {
+  return screen.queryAllByTestId(/^saved-\w+$/).map(node => node.getAttribute('data-testid')!);
+}
+
+test('changing the Prefix shows Saved beside its key, in the success ink, and no other mark', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  expect(marks()).toEqual([]);
+  fireEvent.change(screen.getByTestId('settings-barcode-prefix'), { target: { value: ']C1' } });
+  expect(marks()).toEqual(['saved-prefix']);
+  expect(screen.getByTestId('settings-barcode-prefix-row-key').contains(screen.getByTestId('saved-prefix'))).toBe(true);
+  expect(screen.getByTestId('saved-prefix').textContent).toBe('Saved');
+  expect(classesOf('saved-prefix-label')).toEqual(expect.arrayContaining(['text-success', 'text-xs']));
+  expect(classesOf('saved-prefix-label')).not.toContain('text-muted-foreground');
+  expect(classesOf('saved-prefix-icon')).toContain('text-success');
+});
+
+test('the Saved mark clears after 1200 ms', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  fireEvent.change(screen.getByTestId('settings-barcode-prefix'), { target: { value: ']C1' } });
+  act(() => { vi.advanceTimersByTime(1199); });
+  expect(marks()).toEqual(['saved-prefix']);
+  act(() => { vi.advanceTimersByTime(1); });
+  expect(marks()).toEqual([]);
+});
+
+test('a newer write moves the mark and restarts the hold', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  fireEvent.change(screen.getByTestId('settings-barcode-prefix'), { target: { value: ']C1' } });
+  act(() => { vi.advanceTimersByTime(600); });
+  fireEvent.change(screen.getByTestId('settings-barcode-suffix'), { target: { value: '#' } });
+  expect(marks()).toEqual(['saved-suffix']);
+  expect(screen.getByTestId('settings-barcode-suffix-row').contains(screen.getByTestId('saved-suffix'))).toBe(true);
+  act(() => { vi.advanceTimersByTime(1199); });
+  expect(marks()).toEqual(['saved-suffix']);
+  act(() => { vi.advanceTimersByTime(1); });
+  expect(marks()).toEqual([]);
+});
+
+test('turning Sound on marks Play a sound on scan', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  fireEvent.click(screen.getByTestId('settings-barcode-sound'));
+  expect(marks()).toEqual(['saved-enabled']);
+  expect(screen.getByTestId('settings-barcode-sound-row').contains(screen.getByTestId('saved-enabled'))).toBe(true);
+});
+
+test('retyping the stored count marks nothing', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  // "024" writes the stored default 24 again: v2's savedKeys compares values as strings and acknowledges nothing.
+  fireEvent.change(screen.getByTestId('settings-barcode-threshold'), { target: { value: '024' } });
+  expect(readScanSettings().threshold).toBe(24);
+  expect(marks()).toEqual([]);
+  fireEvent.change(screen.getByTestId('settings-barcode-threshold'), { target: { value: '25' } });
+  expect(marks()).toEqual(['saved-threshold']);
+});
