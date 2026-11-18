@@ -216,17 +216,19 @@ test('Another account holds the cart and starts the sign-in', async () => {
   });
 });
 
-test('the cashier button is disabled while taking payment', async () => {
+// v2 user-sheet.tsx:498,694-700: the bar never holds the avatar; the sheet itself says why its actions are held.
+test('in the tender stage the bar shows no reason and the sheet opens with the hold notice', async () => {
   await withParkedCarts(async parkedCarts => {
     render(<SaleScreen {...props} parkedCarts={parkedCarts} />);
     fireEvent.click(screen.getByText('Espresso'));
     // At 900px the cart is already open alongside the catalogue.
     fireEvent.click(screen.getByTestId('cart-checkout'));
     const button = screen.getByTestId('register-bar-avatar');
-    expect(button.getAttribute('aria-disabled') === 'true' || button.hasAttribute('disabled')).toBe(true);
-    expect(screen.getByText('Finish or cancel the payment first.')).not.toBeNull();
+    expect(button.getAttribute('aria-disabled') === 'true' || button.hasAttribute('disabled')).toBe(false);
+    expect(screen.queryByText('Finish or cancel the payment first.')).toBeNull();
     fireEvent.click(button);
-    expect(screen.queryByTestId('user-sheet')).toBeNull();
+    expect(screen.getByTestId('user-sheet')).not.toBeNull();
+    expect(screen.getByTestId('user-sheet-hold').textContent).toBe('Finish the payment first');
   });
 });
 
@@ -498,18 +500,53 @@ test('Remove is a quiet ghost button beside the row, and still asks', () => {
   expect(onSwitch).not.toHaveBeenCalled();
 });
 
-test("a blocked sheet's cashier row is disabled and does not switch", () => {
-  const onSwitch = vi.fn();
-  const sheet = (blockedReason?: string) => <><CashierSheet name="Bob Ross" cashiers={[{ uuid: 'b', name: 'Sam' }]} blockedReason={blockedReason}
-    onSwitch={onSwitch} onAddAnother={() => {}} onSignOut={() => {}} /><PortalHost /></>;
-  const view = render(sheet());
-  fireEvent.click(screen.getByTestId('register-bar-avatar'));
-  view.rerender(sheet('Finish or cancel the payment first.'));
-  const row = screen.getByTestId('user-sheet-user-b');
-  expect(row.getAttribute('aria-disabled') === 'true' || row.hasAttribute('disabled')).toBe(true);
-  fireEvent.click(row);
-  expect(onSwitch).not.toHaveBeenCalled();
+const isDisabled = (testID: string) => {
+  const node = screen.getByTestId(testID);
+  return node.getAttribute('aria-disabled') === 'true' || node.hasAttribute('disabled');
+};
+
+// v2 user-sheet.tsx:498,694-700: paying, the avatar still opens the sheet, which says why it holds its actions.
+test('while paying the avatar opens the sheet and it says "Finish the payment first"', () => {
+  openSheet({ paying: true });
+  expect(isDisabled('register-bar-avatar')).toBe(false);
   expect(screen.getByTestId('user-sheet')).not.toBeNull();
+  const hold = screen.getByTestId('user-sheet-hold');
+  expect(hold.textContent).toBe('Finish the payment first');
+  expect(hold.getAttribute('role')).toBe('status');
+  expect(classesOf('user-sheet-hold')).toEqual(expect.arrayContaining(['border-info', 'bg-info/10']));
+});
+
+// v2 user-sheet.tsx:711 (hold={paying}), :720 (online && !busy && !paying), :809 (Sign out disabled: paying).
+test('while paying the cashier rows, Remove and Sign out are held and Another account is gone', () => {
+  const onSwitch = vi.fn();
+  const onRemove = vi.fn();
+  const { onSignOut } = openSheet({ paying: true, cashiers: [{ uuid: 'b', name: 'Sam' }], onSwitch, onRemove });
+  expect(isDisabled('user-sheet-user-b')).toBe(true);
+  fireEvent.click(screen.getByTestId('user-sheet-user-b'));
+  expect(screen.queryByTestId('switch-confirm')).toBeNull();
+  expect(onSwitch).not.toHaveBeenCalled();
+  expect(isDisabled('user-sheet-remove-b')).toBe(true);
+  fireEvent.click(screen.getByTestId('user-sheet-remove-b'));
+  expect(screen.queryByText('Remove Sam')).toBeNull();
+  expect(isDisabled('user-sheet-sign-out')).toBe(true);
+  fireEvent.click(screen.getByTestId('user-sheet-sign-out'));
+  expect(onSignOut).not.toHaveBeenCalled();
+  expect(screen.queryByTestId('user-sheet-another-account')).toBeNull();
+  expect(screen.getByTestId('user-sheet')).not.toBeNull();
+});
+
+test('without paying there is no hold notice and every row works', () => {
+  const { onSignOut } = openSheet({ cashiers: [{ uuid: 'b', name: 'Sam' }], onRemove: vi.fn() });
+  expect(screen.queryByTestId('user-sheet-hold')).toBeNull();
+  expect(isDisabled('user-sheet-user-b')).toBe(false);
+  expect(isDisabled('user-sheet-remove-b')).toBe(false);
+  expect(isDisabled('user-sheet-sign-out')).toBe(false);
+  expect(screen.getByTestId('user-sheet-another-account')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('user-sheet-user-b'));
+  expect(screen.getByTestId('switch-confirm')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('switch-confirm-cancel'));
+  fireEvent.click(screen.getByTestId('user-sheet-sign-out'));
+  expect(onSignOut).toHaveBeenCalledTimes(1);
 });
 
 test('the Store row shows Store and the store name, and is absent without one', () => {

@@ -50,12 +50,12 @@ function SalesTodayRow({ total, currency, locale }: {
 export interface SheetDrawer { figure: string; verbs: string; opener?: string; openerName?: string }
 
 /** v2's DrawerDoor (packages/core/src/screens/main/pos/cart/user-sheet.tsx): the drawer tile over a row of its verbs. */
-function DrawerDoor({ drawer, disabled, onPress }: { drawer: SheetDrawer; disabled: boolean; onPress(): void }) {
+function DrawerDoor({ drawer, disabled, onPress }: { drawer: SheetDrawer; disabled?: boolean; onPress(): void }) {
   const { openerName } = drawer;
   // v2's DrawerDoor (user-sheet.tsx:199-205): a PressableSurface with no fill of its own, so it shows the sheet's bg-card,
   // with its border, radius and the accent press and hover wash (pressable-surface/index.tsx:28).
   return <Pressable testID="user-sheet-drawer" role="button" accessibilityLabel={`In the drawer, ${drawer.figure}`}
-    disabled={disabled} onPress={onPress} className="rounded-lg border border-border active:bg-accent web:hover:bg-accent">
+    onPress={onPress} disabled={disabled} className="rounded-lg border border-border active:bg-accent web:hover:bg-accent">
     <View className="flex-row items-center gap-3 px-3 py-2.5">
       {/* v2's `ToneDisc tone="muted" icon="register" size="sm"` (user-sheet.tsx:207; tone-disc/index.tsx:11,28-30;
           lib/tone.ts:53,55): a size-11 bg-muted disc, the glyph at the default 18 px (icon/index.tsx:27), muted. */}
@@ -89,7 +89,8 @@ export interface CashierOption { uuid: string; name: string }
 export function CashierSheet(props: {
   name: string;
   cashiers: CashierOption[];
-  blockedReason?: string;
+  /** v2's usePaymentInFlight (user-sheet.tsx:498): the sheet still opens, but holds the hand-over, Sign out and the drawer door. */
+  paying?: boolean;
   storeName?: string;
   signedInAt?: number;
   awaitingStore?: number;
@@ -119,13 +120,12 @@ export function CashierSheet(props: {
     {/* v2's CashierEntry (packages/core/src/screens/main/components/cashier-entry/index.tsx:91-101): the initials avatar
         on the bar itself; v2's `wash="accent"` is a press and hover wash only (pressable-surface/index.tsx:28), not a fill.
         The ghost IconButton gives the press wash (active:bg-accent); it has no hover wash. */}
-    <IconButton testID="register-bar-avatar" accessibilityLabel={props.name} disabled={Boolean(props.blockedReason)} className="rounded-lg" onPress={() => setOpen(true)}>
+    <IconButton testID="register-bar-avatar" accessibilityLabel={props.name} className="rounded-lg" onPress={() => setOpen(true)}>
       {/* v2's Avatar default `xs`: `size-5`, 20 px, with `text-2xs` initials (monorepo packages/components/src/avatar/index.tsx:42,58,76). */}
       <View testID="register-bar-avatar-initials" className="size-5 items-center justify-center rounded-full bg-primary">
         <Text className="text-2xs font-medium text-primary-foreground">{getInitials(props.name)}</Text>
       </View>
     </IconButton>
-    {props.blockedReason && <Text>{props.blockedReason}</Text>}
     {open && <Dialog open onOpenChange={setOpen}>
       <DialogContent testID="user-sheet" className={SIDE_SHEET}>
         {/* v2's sheet header (user-sheet.tsx:654-676): the cashier's Avatar at its default `xs` (size-5, text-2xs initials;
@@ -148,7 +148,7 @@ export function CashierSheet(props: {
             DialogBody's base `py-1` (dialog/index.tsx:277) is the 4 px between the header and "Your sales today". */}
         <View testID="user-sheet-body" className="flex-1 gap-0 py-1">
         {props.sales && <SalesTodayRow total={salesToday} currency={props.sales.currency} locale={props.sales.locale} />}
-        {props.drawer && (props.onOpenDrawer ? <DrawerDoor drawer={props.drawer} disabled={Boolean(props.blockedReason)}
+        {props.drawer && (props.onOpenDrawer ? <DrawerDoor drawer={props.drawer} disabled={props.paying}
           onPress={() => { setOpen(false); props.onOpenDrawer!(); }} />
           : <View testID="user-sheet-drawer" className="flex-row items-center justify-between rounded-lg border border-border px-3 py-2.5">
             <Text className={KEY_LABEL}>In the drawer</Text>
@@ -159,6 +159,11 @@ export function CashierSheet(props: {
           <Text testID="user-sheet-awaiting-store-title" className="font-medium text-foreground">{`Awaiting store · ${n === 1 ? '1 sale' : `${n} sales`}`}</Text>
           <Text className="text-muted-foreground">Sent when you are signed in online.</Text>
         </View>}
+        {/* v2 user-sheet.tsx:694-700, `Notice tone="info"` (core.json register.finish_payment_first). No info notice in the
+            app yet, so the awaiting-store band's shape with the info tokens. */}
+        {props.paying && <View testID="user-sheet-hold" role="status" className="mt-2 rounded-lg border border-info bg-info/10 px-3 py-2.5">
+          <Text testID="user-sheet-hold-title" className="font-medium text-foreground">Finish the payment first</Text>
+        </View>}
         <View testID="user-sheet-switch-user">
           {/* v2's `caption` rank (user-sheet.tsx:703; text/ladder.ts:18): muted, text-xs, tracking-wide, uppercase, on an
               `h-band` row (user-sheet.tsx:702): seven spacing units, 28 px (apps/main/global.css:33). */}
@@ -168,7 +173,7 @@ export function CashierSheet(props: {
             sibling, so no press nests inside a press. */}
         {props.cashiers.map(cashier => <View key={cashier.uuid} className="flex-row items-center gap-2">
           <Pressable testID={`user-sheet-user-${cashier.uuid}`} role="button" accessibilityLabel={cashier.name}
-            disabled={Boolean(props.blockedReason)} onPress={() => setHandingTo(cashier)}
+            disabled={props.paying} onPress={() => setHandingTo(cashier)}
             className="min-h-11 min-w-0 flex-1 flex-row items-center gap-2 rounded-md px-2.5 py-1.5 web:hover:bg-accent active:bg-accent">
             <View testID={`user-sheet-user-${cashier.uuid}-avatar`} className="size-9 items-center justify-center rounded-full bg-primary">
               <Text className="text-xs font-medium text-primary-foreground">{getInitials(cashier.name)}</Text>
@@ -176,11 +181,11 @@ export function CashierSheet(props: {
             <Text numberOfLines={1} className="min-w-0 flex-1 text-base text-foreground">{cashier.name}</Text>
           </Pressable>
           {props.onRemove && <Button variant="ghost" testID={`user-sheet-remove-${cashier.uuid}`} accessibilityLabel={`Remove ${cashier.name}`}
-            onPress={() => setRemoving(cashier)}><Text>Remove</Text></Button>}
+            disabled={props.paying} onPress={() => setRemoving(cashier)}><Text>Remove</Text></Button>}
         </View>)}
           {/* v2's compact AddUserButton (add-user-button.tsx:106-113): a quiet MenuRow (menu-row/index.tsx:69, min-h-row 44 px,
-              accent wash) with a muted + at the default 18 px, not a filled button. Shown only under v2's `online` condition (user-sheet.tsx:720-722). */}
-          {online && (
+              accent wash) with a muted + at the default 18 px, not a filled button. Shown only under v2's `online && !paying` (user-sheet.tsx:720-722). */}
+          {online && !props.paying && (
           <Pressable testID="user-sheet-another-account" role="button" onPress={() => { setOpen(false); props.onAddAnother(); }}
             className="min-h-11 w-full flex-row items-center gap-2 rounded-md px-2.5 py-1.5 web:hover:bg-accent active:bg-accent">
             <PlusIcon testID="user-sheet-another-account-icon" size={18} strokeWidth={1.5} className="text-muted-foreground" />
@@ -209,7 +214,7 @@ export function CashierSheet(props: {
             `outline-destructive` (button/index.tsx:53, border-destructive bg-card, the label in the foreground ink), apart
             on the left, and the Close dismiss on the right; a full-width rule over pt-4. */}
         <View testID="user-sheet-footer" className="-mx-4 flex-row items-center justify-between border-t border-border px-4 pt-4">
-          <Button variant="outline" testID="user-sheet-sign-out" className="h-11 border-destructive bg-card" onPress={() => { if (props.openRegister) { setAsking(true); } else { setOpen(false); props.onSignOut(); } }}><Text>Sign out</Text></Button>
+          <Button variant="outline" testID="user-sheet-sign-out" className="h-11 border-destructive bg-card" disabled={props.paying} onPress={() => { if (props.openRegister) { setAsking(true); } else { setOpen(false); props.onSignOut(); } }}><Text>Sign out</Text></Button>
           <SheetCloseButton testID="user-sheet-close" onPress={() => setOpen(false)} />
         </View>
       </DialogContent>
