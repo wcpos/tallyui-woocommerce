@@ -327,6 +327,60 @@ test('rows sort by Last Name and a header press flips or moves the sort', async 
   expect(screen.queryByTestId('data-table-header-billing')).toBeNull();
 });
 
+// The classes of the components that drew one DOM node: up its fibers to the next host element.
+function hostClasses(node: Element): string[] {
+  type Fiber = { memoizedProps?: { className?: unknown }; return?: Fiber; stateNode?: unknown };
+  let fiber = (node as unknown as Record<string, unknown>)[Object.keys(node).find(name => name.startsWith('__reactFiber$'))!] as Fiber | undefined;
+  const found: string[] = [];
+  for (; fiber && (fiber.stateNode === node || !(fiber.stateNode instanceof Element)); fiber = fiber.return) {
+    if (typeof fiber.memoizedProps?.className === 'string') found.push(...fiber.memoizedProps.className.split(/\s+/));
+  }
+  return found;
+}
+
+// v2 components/src/table/index.tsx:107-135: cells `justify-center px-3 py-1.5`; heads at ResizeHead's 44 px min-h-row.
+test('the wide table draws v2\'s density: centred cells at py-1.5 and 44 px heads', async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1280, height: 800, scale: 1, fontScale: 1 });
+  await findRows();
+  const cells = within(screen.getByTestId('customers-row-7')).getAllByRole('cell');
+  expect(cells.length).toBeGreaterThan(1);
+  for (const cell of cells) expect(hostClasses(cell)).toEqual(expect.arrayContaining(['justify-center', 'px-3', 'py-1.5']));
+  const heads = screen.getAllByRole('columnheader');
+  expect(heads.length).toBeGreaterThan(1);
+  for (const head of heads) expect(hostClasses(head)).toEqual(expect.arrayContaining(['min-h-11', 'justify-center', 'px-3']));
+});
+
+// v2 data-table/header.tsx:40,73: every head label is numberOfLines={1}, which RN-web draws as one nowrap, ellipsised line.
+test('each head label is one line, as v2\'s numberOfLines={1}', async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1280, height: 800, scale: 1, fontScale: 1 });
+  await findRows();
+  for (const label of ['First Name', 'Last Name', 'Email', 'Billing Address', 'Date Created']) {
+    const style = getComputedStyle(within(screen.getByRole('columnheader', { name: label })).getByText(label));
+    expect([label, style.whiteSpace, style.textOverflow]).toEqual([label, 'nowrap', 'ellipsis']);
+  }
+});
+
+// v2 sort-icon/index.tsx: the sorted column's chevron is text-foreground.
+test('the sorted head\'s chevron is text-foreground', async () => {
+  await findRows();
+  expect(screen.getByTestId('data-table-sort-last_name-asc').contains(screen.getByTestId('customers-sort-chevron'))).toBe(true);
+  expect(classesOf('customers-sort-chevron')).toContain('text-foreground');
+  fireEvent.click(screen.getByTestId('data-table-header-last_name'));
+  expect(classesOf('customers-sort-chevron')).toContain('text-foreground');
+});
+
+// v2 header.tsx:62-78 (`showIcon = hovered || isSorted`) and sort-icon: a hovered unsorted head shows a muted up chevron.
+test('hovering an unsorted sortable head shows a muted up chevron', async () => {
+  await findRows();
+  const head = screen.getByTestId('data-table-header-first_name');
+  expect(screen.queryByTestId('data-table-sort-first_name-hover')).toBeNull();
+  fireEvent.pointerEnter(head, { pointerType: 'mouse' });
+  expect(head.contains(screen.getByTestId('data-table-sort-first_name-hover'))).toBe(true);
+  expect(classesOf('data-table-sort-first_name-hover')).toContain('text-muted-foreground');
+  fireEvent.pointerLeave(head, { pointerType: 'mouse' });
+  expect(screen.queryByTestId('data-table-sort-first_name-hover')).toBeNull();
+});
+
 test('found customers show how many are shown', async () => {
   await findRows();
   expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 2');

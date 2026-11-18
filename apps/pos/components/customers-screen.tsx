@@ -41,6 +41,11 @@ export const CUSTOMERS_COLUMNS: readonly AreaColumn<CustomersColumnId>[] = [
 const COLUMN_CLASS: Partial<Record<CustomersColumnId, string>> = {
   avatar_url: 'w-16 flex-none', email: 'flex-[2]', billing: 'flex-[2]',
 };
+// v2's cell (components/src/table/index.tsx:129 `justify-center px-3 py-1.5`) and head at ResizeHead's 44 px `min-h-row`
+// (core data-table/resize.tsx:40), as coupons-screen.tsx's CELL and HEAD.
+const CELL = 'justify-center px-3 py-1.5';
+const HEAD = 'min-h-11 justify-center px-3';
+const cell = (id: CustomersColumnId, extra = '') => [CELL, COLUMN_CLASS[id], extra].filter(Boolean).join(' ');
 // v2 draws skeletonCount(height, 48) rows, at most SKELETON_MAX_ROWS = 12 (components/src/skeleton/index.tsx:22-27).
 // Nothing here measures the card, so the app draws the cap and clips it; a 1280×800 card is taller than 12 × 48.
 const SKELETON_ROWS = Array.from({ length: 12 }, (_, i) => i);
@@ -52,16 +57,16 @@ function sortable(id: CustomersColumnId): id is CustomerSortField {
 }
 
 function customerCell(id: CustomersColumnId, c: Customer, now: Date): JSX.Element {
-  const className = COLUMN_CLASS[id];
+  const className = cell(id);
   switch (id) {
     // v2 cells/avatar.tsx:19-23 draws size="lg", which is v2's size-10 (components/src/avatar/index.tsx:45): TallyUI's md, h-10.
     case 'avatar_url': return <TableCell key={id} className={className}><Avatar size="md" fallback={customerInitials(c)} /></TableCell>;
-    case 'id': return <TableCell key={id}><Text>{c.id}</Text></TableCell>;
-    case 'first_name': return <TableCell key={id}><Text>{c.firstName ?? ''}</Text></TableCell>;
-    case 'last_name': return <TableCell key={id}><Text>{c.lastName ?? ''}</Text></TableCell>;
+    case 'id': return <TableCell key={id} className={className}><Text>{c.id}</Text></TableCell>;
+    case 'first_name': return <TableCell key={id} className={className}><Text>{c.firstName ?? ''}</Text></TableCell>;
+    case 'last_name': return <TableCell key={id} className={className}><Text>{c.lastName ?? ''}</Text></TableCell>;
     case 'email': return <TableCell key={id} className={className}><Text testID={c.email ? `customer-email-${c.email}` : undefined}>{c.email ?? ''}</Text></TableCell>;
-    case 'billing': return <TableCell key={id} className={`${className} gap-0.5`}>{billingLines(c).map(line => <Text key={line}>{line}</Text>)}</TableCell>;
-    case 'date_created_gmt': return <TableCell key={id}><Text>{(c.createdAt && dayLabel(c.createdAt, now)) || '—'}</Text></TableCell>;
+    case 'billing': return <TableCell key={id} className={cell(id, 'gap-0.5')}>{billingLines(c).map(line => <Text key={line}>{line}</Text>)}</TableCell>;
+    case 'date_created_gmt': return <TableCell key={id} className={className}><Text>{(c.createdAt && dayLabel(c.createdAt, now)) || '—'}</Text></TableCell>;
   }
 }
 
@@ -131,18 +136,21 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
 
   const header = (
     <TableHeader><TableRow>
-      {columns.map(({ id, label }) => <TableHead key={id} className={COLUMN_CLASS[id]}>
-        {/* v2 hides the avatar column's label (`hideLabel`). */}
+      {columns.map(({ id, label }) => <TableHead key={id} className={`${HEAD} ${COLUMN_CLASS[id] ?? ''}`}>
+        {/* v2 hides the avatar column's label (`hideLabel`). v2 header.tsx:40-80, sort-icon/index.tsx: one-line labels, the sorted
+            chevron text-foreground, a muted up chevron on a hovered unsorted head (Pressable's `hovered`), else none. */}
         {id === 'avatar_url' ? null : sortable(id)
           ? <Pressable testID={`data-table-header-${id}`} accessibilityRole="button" onPress={() => setSort(s => nextSort(s, id))}>
-            <View testID={sort.field === id ? `data-table-sort-${id}-${sort.direction}` : undefined} className="flex-row items-center gap-1">
-              <Text>{label}</Text>
-              {sort.field === id ? (sort.direction === 'asc' ? <SortAscIcon size={12} /> : <SortDescIcon size={12} />) : null}
-            </View>
+            {({ hovered }: { hovered?: boolean }) => <View testID={sort.field === id ? `data-table-sort-${id}-${sort.direction}` : undefined} className="max-w-full flex-row items-center gap-1">
+              <Text numberOfLines={1} className="shrink">{label}</Text>
+              {sort.field === id ? (sort.direction === 'asc' ? <SortAscIcon testID="customers-sort-chevron" size={12} className="text-foreground" />
+                : <SortDescIcon testID="customers-sort-chevron" size={12} className="text-foreground" />)
+                : hovered ? <SortAscIcon testID={`data-table-sort-${id}-hover`} size={12} className="text-muted-foreground" /> : null}
+            </View>}
           </Pressable>
-          : <Text>{label}</Text>}
+          : <Text numberOfLines={1}>{label}</Text>}
       </TableHead>)}
-      <TableHead className="w-16 flex-none" />
+      <TableHead className={`${HEAD} w-16 flex-none`} />
     </TableRow></TableHeader>
   );
 
@@ -162,8 +170,8 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
         </View>
       )) : <Table>{header}<TableBody>
         {SKELETON_ROWS.map(i => <TableRow key={i} testID={`customers-skeleton-row-${i}`}>
-          {columns.map(({ id }) => <TableCell key={id} className={COLUMN_CLASS[id]}><View testID="customers-skeleton-bar" className={BAR} /></TableCell>)}
-          <TableCell className="w-16 flex-none"><View testID="customers-skeleton-bar" className={BAR} /></TableCell>
+          {columns.map(({ id }) => <TableCell key={id} className={cell(id)}><View testID="customers-skeleton-bar" className={BAR} /></TableCell>)}
+          <TableCell className={`${CELL} w-16 flex-none`}><View testID="customers-skeleton-bar" className={BAR} /></TableCell>
         </TableRow>)}
       </TableBody></Table>}
     </View>
@@ -186,7 +194,7 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
           <TableBody>
             {shown.map(c => <TableRow key={c.id} testID={`customers-row-${c.id}`}>
               {columns.map(({ id }) => customerCell(id, c, now))}
-              <TableCell className="w-16 flex-none">
+              <TableCell className={`${CELL} w-16 flex-none`}>
                 <IconButton testID="customer-open-button" accessibilityLabel="Open customer" variant="ghost" size="sm" disabled><ChevronRightIcon size={16} /></IconButton>
               </TableCell>
             </TableRow>)}
