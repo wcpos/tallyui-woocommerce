@@ -63,8 +63,13 @@ test("the item heads are v2's caption rank: QTY ITEM PRICE TOTAL", () => {
 });
 
 test('an unknown status word is capitalised', () => {
+  show(make({ status: 'awaiting-pickup' }));
+  expect(screen.getByTestId('order-modal-status').textContent).toBe('Awaiting-pickup');
+});
+
+test('a pos-open order\'s status reads POS open', () => {
   show(make({ status: 'pos-open' }));
-  expect(screen.getByTestId('order-modal-status').textContent).toBe('Pos-open');
+  expect(screen.getByTestId('order-modal-status').textContent).toBe('POS open');
 });
 
 test('a partly refunded order reads Partially refunded and closes on Net Payment', () => {
