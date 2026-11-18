@@ -80,3 +80,35 @@ test('Close calls onClose once', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Close' }));
   expect(onClose).toHaveBeenCalledTimes(1);
 });
+
+// v2's AmountFigure hero (amount-figure/index.tsx:18-24): text-amt (40px, line 1.1), font-bold tabular-nums, centred.
+const HERO = ['text-[40px]', 'leading-[44px]', 'font-bold', 'tabular-nums', 'text-center'];
+
+/** The classes on the headline's first Text, read off its fibers up to the headline wrapper (it has no testID, as in v2). */
+type Fiber = { memoizedProps?: { testID?: string; className?: unknown }; return?: Fiber };
+function headlineClasses(): string[] {
+  const node = screen.getByTestId('checkout-paid-headline').firstElementChild as unknown as Record<string, unknown>;
+  let fiber = node[Object.keys(node).find(name => name.startsWith('__reactFiber$'))!] as Fiber | undefined;
+  const found: string[] = [];
+  for (; fiber && fiber.memoizedProps?.testID !== 'checkout-paid-headline'; fiber = fiber.return) {
+    const { className } = fiber.memoizedProps ?? {};
+    if (typeof className === 'string') found.push(...className.split(/\s+/));
+  }
+  return found;
+}
+
+test("the change headline is v2's hero figure: 40px, bold, tabular, centred", () => {
+  show([cash(600, { tenderedMinor: 1000, changeMinor: 400 })]);
+  const classes = classesOf('receipt-change-due');
+  expect(classes).toEqual(expect.arrayContaining(HERO));
+  expect(classes).not.toContain('text-2xl');
+  expect(classes).not.toContain('font-semibold');
+});
+
+test("the paid headline is v2's hero figure: 40px, bold, tabular, centred", () => {
+  show([cash(600, { tenderedMinor: 600, changeMinor: 0 })]);
+  const classes = headlineClasses();
+  expect(classes).toEqual(expect.arrayContaining(HERO));
+  expect(classes).not.toContain('text-2xl');
+  expect(classes).not.toContain('font-semibold');
+});
