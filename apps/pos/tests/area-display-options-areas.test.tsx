@@ -151,7 +151,7 @@ async function renderCoupons() {
   await screen.findByTestId('coupons-row-10off');
   return db;
 }
-const couponHeaders = () => screen.getAllByTestId(/^coupons-header-/).map(node => node.textContent);
+const couponHeaders = () => screen.getAllByTestId(/^coupons-head-/).map(node => node.textContent);
 const COUPON_DEFAULT_HEADERS = ['Active', 'Code', 'Amount', 'Type', 'Description', 'Usage', 'Expiry Date'];
 
 test('Coupons: the display options sit before the bell', async () => {
