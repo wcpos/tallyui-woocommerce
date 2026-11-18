@@ -171,6 +171,16 @@ test('Recent attempts lists each attempt newest first with its badge and gap', (
   expect(classesOf('barcode-test-history-row-0')).toEqual(expect.arrayContaining(['flex-row', 'p-3']));
 });
 
+test('a burst of only the saved prefix lists its raw keys as too short', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  fireEvent.change(screen.getByTestId('settings-barcode-prefix'), { target: { value: ']C1' } });
+  // The prefix comes off and leaves no code, so the row falls back to the raw keys, not a dash.
+  burst(']C1', 5);
+  expect(screen.getByTestId('barcode-test-result').textContent).toBe('too short');
+  expect(historyRow(0)).toBe(']C1too short5ms');
+});
+
 test('an attempt with no gap shows a dash for its gap', () => {
   vi.useFakeTimers();
   render(<BarcodeScanningSettings />);
