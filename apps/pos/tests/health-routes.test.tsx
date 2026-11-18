@@ -1,5 +1,5 @@
 // The Store health area's routes: the sub-nav layout, its index and the old /logs link.
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import HealthLayoutRoute from '../app/health/_layout';
@@ -29,9 +29,24 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
-test('/health opens on Database', () => {
+test('/health opens on Database when wide', () => {
   render(<HealthIndex />);
   expect(screen.getByTestId('redirect').getAttribute('data-href')).toBe('/health/database');
+});
+
+test('on a phone /health shows the list, each row with a chevron, and no page card', () => {
+  setWidth(400);
+  mocks.pathname = '/health';
+  render(<><HealthLayoutRoute /><HealthIndex /></>);
+  expect(screen.queryByTestId('redirect')).toBeNull();
+  expect(screen.getByTestId('screen-health')).not.toBeNull();
+  expect(screen.getAllByTestId(/^health-nav-[a-z]+$/).map(el => [el.textContent, !!within(el).queryByTestId(`${el.getAttribute('data-testid')}-chevron`)]))
+    .toEqual([['Database', true], ['Performance', true], ['Logs', true]]);
+  expect(screen.queryByTestId('health-page')).toBeNull();
+  // The Slot stays mounted on the index: without it expo-router loops (React #185) entering /health.
+  expect(within(screen.getByTestId('screen-health')).getByTestId('slot')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('health-nav-logs'));
+  expect(mocks.router.push).toHaveBeenCalledExactlyOnceWith('/health/logs');
 });
 
 test('the old /logs link lands on /health/logs', () => {
