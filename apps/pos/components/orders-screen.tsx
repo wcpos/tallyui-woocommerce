@@ -37,6 +37,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
   const customerRequest = useRef(0);
   const [orders, setOrders] = useState<StoreOrder[]>([]);
   const [hasMore, setHasMore] = useState(false);
+  const [total, setTotal] = useState<number | null>(null);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(history !== null);
   const [failed, setFailed] = useState(false);
@@ -55,6 +56,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
     if (nextPage === 1) {
       setOrders([]);
       setHasMore(false);
+      setTotal(null);
       setPage(0);
     }
     setLoading(true);
@@ -65,6 +67,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
       if (mine !== request.current) return;
       setOrders(current => [...new Map([...current, ...result.orders].map(order => [order.id, order])).values()]);
       setHasMore(result.hasMore);
+      setTotal(result.total ?? null);
       setPage(nextPage);
     } catch {
       if (mine !== request.current) return;
@@ -135,7 +138,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
               : search !== '' || filtered
                 ? <EmptyState title="No orders match these filters" action={{ label: 'Clear filters', onPress: clear }} />
                 : <EmptyState title="No orders yet" description="Sales you take will appear here." />
-            : <OrdersTable local={local} store={orders} footer={footer} active={loading}
+            : <OrdersTable local={local} store={orders} footer={footer} active={loading} total={total}
               visible={columns.filter(column => column.visible).map(column => column.id)}
               onSync={history ? () => { void loadPage(1, search); } : undefined}
               onOpen={row => { if (row.kind === 'store') setViewing(row.order); else open(row.order); }} />

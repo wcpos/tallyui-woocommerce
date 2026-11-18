@@ -167,6 +167,13 @@ test('a till sale opens as a reprint', async () => {
   expect(screen.getByTestId('receipt-order').textContent).toBe(`Order ${reference} · #305`);
 }, 20_000);
 
+test("the store's total reaches the footer: Showing 1 of 40", async () => {
+  const list = vi.fn<OrderHistorySource['list']>(async () => ({ orders: [storeOrder], hasMore: true, total: 40 }));
+  await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list }, false);
+  expect(await screen.findByTestId('history-row-901')).not.toBeNull();
+  expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 1 of 40');
+});
+
 test('Load more fetches the next page', async () => {
   const next = { ...storeOrder, id: '902', reference: '902' };
   const list = vi.fn<OrderHistorySource['list']>()

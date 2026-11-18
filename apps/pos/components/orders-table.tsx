@@ -126,7 +126,9 @@ function headCell({ id, label }: AreaColumn<OrdersColumnId>): JSX.Element {
 }
 
 /** v2's orders table (screens/main/orders/index.tsx): grouped by day, newest first; the chevron opens the order. */
-export function OrdersTable({ local, store, onOpen, footer, active = false, onSync, now = () => new Date(), visible = ALL_COLUMNS }: {
+export function OrdersTable({ local, store, onOpen, footer, active = false, onSync, now = () => new Date(), visible = ALL_COLUMNS, total = null }: {
+  /** The store's count of every order the query matches; null when it gives none. */
+  total?: number | null;
   /** The columns the Orders display options leave on; the table keeps its own order. The chevron always shows. */
   visible?: readonly OrdersColumnId[];
   /** The store's list is loading: the sync button turns. */
@@ -198,8 +200,8 @@ export function OrdersTable({ local, store, onOpen, footer, active = false, onSy
         </ScrollView>
       </TableSurface>
       <CaptionRowInset>
-        {/* The store's order list is paged and the connector reports no total, so the count is "Showing N". */}
-        <TableCount shown={items.filter(item => item.type === 'order').length} total={null} active={active} onSync={onSync} />
+        {/* Local rows are not on the store yet, so they are added to its total. */}
+        <TableCount shown={rows.length} total={total === null ? null : total + rows.filter(row => row.kind === 'local').length} active={active} onSync={onSync} />
       </CaptionRowInset>
     </>
   );
