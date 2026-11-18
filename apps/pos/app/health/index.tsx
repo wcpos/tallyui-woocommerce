@@ -1,6 +1,7 @@
 import { Redirect } from 'expo-router';
+import { useIsWide } from '../../lib/layout/wide';
 
-// v2 health/index.tsx: the area opens on Database.
+// v2 health/index.tsx (`NavigationAreaIndex`): wide opens on Database; a phone stays here, where the layout draws the page list.
 export default function HealthIndex() {
-  return <Redirect href="/health/database" />;
+  return useIsWide() ? <Redirect href="/health/database" /> : null;
 }

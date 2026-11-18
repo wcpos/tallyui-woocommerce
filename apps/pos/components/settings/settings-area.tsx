@@ -1,20 +1,23 @@
 import type { JSX, ReactNode } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Button, SettingsLayout, Text } from '@tallyui/components';
+import { ChevronRightIcon } from '../icons';
 
 export interface SettingsNavItem { href: string; label: string; testID: string;
   /** The page's help line under its title (v2 `AreaPage` `description`). */
   description?: string;
 }
 
-/** v2 `NavItem` (row size): selection lifts the row onto `bg-card`, the page card's own surface; no button look. */
-function NavRow({ item, selected, onPress }: { item: SettingsNavItem; selected: boolean; onPress(): void }): JSX.Element {
+/** v2 `NavItem` (row size): selection lifts the row onto `bg-card`, the page card's own surface; no button look.
+ *  `chevron`: the phone index's trailing mark (v2 nav-item/index.tsx:96). */
+function NavRow({ item, selected, onPress, chevron = false }: { item: SettingsNavItem; selected: boolean; onPress(): void; chevron?: boolean }): JSX.Element {
   return (
     <Pressable testID={item.testID} accessibilityRole="button" accessibilityState={{ selected }}
       // react-native-web reads aria-selected, not accessibilityState (as app-rail.tsx).
       aria-selected={selected} onPress={onPress}
       className={`h-10 flex-row items-center rounded-md px-3 ${selected ? 'bg-card' : 'web:hover:bg-card/60'}`}>
-      <Text className={`text-sm ${selected ? 'text-foreground' : 'text-muted-foreground'}`}>{item.label}</Text>
+      <Text className={`flex-1 text-sm ${selected ? 'text-foreground' : 'text-muted-foreground'}`}>{item.label}</Text>
+      {chevron && <ChevronRightIcon testID={`${item.testID}-chevron`} size={16} className="text-muted-foreground" />}
     </Pressable>
   );
 }
@@ -65,16 +68,32 @@ export function SettingsArea({ items, currentHref, onNavigate, onBack, wide, tit
       </View>
     );
   }
+  const header = (
+    <View className="flex-row items-center gap-4 p-4">
+      <Button testID={`${id}-back`} onPress={onBack}><Text>Back</Text></Button>
+      <Text className="text-xl font-semibold">{areaTitle}</Text>
+    </View>
+  );
+  // v2 `NavigationAreaIndex` (navigation-area/index.tsx:146-151): on a phone the area opens on its page list, rows with a chevron, no page.
+  if (title === undefined) {
+    return (
+      <View testID={`${id}-navigation`} className="flex-1 bg-background">
+        {header}
+        <ScrollView testID={`screen-${id}`} className="flex-1 bg-background">
+          <View testID={`${id}-navigation-rail`} className="gap-1 p-3">
+            {items.map(item => <NavRow key={item.href} item={item} selected={false} chevron onPress={() => onNavigate(item.href)} />)}
+          </View>
+          {/* The index route (null on a phone): its Slot stays mounted, or expo-router loops (React #185) entering the index. */}
+          {children}
+        </ScrollView>
+      </View>
+    );
+  }
   return (
     <SettingsLayout
       testID={`${id}-navigation`}
       layout="stacked"
-      headerSlot={
-        <View className="flex-row items-center gap-4 p-4">
-          <Button testID={`${id}-back`} onPress={onBack}><Text>Back</Text></Button>
-          <Text className="text-xl font-semibold">{areaTitle}</Text>
-        </View>
-      }
+      headerSlot={header}
       navSlot={<View testID={`${id}-navigation-rail`} className="gap-1 p-2">{navRows}</View>}
       contentSlot={page}
     />

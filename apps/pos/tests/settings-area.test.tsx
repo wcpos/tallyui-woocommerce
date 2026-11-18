@@ -139,6 +139,33 @@ test('on a phone Settings keeps its Back bar, and Back leaves Settings', () => {
   expect(onBack).toHaveBeenCalledOnce();
 });
 
+test('on a phone the Settings index lists every page with a chevron and no page card', () => {
+  renderArea({ wide: false, currentHref: '/settings' });
+  expect(screen.getByTestId('screen-settings')).not.toBeNull();
+  for (const item of SETTINGS_NAV_ITEMS) {
+    const row = screen.getByTestId(item.testID);
+    expect(row.textContent).toBe(item.label);
+    expect(within(row).getByTestId(`${item.testID}-chevron`)).not.toBeNull();
+    expect(row.getAttribute('aria-selected')).not.toBe('true');
+  }
+  expect(screen.queryByTestId('settings-page')).toBeNull();
+  expect(screen.queryByTestId('settings-screen')).toBeNull();
+  // The index route itself (its Slot) stays mounted, inside the list and outside any page card.
+  expect(within(screen.getByTestId('screen-settings')).getByText('body')).not.toBeNull();
+});
+
+test('pressing a row on the phone index navigates to its page', () => {
+  const onNavigate = vi.fn();
+  renderArea({ wide: false, currentHref: '/settings', onNavigate });
+  fireEvent.click(screen.getByTestId('settings-nav-card-readers'));
+  expect(onNavigate).toHaveBeenCalledExactlyOnceWith('/settings/card-readers');
+});
+
+test('wide rows carry no chevron', () => {
+  renderArea({ wide: true, currentHref: '/settings/tax' });
+  for (const item of SETTINGS_NAV_ITEMS) expect(screen.queryByTestId(`${item.testID}-chevron`)).toBeNull();
+});
+
 test('the General page carries its title once', () => {
   renderArea({ wide: true, currentHref: '/settings/general' }, <GeneralSettings store={store} siteHome={siteHome} />);
   expect(screen.getAllByText('General')).toHaveLength(2);
