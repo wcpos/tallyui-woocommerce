@@ -139,6 +139,8 @@ test('card refuses an over-tender and takes the total with the terminal referenc
   expect(screen.getByTestId('checkout-method-pos_card').getAttribute('aria-selected')).toBe('true');
   press('clear', '4', '0', '0');
   expect(text('checkout-entry-hint')).toBe("Only $3.00 is due — Card can't give change");
+  // v2 tone.ts:23: a warning word takes text-warning-text, the darker ink on light themes.
+  expect(classesOf('checkout-entry-hint')).toContain('text-warning-text');
   expect(disabled()).toBe('true');
   press('clear', '3', '0', '0');
   expect(text('checkout-commit')).toBe('Take $3.00 in Card');
@@ -313,7 +315,7 @@ test('multi: after one leg the Tendered line adds the order total; the first leg
 test('offline, the To pay row ends with an Offline caption', async () => {
   await startTender('Cash', 'offline');
   expect(text('checkout-offline')).toBe('Offline');
-  expect(classesOf('checkout-offline')).toEqual(expect.arrayContaining(['text-xs', 'text-warning']));
+  expect(classesOf('checkout-offline')).toEqual(expect.arrayContaining(['text-xs', 'text-warning-text']));
 }, 20_000);
 
 /** Holds the next order save until the returned release is called, so a test reads the pane while it saves. */
@@ -470,7 +472,7 @@ test("a save held past 4 s says the store isn't answering, and the line goes wit
   expect(screen.queryByTestId('checkout-save-slow')).toBeNull();
   advance(100);
   expect(text('checkout-save-slow')).toBe(SLOW);
-  expect(classesOf('checkout-save-slow')).toEqual(expect.arrayContaining(['text-center', 'text-sm', 'text-warning']));
+  expect(classesOf('checkout-save-slow')).toEqual(expect.arrayContaining(['text-center', 'text-sm', 'text-warning-text']));
   vi.useRealTimers();
   release();
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();

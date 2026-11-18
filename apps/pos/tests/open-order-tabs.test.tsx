@@ -17,6 +17,7 @@ import { openParkedList, parkedTabs, stripLayout } from './open-orders-helpers';
 import { Toaster } from '../components/toaster';
 import { dismissToast } from '../lib/toast/toast';
 import { runBeforeLeave } from '../lib/sale/before-leave';
+import { classesOf } from './classes-of';
 
 function SaleScreen(props: SaleScreenProps) {
   return <><SaleScreenWithoutHost {...props} /><PortalHost /></>;
@@ -301,6 +302,9 @@ test('(a) a cart parked 5 h ago reads its amount, then its age', () => {
   expect(screen.getByTestId('open-order-tab-a-amount').textContent).toBe('$16.83 · 5 h');
   const age = screen.getByTestId('open-order-tab-a-age');
   expect(age.textContent).toBe('5 h');
+  // v2 open-orders-list test :191 asserts the stale age is text-warning-text.
+  expect(classesOf('open-order-tab-a-age')).toContain('text-warning-text');
+  expect(classesOf('open-order-tab-a-age')).not.toContain('text-warning');
 });
 
 test('(b) a cart under an hour old shows no age until the minute tick crosses the hour', () => {

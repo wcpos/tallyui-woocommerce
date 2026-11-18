@@ -36,7 +36,7 @@ export function PerformanceScreen({ metrics, healthy, now = Date.now, children }
   return (
     <View testID="screen-health-performance" className="gap-6">
       <View className="flex-row flex-wrap items-baseline gap-2">
-        <Text testID="performance-status" className={healthy ? 'font-semibold text-success' : 'font-semibold text-warning'}>
+        <Text testID="performance-status" className={healthy ? 'font-semibold text-success' : 'font-semibold text-warning-text'}>
           {healthy ? '✓ Normal' : '⚠ Needs attention'}
         </Text>
         <Text testID="performance-summary" className="text-sm text-muted-foreground">

@@ -83,6 +83,8 @@ test('a recount settles the counted cash and lists the correction', () => {
   expect(screen.getByTestId('closure-term-counted').textContent).toBe('Counted settled');
   expect(screen.getByTestId('closure-term-counted-amount').textContent).toBe('$125.00');
   expect(screen.getByTestId('closure-settled').textContent).toBe('Recorded $124.00 · $1.00 short. Settled at $125.00 after 1 recount.');
+  // v2 tone.ts:23: a warning word takes text-warning-text, the darker ink on light themes.
+  expect(classesOf('closure-settled')).toContain('text-warning-text');
   const correction = screen.getByTestId('closure-correction-7').textContent;
   expect(correction).toContain('Recount');
   expect(correction).toContain('Sam · Approved by Paul');

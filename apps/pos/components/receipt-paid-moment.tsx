@@ -52,7 +52,7 @@ export function ReceiptPaidMoment({ posOrder, locale, onClose }: {
             ? <Text testID="receipt-change-due" className="text-2xl font-semibold">{`Change ${money(figures.changeMinor)}`}</Text>
             : <Text className="text-2xl font-semibold">{`Paid ${money(figures.paidMinor)}`}</Text>}
           <Text testID="receipt-paid-with" className="text-muted-foreground text-center">
-            {awaiting ? <Text testID="receipt-awaiting-store" className="text-warning">Awaiting store · </Text> : null}
+            {awaiting ? <Text testID="receipt-awaiting-store" className="text-warning-text">Awaiting store · </Text> : null}
             {subLine}
           </Text>
         </View>
