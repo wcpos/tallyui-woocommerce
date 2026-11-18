@@ -6,7 +6,8 @@ import { PortalHost } from '@tallyui/primitives';
 import { CatalogueView } from '../components/catalogue-view';
 import type { CatalogueViewProps } from '../components/catalogue-view';
 import { SaleScreen } from '../components/sale-screen';
-import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { CATALOGUE_VIEW_DEFAULTS, CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import type { CatalogueTileFields } from '../lib/catalogue/catalogue-view-state';
 import { QUICK_FILTERS_KEY } from '../lib/catalogue/quick-filters';
 import { classesOf } from './classes-of';
 import { noTaxSettings } from './fixtures/store-settings';
@@ -413,4 +414,65 @@ test('the crumb focuses once on mount, without scrolling; a search in the level 
   fireEvent.change(screen.getByPlaceholderText('Search products'), { target: { value: 'shirt' } });
   expect(screen.getByTestId('products-breadcrumb').textContent).toBe('CategoriesMerch');
   expect(focus).toHaveBeenCalledTimes(1);
+});
+
+// v2's variation-tile.tsx:150-157, 172-174 (stockMark as the poster's pill) and :183-192 (moneyRow with the struck
+// regular price). 104 is on sale at $20.00 (regular $22.00); 105 has 7 left.
+const onSale = (doc: (typeof docs)[number]) => ({ ...doc, price: '20.00', regular_price: '22.00', sale_price: '20.00', on_sale: true });
+const sale = { ...shirt, variation_docs: docs.map(doc => doc.id === 104 ? onSale(doc) : doc.id === 105 ? { ...doc, stock_quantity: 7 } : doc) };
+const fields = (on: Partial<CatalogueTileFields>, more: object = {}) =>
+  view({ browseBy: 'all', tileFields: { ...CATALOGUE_VIEW_DEFAULTS.tileFields, ...on }, ...more });
+
+test('with Stock on a managed variation tile shows its "N left" pill; with it off there is none', () => {
+  fields({ stock: true });
+  renderView([sale]);
+  drillIn();
+  const pill = within(screen.getByTestId('variation-tile-105')).getByTestId('variation-tile-stock-105');
+  expect(pill.getAttribute('aria-label')).toBe('7 left');
+  expect(pill.textContent).toBe('7');
+  expect(screen.getByTestId('variation-tile-stock-104').getAttribute('aria-label')).toBe('10 left');
+  cleanup();
+  fields({ stock: false });
+  renderView([sale]);
+  drillIn();
+  expect(screen.queryAllByTestId(/^variation-tile-stock-/)).toEqual([]);
+});
+
+test('with On Sale on a variation on sale strikes its regular price after the bold price; with it off there is none', () => {
+  fields({ on_sale: true });
+  renderView([sale]);
+  drillIn();
+  const tile = within(screen.getByTestId('variation-tile-104'));
+  expect(tile.getByTestId('variation-price-104').textContent).toBe('$20.00');
+  expect(tile.getByTestId('variation-was-104').textContent).toBe('$22.00');
+  expect(classesOf('variation-was-104')).toEqual(expect.arrayContaining(['text-xs', 'text-muted-foreground', 'line-through']));
+  expect(classesOf('variation-was-104')).not.toContain('font-bold');
+  // One money row: the bold price first, then the struck regular price beside it.
+  expect(screen.getByTestId('variation-was-104').previousElementSibling).toBe(screen.getByTestId('variation-price-104'));
+  expect(screen.queryByTestId('variation-was-105')).toBeNull();
+  cleanup();
+  fields({ on_sale: false });
+  renderView([sale]);
+  drillIn();
+  expect(screen.getByTestId('variation-price-104').textContent).toBe('$20.00');
+  expect(screen.queryAllByTestId(/^variation-was-/)).toEqual([]);
+});
+
+test('a sold-out variation on sale shows Sold out and no was-price', () => {
+  fields({ on_sale: true, stock: true });
+  renderView([{ ...sale, variation_docs: sale.variation_docs.map(doc => doc.id === 104 ? { ...doc, stock_status: 'outofstock', stock_quantity: 0 } : doc) }]);
+  fireEvent.click(screen.getByTestId('filter-pill-remove-stock_status'));
+  drillIn();
+  expect(screen.getByTestId('variation-sold-out-104').textContent).toBe('Sold out');
+  expect(screen.queryByTestId('variation-was-104')).toBeNull();
+  expect(screen.queryByTestId('variation-tile-stock-104')).toBeNull();
+});
+
+test('the variation row is unchanged by the tile fields', () => {
+  fields({ stock: true, on_sale: true }, { view: 'table' });
+  renderView([sale]);
+  fireEvent.click(screen.getByText('T-Shirt'));
+  const row = screen.getByTestId('variation-row-104');
+  expect(row.textContent).toBe('SBlack$20.00');
+  expect(within(row).queryAllByTestId(/^variation-(was|tile-stock)-/)).toEqual([]);
 });
