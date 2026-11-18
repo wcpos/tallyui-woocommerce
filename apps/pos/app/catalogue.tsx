@@ -86,7 +86,8 @@ export default function Catalogue() {
       onOpenCoupons={() => router.push('/coupons')}
       onOpenCustomers={() => router.push('/customers')}
       onOpenReports={() => router.push('/reports')}
-      onOpenHealth={() => router.push('/health/database' as Href)}
+      // v2 apps/main/app/(app)/(drawer)/_layout.tsx:138: the drawer opens Health's index (page list on a phone, Database when wide).
+      onOpenHealth={() => router.push('/health' as Href)}
       onOpenSettings={() => router.push('/settings' as Href)}
     />}</StoreSettingsGate>
     </>
