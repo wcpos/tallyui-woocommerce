@@ -54,7 +54,7 @@ test('the table lists the coupons under v2 headers, newest first, with amount an
   await withCoupons();
   expect(screen.getByTestId('screen-coupons')).not.toBeNull();
   expect(screen.getByRole('heading', { name: 'Coupons' })).not.toBeNull();
-  const headers = screen.getAllByTestId(/^coupons-header-/).map(el => el.textContent);
+  const headers = screen.getAllByTestId(/^coupons-head-/).map(el => el.textContent);
   expect(headers).toEqual(['Active', 'Code', 'Amount', 'Type', 'Description', 'Usage', 'Expiry Date']);
   expect(rowCodes()).toEqual(['coupons-row-10off', 'coupons-row-5dollars', 'coupons-row-old']);
   expect(row('10off').getByText('10%')).not.toBeNull();
@@ -359,5 +359,71 @@ test("Date Created and Date Modified read v2's day words: Today, Yesterday, else
   } finally {
     vi.unstubAllGlobals();
     vi.useRealTimers();
+  }
+});
+
+// v2 initial-settings.json `coupons`: sortBy date_created_gmt desc; code, date_created_gmt and date_modified_gmt sort.
+test('default order is newest created first, and a coupon with no Date Created goes last', async () => {
+  await db.coupons.insert({ uuid: 'c-7', id: 7, code: 'nodate', discount_type: 'percent', amount: '1', ...base });
+  await withCoupons();
+  await screen.findByTestId('coupons-row-nodate');
+  expect(rowCodes()).toEqual(['coupons-row-10off', 'coupons-row-5dollars', 'coupons-row-old', 'coupons-row-nodate']);
+});
+
+test("tapping Code sorts A→Z, a second tap Z→A, with v2's chevron", async () => {
+  await db.coupons.bulkInsert([
+    { uuid: 'c-10', id: 10, code: 'Zeta', discount_type: 'percent', amount: '1', date_created_gmt: '2026-04-01T10:00:00', ...base },
+    { uuid: 'c-11', id: 11, code: 'alpha', discount_type: 'percent', amount: '1', date_created_gmt: '2025-12-01T10:00:00', ...base },
+  ]);
+  await withCoupons();
+  await screen.findByTestId('coupons-row-Zeta');
+  expect(rowCodes()).toEqual(['Zeta', '10off', '5dollars', 'old', 'alpha'].map(code => `coupons-row-${code}`));
+  fireEvent.click(screen.getByTestId('data-table-header-code'));
+  await waitFor(() => expect(rowCodes()).toEqual(['10off', '5dollars', 'alpha', 'old', 'Zeta'].map(code => `coupons-row-${code}`)));
+  expect(screen.getByTestId('data-table-sort-code-asc').contains(screen.getByTestId('coupons-sort-chevron'))).toBe(true);
+  fireEvent.click(screen.getByTestId('data-table-header-code'));
+  await waitFor(() => expect(rowCodes()).toEqual(['Zeta', 'old', 'alpha', '5dollars', '10off'].map(code => `coupons-row-${code}`)));
+  expect(screen.getByTestId('data-table-sort-code-desc').contains(screen.getByTestId('coupons-sort-chevron'))).toBe(true);
+  expect(screen.queryByTestId('data-table-sort-code-asc')).toBeNull();
+});
+
+test('with Date Modified shown, tapping its head orders by date_modified_gmt ascending', async () => {
+  const shown = JSON.stringify([{ id: 'date_modified_gmt', visible: true }]);
+  vi.stubGlobal('localStorage', { getItem: (key: string) => (key === areaColumnsKey('coupons') ? shown : null), setItem: () => {} });
+  try {
+    await db.coupons.bulkInsert([
+      { ...couponDocs[0], date_modified_gmt: '2026-05-03T10:00:00' },
+      { ...couponDocs[1], date_modified_gmt: '2026-05-01T10:00:00' },
+      couponDocs[2],
+    ]);
+    renderScreen();
+    await screen.findByTestId('coupons-row-10off');
+    expect(rowCodes()).toEqual(['coupons-row-10off', 'coupons-row-5dollars', 'coupons-row-old']);
+    fireEvent.click(screen.getByTestId('data-table-header-date_modified_gmt'));
+    await waitFor(() => expect(rowCodes()).toEqual(['coupons-row-old', 'coupons-row-5dollars', 'coupons-row-10off']));
+    expect(screen.getByTestId('data-table-sort-date_modified_gmt-asc')).not.toBeNull();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+test('the Amount, Type and Active heads are plain: no sort head', async () => {
+  await withCoupons();
+  for (const id of ['amount', 'discount_type', 'active', 'description', 'usage_count', 'date_expires_gmt']) {
+    expect(screen.queryByTestId(`data-table-header-${id}`)).toBeNull();
+  }
+  expect(screen.getByTestId('coupons-header-amount').textContent).toBe('Amount');
+  expect(screen.getByTestId('data-table-header-code')).not.toBeNull();
+});
+
+test("the columns take v2's flex: Active 1.4, Code and Description 2", async () => {
+  await withCoupons();
+  for (const testID of ['coupons-head-active', 'coupons-cell-active-10off']) {
+    expect(classesOf(testID)).toContain('flex-[1.4]');
+    expect(classesOf(testID)).not.toContain('w-28');
+    expect(classesOf(testID)).not.toContain('flex-none');
+  }
+  for (const testID of ['coupons-head-code', 'coupons-cell-code-10off', 'coupons-head-description', 'coupons-cell-description-10off']) {
+    expect(classesOf(testID)).toContain('flex-[2]');
   }
 });

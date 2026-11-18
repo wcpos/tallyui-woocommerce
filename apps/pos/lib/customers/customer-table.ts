@@ -37,9 +37,3 @@ export function sortCustomers(customers: readonly Customer[], sort: CustomerSort
     : (a[SORT_KEY[field]] ?? '').localeCompare(b[SORT_KEY[field]] ?? '', undefined, { sensitivity: 'base' });
   return [...customers].sort((a, b) => sign * (byField(a, b) || a.id.localeCompare(b.id, undefined, { numeric: true })));
 }
-
-// v2 packages/components/src/data-table/header.tsx: the sorted column flips, another column starts ascending.
-export function nextSort(current: CustomerSort, field: CustomerSortField): CustomerSort {
-  if (current.field === field) return { field, direction: current.direction === 'asc' ? 'desc' : 'asc' };
-  return { field, direction: 'asc' };
-}
