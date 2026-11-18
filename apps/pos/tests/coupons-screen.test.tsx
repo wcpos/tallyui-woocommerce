@@ -6,7 +6,7 @@ import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { createTallyDatabase } from '@tallyui/database';
 import { PortalHost } from '@tallyui/primitives';
-import { CouponsScreen } from '../components/coupons-screen';
+import { CouponsScreen, gmtDayText } from '../components/coupons-screen';
 import { CARD_CLASSES } from './classes-of';
 
 const connector = createWooCommerceConnector();
@@ -179,10 +179,31 @@ test('the narrow list shows each code with its badge, amount and type, and Back 
   expect(screen.queryAllByTestId(/^coupons-header-/)).toHaveLength(0);
   expect(row('10off').getByText('10off')).not.toBeNull();
   expect(row('10off').getByText('Active')).not.toBeNull();
-  expect(row('10off').getByText('10% · Percentage')).not.toBeNull();
+  expect(row('10off').getByText('Percentage · 10%')).not.toBeNull();
   expect(row('old').getByText('Inactive')).not.toBeNull();
   fireEvent.click(screen.getByTestId('coupons-back'));
   expect(onBack).toHaveBeenCalledOnce();
+});
+
+test("a phone row shows the description, then type · amount · Expires day, in v2's order", async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 400, height: 800, scale: 1, fontScale: 1 });
+  await withCoupons();
+  const description = screen.getByTestId('coupon-row-description-old');
+  expect(description.textContent).toBe('Expired');
+  const meta = screen.getByTestId('coupon-row-meta-old');
+  expect(meta.textContent).toBe(`Fixed Product · $2.00 · Expires ${gmtDayText('2020-01-01T00:00:00', 'en-US')}`);
+  expect(description.compareDocumentPosition(meta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.getByTestId('coupon-row-meta-10off').textContent).toBe('Percentage · 10%');
+});
+
+test('a phone row without a description or an expiry shows neither the line nor "Expires"', async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 400, height: 800, scale: 1, fontScale: 1 });
+  await db.coupons.bulkInsert([...couponDocs, { uuid: 'c-9', id: 9, code: 'bare', discount_type: 'fixed_cart', amount: '5', description: '', date_created_gmt: '2026-04-01T10:00:00', usage_count: 0, ...base }]);
+  renderScreen();
+  await screen.findByTestId('coupons-row-bare');
+  expect(screen.queryByTestId('coupon-row-description-bare')).toBeNull();
+  expect(screen.getByTestId('coupon-row-meta-bare').textContent).toBe('Fixed Cart · $5.00');
+  expect(screen.getByTestId('coupons-row-bare').textContent).not.toContain('Expires');
 });
 
 test('unmounting unsubscribes from the collection; documents carry no write methods it could call', () => {

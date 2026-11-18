@@ -303,7 +303,10 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
           <View key={c.uuid} testID={`coupons-row-${c.code}`} className="flex-row items-center gap-3 border-b border-border px-4 py-3">
             <View className="flex-1 gap-1">
               <Text className="font-medium text-foreground">{c.code}</Text>
-              <Text numberOfLines={1} className="text-muted-foreground">{`${couponAmount(c, currency, locale)} · ${typeLabel(c)}`}</Text>
+              {c.description ? <Text testID={`coupon-row-description-${c.code}`} numberOfLines={1} className="text-muted-foreground">{c.description}</Text> : null}
+              <Text testID={`coupon-row-meta-${c.code}`} numberOfLines={1} className="text-muted-foreground">
+                {[typeLabel(c), couponAmount(c, currency, locale), c.date_expires_gmt ? `Expires ${gmtDayText(c.date_expires_gmt, locale)}` : null].filter(Boolean).join(' · ')}
+              </Text>
             </View>
             <ActiveBadge coupon={c} now={now} />
           </View>
