@@ -232,6 +232,28 @@ test('online, the tiles carry no sent-later line', async () => {
   expect(screen.queryByTestId('checkout-offline')).toBeNull();
 }, 20_000);
 
+// WCPOS v2: tender-pane.tsx:280, :1030 (methodIcon), tabler register.svg and card.svg.
+const glyphPaths = (glyph: HTMLElement) => Array.from(glyph.querySelectorAll('path')).map(path => path.getAttribute('d')?.slice(0, 14));
+
+test('the Cash tile draws v2\'s register glyph and the Card tile its card glyph', async () => {
+  await startTender('Cash');
+  const cash = within(screen.getByTestId('checkout-method-pos_cash'));
+  const card = within(screen.getByTestId('checkout-method-pos_card'));
+  expect(glyphPaths(cash.getByTestId('checkout-method-icon-pos_cash-register'))).toEqual(['M21 15h-2.5a1.', 'M16 10V4a2 2 0']);
+  expect(glyphPaths(card.getByTestId('checkout-method-icon-pos_card-card'))).toEqual(['M3 8a3 3 0 0 1']);
+  expect(cash.queryByTestId('checkout-method-icon-pos_cash-card')).toBeNull();
+  expect(card.queryByTestId('checkout-method-icon-pos_card-register')).toBeNull();
+}, 20_000);
+
+test('each method glyph comes before its title inside the tile', async () => {
+  await startTender('Cash');
+  for (const [id, glyph, title] of [['pos_cash', 'register', 'Cash'], ['pos_card', 'card', 'Card']] as const) {
+    const tile = within(screen.getByTestId(`checkout-method-${id}`));
+    const icon = tile.getByTestId(`checkout-method-icon-${id}-${glyph}`);
+    expect(icon.compareDocumentPosition(tile.getByText(title)) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  }
+}, 20_000);
+
 // WCPOS v2: tender-pane.tsx:284-299, core.json pos_checkout.part_payment_left.
 test('a cash entry below the total is a part payment with what is left after it', async () => {
   await startTender('Cash');
