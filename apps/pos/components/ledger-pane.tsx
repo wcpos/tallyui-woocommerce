@@ -1,8 +1,21 @@
 import type { JSX } from 'react';
 import { Pressable, View } from 'react-native';
-import { Text } from '@tallyui/components';
+import { Badge, Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
-import type { useSale } from '@tallyui/pos';
+import type { Payment, useSale } from '@tallyui/pos';
+
+// v2 `statusLabel` / `statusVariant` (checkout/tender/labels.ts:6-28): a captured cash leg reads Paid; no status is captured.
+const STATUS_LABEL = { pending: 'Pending', authorized: 'Authorized', captured: 'Captured', failed: 'Failed', voided: 'Voided' };
+// The tinted badge of closure-list.tsx's ToneBadge, in v2's ok / bad / info tones.
+const TONE = { ok: ['success', 'bg-success/15'], bad: ['destructive', 'bg-destructive/15'], info: ['info', 'bg-info/15'] } as const;
+const settled = (p: Payment) => !p.status || p.status === 'captured' || p.status === 'authorized';
+function LegStatus({ payment: p }: { payment: Payment }): JSX.Element {
+  const status = p.status ?? 'captured';
+  const [variant, tint] = TONE[settled(p) ? 'ok' : status === 'failed' ? 'bad' : 'info'];
+  return <Badge testID={`checkout-status-leg-${p.id}`} variant={variant} className={`h-6 min-w-6 justify-center self-start px-2 py-0 ${tint}`}>
+    <Text className="text-sm font-bold tabular-nums text-foreground">{status === 'captured' && p.method === 'cash' ? 'Paid' : STATUS_LABEL[status]}</Text>
+  </Badge>;
+}
 
 /** WCPOS v2's checkout ledger: the balance, each local leg taken so far, and (closing) Total / Paid / Remaining. */
 export function LedgerPane({ order, onRemove, closing = false }: {
@@ -14,6 +27,8 @@ export function LedgerPane({ order, onRemove, closing = false }: {
 }): JSX.Element {
   const fmt = (amount: number) => formatMoney({ amount, currency: order.currency }) ?? '';
   const partPaid = order.payments.length > 0 && order.balanceDueMinor > 0;
+  // v2: a zero balance with nothing settled (every leg failed or voided) is not paid.
+  const paidInFull = order.balanceDueMinor === 0 && order.payments.some(settled);
   const row = (label: string, id: string, amount: number) => <View className="flex-row justify-between">
     <Text className="text-muted-foreground">{label}</Text>
     <Text testID={id} className="tabular-nums text-foreground">{fmt(amount)}</Text>
@@ -35,20 +50,23 @@ export function LedgerPane({ order, onRemove, closing = false }: {
           <View className="flex-1 gap-1">
             <Text className="text-foreground">{p.method === 'cash' ? 'Cash' : 'Card'}</Text>
             {p.reference ? <Text className="text-sm text-muted-foreground">{p.reference}</Text> : null}
+            {p.method === 'cash' && p.tenderedMinor ? <Text testID={`checkout-tendered-leg-${p.id}`} className="text-sm text-muted-foreground">
+              {`Tendered ${fmt(p.tenderedMinor)} · change ${fmt(p.changeMinor ?? 0)}`}</Text> : null}
           </View>
           <Text className="tabular-nums text-foreground">{fmt(p.amountMinor)}</Text>
+          <LegStatus payment={p} />
           {onRemove ? <Pressable testID={`checkout-remove-leg-${p.id}`} accessibilityRole="button" accessibilityLabel="Remove tender"
             onPress={() => onRemove(p.id)} className="rounded-md border border-border bg-card px-3 py-2">
             <Text className="text-foreground">Remove</Text>
           </Pressable> : null}
         </View>)}
+      {paidInFull && !closing ? <Text testID="checkout-ledger-paid-in-full" className="text-sm text-success">Paid in full</Text> : null}
     </View>
-    {order.balanceDueMinor === 0 && order.payments.length > 0
-      ? <Text testID="checkout-ledger-paid-in-full" className="font-semibold text-foreground">Paid in full</Text> : null}
     {closing ? <View testID="checkout-ledger-totals" className="gap-1 border-t border-border pt-2">
       {row('Total', 'checkout-order-total', order.totalMinor)}
       {row('Paid', 'checkout-ledger-paid', order.paidMinor)}
-      {order.balanceDueMinor > 0 ? row('Remaining', 'checkout-ledger-remaining', order.balanceDueMinor) : null}
+      {paidInFull ? <Text testID="checkout-ledger-paid-in-full" className="font-semibold text-success">Paid in full</Text>
+        : order.balanceDueMinor > 0 ? row('Remaining', 'checkout-ledger-remaining', order.balanceDueMinor) : null}
       {order.changeDueMinor > 0 ? row('Change', 'checkout-ledger-change', order.changeDueMinor) : null}
     </View> : null}
   </View>;
