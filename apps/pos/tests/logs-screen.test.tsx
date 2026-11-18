@@ -9,7 +9,7 @@ import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { BehaviorSubject } from 'rxjs';
 import { LogsScreen } from '../components/logs-screen';
 import { logRecordId, logRecordMigrationStrategies, logRecordSchema, type LogCollection, type LogRecord } from '../lib/logs/log-store';
-import { IDLE_OUTBOX_STATE, buildDebugInfo, formatDurationMs, formatLogTime, logStats, matchesLogFilter, outboxSyncStats,
+import { IDLE_OUTBOX_STATE, buildDebugInfo, buildLogEntryReport, formatDurationMs, formatLogTime, logStats, matchesLogFilter, outboxSyncStats,
   type OutboxSyncStats } from '../lib/logs/log-view';
 import { setVerboseDiagnostics } from '../lib/logs/verbose';
 import { dismissToast, getToasts } from '../lib/toast/toast';
@@ -262,6 +262,71 @@ test('pressing the active level pill again clears the level filter', async () =>
   fireEvent.click(screen.getByTestId(`logs-pill-${rows[1].id}`));
   expect(screen.queryByTestId('logs-chip-kind')).toBeNull();
   expect(shownRows()).toHaveLength(rows.length);
+});
+
+test('a row detail Copy copies the whole entry in v2\'s format and confirms', async () => {
+  const row: LogRecord = { id: logRecordId(now() - 5000, 9), timestamp: now() - 5000, level: 'warn', scope: 'outbox', message: 'Order refused',
+    code: 'refused', outcome: 'failed', durationMs: 1500, actor: { name: 'Ada', role: 'cashier', id: '7' },
+    syncRecord: { collection: 'orders', recordId: 'o1', outcome: 'failed', reason: 'HTTP 400' },
+    detail: '{"code":"refused","status":400}' };
+  await collection.insert(row);
+  const copyText = vi.fn().mockResolvedValue(undefined);
+  render(<LogsScreen {...props} collection={collection} copyText={copyText} />);
+  await screen.findByTestId(`logs-row-${row.id}`);
+  fireEvent.click(screen.getByTestId(`logs-toggle-${row.id}`));
+  fireEvent.click(screen.getByTestId(`logs-copy-event-${row.id}`));
+  await waitFor(() => expect(getToasts().map(({ type, title }) => ({ type, title }))).toEqual([{ type: 'success', title: 'Log entry copied' }]));
+  expect(copyText).toHaveBeenCalledTimes(1);
+  expect(copyText).toHaveBeenCalledWith(`TallyUI WooCommerce POS log entry — ${new Date(now() - 5000).toISOString()}
+Level: warn
+Error code: refused
+Category: outbox
+Actor: Ada (cashier, id 7)
+Outcome: failed
+Message: Order refused
+Request: 1.5 s
+Record: orders o1 · failed
+Reason: HTTP 400
+Log id: ${row.id}
+Details:
+{
+  "code": "refused",
+  "status": 400
+}`);
+});
+
+test('a row detail Copy that fails says so', async () => {
+  const row: LogRecord = { id: logRecordId(now() - 5000, 9), timestamp: now() - 5000, level: 'warn', scope: 'outbox', message: 'Order refused',
+    code: 'refused', outcome: 'failed', durationMs: 1500, actor: { name: 'Ada', role: 'cashier', id: '7' },
+    syncRecord: { collection: 'orders', recordId: 'o1', outcome: 'failed', reason: 'HTTP 400' },
+    detail: '{"code":"refused","status":400}' };
+  await collection.insert(row);
+  render(<LogsScreen {...props} collection={collection} copyText={vi.fn().mockRejectedValue(new Error('denied'))} />);
+  await screen.findByTestId(`logs-row-${row.id}`);
+  fireEvent.click(screen.getByTestId(`logs-toggle-${row.id}`));
+  fireEvent.click(screen.getByTestId(`logs-copy-event-${row.id}`));
+  await waitFor(() => expect(getToasts().map(({ type, title }) => ({ type, title }))).toEqual([{ type: 'error', title: "Couldn't copy the log entry" }]));
+});
+
+test('a row detail has no Copy without a clipboard', async () => {
+  const row: LogRecord = { id: logRecordId(now() - 5000, 9), timestamp: now() - 5000, level: 'warn', scope: 'outbox', message: 'Order refused',
+    code: 'refused', outcome: 'failed', durationMs: 1500, actor: { name: 'Ada', role: 'cashier', id: '7' },
+    syncRecord: { collection: 'orders', recordId: 'o1', outcome: 'failed', reason: 'HTTP 400' },
+    detail: '{"code":"refused","status":400}' };
+  await collection.insert(row);
+  render(<LogsScreen {...props} collection={collection} copyText={null} />);
+  await screen.findByTestId(`logs-row-${row.id}`);
+  fireEvent.click(screen.getByTestId(`logs-toggle-${row.id}`));
+  expect(screen.queryByTestId(`logs-copy-event-${row.id}`)).toBeNull();
+});
+
+test('buildLogEntryReport keeps the lines a row has', () => {
+  expect(buildLogEntryReport(rows[2])).toBe([
+    `${SOFTWARE_NAME} log entry — ${new Date(rows[2].timestamp).toISOString()}`, 'Level: info', 'Category: sale',
+    'Outcome: ok', 'Message: Sale ready', `Log id: ${rows[2].id}`,
+  ].join('\n'));
+  expect(buildLogEntryReport({ ...rows[2], actor: { id: '7' } })).toContain('\nActor: id 7\n');
+  expect(buildLogEntryReport({ ...rows[2], detail: 'not json' })).toMatch(/Details:\nnot json$/);
 });
 
 test('Copy debug info copies the debug text and confirms', async () => {
