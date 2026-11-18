@@ -40,7 +40,7 @@ import { EmptyState } from './empty-state';
 import { LevelBack } from './level-back';
 import { ProductAttributes, variationMatches, variationName } from './product-attributes';
 import type { ProductAttribute, VariationDoc, VariationMatch } from './product-attributes';
-import { gmtDayText } from './coupons-screen';
+import { utcDate } from './coupons-screen';
 import { StatusDot } from './status-dot';
 import { CaptionRowInset, TableCount, TableSurface, useCatalogueSync } from './table-surface';
 import type { StatusTone } from './status-dot';
@@ -232,10 +232,27 @@ function productColumns(currency: string, locale: string | undefined, onDrill: O
     priceColumn('price'),
     priceColumn('regular_price'),
     priceColumn('sale_price'),
-    // v2's RecordDateCell; the day reads as the coupons area's dates do.
+    // v2's RecordDateCell; derived on each render (v2's per-minute heartbeat refresh is not here).
     { id: 'date_modified_gmt', header: LABEL.date_modified_gmt, flex: 1.2,
-      render: doc => <Text testID={`product-date_modified_gmt-${doc.id}`}>{gmtDayText(doc.date_modified_gmt, locale)}</Text> },
+      render: doc => <Text testID={`product-date_modified_gmt-${doc.id}`}>{gmtAgoText(doc.date_modified_gmt, locale, new Date())}</Text> },
   ];
+}
+
+/** v2 use-date-format.tsx: under 24 hours old (differenceInHours, truncated) date-fns formatDistance with addSuffix,
+ *  else 'MMMM d, yyyy' in the locale; '' when empty or unreadable. A future date (clock skew) reads as the date. */
+export function gmtAgoText(value: string | undefined, locale: string | undefined, now: Date): string {
+  const date = value ? utcDate(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return '';
+  const seconds = (now.getTime() - date.getTime()) / 1000;
+  const minutes = Math.round(seconds / 60);
+  if (seconds >= 0 && seconds < 24 * 3600) return `${minutes === 0 ? 'less than a minute' : minutes < 2 ? '1 minute'
+    : minutes < 45 ? `${minutes} minutes` : minutes < 90 ? 'about 1 hour' : `about ${Math.round(minutes / 60)} hours`} ago`;
+  const options = { day: 'numeric', month: 'long', year: 'numeric' } as const;
+  try {
+    return date.toLocaleDateString(locale, options);
+  } catch {
+    return date.toLocaleDateString(undefined, options);
+  }
 }
 
 /** v2's body cell centres its content on the row (components/src/table/index.tsx:129 `flex-col justify-center`).
