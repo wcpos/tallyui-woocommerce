@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { IconButton, Text, XIcon } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
 import type { PosOrder, PosOrderPayment } from '@tallyui/pos';
+import { CheckIcon, ClockIcon } from './icons';
 
 // The method labels the reports and TallyUI's Receipt use.
 const METHOD_LABELS: Record<PosOrderPayment['method'], string> = { cash: 'Cash', external: 'Card terminal' };
@@ -44,8 +45,11 @@ export function ReceiptPaidMoment({ posOrder, locale, onClose }: {
       <View testID="receipt-paid-banner" className="items-center gap-3 p-4">
         <View testID="receipt-paid-disc" dataSet={{ tone: awaiting ? 'warning' : 'ok' }}
           accessibilityLabel={awaiting ? 'Awaiting store' : 'Paid'}
-          className={`size-12 rounded-full items-center justify-center ${awaiting ? 'bg-warning' : 'bg-success'}`}>
-          <Text className={`text-xl ${awaiting ? 'text-warning-foreground' : 'text-success-foreground'}`}>{awaiting ? '…' : '✓'}</Text>
+          className={`size-24 rounded-full items-center justify-center ${awaiting ? 'bg-warning-bg' : 'bg-ok-bg'}`}>
+          {/* v2's ToneDisc size="lg" (tone-disc/index.tsx:9-14): a 96px soft wash, the glyph at 36px in the tone's ink. */}
+          {awaiting
+            ? <ClockIcon testID="receipt-paid-glyph" size={36} className="text-warning-text" />
+            : <CheckIcon testID="receipt-paid-glyph" size={36} className="text-success" />}
         </View>
         {/* v2's AmountFigure hero (amount-figure/index.tsx:18-24): text-amt 40px, line 1.1 (global.css:44, :203), bold, tabular. */}
         <View testID="checkout-paid-headline" className="items-center gap-1">

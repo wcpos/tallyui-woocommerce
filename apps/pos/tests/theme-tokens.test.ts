@@ -35,9 +35,11 @@ const lightNames = [...new Set([...names(variantBlock(tokensCss, 'light')), ...n
 
 test('every extra theme defines exactly the variables light defines, once each', () => {
   // 38 plus v2's --selected pair (apps/main/global.css l.400-401), TallyUI 3.20.0's --color-scrim, v2's chart c1-c5
-  // and v2's --warning-text (l.112)
-  expect(lightNames).toHaveLength(47);
+  // and v2's --warning-text (l.112), plus v2's --ok-bg / --warning-bg (l.111, l.113)
+  expect(lightNames).toHaveLength(49);
   expect(lightNames).toContain('--color-warning-text');
+  expect(lightNames).toContain('--color-ok-bg');
+  expect(lightNames).toContain('--color-warning-bg');
   expect(lightNames).toContain('--color-tile-tint-5');
   for (const theme of EXTRA_THEMES) {
     const declared = names(variantBlock(themesCss, theme));
@@ -263,4 +265,25 @@ test("light, dark and the seven extra themes define v2's --color-warning-text, a
     expect(declared['--color-warning-text'], theme).toBe(V2_WARNING_TEXT[theme]);
   }
   expect(themeTokens(globalCss).get('--color-warning-text'), 'default').toBe(V2_WARNING_INK);
+});
+
+// v2 apps/main/global.css --ok-bg / --warning-bg (mapped to --color-ok-bg / --color-warning-bg at l.111, l.113):
+// the soft washes behind a tone disc or band, pale on the light-surface themes, deep on the dark ones.
+const V2_SOFT_WASH_LIGHT = ['oklch(0.96 0.03 155)', 'oklch(0.97 0.04 85)'];
+const V2_SOFT_WASH_DARK = ['oklch(0.28 0.04 155)', 'oklch(0.30 0.05 80)'];
+const V2_SOFT_WASH: Record<string, string[]> = {
+  light: V2_SOFT_WASH_LIGHT, // l.437, l.440
+  dark: V2_SOFT_WASH_DARK, ocean: V2_SOFT_WASH_DARK, sunset: V2_SOFT_WASH_DARK, monochrome: V2_SOFT_WASH_DARK, // l.577/580, l.715/718, l.853/856, l.989/992
+  paper: V2_SOFT_WASH_LIGHT, warm: V2_SOFT_WASH_LIGHT, bold: V2_SOFT_WASH_LIGHT, market: V2_SOFT_WASH_LIGHT, // l.1096/1099, l.1199/1202, l.1302/1305, l.1409/1412
+};
+const SOFT_WASH_TOKENS = ['--color-ok-bg', '--color-warning-bg'];
+
+test("light, dark and the seven extra themes define v2's --color-ok-bg and --color-warning-bg, and the default is light's", () => {
+  const sources: [string, string][] = [['light', globalCss], ['dark', globalCss], ...EXTRA_THEMES.map(theme => [theme, themesCss] as [string, string])];
+  for (const [theme, css] of sources) {
+    const declared = Object.fromEntries(declarations(variantBlock(css, theme)));
+    expect(SOFT_WASH_TOKENS.map(name => declared[name]), theme).toEqual(V2_SOFT_WASH[theme]);
+  }
+  const tokens = themeTokens(globalCss);
+  expect(SOFT_WASH_TOKENS.map(name => tokens.get(name)), 'default').toEqual(V2_SOFT_WASH_LIGHT);
 });
