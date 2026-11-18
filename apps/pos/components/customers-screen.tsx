@@ -51,9 +51,10 @@ const cell = (id: CustomersColumnId, extra = '') => [CELL, COLUMN_CLASS[id], ext
 const SKELETON_ROWS = Array.from({ length: 12 }, (_, i) => i);
 // v2's Skeleton shape="line" (`h-5`, `bg-muted rounded-lg`, skeleton/index.tsx:8,18) at w-3/4 (data-table/skeleton.tsx:59-62).
 const BAR = 'h-5 w-3/4 rounded-lg bg-muted';
-// The columns the header sorts (customer-table.ts sorts the loaded rows on these).
+// The columns the header sorts (customer-table.ts sorts the loaded rows on these): all but v2's `disableSort` ones
+// (initial-settings.json customers.columns: avatar_url, billing).
 function sortable(id: CustomersColumnId): id is CustomerSortField {
-  return id === 'first_name' || id === 'last_name' || id === 'email';
+  return id !== 'avatar_url' && id !== 'billing';
 }
 
 function customerCell(id: CustomersColumnId, c: Customer, now: Date): JSX.Element {
