@@ -223,6 +223,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       onSwitch={changeCashier} onAddAnother={() => changeCashier()} onSignOut={props.onSignOut}
       openRegister={register && signOutTitle ? { title: signOutTitle, onClose: () => startCountThen(register, () => setCartOpen(true)) } : undefined}
       onRemove={props.onRemoveCashier}
+      drawerRegister={signOutTitle ? register?.registerName ?? 'This till' : undefined}
       blockedReason={sale.stage.kind === 'tender' || sale.saving ? 'Finish or cancel the payment first.' : undefined}
       storeName={props.storeName}
       signedInAt={auth?.session?.signedInAt} awaitingStore={outbox.enabled ? outbox.state.pending : 0}

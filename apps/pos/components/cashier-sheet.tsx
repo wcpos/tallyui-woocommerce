@@ -98,6 +98,8 @@ export function CashierSheet(props: {
   /** Given, the drawer block is v2's drawer door: pressing it closes the sheet and opens the register's drawer flows. */
   onOpenDrawer?: () => void;
   adminUrl?: string;
+  /** The till's register while its session is open or counting: the hand-over says its drawer stays open. */
+  drawerRegister?: string;
   onSwitch(uuid: string): void;
   onRemove?(uuid: string): void;
   onAddAnother(): void;
@@ -109,6 +111,7 @@ export function CashierSheet(props: {
   const [open, setOpen] = useState(false);
   const [asking, setAsking] = useState(false);
   const [removing, setRemoving] = useState<CashierOption | null>(null);
+  const [handingTo, setHandingTo] = useState<CashierOption | null>(null);
   const n = props.awaitingStore ?? 0;
   // v2 user-sheet.tsx:496: counted while closed, so opening never flashes $0.00.
   const salesToday = useCashierSalesToday(props.sales?.orders, props.sales?.cashierRef ?? '', props.sales?.currency ?? '');
@@ -165,7 +168,7 @@ export function CashierSheet(props: {
             sibling, so no press nests inside a press. */}
         {props.cashiers.map(cashier => <View key={cashier.uuid} className="flex-row items-center gap-2">
           <Pressable testID={`user-sheet-user-${cashier.uuid}`} role="button" accessibilityLabel={cashier.name}
-            disabled={Boolean(props.blockedReason)} onPress={() => { setOpen(false); props.onSwitch(cashier.uuid); }}
+            disabled={Boolean(props.blockedReason)} onPress={() => setHandingTo(cashier)}
             className="min-h-11 min-w-0 flex-1 flex-row items-center gap-2 rounded-md px-2.5 py-1.5 web:hover:bg-accent active:bg-accent">
             <View testID={`user-sheet-user-${cashier.uuid}-avatar`} className="size-9 items-center justify-center rounded-full bg-primary">
               <Text className="text-xs font-medium text-primary-foreground">{getInitials(cashier.name)}</Text>
@@ -223,6 +226,23 @@ export function CashierSheet(props: {
           </AlertDialogCancel>
           <AlertDialogAction asChild onPress={() => { props.onRemove?.(removing.uuid); setRemoving(null); }}>
             <Button variant="destructive" testID="user-sheet-remove-confirm"><Text>Remove</Text></Button>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>}
+    {/* v2 switch-confirm.tsx:134-140,171,274-300 (en/core.json register.hand_till_to, hand_over_reloads,
+        drawer_stays_open_on, hand_over_to): a cashier row asks first; only the confirm switches, and a dismiss only
+        clears the choice, so the Action's own onOpenChange(false) cannot switch a second time. */}
+    {handingTo && <AlertDialog open onOpenChange={next => { if (!next) setHandingTo(null); }}>
+      <AlertDialogContent testID="switch-confirm">
+        <AlertDialogHeader>
+          <AlertDialogTitle>{`Hand the till to ${handingTo.name}?`}</AlertDialogTitle>
+          <AlertDialogDescription>{`The POS reloads as ${handingTo.name}.${props.drawerRegister ? ` The drawer stays open on ${props.drawerRegister}.` : ''}`}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel asChild onPress={() => setHandingTo(null)}><Button variant="outline" testID="switch-confirm-cancel"><Text>Cancel</Text></Button></AlertDialogCancel>
+          <AlertDialogAction asChild onPress={() => { const uuid = handingTo.uuid; setHandingTo(null); setOpen(false); props.onSwitch(uuid); }}>
+            <Button testID="switch-confirm-confirm"><Text>{`Hand over to ${handingTo.name}`}</Text></Button>
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

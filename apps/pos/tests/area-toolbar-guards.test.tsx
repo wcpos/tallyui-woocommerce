@@ -28,7 +28,8 @@ afterEach(() => { cleanup(); dismissToast(); });
 async function switchToAna() {
   render(<AppRailShown.Provider value={true}><AreaToolbar area="orders" title="Orders" onBack={vi.fn()} /><PortalHost /></AppRailShown.Provider>);
   fireEvent.click(screen.getByTestId('register-bar-avatar'));
-  await act(async () => { fireEvent.click(await screen.findByTestId('user-sheet-user-ana')); });
+  fireEvent.click(await screen.findByTestId('user-sheet-user-ana'));
+  await act(async () => { fireEvent.click(screen.getByTestId('switch-confirm-confirm')); });
 }
 
 test("the area avatar's switch is refused while the till refuses to leave: no switch, and the refusal is toasted", async () => {
