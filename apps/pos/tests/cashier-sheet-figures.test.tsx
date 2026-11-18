@@ -156,20 +156,18 @@ test('on a narrow screen the drawer door opens the cart so the register panel sh
   expect(screen.getByTestId('pos-pane-cart').style.display).not.toBe('none');
 }, 20_000);
 
-test('while a payment blocks the sheet the drawer door is disabled and pressing it does nothing', () => {
+// v2 user-sheet.tsx:688-691: the drawer door takes only `busy`, so a payment in flight does not hold it.
+test('while paying the drawer door stays pressable and opens the drawer', () => {
   const onOpenDrawer = vi.fn();
-  const sheet = (blockedReason?: string) => <><CashierSheet name="Bob Ross" cashiers={[]} onSwitch={() => {}} onAddAnother={() => {}}
+  render(<><CashierSheet name="Bob Ross" cashiers={[]} onSwitch={() => {}} onAddAnother={() => {}}
     onSignOut={() => {}} drawer={{ figure: '$12.00', verbs: 'Pay in · Pay out · Close register' }} onOpenDrawer={onOpenDrawer}
-    blockedReason={blockedReason} /><PortalHost /></>;
-  // The avatar is disabled while blocked, so open the sheet first, then block it (the sheet keeps its open state).
-  const { rerender } = render(sheet());
+    paying /><PortalHost /></>);
   fireEvent.click(screen.getByTestId('register-bar-avatar'));
-  rerender(sheet('Finish or cancel the payment first.'));
   const door = screen.getByTestId('user-sheet-drawer');
-  expect(door.getAttribute('aria-disabled')).toBe('true');
+  expect(door.getAttribute('aria-disabled')).not.toBe('true');
   fireEvent.click(door);
-  expect(onOpenDrawer).not.toHaveBeenCalled();
-  expect(screen.getByTestId('user-sheet')).not.toBeNull();
+  expect(onOpenDrawer).toHaveBeenCalledTimes(1);
+  expect(screen.queryByTestId('user-sheet')).toBeNull();
 });
 
 test('without onOpenDrawer the drawer block shows the figure only and is not a button', () => {
