@@ -8,6 +8,7 @@ import type { TenderKey, useSale } from '@tallyui/pos';
 import { useIsOnline } from '../lib/online/online-status';
 import { filterChipClassName, filterChipTextClassName } from './catalogue-filter-chips';
 import { EvenSplitTiles, PlanStrip } from './split-plan';
+import { CardIcon, RegisterIcon } from './icons';
 
 /** The single-payment path's two tiles: the connector maps cash to pos_cash and external to pos_card. */
 const METHODS = [
@@ -117,12 +118,16 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
         const selected = m.id === state.methodId;
         return <Pressable key={m.id} accessibilityRole="button" testID={`checkout-method-${m.id}`}
           aria-selected={selected} accessibilityState={{ selected }}
-          className={`flex-1 items-center rounded-lg border px-4 py-3 ${selected ? 'border-primary bg-muted' : 'border-border bg-card'}`}
+          className={`flex-1 items-center gap-1 rounded-lg border px-4 py-3 ${selected ? 'border-primary bg-muted' : 'border-border bg-card'}`}
           onPress={() => {
             dispatch({ type: 'pick-method', methodId: m.id, prefillMinor: planned?.thisPaymentMinor ?? balance, readerId: null });
             if (!multi && m.method !== stage.method) sale.startTender(m.method);
             if (m.method === 'cash') setReference('');
           }}>
+          {/* WCPOS v2: tender-pane.tsx:280 draws methodIcon (:1030) above the title: register for cash, card for the rest; 18 px (icon/index.tsx:27). */}
+          {m.method === 'cash'
+            ? <RegisterIcon testID={`checkout-method-icon-${m.id}-register`} size={18} strokeWidth={1.5} className="text-foreground" />
+            : <CardIcon testID={`checkout-method-icon-${m.id}-card`} size={18} strokeWidth={1.5} className="text-foreground" />}
           <Text className="text-base font-semibold text-foreground">{m.title}</Text>
           {/* WCPOS v2: tender-pane.tsx MethodStatus (ADR 0040 rule 1): a tile taken offline says it is sent later, and the risk. */}
           {!online && <View testID={`checkout-method-sent-later-${m.id}`}>

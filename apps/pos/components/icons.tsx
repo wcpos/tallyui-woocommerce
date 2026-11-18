@@ -28,3 +28,10 @@ export const DiscountIcon = createSvgIcon('DiscountIcon', () => <><Path d="m9 15
   <Path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0" /></>);
 // v2's `delete` glyph in its default set, tabler's trash at its 1.5 stroke (components/src/icon/svg/tabler/delete.svg).
 export const TrashIcon = createSvgIcon('TrashIcon', () => <Path d="M4 7h16m-10 4v6m4-6v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />);
+// v2's tabler `register` glyph at its 1.5 stroke (monorepo packages/components/src/icon/svg/tabler/register.svg).
+export const RegisterIcon = createSvgIcon('RegisterIcon', () => <>
+  <Path d="M21 15h-2.5a1.503 1.503 0 0 0-1.5 1.5a1.503 1.503 0 0 0 1.5 1.5h1a1.503 1.503 0 0 1 1.5 1.5a1.503 1.503 0 0 1-1.5 1.5H17m2 0v1m0-8v1m-6 6H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2m12 3.12V9a2 2 0 0 0-2-2h-2" />
+  <Path d="M16 10V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v6m8 0H8m8 0h1m-9 0H7m1 4v.01M8 17v.01m4-3.02V14m0 3v.01" />
+</>);
+// v2's tabler `card` glyph at its 1.5 stroke (monorepo packages/components/src/icon/svg/tabler/card.svg).
+export const CardIcon = createSvgIcon('CardIcon', () => <Path d="M3 8a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zm0 2h18M7 15h.01M11 15h2" />);
