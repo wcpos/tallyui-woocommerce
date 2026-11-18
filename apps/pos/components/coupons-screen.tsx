@@ -34,7 +34,7 @@ import {
   CHIP_CLEAR_CELL_CLASS, CHIP_CLEAR_GLYPH_SIZE, chipInkClassName, filterChipClassName, filterChipTextClassName,
 } from './catalogue-filter-chips';
 import { EmptyState } from './empty-state';
-import { InfoIcon } from './icons';
+import { ChevronRightIcon, InfoIcon } from './icons';
 import { SortHead } from './sort-head';
 import { StatusDot } from './status-dot';
 import type { StatusTone } from './status-dot';
@@ -327,13 +327,16 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
         {width < NARROW_WIDTH ? shown.map(c => (
           <View key={c.uuid} testID={`coupons-row-${c.code}`} className="flex-row items-center gap-3 border-b border-border px-4 py-3">
             <View className="flex-1 gap-1">
-              <Text className="font-medium text-foreground">{c.code}</Text>
+              <Text testID={`coupon-row-code-${c.code}`} numberOfLines={1} className="font-semibold text-foreground">{c.code}</Text>
               {c.description ? <Text testID={`coupon-row-description-${c.code}`} numberOfLines={1} className="text-muted-foreground">{c.description}</Text> : null}
               <Text testID={`coupon-row-meta-${c.code}`} numberOfLines={1} className="text-muted-foreground">
-                {[typeLabel(c), couponAmount(c, currency, locale), c.date_expires_gmt ? `Expires ${gmtDayText(c.date_expires_gmt, locale)}` : null].filter(Boolean).join(' · ')}
+                {[typeLabel(c), couponAmount(c, currency, locale), c.date_expires_gmt ? `Expires ${gmtDayWord(c.date_expires_gmt, now)}` : null].filter(Boolean).join(' · ')}
               </Text>
             </View>
             <ActiveBadge coupon={c} now={now} />
+            {/* v2 coupons/row.tsx trailing: the chevron at Icon's default size-4.5 (components/src/icon/index.tsx:27).
+                A mark only: this app has no coupon edit to open. */}
+            <ChevronRightIcon testID={`coupons-row-chevron-${c.code}`} size={18} className="text-muted-foreground" />
           </View>
         )) : <Table>
           <TableHeader><TableRow>

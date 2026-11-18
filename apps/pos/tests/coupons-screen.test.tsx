@@ -192,9 +192,57 @@ test("a phone row shows the description, then type · amount · Expires day, in 
   const description = screen.getByTestId('coupon-row-description-old');
   expect(description.textContent).toBe('Expired');
   const meta = screen.getByTestId('coupon-row-meta-old');
-  expect(meta.textContent).toBe(`Fixed Product · $2.00 · Expires ${gmtDayText('2020-01-01T00:00:00', 'en-US')}`);
+  // v2 row.tsx: `Expires ${day(...)}`, the store day words; the fixture is UTC midnight, so the day follows the zone.
+  expect(meta.textContent).toMatch(/^Fixed Product · \$2\.00 · Expires (Today|Yesterday|[A-Z][a-z]{2} \d{1,2} [A-Z][a-z]{2})$/);
   expect(description.compareDocumentPosition(meta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(screen.getByTestId('coupon-row-meta-10off').textContent).toBe('Percentage · 10%');
+});
+
+// v2 coupons/row.tsx:56-58: the meta reads `${t('coupons.expires')} ${day(date_expires_gmt)}` (use-store-day-label).
+test("a phone row's expiry reads v2's day words: Expires Today, else Expires EEE d MMM", async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 400, height: 800, scale: 1, fontScale: 1 });
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 9, 20, 12));
+  try {
+    const gmt = (date: Date) => date.toISOString().slice(0, 19);
+    await db.coupons.bulkInsert([
+      { uuid: 'c-7', id: 7, code: 'today', discount_type: 'percent', amount: '5', date_created_gmt: gmt(new Date(2026, 9, 1, 12)),
+        date_expires_gmt: gmt(new Date(2026, 9, 20, 12)), ...base },
+      { uuid: 'c-8', id: 8, code: 'later', discount_type: 'percent', amount: '5', date_created_gmt: gmt(new Date(2026, 9, 2, 12)),
+        date_expires_gmt: gmt(new Date(2027, 0, 15, 12)), ...base },
+    ]);
+    renderScreen();
+    await screen.findByTestId('coupons-row-today');
+    expect(screen.getByTestId('coupon-row-meta-today').textContent).toBe('Percentage · 5% · Expires Today');
+    expect(screen.getByTestId('coupon-row-meta-later').textContent).toBe('Percentage · 5% · Expires Fri 15 Jan');
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+function numberOfLinesOf(testID: string): unknown {
+  const node = screen.getByTestId(testID) as unknown as Record<string, unknown>;
+  let fiber = node[Object.keys(node).find(name => name.startsWith('__reactFiber$'))!] as
+    { memoizedProps?: { testID?: string; numberOfLines?: unknown }; return?: unknown } | undefined;
+  let found: unknown;
+  for (; fiber; fiber = fiber.return as typeof fiber) {
+    if (fiber.memoizedProps?.testID === testID && fiber.memoizedProps.numberOfLines !== undefined) found = fiber.memoizedProps.numberOfLines;
+  }
+  return found;
+}
+
+// v2 coupons/row.tsx:40-48: the code is one semibold line, and trailing is ActiveBadge then a muted chevronRight.
+test("a phone row's code is v2's semibold single line, and the row ends at a muted chevron", async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 400, height: 800, scale: 1, fontScale: 1 });
+  await withCoupons();
+  const code = classesOf('coupon-row-code-10off');
+  expect(code).toContain('font-semibold');
+  expect(code).not.toContain('font-medium');
+  expect(numberOfLinesOf('coupon-row-code-10off')).toBe(1);
+  const rowEl = screen.getByTestId('coupons-row-10off');
+  const chevron = within(rowEl).getByTestId('coupons-row-chevron-10off');
+  expect(rowEl.lastElementChild).toBe(chevron);
+  expect(classesOf('coupons-row-chevron-10off')).toContain('text-muted-foreground');
 });
 
 test('a phone row without a description or an expiry shows neither the line nor "Expires"', async () => {
