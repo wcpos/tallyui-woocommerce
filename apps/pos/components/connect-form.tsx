@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { JSX, ReactNode } from 'react';
 import { Linking, ScrollView, View } from 'react-native';
 import { Button, IconButton, Input, Label, Loader, Text, XIcon } from '@tallyui/components';
+import { DEMO_STORE_HOME } from '../lib/auth/capabilities';
 import { CONNECT_STAGE_COPY, useConnectDiscovery } from '../lib/auth/use-connect-discovery';
 import { errorCodeDocUrl } from '../lib/logs/error-code-docs';
 import type { StartSignIn } from '../lib/auth/use-connect-discovery';
@@ -32,6 +33,12 @@ export function ConnectForm({ startSignIn, signInError, saved }: ConnectFormProp
     if (siteInput.trim() === '') return;
     setShowSignInError(false);
     void discovery.connect(siteInput);
+  }
+  function connectDemo() {
+    setSiteInput(DEMO_STORE_HOME);
+    setFormOpen(true);
+    setShowSignInError(false);
+    void discovery.connect(DEMO_STORE_HOME);
   }
   return (
     <ScrollView style={{ flex: 1 }} className="bg-background"
@@ -65,6 +72,9 @@ export function ConnectForm({ startSignIn, signInError, saved }: ConnectFormProp
             <Text>Learn more</Text><Text className="text-muted-foreground">{`· ${errorCode}`}</Text>
           </Button> : null}
       </View> : null}
+      {/* v2 demo-button.tsx:178-186, last in the stack as connect.tsx:73; the cashier signs in on the store's own page. */}
+      <Button testID="enter-demo-store-button" variant="ghost" size="sm" disabled={busy}
+        accessibilityState={{ busy }} onPress={connectDemo}><Text>Try the demo store</Text></Button>
       </View>
     </ScrollView>
   );

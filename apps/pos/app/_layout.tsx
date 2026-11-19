@@ -19,6 +19,8 @@ import { UpdateRequiredGate } from '../components/update-required';
 import { railNavigation } from '../lib/layout/rail-routes';
 import { useIsWide } from '../lib/layout/wide';
 import { applyStoredTheme } from '../lib/theme/theme-setting';
+import { ScaleSettingProvider } from '../lib/theme/scale-setting';
+import { FontSettingProvider } from '../lib/theme/font-setting';
 
 // Before the first render: this device's System/Light/Dark choice (Settings > Theme).
 applyStoredTheme();
@@ -38,13 +40,17 @@ export default function RootLayout() {
   // v2 clears before hydration, before any provider opens a database.
   return (
     <LocalDataResetGate>
-      <StatusBar style="auto" />
-      <SessionProvider>
-        <SessionOnlineStatusProvider>
-          <OnlineStatusLogger />
-          <CatalogueProvider>
-            {/* v2 (app)/_layout.tsx: the scan hub sits above navigation, so a direct scanner stays open between screens. */}
-            <AppScanHub>
+      {/* v2 contexts/scale: this device's Scale step (Settings > Theme), round the stack and the toaster. */}
+      <ScaleSettingProvider>
+        {/* This device's Fonts choice (Settings > Theme) for every Text: v2's useThemeType round the app (contexts/theme-traits/index.tsx:20-60). */}
+        <FontSettingProvider>
+        <StatusBar style="auto" />
+        <SessionProvider>
+          <SessionOnlineStatusProvider>
+            <OnlineStatusLogger />
+            <CatalogueProvider>
+              {/* v2 (app)/_layout.tsx: the scan hub sits above navigation, so a direct scanner stays open between screens. */}
+              <AppScanHub>
               <OutboxProvider>
                 <RegisterProvider>
                   <UnreadLogsProvider>
@@ -54,11 +60,13 @@ export default function RootLayout() {
                   </UnreadLogsProvider>
                 </RegisterProvider>
               </OutboxProvider>
-            </AppScanHub>
-          </CatalogueProvider>
-        </SessionOnlineStatusProvider>
-      </SessionProvider>
-      <Toaster />
+              </AppScanHub>
+            </CatalogueProvider>
+          </SessionOnlineStatusProvider>
+        </SessionProvider>
+        <Toaster />
+        </FontSettingProvider>
+      </ScaleSettingProvider>
     </LocalDataResetGate>
   );
 }
