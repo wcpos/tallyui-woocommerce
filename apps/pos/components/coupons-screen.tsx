@@ -262,19 +262,29 @@ function ActiveBadge({ coupon, now }: { coupon: CouponDoc; now: Date }): JSX.Ele
 }
 
 /** One body cell's content; the table draws its TableCell. */
-function couponContent(id: CouponsColumnId, c: CouponDoc, now: Date, currency: string, locale: string | undefined): JSX.Element {
+function couponContent(id: CouponsColumnId, c: CouponDoc, now: Date, currency: string, locale: string | undefined,
+  onFilter: (field: FilterKey, value: string) => void): JSX.Element {
   switch (id) {
     case 'active': return <ActiveBadge coupon={c} now={now} />;
     case 'code': return <Text className="font-medium">{c.code}</Text>;
     case 'amount': return <Text>{couponAmount(c, currency, locale)}</Text>;
-    case 'discount_type': return <Text>{typeLabel(c)}</Text>;
+    // v2 cells/discount-type.tsx:20-24: a `size="sm"` Chip that filters to the row's type, as orders-table's customer chip.
+    case 'discount_type': return <Pressable accessibilityRole="button" accessibilityLabel={typeLabel(c)} testID={`coupon-type-filter-${c.code}`}
+      className="h-8 max-w-full flex-row items-center self-start rounded-full border border-border px-2.5 web:hover:bg-accent"
+      onPress={() => onFilter('discount_type', c.discount_type ?? 'percent')}>
+      <Text numberOfLines={1} className="shrink text-sm text-foreground">{typeLabel(c)}</Text>
+    </Pressable>;
     case 'description': return <Text>{c.description ?? ''}</Text>;
     case 'usage_count': return <Text testID={`coupon-usage-${c.code}`}>{usageText(c)}</Text>;
     case 'date_expires_gmt': return <Text testID={`coupon-expiry-${c.code}`}>{gmtDayText(c.date_expires_gmt, locale)}</Text>;
     case 'status': {
       const status = c.status ?? '';
       const label = STATUS_CHOICES.find(choice => choice.value === status)?.label ?? status;
-      return <StatusDot testID={`coupon-status-${c.code}`} tone={STATUS_TONE[status] ?? 'muted'} label={label} />;
+      // v2 cells/status.tsx:20-27, components/status-filter-cell.tsx:24-32: pressed, it filters to the row's status.
+      return <Pressable accessibilityRole="button" accessibilityLabel={label} testID={`coupon-status-filter-${c.code}`}
+        className="self-start" onPress={() => { if (status) onFilter('status', status); }}>
+        <StatusDot testID={`coupon-status-${c.code}`} tone={STATUS_TONE[status] ?? 'muted'} label={label} />
+      </Pressable>;
     }
     case 'date_created_gmt':
     case 'date_modified_gmt':
@@ -373,7 +383,7 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
           <TableBody>
             {shown.map(c => <TableRow key={c.uuid} testID={`coupons-row-${c.code}`}>
               {columns.map(({ id, className }) => <TableCell key={id} testID={`coupons-cell-${id}-${c.code}`}
-                className={classes(CELL, ALIGN[id], className)}>{couponContent(id, c, now, currency, locale)}</TableCell>)}
+                className={classes(CELL, ALIGN[id], className)}>{couponContent(id, c, now, currency, locale, setFilter)}</TableCell>)}
             </TableRow>)}
           </TableBody>
         </Table>}
