@@ -81,14 +81,14 @@ test('status tones follow v2', () => {
 
 test('a store row fills Status, Order Number, Customer, Date Created, Payment Method and Total', () => {
   expect(orderRowCells({ kind: 'store', order: storeOrder }, now)).toEqual({
-    statusLabel: 'On hold', tone: 'warning', number: '901', customer: 'Guest', date: 'Today · 10:00', day: 'Today', payment: 'Cash', total: '$6.00',
+    statusLabel: 'On hold', tone: 'warning', number: '901', customer: 'Guest', date: 'Today · 10:00', day: 'Today', payment: 'Cash', total: '$6.00', refunds: '',
   });
 });
 
 test('a till row names its largest payment and its sync state', () => {
   expect(orderRowCells({ kind: 'local', order: posOrder({ syncStatus: 'rejected', customer: { name: 'Brenda Walsh' },
     payments: [{ id: 'p1', method: 'cash', amountMinor: 100 }, { id: 'p2', method: 'external', amountMinor: 200 }] as PosOrder['payments'] }) }, now))
-    .toEqual({ statusLabel: 'Not accepted', tone: 'bad', number: '23456789', customer: 'Brenda Walsh', date: 'Today · 14:41', day: 'Today', payment: 'Card', total: '$3.00' });
+    .toEqual({ statusLabel: 'Not accepted', tone: 'bad', number: '23456789', customer: 'Brenda Walsh', date: 'Today · 14:41', day: 'Today', payment: 'Card', total: '$3.00', refunds: '' });
   expect(orderRowCells({ kind: 'local', order: posOrder({}) }, now).payment).toBe('');
 });
 
@@ -105,6 +105,48 @@ test("a till row's day comes from its createdAt", () => {
   const cells = orderRowCells({ kind: 'local', order: posOrder({ createdAt: at(2026, 11, 9, 9, 5) }) }, now);
   expect(cells.day).toBe('Yesterday');
   expect(cells.date).toBe('Yesterday · 09:05');
+});
+
+// v2 orders/cells/total.tsx:41-51: the refunds sum by absolute amount and show as a negative `text-bad` line under the total.
+const refunded = (amounts: number[]): StoreOrder =>
+  ({ ...storeOrder, id: '930', reference: '930', refunds: amounts.map((amountMinor, i) => ({ id: `r${i}`, amountMinor })) });
+const REFUND_LINE = ['text-destructive', 'text-right', 'text-sm', 'tabular-nums'];
+
+test('at 1280 an order with refunds of 4.50 shows -$4.50 under its Total in the destructive tone', () => {
+  render(<OrdersTable local={[]} store={[refunded([450])]} onOpen={vi.fn()} now={() => now} />);
+  const line = screen.getByTestId('order-total-refunds-930');
+  expect(line.textContent).toBe('-$4.50');
+  expect(classesOf('order-total-refunds-930')).toEqual(expect.arrayContaining(REFUND_LINE));
+  const cell = screen.getByTestId('history-930-total');
+  expect(cell.contains(line)).toBe(true);
+  expect(cell.textContent).toBe('$6.00-$4.50');
+});
+
+test("at 390 the phone row's total shows the same refunds line", () => {
+  setWidth(390);
+  render(<OrdersTable local={[]} store={[refunded([450])]} onOpen={vi.fn()} now={() => now} />);
+  expect(screen.queryByTestId('orders-table')).toBeNull();
+  const line = screen.getByTestId('order-total-refunds-930');
+  expect(line.textContent).toBe('-$4.50');
+  expect(classesOf('order-total-refunds-930')).toEqual(expect.arrayContaining(REFUND_LINE));
+  expect(screen.getByTestId('history-930-total').textContent).toBe('$6.00');
+  expect(screen.getByTestId('history-930-total').nextElementSibling).toBe(line);
+});
+
+test('an order with no refunds, absent or empty, draws no refunds line at 1280 or 390', () => {
+  const absent = { ...storeOrder, id: '931', reference: '931', refunds: undefined } as unknown as StoreOrder;
+  for (const width of [1280, 390]) {
+    setWidth(width);
+    render(<OrdersTable local={[posOrder({ id: 'local-1' })]} store={[storeOrder, absent, refunded([0])]} onOpen={vi.fn()} now={() => now} />);
+    expect(screen.getByTestId('history-901-total').textContent).toBe('$6.00');
+    for (const id of ['901', '931', '930', 'local-1']) expect(screen.queryByTestId(`order-total-refunds-${id}`)).toBeNull();
+    cleanup();
+  }
+});
+
+test("several refunds sum by absolute amount as v2's refundTotal: 1.00 and 2.50 show -$3.50", () => {
+  expect(orderRowCells({ kind: 'store', order: refunded([100, 250]) }, now).refunds).toBe('-$3.50');
+  expect(orderRowCells({ kind: 'store', order: refunded([-100, 250]) }, now).refunds).toBe('-$3.50');
 });
 
 test("the table shows v2's columns, a day band and a count, and the chevron opens the order", () => {

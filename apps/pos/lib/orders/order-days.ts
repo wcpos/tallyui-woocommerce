@@ -94,6 +94,8 @@ export function orderTableItems(local: readonly PosOrder[], store: readonly Stor
 
 export interface OrderRowCells {
   statusLabel: string; tone: OrderTone; number: string; customer: string; date: string; day: string; payment: string; total: string;
+  /** v2's refundTotal (orders/cells/total.tsx:41-44) as a negative amount, e.g. "-$4.50"; '' when there is none. */
+  refunds: string;
 }
 
 /** The v2 columns this connector can fill: Status, Order Number, Customer, Date Created, Payment Method, Total. */
@@ -102,9 +104,11 @@ export function orderRowCells(row: OrderTableRow, now: Date): OrderRowCells {
   const customer = orderCustomerName(row.order.customer);
   const total = formatMoney({ amount: row.order.totalMinor, currency: row.order.currency }) ?? '';
   if (row.kind === 'store') {
+    const refunded = (row.order.refunds ?? []).reduce((sum, refund) => sum + Math.abs(refund.amountMinor), 0);
+    const refunds = refunded > 0 ? `-${formatMoney({ amount: refunded, currency: row.order.currency }) ?? ''}` : '';
     return { statusLabel: wooStatusLabel(row.order.status), tone: storeTone(row.order.status), number: row.order.reference,
       day: dayLabel(row.order.placedAt, now),
-      customer, date: dateTimeLabel(row.order.placedAt, now), payment: row.order.payments[0]?.title ?? '', total };
+      customer, date: dateTimeLabel(row.order.placedAt, now), payment: row.order.payments[0]?.title ?? '', total, refunds };
   }
   const status = LOCAL_STATUS[row.order.syncStatus];
   // The connector's rule for the order it sends: the largest payment names the method, Cash or Card.
@@ -112,5 +116,5 @@ export function orderRowCells(row: OrderTableRow, now: Date): OrderRowCells {
     (largest, payment) => (!largest || payment.amountMinor > largest.amountMinor ? payment : largest), undefined);
   return { statusLabel: status.label, tone: status.tone, number: orderReference(row.order), customer,
     day: dayLabel(row.order.createdAt, now),
-    date: dateTimeLabel(row.order.createdAt, now), payment: primary ? (primary.method === 'cash' ? 'Cash' : 'Card') : '', total };
+    date: dateTimeLabel(row.order.createdAt, now), payment: primary ? (primary.method === 'cash' ? 'Cash' : 'Card') : '', total, refunds: '' };
 }

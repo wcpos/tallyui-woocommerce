@@ -56,6 +56,15 @@ function OrderStatus({ cells }: { cells: OrderRowCells }) {
   </View>;
 }
 
+/** v2's OrderTotal (orders/cells/total.tsx:30-56): the total, then any refunds as a negative line in the bad tone
+ *  (this theme's destructive), in the table's Total cell and on the phone row (orders/row.tsx:34-37). */
+function OrderTotal({ cells, orderId, testID }: { cells: OrderRowCells; orderId: string; testID?: string }) {
+  return <>
+    <Text testID={testID} className="text-right tabular-nums">{cells.total}</Text>
+    {cells.refunds ? <Text testID={`order-total-refunds-${orderId}`} className="text-right text-sm tabular-nums text-destructive">{cells.refunds}</Text> : null}
+  </>;
+}
+
 /** The wide table's filter taps (v2 setFilter through the table's actions). */
 type CellFilters = { onFilterStatus?(status: string): void; onFilterCustomer?(id: string, name: string): void };
 
@@ -84,7 +93,7 @@ function orderCell(id: OrdersColumnId, cells: ReturnType<typeof orderRowCells>, 
     </TableCell>;
     case 'date_created_gmt': return <TableCell key={id} testID={`${rowId}-date`} className={CELL}><Text>{cells.date}</Text></TableCell>;
     case 'payment_method': return <TableCell key={id} testID={`${rowId}-payment`} className={CELL}><Text>{cells.payment}</Text></TableCell>;
-    case 'total': return <TableCell key={id} testID={`${rowId}-total`} className={`${CELL} ${ALIGN.total}`}><Text className="tabular-nums">{cells.total}</Text></TableCell>;
+    case 'total': return <TableCell key={id} testID={`${rowId}-total`} className={`${CELL} ${ALIGN.total}`}><OrderTotal cells={cells} orderId={row.order.id} /></TableCell>;
   }
 }
 
@@ -108,7 +117,7 @@ function OrderPhoneRow({ item, cells, prefix, onOpen }: {
         {cells.payment ? <Text testID={`${rowId}-payment`} numberOfLines={1} className="min-w-0 shrink text-sm text-muted-foreground">· {cells.payment}</Text> : null}
       </View>
     </View>
-    <Text testID={`${rowId}-total`} className="text-right tabular-nums">{cells.total}</Text>
+    <View className="items-end"><OrderTotal testID={`${rowId}-total`} cells={cells} orderId={item.order.id} /></View>
     <ChevronRightIcon size={16} className="text-muted-foreground" />
   </Pressable>;
 }
