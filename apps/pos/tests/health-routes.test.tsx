@@ -96,12 +96,11 @@ test("on a phone a leaf page's back reads Store health and goes to /health", () 
   expect(mocks.router.back).not.toHaveBeenCalled();
 });
 
-test('on the phone index Back with no history goes to the POS', () => {
+test('on the phone index the bar is Menu and Store health, with no Back', () => {
   setWidth(400);
   mocks.pathname = '/health';
   render(<HealthLayoutRoute />);
+  expect(screen.getByTestId('health-menu').getAttribute('aria-label')).toBe('Menu');
   expect(screen.getByText('Store health')).not.toBeNull();
-  fireEvent.click(screen.getByTestId('health-back'));
-  expect(mocks.router.replace).toHaveBeenCalledExactlyOnceWith('/catalogue');
-  expect(mocks.router.dismissTo).not.toHaveBeenCalled();
+  expect(screen.queryByTestId('health-back')).toBeNull();
 });
