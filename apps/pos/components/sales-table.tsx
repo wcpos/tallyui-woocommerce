@@ -4,7 +4,7 @@ import { Button, Checkbox, Dialog, DialogContent, DialogFooter, DialogHeader, Di
 import { useIsWide } from '../lib/layout/wide';
 import type { SalesTable as SalesTableData } from '../lib/reports/sales-tables';
 import { ChevronLeftIcon } from './icons';
-import { PHONE_PAGE, RIGHT_SHEET } from './sheet';
+import { PHONE_PAGE, RIGHT_SHEET_XL } from './sheet';
 
 /** The Orders table's tick boxes (v2 reports/panels/orders-panel.tsx): unticked rows are left out of every figure. */
 export type TableTicks = { leftOut: ReadonlySet<string>; onInclude(keys: string[], included: boolean): void };
@@ -48,9 +48,10 @@ export function SalesTable({ table, scope, ticks, filters, onClose, onExport, on
       checked={!ticks.leftOut.has(row.key)} onCheckedChange={checked => ticks.onInclude([row.key], checked)} />;
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-      {/* v2 report-panel.tsx:21-33: a right-side sheet in a window (dialog/index.tsx `right`, `lg`, with its close at
-          right-1 top-1), the full page on a phone; the host the closure panel draws. */}
-      <DialogContent testID="sales-table" className={wide ? RIGHT_SHEET : PHONE_PAGE}>
+      {/* v2 report-panel.tsx:21-33: a right-side sheet in a window (dialog/index.tsx `right`, with its close at
+          right-1 top-1), `xl` (560 px) since every panel is wide (panels/panel.tsx:277 and :305, the Orders head has
+          five columns); the full page on a phone. */}
+      <DialogContent testID="sales-table" className={wide ? RIGHT_SHEET_XL : PHONE_PAGE}>
         <DialogHeader className="pl-4 pr-11">
           {phone ? <PanelCrumb title={table.title} onBack={onClose} /> : <DialogTitle>{table.title}</DialogTitle>}
           <Text testID="sales-table-scope">{scope}</Text>
