@@ -149,7 +149,7 @@ async function exportClosures() {
   vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { anchors.push(this); });
   fireEvent.click(screen.getByTestId('closures-csv'));
   const csv = await (vi.mocked(URL.createObjectURL).mock.calls[0][0] as Blob).text();
-  return { filename: anchors[0].download, days: csv.split('\r\n').slice(1).map(line => line.split(',')[0].slice(1, -1)) };
+  return { filename: anchors[0].download, days: csv.split('\r\n').slice(1).map(line => line.split(',')[0].slice(1, -1)), csv };
 }
 
 async function movement(type: 'paid-in' | 'paid-out' | 'no-sale', amount: string | null, reason: string) {
@@ -851,6 +851,26 @@ test('a closure by a roster cashier names them, and an unknown closer reads Cash
   fireEvent.click(screen.getByTestId('closure-open-ghost'));
   await screen.findByTestId('closure-panel');
   expect(text('closure-panel-closer')).toBe('Cashier #7');
+}, 30_000);
+
+test('the Closures CSV names each closer as the closures list does: a roster cashier, and Cashier #id for an unknown one', async () => {
+  const me = loadSession()!;
+  saveCashiers({ [me.site.home]: [{ ...me, tokens: { ...me.tokens, user: { id: 5, uuid: 'ann', displayName: 'Ann' } } }] });
+  const app = await setup();
+  await openRegister();
+  await closeRegister('100.00');
+  // Closures written with no stamped closer name: the CSV resolves the id as the list does.
+  const breakdowns = { ...app.register.lastClosure!.breakdowns, closed_by_name: '' };
+  await copyClosure(app, 'ann', { number: 2, closed_by: '5', breakdowns });
+  await copyClosure(app, 'ghost', { number: 3, closed_by: '7', breakdowns });
+  await enterClosures();
+  await waitFor(() => expect(screen.getAllByTestId(/^closure-title-/)).toHaveLength(3));
+  const [header, ...data] = (await exportClosures()).csv.split('\r\n').map(line => line.split(',').map(cell => cell.slice(1, -1)));
+  const closerOf = (number: number) => data.find(row => row[header.indexOf('Closure')] === String(number))![header.indexOf('Closer')];
+  for (const [id, number, name] of [['ann', 2, 'Ann'], ['ghost', 3, 'Cashier #7']] as const) {
+    expect(closerOf(number)).toBe(name);
+    expect(text(`closure-subline-${id}`).split(' · ').at(-1)).toBe(closerOf(number));
+  }
 }, 30_000);
 
 test('the register stamps a roster cashier and Cashier #id into the closure as the Reports Cashiers card labels them', async () => {
