@@ -8,11 +8,8 @@ import { useIsWide } from '../lib/layout/wide';
 import { resultText, resultWord, signedMoney } from './closure-list';
 import { closureContext } from './closure-print';
 import { ChevronLeftIcon } from './icons';
-import { RIGHT_SHEET, SHEET_TITLE, SheetCloseButton } from './sheet';
+import { PHONE_PAGE, RIGHT_SHEET, SHEET_TITLE, SheetCloseButton } from './sheet';
 import { drawerResultClass } from './till-strip';
-
-// v2 report-panel.tsx:21-26 uses a full page on a phone.
-const PHONE_PAGE = 'left-0 right-0 top-0 h-full w-full max-w-full translate-x-0 translate-y-0 gap-4 rounded-none border-0 bg-card p-0 py-4';
 
 const CheckGlyph = createSvgIcon('CheckGlyph', () => <Path d="m5 12l5 5L20 7" />);
 const AlertGlyph = createSvgIcon('AlertGlyph', () => <Path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0-18 0m9-4v4m0 4h.01" />);
