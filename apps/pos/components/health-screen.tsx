@@ -14,6 +14,9 @@ import { DatabaseCounts, type DatabaseCountRow } from './database-counts';
 import { DatabaseStats } from './database-stats';
 import { RejectedOrdersPanel } from './rejected-orders-panel';
 import { StuckRecordsBanner } from './stuck-records-banner';
+import { DocsLink } from './docs-link';
+
+const HOW_SYNCING_WORKS_DOCS_URL = 'https://docs.wcpos.com/products/sync'; // v2 health/database.tsx:557
 
 export function HealthScreen({ receiptEmails, collections, runner }: {
   receiptEmails: ReceiptEmailCollection; collections: DatabaseCountRow[];
@@ -56,12 +59,16 @@ export function HealthScreen({ receiptEmails, collections, runner }: {
         <DatabaseCounts rows={rows} onCount={onCount} />
         <QueuedEmailsPanel collection={receiptEmails} orders={orders} />
         {/* v2 database.tsx:815-863, the Freshness station. Last check and a failed check wait on a last-tick value from
-            @tallyui/database, so the line reads as Logs' does; the totals line and How syncing works need the connector. */}
+            @tallyui/database, so the line reads as Logs' does; the totals line needs the connector. */}
         <View testID="db-freshness" className="flex-row flex-wrap items-end justify-between gap-3 pt-1">
-          {runner && <View testID="db-freshness-status" className="flex-row items-center gap-1.5">
-            <View aria-hidden className="size-1.5 shrink-0 rounded-full bg-success" />
-            <Text testID="db-freshness-label" className="text-xs text-muted-foreground">{label}</Text>
-          </View>}
+          <View testID="db-freshness-lines" className="gap-0.5">
+            {runner && <View testID="db-freshness-status" className="flex-row items-center gap-1.5">
+              <View aria-hidden className="size-1.5 shrink-0 rounded-full bg-success" />
+              <Text testID="db-freshness-label" className="text-xs text-muted-foreground">{label}</Text>
+            </View>}
+            {/* v2 database.tsx:559-572: indented to sit in the text column, under the status lines. */}
+            <DocsLink testID="db-how-syncing-works" href={HOW_SYNCING_WORKS_DOCS_URL} className="mt-0.5 ml-3">How syncing works</DocsLink>
+          </View>
           <Button testID="db-check-everything" variant="outline" size="sm" className="ml-auto" disabled={everything.syncing}
             onPress={() => void everything.sync()}>
             {everything.syncing && <Loader size="sm" />}<Text>Check everything now</Text>

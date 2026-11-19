@@ -71,12 +71,19 @@ export function VariationTile({ entry, fields, inCart = 0, onPress }: { entry: C
   </Pressable>;
 }
 
-/** v2's drilled-in table (drill-in.tsx): one row per variation, its values then its price or Sold out. The row adds it. */
-export function VariationRow({ entry, onPress }: { entry: CatalogueEntry<any>; onPress(): void }): JSX.Element {
+/**
+ * v2's drilled-in table (drill-in.tsx): one row per variation, its values then its price or Sold out. The row adds it.
+ * With `parentName` (the drill-in passes it, as v2's pane provides VariationParentNameContext), the parent's name sits
+ * small and muted above the chips (v2 cells/variation-name.tsx:48-53); without it, none.
+ */
+export function VariationRow({ entry, parentName, onPress }: { entry: CatalogueEntry<any>; parentName?: string; onPress(): void }): JSX.Element {
   const { id, label, chips, money } = useVariationParts(entry);
   return <Pressable accessibilityRole="button" accessibilityLabel={label} testID={`variation-row-${id}`} onPress={onPress}
     className="min-h-11 flex-row items-center gap-3 border-b border-border px-3 py-2">
-    <View className="flex-1">{chips}</View>
+    <View className="flex-1 gap-1">
+      {!!parentName && <Text testID="variation-parent-name" className="text-xs text-muted-foreground" numberOfLines={1}>{parentName}</Text>}
+      {chips}
+    </View>
     {money}
   </Pressable>;
 }
