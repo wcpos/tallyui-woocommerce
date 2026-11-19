@@ -114,7 +114,7 @@ const ordersNote = (count: number) => `${count} ${count === 1 ? 'order' : 'order
 type CardProps = { period: Period; money: Money; moneyWhole: Money };
 
 /** v2 reports/cards/orders.tsx without the status bar: Tally's local orders carry no WooCommerce status. */
-export function OrdersCard({ period, money, onOpen }: Omit<CardProps, 'moneyWhole'> & { onOpen(): void }) {
+export function OrdersCard({ period, money, onOpen, allLeftOut }: Omit<CardProps, 'moneyWhole'> & { onOpen(): void; allLeftOut?: boolean }) {
   const stats = [
     ['average', 'Average order', money(period.averageMinor)],
     ['median', 'Median', money(period.medianMinor)],
@@ -126,7 +126,8 @@ export function OrdersCard({ period, money, onOpen }: Omit<CardProps, 'moneyWhol
   return (
     <ReportCard testID="card-orders" name="Orders" figure={String(period.count)} onOpen={onOpen}>
       {period.count === 0
-        ? <Text testID="card-orders-empty">No orders in this period</Text>
+        // v2 cards/orders.tsx:66-71: the period has orders but every one of them is unticked.
+        ? <Text testID="card-orders-empty">{allLeftOut ? 'Every order is left out' : 'No orders in this period'}</Text>
         : <StatGrid items={stats.map(([id, label, value]) => ({ label, value, testID: `card-orders-${id}` }))} />}
     </ReportCard>
   );
@@ -273,14 +274,14 @@ const TWO_COLUMNS_MIN_WIDTH = 600;
 
 /** v2 reports/cards/index.tsx PeriodSection: Orders, Payments, Where sold, Top products, Categories, Cashiers and Taxes in columns that follow the measured width. */
 export function ReportCards({ period, money, moneyWhole, onOpenTable, cashiers = [], products = [],
-  categories = { parts: [], unknownLines: 0, totalLines: 0 } }: CardProps & {
+  categories = { parts: [], unknownLines: 0, totalLines: 0 }, allLeftOut }: CardProps & {
   onOpenTable(table: ReportTable): void; cashiers?: readonly ReportCashier[]; products?: readonly ProductFigure[];
-  categories?: CategoryFigures;
+  categories?: CategoryFigures; allLeftOut?: boolean;
 }) {
   const [width, setWidth] = useState<number | null>(null);
   const columns = width === null ? 1 : width >= THREE_COLUMNS_MIN_WIDTH ? 3 : width >= TWO_COLUMNS_MIN_WIDTH ? 2 : 1;
   const cards = [
-    <OrdersCard key="orders" period={period} money={money} onOpen={() => onOpenTable('orders')} />,
+    <OrdersCard key="orders" period={period} money={money} allLeftOut={allLeftOut} onOpen={() => onOpenTable('orders')} />,
     <PaymentsCard key="payments" period={period} money={money} moneyWhole={moneyWhole} onOpen={() => onOpenTable('payments')} />,
     <WhereSoldCard key="where-sold" period={period} money={money} moneyWhole={moneyWhole} onOpen={() => onOpenTable('where-sold')} />,
     <TopProductsCard key="products" period={period} money={money} products={products} onOpen={() => onOpenTable('products')} />,
