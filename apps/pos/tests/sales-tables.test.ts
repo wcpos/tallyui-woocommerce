@@ -6,6 +6,7 @@ import { formatMoney } from '@tallyui/core';
 import type { PosOrder } from '@tallyui/pos';
 import { salesRoom, type Period } from '../lib/reports/sales-room';
 import { ordersTable, paymentsTable, taxesTable, whereSoldTable } from '../lib/reports/sales-tables';
+import { salesTableCsv } from '../lib/reports/sales-table-csv';
 
 afterAll(() => {
   if (savedTimezone === undefined) delete process.env.TZ;
@@ -132,16 +133,25 @@ test('heads and alignment', () => {
 test("orders table lists today's orders newest first in the store currency", () => {
   const table = ordersTable(orders, { range: day.range, currency: 'USD', money });
   expect(table.rows.map(row => row.cells)).toEqual([
-    ['T4', '13:50', 'Cash', '$1.00'],
-    ['T3', '13:05', 'Card terminal', '$17.38'],
-    ['T2', '09:40', 'Cash + Card terminal', '$8.58'],
-    ['T1', '09:15', 'Cash', '$3.00'],
+    ['T4', '13:50', 'Cash', '$1.00', 'Yes'],
+    ['T3', '13:05', 'Card terminal', '$17.38', 'Yes'],
+    ['T2', '09:40', 'Cash + Card terminal', '$8.58', 'Yes'],
+    ['T1', '09:15', 'Cash', '$3.00', 'Yes'],
   ]);
-  expect(table.total).toEqual(['Total', '', '', '$29.96']);
-  expect(table.status).toBe('4 orders · $29.96');
+  expect(table.total).toEqual(['Counted', '', '', '$29.96', '']);
+  expect(table.status).toBe('4 of 4 counted');
   expect(table.title).toBe('Orders');
-  expect(table.head).toEqual(['Order', 'Time', 'Paid by', 'Total']);
-  expect(table.align).toEqual(['left', 'left', 'left', 'right']);
+  expect(table.head).toEqual(['Order', 'Time', 'Paid by', 'Total', 'Counted']);
+  expect(table.align).toEqual(['left', 'left', 'left', 'right', 'left']);
+}, 20_000);
+
+// v2 panels/specs.ts:188-222 and panel.tsx:254-259: a left-out order stays a row, Counted "No", out of the footer sum.
+test('orders table keeps a left-out order as a row with Counted No and sums only the counted ones', () => {
+  const table = ordersTable(orders, { range: day.range, currency: 'USD', money, leftOut: new Set(['T3', 'elsewhere']) });
+  expect(table.rows.map(row => [row.key, row.cells[4]])).toEqual([['T4', 'Yes'], ['T3', 'No'], ['T2', 'Yes'], ['T1', 'Yes']]);
+  expect(table.total).toEqual(['Counted', '', '', '$12.58', '']);
+  expect(table.status).toBe('3 of 4 counted · the numbers follow');
+  expect(salesTableCsv(table).split('\r\n')[2]).toBe('"T3","13:05","Card terminal","$17.38","No"');
 }, 20_000);
 
 test('orders table names a method once however many legs it has', () => {
@@ -162,6 +172,6 @@ test("orders table shows the store's display id once synced", () => {
 test('orders table with no orders today', () => {
   const table = ordersTable([], { range: day.range, currency: 'USD', money });
   expect(table.rows).toEqual([]);
-  expect(table.total).toEqual(['Total', '', '', '$0.00']);
-  expect(table.status).toBe('0 orders · $0.00');
+  expect(table.total).toEqual(['Counted', '', '', '$0.00', '']);
+  expect(table.status).toBe('0 of 0 counted');
 }, 20_000);

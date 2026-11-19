@@ -65,27 +65,30 @@ export function taxesTable(period: Period, money: (minor: number) => string | un
 
 export function ordersTable(
   orders: readonly PosOrder[],
-  options: { range: DayRange; currency: string; money: (minor: number) => string | undefined },
+  options: { range: DayRange; currency: string; money: (minor: number) => string | undefined; leftOut?: ReadonlySet<string> },
 ): SalesTable {
-  const { range, currency, money } = options;
+  const { range, currency, money, leftOut = new Set<string>() } = options;
   const format = (minor: number) => money(minor) ?? '';
   const { startIso, endIso } = rangeBounds(range);
   const today = orders.filter(order => order.currency === currency && order.createdAt >= startIso && order.createdAt < endIso)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
-  const sum = today.reduce((total, order) => total + order.totalMinor, 0);
+  // v2 panels/specs.ts:188-222: every order in range is a row with a Counted Yes/No; the footer sums the counted ones.
+  const counted = today.filter(order => !leftOut.has(order.id));
+  const sum = counted.reduce((total, order) => total + order.totalMinor, 0);
   return {
     title: 'Orders',
     empty: 'No orders in this period',
-    head: ['Order', 'Time', 'Paid by', 'Total'],
-    align: ['left', 'left', 'left', 'right'],
+    head: ['Order', 'Time', 'Paid by', 'Total', 'Counted'],
+    align: ['left', 'left', 'left', 'right', 'left'],
     rows: today.map(order => {
       const date = new Date(order.createdAt);
       const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
       const paidBy = [...new Set(order.payments.map(payment => payment.method))]
         .map(method => method === 'cash' ? 'Cash' : 'Card terminal').join(' + ');
-      return { key: order.id, cells: [orderReference(order), time, paidBy, format(order.totalMinor)] };
+      return { key: order.id, cells: [orderReference(order), time, paidBy, format(order.totalMinor), leftOut.has(order.id) ? 'No' : 'Yes'] };
     }),
-    total: ['Total', '', '', format(sum)],
-    status: `${today.length} ${today.length === 1 ? 'order' : 'orders'} · ${format(sum)}`,
+    total: ['Counted', '', '', format(sum), ''],
+    // v2 panel.tsx:254-259 `reports.orders_counted`, and `reports.orders_counted_left_out` when any is left out.
+    status: `${counted.length} of ${today.length} counted${counted.length < today.length ? ' · the numbers follow' : ''}`,
   };
 }

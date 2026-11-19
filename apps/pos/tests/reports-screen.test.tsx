@@ -990,13 +990,14 @@ test("the hero's Orders line opens a table of today's orders", async () => {
   const table = within(await screen.findByTestId('sales-table'));
   expect(table.getByText('Orders')).not.toBeNull();
   expect(table.getAllByTestId(/^sales-table-row-/)).toHaveLength(1);
+  // The tick box's ✓ comes first; the Counted column is not painted on screen (v2 orders-panel.tsx).
   expect(within(table.getByTestId(`sales-table-row-${order.id}`)).getAllByText(/./).map(cell => cell.textContent)).toEqual([
-    orderReference(order), time, 'Cash', '$3.00',
+    '✓', orderReference(order), time, 'Cash', '$3.00',
   ]);
   expect(within(table.getByTestId('sales-table-total')).getAllByText(/./).map(cell => cell.textContent)).toEqual([
-    'Total', '$3.00',
+    'Counted', '$3.00',
   ]);
-  expect(table.getByTestId('sales-table-status').textContent).toBe('1 order · $3.00');
+  expect(table.getByTestId('sales-table-status').textContent).toBe('1 of 1 counted');
   fireEvent.click(table.getByTestId('sales-table-close'));
   await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
   expect(text('hero-orders')).toBe('1');
@@ -1014,7 +1015,7 @@ test('an open Orders table follows live data', async () => {
   await waitFor(() => {
     const table = within(screen.getByTestId('sales-table'));
     expect(table.getByText('No orders in this period')).not.toBeNull();
-    expect(table.getByTestId('sales-table-status').textContent).toBe('0 orders · $0.00');
+    expect(table.getByTestId('sales-table-status').textContent).toBe('0 of 0 counted');
   });
 }, 20_000);
 
@@ -1067,7 +1068,7 @@ test('Export CSV names the Orders table and carries its rows', async () => {
   const table = within(await screen.findByTestId('sales-table'));
   fireEvent.click(table.getByTestId('sales-table-export'));
   const blob = vi.mocked(URL.createObjectURL).mock.calls[0][0] as Blob;
-  expect((await blob.text()).split('\r\n')[1]).toBe(`"${orderReference(order)}","${time}","Cash","$3.00"`);
+  expect((await blob.text()).split('\r\n')[1]).toBe(`"${orderReference(order)}","${time}","Cash","$3.00","Yes"`);
   expect(anchors[0].download).toMatch(/^sales-orders-(\d{4}-\d{2}-\d{2})-\1\.csv$/);
 }, 20_000);
 
@@ -1137,7 +1138,7 @@ test('the cashier chip narrows every period figure to one cashier', async () => 
   fireEvent.click(screen.getByTestId('sales-room-orders-open'));
   const table = within(await screen.findByTestId('sales-table'));
   expect(table.queryAllByTestId(/^sales-table-row-/)).toHaveLength(0);
-  expect(table.getByTestId('sales-table-status').textContent).toBe('0 orders · $0.00');
+  expect(table.getByTestId('sales-table-status').textContent).toBe('0 of 0 counted');
   fireEvent.click(table.getByTestId('sales-table-close'));
   await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
   await act(async () => { await order.incrementalPatch({ cashierRef: '2' }); });
@@ -1323,8 +1324,8 @@ test('the date menu lists the presets; Yesterday counts only yesterday against t
     await waitFor(() => expect(text('hero-chart-total')).toBe('$6.00'));
     fireEvent.click(screen.getByTestId('sales-room-orders-open'));
     const table = within(await screen.findByTestId('sales-table'));
-    expect(table.getAllByTestId(/^sales-table-row-/).map(row => within(row).getAllByText(/./)[1].textContent)).toEqual(['11:00', '10:00']);
-    expect(table.getByTestId('sales-table-status').textContent).toBe('2 orders · $6.00');
+    expect(table.getAllByTestId(/^sales-table-row-/).map(row => within(row).getAllByText(/./)[2].textContent)).toEqual(['11:00', '10:00']);
+    expect(table.getByTestId('sales-table-status').textContent).toBe('2 of 2 counted');
     fireEvent.click(table.getByTestId('sales-table-close'));
     await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
     await printSummary();
