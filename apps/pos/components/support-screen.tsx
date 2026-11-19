@@ -18,7 +18,7 @@ export function SupportScreen({ onBack }: { onBack(): void }): JSX.Element {
   const gutter = useAreaGutter();
   return (
     <View testID="screen-support" className="flex-1 bg-background">
-      <AreaToolbar area="support" title="Support" onBack={onBack} />
+      <AreaToolbar area="support" title="Support" onBack={onBack} controls="phone" />
       <View testID="support-frame" className={`min-h-0 flex-1 gap-4 py-3 ${gutter}`}>
         {SUPPORT_LINKS.map(link => <View key={link.id} testID={`support-row-${link.id}`} className="gap-0.5">
           <DocsLink testID={`support-link-${link.id}`} href={link.href}>{link.label}</DocsLink>

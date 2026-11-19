@@ -14,6 +14,7 @@ import { CouponsScreen } from '../components/coupons-screen';
 import { CustomersScreen } from '../components/customers-screen';
 import { OrdersScreen } from '../components/orders-screen';
 import { ProductsScreen } from '../components/products-screen';
+import { SupportScreen } from '../components/support-screen';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OnlineStatusContext } from '../lib/online/online-status';
@@ -164,4 +165,35 @@ test.each(gutterAreas)("the %s bar, card and rows sit on v2's 12 px gutter in a 
   expect(classesOf(`${area}-bar-search-row`)).toContain('px-4');
   expect(classesOf(`${area}-table-surface`)).not.toContain('mx-3');
   if (row) expect(classesOf(row)).toContain('px-4');
+});
+
+// v2's Support bar (support/index.tsx:42, `controls="phone"`; management-bar/index.tsx:52): beside the rail its row is
+// the title alone; on a phone it keeps the menu, the title and the bell and avatar.
+test('at 1280 the Support bar is its title alone, as v2\'s controls="phone": no bell, no avatar', () => {
+  renderArea(<SupportScreen onBack={vi.fn()} />);
+  const title = screen.getByTestId('support-bar-title');
+  expect(title.textContent).toBe('Support');
+  expect(screen.getByRole('heading', { name: 'Support' })).toBe(title);
+  expect(classesOf('support-bar-title')).toContain('font-semibold');
+  expect(screen.getByTestId('support-bar').contains(title)).toBe(true);
+  expect(screen.queryByTestId('support-bar-bell')).toBeNull();
+  expect(screen.queryByTestId('support-bar-avatar')).toBeNull();
+  expect(screen.queryByTestId('support-bar-controls')).toBeNull();
+});
+
+test('at 1280 an area without the option keeps its bell and avatar and draws no title', () => {
+  renderArea(<AreaToolbar area="orders" title="Orders" onBack={vi.fn()} />);
+  expect(screen.getByTestId('orders-bar-bell')).not.toBeNull();
+  expect(screen.getByTestId('orders-bar-avatar').textContent).toContain('P');
+  expect(screen.queryByTestId('orders-bar-title')).toBeNull();
+  expect(screen.queryByRole('heading', { name: 'Orders' })).toBeNull();
+});
+
+test('on a phone the Support bar keeps the menu, the semibold title and its bell and avatar', () => {
+  renderArea(<SupportScreen onBack={vi.fn()} />, false);
+  expect(screen.getByTestId('support-menu')).not.toBeNull();
+  expect(screen.getByRole('heading', { name: 'Support' })).not.toBeNull();
+  expect(screen.getByTestId('support-bar-bell')).not.toBeNull();
+  expect(screen.getByTestId('support-bar-avatar')).not.toBeNull();
+  expect(screen.queryByTestId('support-bar-title')).toBeNull();
 });
