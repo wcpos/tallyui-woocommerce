@@ -15,6 +15,8 @@ import { CouponsScreen } from '../components/coupons-screen';
 import { CustomersScreen } from '../components/customers-screen';
 import { OrdersScreen } from '../components/orders-screen';
 import { ProductsScreen } from '../components/products-screen';
+import { SettingsArea } from '../components/settings/settings-area';
+import { SETTINGS_NAV_ITEMS } from '../components/settings/settings-navigation';
 import { SupportScreen } from '../components/support-screen';
 import type { RailKey } from '../lib/layout/rail-routes';
 import { SessionProvider } from '../lib/auth/session-context';
@@ -114,4 +116,40 @@ test('beside the rail the bar has no Menu and no title row', async () => {
   expect(screen.queryByTestId('orders-menu')).toBeNull();
   expect(screen.queryByRole('heading', { name: 'Orders' })).toBeNull();
   expect(screen.queryByTestId('orders-back')).toBeNull();
+});
+
+// v2's phone area index (navigation-area/index.tsx:87-99): ManagementBar `title={areaLabel}` with no `back`, so the
+// Settings and Store health page lists open with the same Menu button and title as the area bars.
+const HEALTH_ITEMS = [{ href: '/health/database', label: 'Database', testID: 'health-nav-database' },
+  { href: '/health/logs', label: 'Logs', testID: 'health-nav-logs' }];
+const settingsIndex = () => <SettingsArea items={SETTINGS_NAV_ITEMS} currentHref="/settings" wide={false}
+  onNavigate={vi.fn()} onBack={vi.fn()} onIndex={vi.fn()}>{null}</SettingsArea>;
+
+test('on a phone the Settings page list opens with Menu, then the title Settings, and no Back', async () => {
+  renderArea('settings', settingsIndex);
+  await screen.findByTestId('settings-menu');
+  expectPhoneBar('settings', 'Settings');
+  expect(classesOf('settings-menu')).toContain('-ml-2');
+  expect(screen.getByTestId('settings-nav-general')).not.toBeNull();
+});
+
+test('the Settings page list Menu opens the drawer with Settings selected, and Orders in it navigates to Orders', async () => {
+  const onNavigate = renderArea('settings', settingsIndex);
+  const menu = await screen.findByTestId('settings-menu');
+  expect(screen.queryByTestId('drawer-panel')).toBeNull();
+  fireEvent.click(menu);
+  expect(screen.getByTestId('drawer-panel')).not.toBeNull();
+  expect(classesOf('drawer-item-settings')).toContain('bg-rail-selected');
+  expect(classesOf('drawer-item-orders')).not.toContain('bg-rail-selected');
+  fireEvent.click(screen.getByTestId('drawer-item-orders'));
+  expect(onNavigate).toHaveBeenCalledExactlyOnceWith('settings', 'orders');
+  expect(screen.queryByTestId('drawer-panel')).toBeNull();
+});
+
+test('on a phone the Store health page list opens with Menu, then the title Store health, and no Back', async () => {
+  renderArea('health', () => <SettingsArea items={HEALTH_ITEMS} currentHref="/health" wide={false} title="Store health"
+    testIDPrefix="health" onNavigate={vi.fn()} onBack={vi.fn()} onIndex={vi.fn()}>{null}</SettingsArea>);
+  await screen.findByTestId('health-menu');
+  expectPhoneBar('health', 'Store health');
+  expect(screen.getByTestId('health-nav-logs')).not.toBeNull();
 });
