@@ -161,11 +161,31 @@ test('onAttempt reports scan, too short and typing', () => {
   detector.key('7');
   vi.advanceTimersByTime(150);
   expect(onAttempt.mock.calls.map(([attempt]) => attempt)).toEqual([
-    { raw: code, code, avgGapMs: 5, gapsMs: Array(code.length - 1).fill(5), result: 'scan' },
-    { raw: '123', code: '123', avgGapMs: 5, gapsMs: [5, 5], result: 'too_short' },
-    { raw: '123', code: '123', avgGapMs: 100, gapsMs: [100, 100], result: 'typing' },
-    { raw: '7', code: '7', avgGapMs: undefined, gapsMs: [], result: 'typing' },
+    { raw: code, code, avgGapMs: 5, gapsMs: Array(code.length - 1).fill(5), result: 'scan', trailingEnter: true, shiftKeys: 0 },
+    { raw: '123', code: '123', avgGapMs: 5, gapsMs: [5, 5], result: 'too_short', trailingEnter: true, shiftKeys: 0 },
+    { raw: '123', code: '123', avgGapMs: 100, gapsMs: [100, 100], result: 'typing', trailingEnter: true, shiftKeys: 0 },
+    { raw: '7', code: '7', avgGapMs: undefined, gapsMs: [], result: 'typing', trailingEnter: false, shiftKeys: 0 },
   ]);
+});
+
+test('an attempt records how it ended and counts Shift keydowns without changing its timing', () => {
+  const onAttempt = vi.fn();
+  const detector = createWedgeDetector(vi.fn(), { onAttempt });
+  const send = (keys: string[], end?: string) => {
+    for (const key of keys) { if (key !== 'Shift') vi.advanceTimersByTime(5); expect(detector.key(key)).toBe(false); }
+    if (end) detector.key(end); else vi.advanceTimersByTime(150);
+  };
+  send([...code], 'Enter');
+  send([...code], 'Tab');
+  send([...code]);
+  // v2 analyze-trace.ts:60: a scanner that sends Shift on its own before each capital.
+  send(['Shift', 'A', 'B', 'Shift', 'C', ...code, 'Shift'], 'Enter');
+  send(['A', 'B', 'C', ...code], 'Enter');
+  const attempts = onAttempt.mock.calls.map(([attempt]) => attempt);
+  expect(attempts.map(a => [a.trailingEnter, a.shiftKeys])).toEqual([[true, 0], [false, 0], [false, 0], [true, 3], [true, 0]]);
+  // Shift never enters the buffer, the gaps or the average: the two bursts differ only in the count.
+  expect({ ...attempts[3], shiftKeys: 0 }).toEqual(attempts[4]);
+  expect(attempts[3]).toMatchObject({ raw: `ABC${code}`, result: 'scan', avgGapMs: 5 });
 });
 
 test('an attempt records each gap between its keys in order', () => {
