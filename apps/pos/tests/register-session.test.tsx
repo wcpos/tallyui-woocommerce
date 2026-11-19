@@ -94,7 +94,11 @@ test('sessions on: Cash refuses without an open session and stays in the cart', 
   const app = await setup();
   expect(app.register.setting).toBe(true);
   expect(app.register.enabled).toBe(true);
+  // The gate refuses an add to a closed till, so the line goes in with sessions off, then they come back on.
+  act(() => app.register.setSetting(false));
   fireEvent.click(screen.getByText('Espresso'));
+  act(() => app.register.setSetting(true));
+  expect(app.register.enabled).toBe(true);
   fireEvent.click(screen.getByTestId('cart-checkout'));
   expect(await screen.findByText('Open the register to take payment.')).not.toBeNull();
   expect(screen.getByTestId('cart-checkout')).not.toBeNull();

@@ -24,6 +24,8 @@ import { categoriesLabel, categoryTerms, filtersAtBaseline, productsInCategory, 
 import { BrowseCrumb, BrowseRootGrid, BrowseRootTable, ParentTermTile } from './browse-terms-view';
 import { CatalogueDisplayOptions, CatalogueSettingsButton } from './catalogue-display-options';
 import { CatalogueFilterChips } from './catalogue-filter-chips';
+import { LockedNotice } from './locked-notice';
+import type { TillLock } from '../lib/sale/till-lock';
 import { DrawerSheet } from './drawer-content';
 import { EmptyState } from './empty-state';
 import { FilterBarDialog } from './filter-bar-dialog';
@@ -31,7 +33,7 @@ import { ChevronRightIcon } from './icons';
 import { InCartBadge } from './in-cart-badge';
 import { LevelBack } from './level-back';
 import { ProductTile } from './product-tile';
-import { QuickFilterBar, SaveAsButton } from './quick-filter-bar';
+import { ClearAllButton, QuickFilterBar, SaveAsButton } from './quick-filter-bar';
 import { RegisterBarShell } from './register-bar-shell';
 import { ParentTile, VariationRow, VariationTile } from './variation-tile';
 import { ViewModeToggle } from './view-mode-toggle';
@@ -56,6 +58,8 @@ export interface CatalogueViewProps {
   onAddEntry?(entry: CatalogueEntry<any>): void;
   onScan?(code: string): 'clear' | 'search' | 'keep';
   message?: string;
+  /** The till's register lock: v2's products-locked-notice under the chips, and the products dimmed while counting. */
+  locked?: TillLock;
   onSignOut(): void;
   onOpenProducts?(): void;
   onOpenOrders?(): void;
@@ -101,7 +105,7 @@ export function PosBar({ storeName, cashierName, cashierControl, onSignOut,
 }
 
 export function CatalogueView({
-  connector, currency, products, storeName, cashierName, cashierControl, status, notice, onSignOut, onOpenProducts, onOpenOrders, onOpenCoupons, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings, onOpenSupport, onSelect, onAddEntry, onScan, message,
+  connector, currency, products, storeName, cashierName, cashierControl, status, notice, onSignOut, onOpenProducts, onOpenOrders, onOpenCoupons, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings, onOpenSupport, onSelect, onAddEntry, onScan, message, locked = null,
   viewState: controlledViewState, onViewStateChange,
   tax, inCartCounts, onSync, hideBar, searchChord, onRevealSearch,
 }: CatalogueViewProps): JSX.Element {
@@ -261,11 +265,14 @@ export function CatalogueView({
       <CatalogueFilterChips products={products} filters={filters} onChange={next => dispatch({ type: 'filter', filters: next })} dimmed={drilled !== undefined}
         placeField={level === null ? undefined : 'categories'} />
       <QuickFilterBar quickFilters={quickFilters} isActive={isActive} onPress={pressQuickFilter} dimmed={drilled !== undefined} />
+      {filtersOn >= 2 && <ClearAllButton onPress={() => dispatch({ type: 'clearAll', baseline, keep: level === null ? undefined : 'categories' })} />}
       {filtersOn >= 1 && <SaveAsButton onPress={() => setCaptured(captureQuickFilter(queryState, baseline, viewState.sort))} />}
     </ScrollView>
     {/* v2 index.tsx:607-610: the panel mounts under the chips, above the products, and keeps scanning after a decode. */}
     {scannerOpen && onScan ? <CameraScannerPanel onClose={() => setScannerOpen(false)} onDetected={camera.onDetected}
       onOpen={camera.onOpen} scanCount={camera.scanCount} /> : null}
+    {/* v2 index.tsx:615: the locked notice is the column's last row, after the scanner panel. */}
+    <LockedNotice lock={locked} />
     <FilterBarDialog open={filterBarOpen || captured !== null} onOpenChange={open => { setFilterBarOpen(open); if (!open) setCaptured(null); }}
       quickFilters={quickFilters} onChange={changeQuickFilters} products={products} connector={connector} currency={currency}
       baselineSort={viewState.sort} captured={captured} />
@@ -312,8 +319,10 @@ export function CatalogueView({
   // own `px-4` head and the grid takes `px-2` (8 + 8). A window's tiles stand a gutter in, under the search's left
   // edge (lib/ground.ts:46-58 WINDOW `tiles: 'px-gutter'`), so over tiles the window head is the app's too, at TallyUI's
   // `px-3`, and the grid takes `px-1` (4 + 8). The table keeps TallyUI's slots.
-  const slots = (filterSlot?: ReactNode) => wide ? { searchSlot, filterSlot } : {};
   const tileGrid = Boolean(drilled) || (!atRoot && viewState.view === 'grid');
+  // The window head sits over the body for tiles, and while counting so the dim covers only the products (v2 index.tsx:619).
+  const ownHead = tileGrid || locked === 'counting';
+  const slots = (filterSlot?: ReactNode) => wide && !ownHead ? { searchSlot, filterSlot } : {};
   const gridGutter = wide ? 'px-1' : 'px-2';
   // v2's crumb row (breadcrumb/index.tsx:49 `min-h-ctl ... pr-2`, term-grid.tsx:300-306): 44 px under the chip row's
   // 12, the tiles right under it. The grid's own 8 over its tiles is the last 8 of v2's 12, so the row starts 8 sooner
@@ -344,7 +353,9 @@ export function CatalogueView({
           open={settingsOpen} onOpenChange={setSettingsOpen} onCustomiseFilterBar={() => setFilterBarOpen(true)} />
         {message ? <Text>{message}</Text> : null}
         {/* TallyUI's slot spacing (`py-2` over the search, `pb-2` under the crumb) at v2's phone gutter. */}
-        {wide ? tileGrid ? windowHead : null : <View testID="catalogue-phone-head" className="gap-2 px-4 py-2">{searchSlot}{crumb}</View>}
+        {wide ? ownHead ? windowHead : null : <View testID="catalogue-phone-head" className="gap-2 px-4 py-2">{searchSlot}{crumb}</View>}
+        {/* v2 index.tsx:619-620: the products' own View, dimmed while counting. */}
+        <View testID="register-products" className={`flex-1${locked === 'counting' ? ' opacity-40' : ''}`}>
         {/* v2's drill-in.tsx in the table: the variations as rows under the crumb. */}
         {levelBack(drilled && viewState.view === 'table' ? <ScrollView testID="catalogue-variations-table" className="flex-1">
           {drillEntries.map(entry => <VariationRow key={entry.variant.id} entry={entry} onPress={() => onAddEntry?.(entry)} />)}
@@ -391,6 +402,7 @@ export function CatalogueView({
           {...slots(crumb)}
           emptyState={emptyState}
         />)}
+        </View>
         <View testID="data-table-caption-row" className="flex-row items-center gap-2 px-3 py-2">
           <View className="flex-1" />
           <Text testID="data-table-count" className="text-sm text-muted-foreground">{countLabel}</Text>

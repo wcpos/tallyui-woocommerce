@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
@@ -11,6 +11,7 @@ import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import type { OrderHistorySource } from '../lib/orders/order-history';
+import { dismissToast, getToasts } from '../lib/toast/toast';
 import stores from './fixtures/stores.json';
 import { classesOf } from './classes-of';
 
@@ -31,6 +32,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  dismissToast();
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -58,14 +60,14 @@ function OrderStoreReady() {
   return outbox.enabled && outbox.orders ? <span>Order store ready</span> : null;
 }
 
-async function screenWith(order: StoreOrder) {
+async function screenWith(order: StoreOrder, get?: NonNullable<OrderHistorySource['get']>) {
   const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>();
   const list = vi.fn<OrderHistorySource['list']>(async () => ({ orders: [order], hasMore: false }));
   render(
     <SessionProvider>
       <OutboxProvider transportFor={() => ({ send })} storage={getRxStorageMemory()}>
         <OrderStoreReady />
-        <OrdersScreen onBack={() => {}} history={{ list }} storeName={stores[0].name} cashierName="Paul" />
+        <OrdersScreen onBack={() => {}} history={get ? { list, get } : { list }} storeName={stores[0].name} cashierName="Paul" />
         <PortalHost />
       </OutboxProvider>
     </SessionProvider>,
@@ -227,4 +229,86 @@ test('Receipt hands the sheet over to the reprint', async () => {
   expect(screen.queryByTestId('order-modal')).toBeNull();
   expect(screen.getByTestId('receipt-reprint').textContent).toBe('Reprint 1');
   expect(send).not.toHaveBeenCalled();
+});
+
+// v2 orders/edit/view.tsx:156-162 (Sync, the footer's `record` slot) and order-actions.tsx:57-79 (its toast).
+const REFRESH_FAILED = "Couldn't refresh this order. The copy on this device is unchanged — check your connection and try again.";
+const sheetText = () => ({ status: screen.getByTestId('order-modal-status').textContent,
+  total: part('order-modal-total-total').getByText(/\$/).textContent });
+
+test("Sync re-reads the order once and the sheet shows the store's new status and total", async () => {
+  const get = vi.fn<NonNullable<OrderHistorySource['get']>>(async () => make({ status: 'processing', totalMinor: 900 }));
+  const send = await screenWith(make(), get);
+  fireEvent.click(screen.getByTestId('history-open-901'));
+  expect(sheetText()).toEqual({ status: 'Completed', total: '$6.00' });
+  fireEvent.click(screen.getByTestId('order-modal-sync'));
+  await vi.waitFor(() => expect(sheetText()).toEqual({ status: 'Processing', total: '$9.00' }));
+  expect(get).toHaveBeenCalledTimes(1);
+  expect(get).toHaveBeenCalledWith('901');
+  expect(getToasts()).toHaveLength(0);
+  expect(send).not.toHaveBeenCalled();
+});
+
+test('Sync is disabled while the read is in flight', async () => {
+  let finish!: (order: StoreOrder) => void;
+  const get = vi.fn<NonNullable<OrderHistorySource['get']>>(() => new Promise(resolve => { finish = resolve; }));
+  await screenWith(make(), get);
+  fireEvent.click(screen.getByTestId('history-open-901'));
+  const disabled = () => screen.getByTestId('order-modal-sync').getAttribute('aria-disabled');
+  expect(disabled()).not.toBe('true');
+  fireEvent.click(screen.getByTestId('order-modal-sync'));
+  expect(disabled()).toBe('true');
+  fireEvent.click(screen.getByTestId('order-modal-sync'));
+  expect(get).toHaveBeenCalledTimes(1);
+  await act(async () => { finish(make({ status: 'processing' })); });
+  expect(disabled()).not.toBe('true');
+});
+
+test.each([
+  ['rejects', () => Promise.reject(new Error('offline'))],
+  ['finds no such order', () => Promise.resolve(undefined)],
+] as const)("when the read %s Sync toasts v2's warning and the sheet keeps the old order", async (_, read) => {
+  const get = vi.fn<NonNullable<OrderHistorySource['get']>>(read);
+  await screenWith(make(), get);
+  fireEvent.click(screen.getByTestId('history-open-901'));
+  fireEvent.click(screen.getByTestId('order-modal-sync'));
+  await vi.waitFor(() => expect(getToasts().map(({ type, title }) => ({ type, title }))).toEqual([{ type: 'warning', title: REFRESH_FAILED }]));
+  expect(screen.getByTestId('order-modal-sync').getAttribute('aria-disabled')).not.toBe('true');
+  expect(sheetText()).toEqual({ status: 'Completed', total: '$6.00' });
+  fireEvent.click(screen.getByTestId('order-modal-close'));
+  expect(screen.getByTestId('history-901-total').textContent).toBe('$6.00');
+});
+
+test('after Sync the table row shows the refreshed order too', async () => {
+  const get = vi.fn<NonNullable<OrderHistorySource['get']>>(async () => make({ status: 'processing', totalMinor: 900 }));
+  await screenWith(make(), get);
+  expect(screen.getByTestId('history-901-total').textContent).toBe('$6.00');
+  fireEvent.click(screen.getByTestId('history-open-901'));
+  fireEvent.click(screen.getByTestId('order-modal-sync'));
+  await vi.waitFor(() => expect(screen.getByTestId('order-modal-status').textContent).toBe('Processing'));
+  fireEvent.click(screen.getByTestId('order-modal-close'));
+  expect(screen.queryByTestId('order-modal')).toBeNull();
+  expect(screen.getByTestId('history-901-total').textContent).toBe('$9.00');
+  expect(screen.getByTestId('history-901-status').textContent).toBe('Processing');
+});
+
+// v2 dialog/index.tsx:376-417: wide, `{own}` leads a left group and the footer is justify-between; a phone puts it under the dismiss.
+test('wide, Sync leads the footer apart from Close and Receipt; on a phone it sits under Close', () => {
+  render(<><OrderDetailSheet order={make()} onReceipt={vi.fn()} onClose={vi.fn()} onSync={vi.fn()} /><PortalHost /></>);
+  expect(footerIds()).toEqual(['order-modal-sync', 'dialog-footer-close', 'order-modal-receipt']);
+  expect(classesOf('order-modal-footer')).toContain('justify-between');
+  expect(screen.getByTestId('order-modal-sync').textContent).toBe('Sync');
+  expect(classesOf('order-modal-sync')).toContain('h-11');
+  cleanup();
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  render(<><OrderDetailSheet order={make()} onReceipt={vi.fn()} onClose={vi.fn()} onSync={vi.fn()} /><PortalHost /></>);
+  expect(footerIds()).toEqual(['order-modal-receipt', 'dialog-footer-close', 'order-modal-sync']);
+  expect(classesOf('order-modal-sync')).toContain('w-full');
+});
+
+test('without a single-order read the sheet has no Sync', async () => {
+  await screenWith(make());
+  fireEvent.click(screen.getByTestId('history-open-901'));
+  expect(screen.queryByTestId('order-modal-sync')).toBeNull();
+  expect(footerIds()).toEqual(['dialog-footer-close', 'order-modal-receipt']);
 });

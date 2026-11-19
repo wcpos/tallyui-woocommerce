@@ -160,9 +160,10 @@ test('(b) Checkout opens the tender on Cash, and picking Card there takes a card
 
 test('(c) with the register on and no session open, Checkout asks to open the register and stays on the cart', async () => {
   const app = await renderTill(false);
+  // The gate refuses an add to a closed till, so the line goes in while sessions are off.
+  fireEvent.click(screen.getByText('Espresso'));
   act(() => app.register.setSetting(true));
   expect(app.register.enabled).toBe(true);
-  fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(checkoutButton());
   expect(await screen.findByText('Open the register to take payment.')).not.toBeNull();
   expect(checkoutButton()).not.toBeNull();

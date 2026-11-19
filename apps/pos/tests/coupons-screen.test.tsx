@@ -8,6 +8,7 @@ import { createTallyDatabase } from '@tallyui/database';
 import { PortalHost } from '@tallyui/primitives';
 import { CouponsScreen, gmtDayText } from '../components/coupons-screen';
 import { areaColumnsKey } from '../lib/area-columns';
+import { CatalogueContext } from '../lib/catalogue/catalogue-context';
 import { CARD_CLASSES } from './classes-of';
 import { COARSE, FINE, stubMatchMedia } from './match-media';
 
@@ -493,4 +494,47 @@ test("a touch tablet at 1024 gets the touch rows; a mouse at 1024 keeps the tabl
   await screen.findByTestId('coupons-row-10off');
   expect(screen.getByTestId('coupons-head-code')).not.toBeNull();
   expect(screen.queryByTestId('coupons-row-chevron-10off')).toBeNull();
+});
+
+// v2 data-table/index.tsx:198-200, :402-407: an empty list mid-sync draws 5 skeleton rows.
+function renderSyncing(status: 'syncing' | 'idle') {
+  return render(<>
+    <CatalogueContext.Provider value={{ catalogue: null, products: [], status }}>
+      <CouponsScreen coupons={db.coupons} currency="USD" locale="en_US" onBack={() => {}} />
+    </CatalogueContext.Provider>
+    <PortalHost />
+  </>);
+}
+const syncingRows = () => screen.queryAllByTestId(/^coupons-syncing-row-/);
+
+test('first sync: an empty coupons collection shows v2\'s 5 placeholder rows, not "No coupons yet"', () => {
+  renderSyncing('syncing');
+  const rows = screen.getByTestId('coupons-syncing-rows');
+  expect(rows.getAttribute('aria-busy')).toBe('true');
+  expect(rows.getAttribute('aria-label')).toBe('Loading coupons…');
+  expect(syncingRows()).toHaveLength(5);
+  expect(within(syncingRows()[0]).queryAllByTestId(/^coupons-syncing-bar-/).map(el => el.getAttribute('data-testid')))
+    .toEqual(['active', 'code', 'amount', 'discount_type', 'description', 'usage_count', 'date_expires_gmt']
+      .map(id => `coupons-syncing-bar-${id}`));
+  expect(screen.queryAllByTestId(/^coupons-head-/)).toHaveLength(0);
+  expect(screen.queryByText('No coupons yet')).toBeNull();
+});
+
+test('sync idle: an empty coupons collection still shows "No coupons yet"', async () => {
+  renderSyncing('idle');
+  await screen.findByText('No coupons yet');
+  expect(screen.queryByTestId('coupons-syncing-rows')).toBeNull();
+});
+
+test('first sync on a touch tablet: 5 placeholder rows of two bars, no table bars', () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1024, height: 768, scale: 1, fontScale: 1 });
+  stubMatchMedia({ ...COARSE });
+  renderSyncing('syncing');
+  expect(syncingRows()).toHaveLength(5);
+  // react-native-web drops className: read the shape, one column of two bars, and no table cells.
+  for (const row of syncingRows()) {
+    expect(row.children).toHaveLength(1);
+    expect(row.children[0].children).toHaveLength(2);
+  }
+  expect(screen.queryAllByTestId(/^coupons-syncing-bar-/)).toHaveLength(0);
 });
