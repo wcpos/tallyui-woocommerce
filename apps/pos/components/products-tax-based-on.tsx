@@ -19,7 +19,9 @@ export function ProductsTaxBasedOn({ settings, calcTaxes }: { settings: StoreSet
   return (
     <>
       <TaxBasedOn derivation={derivation} onChangeSetting={() => router.push('/settings/tax' as Href)} onViewAllRates={() => setRates(true)} />
-      {rates && <TaxRatesDialog rates={settings.allTaxRates} taxClassSlugs={settings.taxClassSlugs} onClose={() => setRates(false)} />}
+      {/* v2 display-current-tax-rates.tsx:92-106: View all sends the address the panel used (none when it had none). */}
+      {rates && <TaxRatesDialog rates={settings.allTaxRates} taxClassSlugs={settings.taxClassSlugs} onClose={() => setRates(false)}
+        address={derivation.failure === 'address' ? undefined : derivation.location} rateTable={settings.taxRateTable} />}
     </>
   );
 }
