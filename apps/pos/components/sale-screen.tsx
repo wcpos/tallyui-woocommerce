@@ -371,7 +371,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             ready={storeTemplates.status !== 'loading' && (storeHtml === null || frameLoaded === orderId)}
             onAutoPrinted={receiptSettings.autoShow ? undefined : sale.newSale}>
           <ReceiptStoreLine posOrder={receiptOrder} />
-          {storeHtml !== null ? <StoreReceipt html={storeHtml} doneLabel={doneLabel} onDone={sale.newSale} printed={printCount > 0}
+          {storeHtml !== null ? <StoreReceipt html={storeHtml} paper={paperWidth} doneLabel={doneLabel} onDone={sale.newSale} printed={printCount > 0}
             onLoad={() => setFrameLoaded(orderId)} /> : <>
           <Receipt order={sale.stage.order} posOrder={receiptOrder} store={{ name: props.storeName }}
             cashier={props.cashierName} registerId={REGISTER_ID} newSale={sale.newSale}

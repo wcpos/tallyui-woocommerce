@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { View } from 'react-native';
 import { Button, Text } from '@tallyui/components';
-import { printReceipt } from '../lib/receipts/print-receipt';
+import { printReceipt, type ReceiptPaperWidth } from '../lib/receipts/print-receipt';
+import { thermalFitCss } from '../lib/receipts/store-receipt';
 
 /**
  * The store's own receipt template (web only). The frame is sandboxed without scripts, so the template's markup and CSS
  * stay inside it; it grows to its content on load, on a width change and before a print, so nothing is clipped on paper.
  */
-export function StoreReceipt({ html, doneLabel, onDone, onLoad, printed = false }: {
-  html: string; doneLabel: string; onDone(): void; onLoad(): void; printed?: boolean;
+export function StoreReceipt({ html, doneLabel, onDone, onLoad, printed = false, paper = 'a4' }: {
+  html: string; doneLabel: string; onDone(): void; onLoad(): void; printed?: boolean; paper?: ReceiptPaperWidth;
 }): JSX.Element {
+  // A thermal body is fitted to its 58/80 mm paper as v2 does; the same document prints, so paper matches the preview.
+  const fitCss = thermalFitCss(paper);
+  const source = fitCss ? `<style data-thermal-fit>${fitCss}</style>${html}` : html;
   const frame = useRef<HTMLIFrameElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [printedHere, setPrintedHere] = useState(false);
@@ -32,7 +36,7 @@ export function StoreReceipt({ html, doneLabel, onDone, onLoad, printed = false 
   }, []);
   return (
     <View>
-      <iframe ref={frame} data-testid="store-receipt-frame" sandbox="allow-same-origin" srcDoc={html} title="Receipt"
+      <iframe ref={frame} data-testid="store-receipt-frame" sandbox="allow-same-origin" srcDoc={source} title="Receipt"
         style={{ width: '100%', border: 0, display: 'block' }} onLoad={() => { fit(); onLoad(); }} />
       <View dataSet={{ print: 'hide' }} className="gap-2 py-2">
         {error && <Text testID="store-receipt-error" accessibilityRole="alert" className="text-destructive">{error}</Text>}

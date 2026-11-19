@@ -16,6 +16,15 @@ export function receiptPaperWidth(template: ReceiptTemplate | null): ReceiptPape
   return template.paper ?? (template.engine === 'thermal' ? '80mm' : 'a4');
 }
 
+/** v2's thermal paper frame (printer/src/raster/receipt-rasterizer.dom.tsx:56-77, from template-studio styles.css:356-385):
+ * the iframe body is the paper, and the renderer's inline-styled thermal div is flattened to fill it with v2's thermal
+ * type. The body margin is the iframe's default; #fff is studio's --ts-paper (styles.css:15). None for an A4 template. */
+export function thermalFitCss(paper: ReceiptPaperWidth): string {
+  if (paper === 'a4') return '';
+  return `body { margin: 0; background: #fff; font-family: ui-monospace, 'SFMono-Regular', 'Menlo', monospace; color: #1c1814; padding: 4mm 2mm; font-size: 11.5px; }
+body > div { box-shadow: none !important; margin: 0 !important; padding: 0 !important; background: transparent !important; width: 100% !important; font-size: ${paper === '58mm' ? '10.5px' : '10px'} !important; }`;
+}
+
 /** v2 keys the pick on its order (use-template-renderer.ts:267-285): a new sale starts on the default again. */
 export function receiptTemplateIdFor(pick: { orderId: string; id: string } | null, orderId: string): string | null {
   return pick?.orderId === orderId ? pick.id : null;
