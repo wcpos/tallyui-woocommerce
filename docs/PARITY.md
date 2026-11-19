@@ -84,7 +84,7 @@ front desk before the milestone that needs it ([PLAN.md](PLAN.md)).
 | Barcode scanning | Scanner input adds products (`@wcpos/scanner`); the barcode field is the plugin's, Woo core's is `global_unique_id` | in flux (scanning reworked on next: scan hub, online resolve, sounds, scanner profiles) | Free | app (partial): Enter in search or a web keyboard-wedge burst adds the match; lookup is barcode, then SKU, then a variable parent (opens Choose an option); an unknown or ambiguous code stays in search with a message; out of stock is refused. Differences: a scanned variable parent opens the variation choice, where v2 warns "Choose a variation" and puts the code in search (#2413); feedback is the message line, no toasts, sounds or haptics; web keyboard wedge only; timing constants, no prefix, suffix or settings page; no UPC/EAN equivalence, online resolve or custom barcode meta field; works while the catalogue is on screen. Gaps G-B1–G-B8 in the barcode survey |
 | Decimal quantities | Fractional quantities on POS requests | stable | Free | check pos cart |
 | Stock and overselling guard | Stock shown; optional block on over-quantity adds and at checkout | stable | Free (setting) | pos: `stock` |
-| Products admin screen | Edit stock, price, COGS inline | stable | Pro | gap (writes) |
+| Products admin screen | Edit stock, price, COGS inline | stable | Pro | gap (writes); its footer has v2's Tax based on popover at the shop base when taxes are on (the till's foot follows with #279) |
 | Cost of goods display | COGS column when WooCommerce COGS is on | stable | Woo | gap |
 | Store-specific pricing | Per-store regular/sale prices | stable | Pro | gap |
 
