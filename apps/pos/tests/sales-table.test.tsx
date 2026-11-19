@@ -3,6 +3,8 @@ import { afterEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { PortalHost } from '@tallyui/primitives';
 import { SalesTable } from '../components/sales-table';
+import { PHONE_PAGE, RIGHT_SHEET } from '../components/sheet';
+import { classesOf } from './classes-of';
 
 const table = {
   title: 'Orders',
@@ -102,4 +104,36 @@ test.each([768, 1280])('at %i wide the header keeps the bare title and no crumb'
   expect(screen.queryByTestId('detail-panel-crumb')).toBeNull();
   expect(screen.queryByTestId('detail-panel-back')).toBeNull();
   expect(screen.getByRole('heading', { name: 'Orders' })).not.toBeNull();
+});
+
+// v2 report-panel.tsx:21-33: in a window a Reports panel is DialogContent side="right" (dialog/index.tsx: full height,
+// border-l, `lg`, its close at right-1 top-1), the closure panel's RIGHT_SHEET here; never the centred dialog.
+test('at 1280 the panel is the right-side sheet with its close, not the centred dialog', () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1280, height: 800, scale: 1, fontScale: 1 });
+  const onClose = vi.fn();
+  render(<><SalesTable table={table} scope="Today · This till" onClose={onClose} /><PortalHost /></>);
+  const classes = classesOf('sales-table');
+  expect(classes).toEqual(expect.arrayContaining(RIGHT_SHEET.split(' ')));
+  expect(classes).not.toContain('max-h-[80%]');
+  expect(classes).not.toContain('max-w-full');
+  expect(classesOf('sales-table-body')).toEqual(expect.arrayContaining(['min-h-0', 'flex-1']));
+  expect(classesOf('sales-table-footer')).toContain('border-t');
+  const x = screen.getByTestId('sales-table-x');
+  expect(x.getAttribute('aria-label')).toBe('Close');
+  fireEvent.click(x);
+  expect(onClose).toHaveBeenCalledTimes(1);
+});
+
+// v2 report-panel.tsx:21-26: on a phone the panel is a page in the screen's place, and the crumb's Sales leaves it.
+test('on a phone the panel is the full page and its Sales crumb closes it', () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  const onClose = vi.fn();
+  render(<><SalesTable table={table} scope="Today · This till" onClose={onClose} /><PortalHost /></>);
+  const classes = classesOf('sales-table');
+  expect(classes).toEqual(expect.arrayContaining(PHONE_PAGE.split(' ')));
+  expect(classes).not.toContain('max-w-lg');
+  expect(classes).not.toContain('border-l');
+  expect(screen.queryByTestId('sales-table-x')).toBeNull();
+  fireEvent.click(screen.getByTestId('detail-panel-back'));
+  expect(onClose).toHaveBeenCalledTimes(1);
 });
