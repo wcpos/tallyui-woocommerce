@@ -55,6 +55,37 @@ export function variationName(variation: VariationDoc, fallback: string): string
   return options.length ? options.join(', ') : variation.name ?? fallback;
 }
 
+/** One attribute row: `Name: ` in v2's help text, then its options in text-xs, joined with ", "; each option is a
+ *  primary-tone link when `onOption` is given (ProductAttributes), plain text otherwise (PlainAttributes). */
+function AttributeRow({ id, testID, attribute, onOption }: {
+  id: number; testID: string; attribute: ProductAttribute; onOption?(match: VariationMatch): void;
+}): JSX.Element {
+  return (
+    <Text testID={testID} className="text-xs">
+      <Text className="text-xs text-muted-foreground">{`${attribute.name}: `}</Text>
+      {onOption ? (attribute.options ?? []).map((option, index) => (
+        <Fragment key={option}>
+          {index > 0 ? ', ' : null}
+          <Text testID={`product-attribute-${id}-${attribute.name}-${option}`} role="link"
+            className="text-xs text-primary web:hover:underline"
+            onPress={() => onOption({ name: attribute.name, option })}>
+            {option}
+          </Text>
+        </Fragment>
+      )) : (attribute.options ?? []).join(', ')}
+    </Text>
+  );
+}
+
+/** v2's PlainAttributes (components/product/attributes.tsx:21-47), the Product column's Attributes line: the
+ *  attributes that make no variation, one row each; nothing when there are none. */
+export function PlainAttributes({ id, attributes }: { id: number; attributes: ProductAttribute[] | undefined }): JSX.Element | null {
+  const rows = (attributes ?? []).filter(attribute => attribute.variation !== true);
+  return rows.length === 0 ? null : <View testID={`product-plain-attributes-${id}`}>
+    {rows.map(attribute => <AttributeRow key={attribute.name} id={id} testID={`product-plain-attribute-${id}-${attribute.name}`} attribute={attribute} />)}
+  </View>;
+}
+
 // `options` false is v2's phone row (products/row.tsx:178-205 VariableRowContent): the VariationsButton alone, no attribute rows.
 export function ProductAttributes({ id, attributes, count, onDrill, options = true }: {
   id: number;
@@ -66,21 +97,8 @@ export function ProductAttributes({ id, attributes, count, onDrill, options = tr
   const rows = options ? (attributes ?? []).filter(attribute => attribute.variation) : [];
   return (
     <View className="gap-1">
-      {rows.map(attribute => (
-        <Text key={attribute.name} testID={`product-attributes-${id}-${attribute.name}`} className="text-xs">
-          <Text className="text-xs text-muted-foreground">{`${attribute.name}: `}</Text>
-          {(attribute.options ?? []).map((option, index) => (
-            <Fragment key={option}>
-              {index > 0 ? ', ' : null}
-              <Text testID={`product-attribute-${id}-${attribute.name}-${option}`} role="link"
-                className="text-xs text-primary web:hover:underline"
-                onPress={() => onDrill({ name: attribute.name, option })}>
-                {option}
-              </Text>
-            </Fragment>
-          ))}
-        </Text>
-      ))}
+      {rows.map(attribute => <AttributeRow key={attribute.name} id={id} testID={`product-attributes-${id}-${attribute.name}`}
+        attribute={attribute} onOption={onDrill} />)}
       <Button testID="variable-product-expand" variant="ghost" size="sm" className="max-w-full flex-row self-start px-0"
         onPress={() => onDrill()}>
         <Text testID={`product-variations-${id}`}>{variationsLabel(count)}</Text>
