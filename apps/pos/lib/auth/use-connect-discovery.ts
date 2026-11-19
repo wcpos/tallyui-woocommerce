@@ -23,6 +23,8 @@ export const CONNECT_STAGE_COPY: Record<ConnectStage, string> = {
 const SITE_ERROR_CODES: Record<SiteError['code'], string | null> = {
   invalid_url: 'AUTH411',   // STORE_URL_INVALID
   unreachable: null,
+  timeout: null,
+  rest_restricted: 'AUTH301', // AUTH_PLUGIN_CONFLICT
   not_wordpress: null,
   no_wcpos: 'AUTH311',      // REST_ROUTE_MISSING
   wcpos_outdated: 'AUTH331', // WCPOS_PLUGIN_OUTDATED
