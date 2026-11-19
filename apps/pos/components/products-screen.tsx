@@ -235,7 +235,7 @@ function termNames(terms: { name?: string }[] | undefined): string {
 
 /** v2's PriceWithTax (components/product/price-with-tax.tsx:54-95, cells/price.tsx:24): a taxable price's "excl. / incl.
  *  {amount} tax" line under it while Price's Tax line is on (v2's `key` text), else as the price's tooltip. */
-function PriceCell({ id, text, line, showTax }: { id: number; text: string; line: string | null; showTax: boolean }): JSX.Element {
+function PriceCell({ id, text, line, showTax }: { id: number | string; text: string; line: string | null; showTax: boolean }): JSX.Element {
   const price = <Text testID={`product-price-${id}`}>{text}</Text>;
   if (line === null) return price;
   if (showTax) return <View className="items-end gap-1">{price}<Text testID={`product-price-tax-${id}`} className="text-sm text-muted-foreground">{line}</Text></View>;
@@ -249,16 +249,32 @@ interface PriceTax { tax?: TileTax; traits: ProductTraits; showTax: boolean }
 
 /** Every column of PRODUCTS_COLUMNS, in its order; the screen hands ProductTable the ones left on. */
 function productColumns(currency: string, locale: string | undefined, onDrill: OnDrill, lines: NameLines, { tax, traits, showTax }: PriceTax): (ProductTableColumn<ProductDoc> & { id: ProductsColumnId })[] {
-  // The tile's tax words for one price (tile-words.ts tileTaxLine); a variable product's range carries none yet.
-  const taxLine = (doc: ProductDoc): string | null => {
-    const money = tax && doc.type !== 'variable' ? moneyFromDecimalString(doc.price ?? '', currency) : undefined;
+  // The tile's tax words for one price (tile-words.ts tileTaxLine) with the doc's own tax status and class, so a variable
+  // product's range ends take the parent's, as v2's VariableProductPrice passes them (variable-price.tsx:23-24).
+  const taxLine = (doc: ProductDoc, price: string | undefined): string | null => {
+    const money = tax ? moneyFromDecimalString(price ?? '', currency) : undefined;
     return money && tax ? tileTaxLine(money, traits.getTaxStatus?.(doc), traits.getTaxClass?.(doc), tax) : null;
+  };
+  // v2's VariableProductPrice (variable-price.tsx:45-71): one PriceWithTax(max) when min equals max, else min " - " max in
+  // an end-justified wrapping row, each end with its own tax words; no range is an empty cell.
+  const priceCell = (doc: ProductDoc): JSX.Element => {
+    const ranged = doc.type === 'variable' && (doc.variation_docs?.length ?? 0) > 0;
+    const range = ranged ? variationRange(doc, 'price') : undefined;
+    const text = priceText(doc, 'price', currency, locale);
+    if (!range || Number(range.min) === Number(range.max)) {
+      return <PriceCell id={doc.id} text={text} line={taxLine(doc, ranged ? range?.max : doc.price)} showTax={showTax} />;
+    }
+    return <View testID={`product-price-${doc.id}`} className="flex-row flex-wrap items-center justify-end gap-1">
+      <PriceCell id={`${doc.id}-min`} text={money(range.min, currency, locale)} line={taxLine(doc, range.min)} showTax={showTax} />
+      <Text> - </Text>
+      <PriceCell id={`${doc.id}-max`} text={money(range.max, currency, locale)} line={taxLine(doc, range.max)} showTax={showTax} />
+    </View>;
   };
   // v2 sorts Price only; Regular and Sale Price are `disableSort` (initial-settings.json:323-349), all three `right`.
   const priceColumn = (id: PriceField) => ({
     id, header: LABEL[id], flex: 1, align: 'right' as const,
     render: (doc: ProductDoc) => id === 'price'
-      ? <PriceCell id={doc.id} text={priceText(doc, id, currency, locale)} line={taxLine(doc)} showTax={showTax} />
+      ? priceCell(doc)
       : <Text testID={`product-${id}-${doc.id}`}>{priceText(doc, id, currency, locale)}</Text>,
     sortValue: id !== 'price' ? undefined : (doc: ProductDoc) => doc.type === 'variable' && (doc.variation_docs?.length ?? 0) > 0
       ? priceValue(variationRange(doc, id)?.min) : priceValue(doc[id]),
