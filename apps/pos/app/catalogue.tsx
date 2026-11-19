@@ -14,6 +14,9 @@ import { receiptMailer } from '../lib/receipts/receipt-mailer';
 import { SessionExpiredError } from '../lib/auth/session';
 import { databaseName } from '../lib/catalogue/start-catalogue';
 
+// v2 (pos)/_layout.tsx:8,95-100: the register's own boundary, below the rail, so a throw shows the gate beside it.
+export { RouteErrorScreen as ErrorBoundary } from '../components/route-error-screen';
+
 // The localStorage key for a cashier's cart held across a switch.
 const HELD_CART_PREFIX = 'tallywoo.held-cart.';
 
