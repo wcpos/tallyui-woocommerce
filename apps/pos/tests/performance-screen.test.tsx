@@ -1,6 +1,8 @@
 // Store health › Performance: the status line and the Engine uptime strip over live request metrics.
-import { act, cleanup, render, screen } from '@testing-library/react';
-import { afterEach, expect, test } from 'vitest';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, expect, test, vi } from 'vitest';
+import * as ReactNative from 'react-native';
+import { Text } from '@tallyui/components';
 import { createRequestMetrics } from '@tallyui/database';
 import { PerformanceScreen } from '../components/performance-screen';
 import { classesOf } from './classes-of';
@@ -39,4 +41,19 @@ test('an unhealthy till reads Needs attention', () => {
   expect(screen.getByTestId('performance-status').textContent).toBe('⚠ Needs attention');
   // v2 components/health/performance-screen.tsx:193.
   expect(classesOf('performance-status')).toContain('text-warning-text');
+});
+
+// v2 components/health/performance-screen.tsx:38 (DOCS_URL), :410-413, core.json "Learn more in the docs".
+test("the foot links to v2's Performance docs", () => {
+  const open = vi.spyOn(ReactNative.Linking, 'openURL').mockResolvedValue(true);
+  render(<PerformanceScreen metrics={createRequestMetrics({ now })} healthy now={now}>
+    <Text testID="performance-child">sync</Text>
+  </PerformanceScreen>);
+  const link = screen.getByTestId('performance-docs-link');
+  expect(link.textContent).toBe('Learn more in the docs');
+  // The link is the page's foot, after the sync controls the route passes in.
+  expect(screen.getByTestId('performance-child').compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  fireEvent.click(link);
+  expect(open).toHaveBeenCalledExactlyOnceWith('https://docs.wcpos.com/support/store-health#performance');
+  open.mockRestore();
 });

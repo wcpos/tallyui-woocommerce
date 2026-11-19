@@ -21,6 +21,7 @@ import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
 import { sessionsOff } from './cart-head-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { CatalogueContext } from '../lib/catalogue/catalogue-context';
 import { classesOf } from './classes-of';
 
 // v2 reports/panels/orders-panel.tsx, hero/index.tsx `LeftOutChip`, cards/orders.tsx and context.tsx `selectedOrders`:
@@ -47,8 +48,8 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 const text = (testID: string) => screen.getByTestId(testID).textContent;
 
-/** Rings up two cash sales, an Espresso ($3.00) and two Espressos ($6.00), and returns their order ids, $3.00 first. */
-async function twoSales() {
+/** Rings up two cash sales, an Espresso ($3.00) then `second` (default two Espressos, $6.00), and returns their order ids, $3.00 first. */
+async function twoSales(second = { tile: 'product-tile-80', name: 'Espresso', quantity: 2, total: '$9.00' }) {
   let outbox!: ReturnType<typeof useOutbox>;
   let register!: ReturnType<typeof useRegister>;
   function Probe() { outbox = useOutbox(); register = useRegister(); return null; }
@@ -63,27 +64,30 @@ async function twoSales() {
           <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
             storeName={stores[0].name} locale={stores[0].locale} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}}
             onSwitchCashier={async () => null} cashiers={[]} />
-          <ReportsScreen storeName={stores[0].name} currency={stores[0].currency} locale={stores[0].locale} onBack={vi.fn()} />
+          {/* The reports read categories from the catalogue's products. */}
+          <CatalogueContext.Provider value={{ catalogue: null, products, status: 'ready' }}>
+            <ReportsScreen storeName={stores[0].name} currency={stores[0].currency} locale={stores[0].locale} onBack={vi.fn()} />
+          </CatalogueContext.Provider>
           <PortalHost />
         </RegisterProvider>
       </OutboxProvider>
     </SessionProvider>,
   );
   await waitFor(() => expect(register.boundRegisterId).not.toBeNull());
-  for (const quantity of [1, 2]) {
-    fireEvent.click(within(screen.getByTestId('product-tile-80')).getByText('Espresso'));
-    if (quantity > 1) setLineQuantity('Espresso', quantity);
+  for (const { tile, name, quantity } of [{ tile: 'product-tile-80', name: 'Espresso', quantity: 1 }, second]) {
+    fireEvent.click(within(screen.getByTestId(tile)).getByText(name));
+    if (quantity > 1) setLineQuantity(name, quantity);
     fireEvent.click(screen.getByTestId('cart-checkout'));
     await takeCash(1000);
     expect(await screen.findByTestId('receipt-order')).not.toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'New sale' }));
     await screen.findByText(EMPTY_CART_TEXT);
   }
-  await waitFor(() => expect(text('hero-total')).toBe('$9.00'));
+  await waitFor(() => expect(text('hero-total')).toBe(second.total));
   if (!outbox.enabled || !outbox.orders) throw new Error('Order store not ready');
   const orders = await outbox.orders.find().exec();
   const small = orders.find(order => order.totalMinor === 300)!.id;
-  const large = orders.find(order => order.totalMinor === 600)!.id;
+  const large = orders.find(order => order.id !== small)!.id;
   fireEvent.click(screen.getByTestId('sales-room-orders-open'));
   await screen.findByTestId('sales-table');
   return { small, large };
@@ -173,4 +177,26 @@ test('the Payments table follows the left-out set', async () => {
   expect(table.getByTestId('sales-table-status').textContent).toBe('1 order · $6.00');
   // Only the Orders table carries tick boxes.
   expect(table.queryByTestId('orders-panel-tick-all')).toBeNull();
+}, 30_000);
+
+test('a left-out order leaves Top products and Categories, and comes back when ticked again', async () => {
+  const { large } = await twoSales({ tile: 'product-tile-84', name: 'Cold Brew', quantity: 1, total: '$7.00' });
+  // Each Top products row's name and amount, best seller first.
+  const topProducts = () => screen.getAllByTestId(/^card-products-row-\d$/)
+    .map(row => within(row).getAllByText(/./).slice(0, 2).map(cell => cell.textContent));
+  const categoryRows = () => screen.getAllByTestId(/^card-categories-donut-row-[a-z0-9]+$/).map(row => row.getAttribute('data-testid'));
+  expect(topProducts()).toEqual([['Cold Brew', '$4.00'], ['Espresso', '$3.00']]);
+  expect(categoryRows()).toEqual(['card-categories-donut-row-25']);
+  expect(text('card-categories-donut-row-25-value')).toBe('$7.00');
+  // Leave the Cold Brew order out: its product leaves Top products and Coffee drops to the Espresso order's amount.
+  fireEvent.click(screen.getByTestId(`orders-panel-tick-${large}`));
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+  expect(topProducts()).toEqual([['Espresso', '$3.00']]);
+  expect(categoryRows()).toEqual(['card-categories-donut-row-25']);
+  expect(text('card-categories-donut-row-25-value')).toBe('$3.00');
+  // Tick it again and both come back.
+  fireEvent.click(screen.getByTestId(`orders-panel-tick-${large}`));
+  await waitFor(() => expect(text('hero-total')).toBe('$7.00'));
+  expect(topProducts()).toEqual([['Cold Brew', '$4.00'], ['Espresso', '$3.00']]);
+  expect(text('card-categories-donut-row-25-value')).toBe('$7.00');
 }, 30_000);

@@ -2,23 +2,44 @@ import type { JSX } from 'react';
 import { Pressable, View } from 'react-native';
 import { Text } from '@tallyui/components';
 import { evenSplitShareMinor, type PlanLeg } from '@tallyui/pos';
+import { filterChipClassName, filterChipTextClassName } from './catalogue-filter-chips';
+
+// WCPOS v2: tender-pane.tsx:171.
+const PERCENTS = [10, 20, 25, 50];
 
 // WCPOS v2: tender-pane.tsx:732-785 scrolls the tiles sideways; the desk ruled (2026-11-16, #298)
-// that no tile may be clipped, so they wrap instead.
-export function EvenSplitTiles({ restMinor, onPick, fmt, disabled }: {
-  restMinor: number; onPick: (ways: number) => void; fmt: (minor: number) => string; disabled: boolean;
+// that no tile may be clipped, so they wrap instead. The Percent tile leads them (v2 :752-758).
+export function EvenSplitTiles({ restMinor, onPick, onPercent, fmt, disabled }: {
+  restMinor: number; onPick: (ways: number) => void; onPercent: () => void; fmt: (minor: number) => string; disabled: boolean;
 }): JSX.Element {
+  const tile = (testID: string, title: string, sub: string, onPress: () => void) => <View key={testID} className="min-w-20 grow basis-0">
+    <Pressable accessibilityRole="button" testID={testID}
+      className="grow items-center justify-center gap-1 rounded-lg border border-border bg-card px-1 py-2" disabled={disabled} onPress={onPress}>
+      <Text className="text-center text-base font-semibold text-foreground" numberOfLines={2}>{title}</Text>
+      <Text className="text-center text-sm text-muted-foreground" numberOfLines={2}>{sub}</Text>
+    </Pressable>
+  </View>;
   return <>
     <Text className="w-full text-center text-sm text-muted-foreground">Split the rest</Text>
     <View testID="checkout-split-ways" className="w-full flex-row flex-wrap gap-2">
-        {[2, 3, 4, 5, 6].map(ways => <View key={ways} className="min-w-20 grow basis-0">
-          <Pressable accessibilityRole="button" testID={`checkout-even-${ways}`}
-            className="grow items-center justify-center gap-1 rounded-lg border border-border bg-card px-1 py-2" disabled={disabled} onPress={() => onPick(ways)}>
-            <Text className="text-center text-base font-semibold text-foreground" numberOfLines={2}>{ways} ways</Text>
-            <Text className="text-center text-sm text-muted-foreground" numberOfLines={2}>{fmt(evenSplitShareMinor(restMinor, ways))} each</Text>
-          </Pressable>
-        </View>)}
+      {tile('checkout-percent', 'Percent', 'a share', onPercent)}
+      {[2, 3, 4, 5, 6].map(ways => tile(`checkout-even-${ways}`, `${ways} ways`, `${fmt(evenSplitShareMinor(restMinor, ways))} each`, () => onPick(ways)))}
     </View>
+  </>;
+}
+
+// WCPOS v2: tender-pane.tsx:790-812. `percent` is the typed share; Type clears it for the keypad.
+export function PercentChips({ percent, onPick, disabled }: {
+  percent: number; onPick: (percent: number) => void; disabled: boolean;
+}): JSX.Element {
+  const chip = (testID: string, label: string, on: boolean, value: number) => <Pressable key={testID} accessibilityRole="button" testID={testID}
+    aria-pressed={on} className={filterChipClassName(on)} disabled={disabled} onPress={() => onPick(value)}>
+    <Text className={filterChipTextClassName(on)}>{label}</Text>
+  </Pressable>;
+  return <>
+    <Text className="w-full text-center text-sm text-muted-foreground">Percent of the rest</Text>
+    {PERCENTS.map(value => chip(`checkout-percent-${value}`, `${value} %`, percent === value, value))}
+    {chip('checkout-percent-type', 'Type', !PERCENTS.includes(percent), 0)}
   </>;
 }
 
