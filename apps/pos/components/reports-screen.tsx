@@ -12,7 +12,7 @@ import { useSession } from '../lib/auth/session-context';
 import { useCatalogue } from '../lib/catalogue/catalogue-context';
 import { useRegister } from '../lib/register/register-context';
 import { closuresCsv } from '../lib/reports/closures-csv';
-import { categoryFigures } from '../lib/reports/category-figures';
+import { categoryFigures, productCategoryChoices, productsInCategory } from '../lib/reports/category-figures';
 import { productFigures } from '../lib/reports/product-figures';
 import { useLeftOut } from '../lib/reports/left-out';
 import { closuresScope, periodNow, salesPeriod } from '../lib/reports/report-scope';
@@ -27,6 +27,8 @@ import { ClosurePanel } from './closure-panel';
 import { ClosurePrint } from './closure-print';
 import { ClosureStats } from './closure-stats';
 import { HourlyBars } from './hourly-bars';
+import { FolderIcon } from './icons';
+import { MenuChip } from './menu-chip';
 import { ReportCards, type ReportTable } from './report-cards';
 import { CompareChip, LeftOutChip, PrintSummaryButton, ReportChips, reportCashiers } from './report-chips';
 import { ReportsHero } from './reports-hero';
@@ -71,6 +73,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const [reprint, setReprint] = useState<Closure | 'x' | 'summary' | 'table' | null>(null);
   const [openClosureId, setOpenClosureId] = useState<string | null>(null);
   const [openTable, setOpenTable] = useState<ReportTable | null>(null);
+  const [productCategory, setProductCategory] = useState('all');
   const [printRequest, setPrintRequest] = useState(0);
   // The chart view is device state for the visit (v2 reports LEDGER 23): not persisted, in no query.
   const [chartView, setChartView] = useState<'hour' | 'run'>('hour');
@@ -126,8 +129,15 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   // One set of figures feeds each card and its table, so the two never disagree.
   const products = productFigures(counted, { currency, range });
   const categories = categoryFigures(counted, catalogueProducts, { currency, range });
+  // v2 panel.tsx:78-98: the Products panel's category filter, 'all' until a category is chosen; closing resets it.
+  const categoryChoices = productCategoryChoices(products, catalogueProducts);
+  const categoryLabel = openTable === 'products' && productCategory !== 'all'
+    ? categoryChoices.find(row => row.value === productCategory)?.label ?? productCategory : undefined;
+  const panelScope = categoryLabel ? `${tableScope} · ${categoryLabel}` : tableScope;
+  const closeTable = () => { setOpenTable(null); setProductCategory('all'); };
   const table = openTable === 'payments' ? paymentsTable(room.today, money)
-    : openTable === 'products' ? productsTable(room.today, products, money)
+    : openTable === 'products' ? productsTable(room.today, categoryLabel
+      ? productsInCategory(products, catalogueProducts, productCategory) : products, money, !!categoryLabel)
     : openTable === 'categories' ? categoriesTable(room.today, categories, money)
     : openTable === 'cashiers' ? cashiersTable(room.today, reportCashierRows, money)
     : openTable === 'taxes' ? taxesTable(room.today, money)
@@ -242,14 +252,17 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
         </ReportsHero>
         <ReportCards period={room.today} money={minor => money(minor) ?? ''} moneyWhole={moneyWhole} onOpenTable={setOpenTable} cashiers={reportCashierRows} products={products}
           categories={categories} allLeftOut={ordersView.rows.length > 0 && leftOutNow.size === ordersView.rows.length} />
-        {openTable && table && <SalesTable table={table} scope={tableScope} onClose={() => setOpenTable(null)} onPrint={printTable}
+        {openTable && table && <SalesTable table={table} scope={panelScope} onClose={closeTable} onPrint={printTable}
+          filters={openTable === 'products' && categoryChoices.length > 0 && <MenuChip testID="detail-panel-category" name="category"
+            icon={FolderIcon} value={productCategory} defaultValue="all" onChange={setProductCategory}
+            choices={[{ value: 'all', label: 'All categories' }, ...categoryChoices]} />}
           ticks={openTable === 'orders' ? { leftOut, onInclude: includeOrders } : undefined}
           onExport={() => downloadCsv(salesTableCsv(table), `sales-${openTable}-${range.from}-${range.to}.csv`)} />}
       </ScrollView>}
       {openClosure && <ClosurePanel closure={openClosure} storeName={storeName} currency={currency} locale={locale} blind={register.blind} resolveCashierName={resolveCashierName} onReprint={reprintClosure} onClose={() => setOpenClosureId(null)} />}
       {reprint && <Portal name="closure-reprint">
         {reprint === 'table'
-          ? table && <SalesTablePrint table={table} storeName={storeName} scope={tableScope} locale={locale} />
+          ? table && <SalesTablePrint table={table} storeName={storeName} scope={panelScope} locale={locale} />
           : reprint === 'summary'
           ? <SalesSummaryPrint storeName={storeName} scope={`${periodName} · ${registerName} · ${cashierName}`} period={room.today}
               date={range.from === range.to ? printDate(range.from) : `${printDate(range.from)} – ${printDate(range.to)}`} money={minor => money(minor) ?? ''} locale={locale} />

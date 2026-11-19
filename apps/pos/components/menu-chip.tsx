@@ -14,10 +14,13 @@ export function chipFaceClassName(on: boolean): string {
   return `h-11 flex-row items-center self-start rounded-full border ${chipToneClassName(on)}`;
 }
 
-export function MenuChip({ name, icon: Icon, value, defaultValue, choices, onChange, hint }: {
+export function MenuChip({ name, icon: Icon, value, defaultValue, choices, onChange, hint, testID }: {
   name: string; icon?: ComponentType<SvgIconProps>; value: string; defaultValue: string; choices: readonly MenuChoice[];
   onChange(next: string): void; hint?: string;
+  /** v2's `ids`: one prefix names the chip, its clear, its menu and its rows (`detail-panel-category`). */
+  testID?: string;
 }) {
+  const chip = testID ?? `hero-chip-${name}`, menu = testID ?? `hero-${name}`;
   const [open, setOpen] = useState(false);
   const on = value !== defaultValue;
   // v2's one ink for icon, label and clear (chip/index.tsx:106).
@@ -36,34 +39,34 @@ export function MenuChip({ name, icon: Icon, value, defaultValue, choices, onCha
   // The primitives' Popover, wired as LinePopover is, so a press on the overlay outside the menu closes it.
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <View testID={`hero-chip-${name}-face`} className={chipFaceClassName(on)}>
+      <View testID={`${chip}-face`} className={chipFaceClassName(on)}>
         <Popover.Trigger asChild>
-          <Pressable testID={`hero-chip-${name}`} accessibilityRole="button" className="h-full flex-row items-center gap-1.5 px-3">
-            {Icon && <Icon testID={`hero-chip-${name}-icon`} size={18} className={ink} />}
+          <Pressable testID={chip} accessibilityRole="button" className="h-full flex-row items-center gap-1.5 px-3">
+            {Icon && <Icon testID={`${chip}-icon`} size={18} className={ink} />}
             <Text className={`text-base font-normal ${ink}`}>
               {choices.find(row => row.value === value)?.label ?? value}
             </Text>
           </Pressable>
         </Popover.Trigger>
-        {on && <Pressable testID={`hero-chip-${name}-clear`} accessibilityRole="button" accessibilityLabel="Clear"
+        {on && <Pressable testID={`${chip}-clear`} accessibilityRole="button" accessibilityLabel="Clear"
           onPress={() => choose(defaultValue)} className="h-full justify-center pr-3">
-          <Text testID={`hero-chip-${name}-clear-mark`} className={`text-sm ${ink}`}>✕</Text>
+          <Text testID={`${chip}-clear-mark`} className={`text-sm ${ink}`}>✕</Text>
         </Pressable>}
       </View>
       <Popover.Portal>
-        <Popover.Overlay testID={`hero-${name}-overlay`} style={StyleSheet.absoluteFill} />
-        <Popover.Content testID={`hero-${name}-menu`} align="start" sideOffset={4}
+        <Popover.Overlay testID={`${menu}-overlay`} style={StyleSheet.absoluteFill} />
+        <Popover.Content testID={`${menu}-menu`} align="start" sideOffset={4}
           className="z-50 w-64 rounded-md border border-border bg-popover p-1 shadow-md outline-none">
           {choices.map(row => {
             const selected = row.value === value;
-            return <Pressable key={row.value} testID={`hero-${name}-${row.value}`} role="menuitem"
+            return <Pressable key={row.value} testID={`${menu}-${row.value}`} role="menuitem"
               accessibilityState={{ selected }} aria-selected={selected} onPress={() => choose(row.value)}
               className={`flex-row items-center justify-between gap-2 rounded-sm px-3 py-2${selected ? ' bg-accent' : ''}`}>
               <Text className="text-sm text-popover-foreground">{row.label}</Text>
               {selected && <Text className="text-sm text-primary">✓</Text>}
             </Pressable>;
           })}
-          {hint && <Text testID={`hero-${name}-menu-hint`} className="px-3 py-2 text-sm text-muted-foreground">{hint}</Text>}
+          {hint && <Text testID={`${menu}-menu-hint`} className="px-3 py-2 text-sm text-muted-foreground">{hint}</Text>}
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>
