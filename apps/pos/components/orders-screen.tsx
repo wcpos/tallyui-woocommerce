@@ -14,6 +14,7 @@ import { AreaDisplayOptions } from './area-display-options';
 import { EmptyState } from './empty-state';
 import { OrderDetailSheet, orderPaymentState } from './order-detail';
 import { ReceiptPrintSheet } from './receipt-print-sheet';
+import { ReceiptStoreLine } from './receipt-store-line';
 import { ReceiptZoom } from './receipt-zoom';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { AreaToolbar, useAreaGutter } from './area-header';
@@ -150,7 +151,10 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
       </View>}
       {outbox.enabled
         ? opened
-          ? <View className="min-h-0 flex-1 px-4 pb-4">{opened.storeOrder && <NotPaidLine order={opened.storeOrder} />}<ReceiptZoom><ReceiptPrintSheet orderId={opened.posOrder?.id ?? opened.data.header.orderNumber}><Receipt receipt={opened.data} posOrder={opened.posOrder} newSale={() => setOpened(null)} doneLabel="Back" /></ReceiptPrintSheet></ReceiptZoom></View>
+          ? <View className="min-h-0 flex-1 px-4 pb-4">{opened.storeOrder && <NotPaidLine order={opened.storeOrder} />}<ReceiptZoom><ReceiptPrintSheet orderId={opened.posOrder?.id ?? opened.data.header.orderNumber}>
+            {/* The live copy: a sale that reaches the store while its receipt is open loses the line. */}
+            <ReceiptStoreLine posOrder={opened.posOrder && (outbox.recent.find(o => o.id === opened.posOrder!.id) || opened.posOrder)} />
+            <Receipt receipt={opened.data} posOrder={opened.posOrder} newSale={() => setOpened(null)} doneLabel="Back" /></ReceiptPrintSheet></ReceiptZoom></View>
           : local.length === 0 && orders.length === 0 && !failed && !loading
             ? search !== '' || filtered
               ? <EmptyState kind="no-results" title="No orders match these filters" action={{ label: 'Clear filters', onPress: clear }} />

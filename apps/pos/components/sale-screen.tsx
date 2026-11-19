@@ -52,6 +52,7 @@ import { ReceiptZoom } from './receipt-zoom';
 import { ReceiptPrintSheet } from './receipt-print-sheet';
 import { StoreReceipt } from './store-receipt';
 import { ReceiptPaidMoment } from './receipt-paid-moment';
+import { ReceiptStoreLine } from './receipt-store-line';
 import { useReceiptSettings } from '../lib/receipts/receipt-settings';
 import { RegisterControls } from './register-controls';
 import { CancelPaymentView } from './cancel-payment-view';
@@ -359,6 +360,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           <ReceiptPrintSheet orderId={orderId} autoPrint={receiptSettings.autoPrint} printAgain={storeHtml === null}
             ready={storeTemplates.status !== 'loading' && (storeHtml === null || frameLoaded === orderId)}
             onAutoPrinted={receiptSettings.autoShow ? undefined : sale.newSale}>
+          <ReceiptStoreLine posOrder={receiptOrder} />
           {storeHtml !== null ? <StoreReceipt html={storeHtml} doneLabel={doneLabel} onDone={sale.newSale} printed={printCount > 0}
             onLoad={() => setFrameLoaded(orderId)} /> : <>
           <Receipt order={sale.stage.order} posOrder={receiptOrder} store={{ name: props.storeName }}
