@@ -6,7 +6,7 @@ import { formatMoney } from '@tallyui/core';
 import type { PosOrder } from '@tallyui/pos';
 import { salesRoom, type Period } from '../lib/reports/sales-room';
 import { productFigures } from '../lib/reports/product-figures';
-import { cashiersTable, categoriesTable, ordersTable, paymentsTable, productsTable, taxesTable, whereSoldTable } from '../lib/reports/sales-tables';
+import { cashierLabel, cashiersTable, categoriesTable, ordersTable, paymentsTable, productsTable, taxesTable, whereSoldTable } from '../lib/reports/sales-tables';
 import { salesTableCsv } from '../lib/reports/sales-table-csv';
 
 afterAll(() => {
@@ -134,25 +134,52 @@ test('heads and alignment', () => {
 test("orders table lists today's orders newest first in the store currency", () => {
   const table = ordersTable(orders, { range: day.range, currency: 'USD', money });
   expect(table.rows.map(row => row.cells)).toEqual([
-    ['T4', '13:50', 'Cash', '$1.00', 'Yes'],
-    ['T3', '13:05', 'Card terminal', '$17.38', 'Yes'],
-    ['T2', '09:40', 'Cash + Card terminal', '$8.58', 'Yes'],
-    ['T1', '09:15', 'Cash', '$3.00', 'Yes'],
+    ['T4', '13:50', 'Unknown', 'Cash', '$1.00', 'Yes'],
+    ['T3', '13:05', 'Unknown', 'Card terminal', '$17.38', 'Yes'],
+    ['T2', '09:40', 'Unknown', 'Cash + Card terminal', '$8.58', 'Yes'],
+    ['T1', '09:15', 'Unknown', 'Cash', '$3.00', 'Yes'],
   ]);
-  expect(table.total).toEqual(['Counted', '', '', '$29.96', '']);
+  expect(table.total).toEqual(['Counted', '', '', '', '$29.96', '']);
   expect(table.status).toBe('4 of 4 counted');
   expect(table.title).toBe('Orders');
-  expect(table.head).toEqual(['Order', 'Time', 'Paid by', 'Total', 'Counted']);
-  expect(table.align).toEqual(['left', 'left', 'left', 'right', 'left']);
+}, 20_000);
+
+// v2 panels/specs.ts:190 `[col.order, col.time, col.cashier, col.paidBy, total, col.counted]`, aligned by :134-136.
+test("orders table head reads v2's Order, Time, Cashier, Paid by, Total, Counted", () => {
+  const table = ordersTable(orders, { range: day.range, currency: 'USD', money });
+  expect(table.head).toEqual(['Order', 'Time', 'Cashier', 'Paid by', 'Total', 'Counted']);
+  expect(table.align).toEqual(['left', 'left', 'left', 'left', 'right', 'left']);
+}, 20_000);
+
+test("orders table names each order's cashier as the Cashiers table does", () => {
+  const cashiers = [{ id: '2', name: 'Paul' }];
+  const named = orders.map(order => order.id === 'T4' ? { ...order, cashierRef: '2' } : order.id === 'T3' ? { ...order, cashierRef: '9' } : order);
+  const table = ordersTable(named, { range: day.range, currency: 'USD', money, cashiers });
+  const cashier = table.head.indexOf('Cashier');
+  expect(table.rows.map(row => [row.key, row.cells[cashier]])).toEqual([['T4', 'Paul'], ['T3', '#9'], ['T2', 'Unknown'], ['T1', 'Unknown']]);
+  for (const row of table.rows) {
+    expect(row.cells[cashier]).toBe(cashierLabel(cashiers, named.find(order => order.id === row.key)?.cashierRef ?? ''));
+  }
+}, 20_000);
+
+// v2 panels/specs.ts:221: the footer's amount sits under Total; Counted stays last so the ticks replace it on screen.
+test('orders table total keeps Total under Total and Counted last', () => {
+  const table = ordersTable(orders, { range: day.range, currency: 'USD', money });
+  expect(table.total).toEqual(['Counted', '', '', '', '$29.96', '']);
+  expect(table.total).toHaveLength(table.head.length);
+  expect(table.total.indexOf('$29.96')).toBe(table.head.indexOf('Total'));
+  expect(table.head.at(-1)).toBe('Counted');
 }, 20_000);
 
 // v2 panels/specs.ts:188-222 and panel.tsx:254-259: a left-out order stays a row, Counted "No", out of the footer sum.
 test('orders table keeps a left-out order as a row with Counted No and sums only the counted ones', () => {
   const table = ordersTable(orders, { range: day.range, currency: 'USD', money, leftOut: new Set(['T3', 'elsewhere']) });
-  expect(table.rows.map(row => [row.key, row.cells[4]])).toEqual([['T4', 'Yes'], ['T3', 'No'], ['T2', 'Yes'], ['T1', 'Yes']]);
-  expect(table.total).toEqual(['Counted', '', '', '$12.58', '']);
+  expect(table.rows.map(row => [row.key, row.cells[5]])).toEqual([['T4', 'Yes'], ['T3', 'No'], ['T2', 'Yes'], ['T1', 'Yes']]);
+  expect(table.total).toEqual(['Counted', '', '', '', '$12.58', '']);
   expect(table.status).toBe('3 of 4 counted · the numbers follow');
-  expect(salesTableCsv(table).split('\r\n')[2]).toBe('"T3","13:05","Card terminal","$17.38","No"');
+  const csv = salesTableCsv(table).split('\r\n');
+  expect(csv[0]).toBe('"Order","Time","Cashier","Paid by","Total","Counted"');
+  expect(csv[2]).toBe('"T3","13:05","Unknown","Card terminal","$17.38","No"');
 }, 20_000);
 
 test('orders table names a method once however many legs it has', () => {
@@ -160,7 +187,7 @@ test('orders table names a method once however many legs it has', () => {
     totalMinor: 500, syncStatus: 'applied',
     payments: [{ id: 'cash-1', method: 'cash', amountMinor: 300 }, { id: 'cash-2', method: 'cash', amountMinor: 200 }] };
   const table = ordersTable([...orders, extra], { range: day.range, currency: 'USD', money });
-  expect(table.rows.find(row => row.key === 'C1')?.cells[2]).toBe('Cash');
+  expect(table.rows.find(row => row.key === 'C1')?.cells[3]).toBe('Cash');
 }, 20_000);
 
 test("orders table shows the store's display id once synced", () => {
@@ -173,7 +200,7 @@ test("orders table shows the store's display id once synced", () => {
 test('orders table with no orders today', () => {
   const table = ordersTable([], { range: day.range, currency: 'USD', money });
   expect(table.rows).toEqual([]);
-  expect(table.total).toEqual(['Counted', '', '', '$0.00', '']);
+  expect(table.total).toEqual(['Counted', '', '', '', '$0.00', '']);
   expect(table.status).toBe('0 of 0 counted');
 }, 20_000);
 
