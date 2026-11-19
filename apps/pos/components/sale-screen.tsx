@@ -33,6 +33,7 @@ import { useTenderStart } from '../lib/sale/use-tender-start';
 import { useVoidSale } from '../lib/sale/use-void-sale';
 import { saleDiscountCodes } from '../lib/sale/discount-codes';
 import { taxClassOptions } from '../lib/sale/tax-classes';
+import { refuseLockedAdd, tillLock } from '../lib/sale/till-lock';
 import { saleScanHandlers } from '../lib/scan/sale-scan';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { showAddedToCartToast } from '../lib/toast/added-to-cart-toast';
@@ -51,6 +52,7 @@ import { ReceiptZoom } from './receipt-zoom';
 import { ReceiptPrintSheet } from './receipt-print-sheet';
 import { StoreReceipt } from './store-receipt';
 import { ReceiptPaidMoment } from './receipt-paid-moment';
+import { ReceiptStoreLine } from './receipt-store-line';
 import { useReceiptSettings } from '../lib/receipts/receipt-settings';
 import { RegisterControls } from './register-controls';
 import { CancelPaymentView } from './cancel-payment-view';
@@ -60,6 +62,7 @@ import { OpenOrderTabs, stripCartIds } from './open-order-tabs';
 import { PanelResizeHandle } from './panel-resize-handle';
 import { CartWithSettings } from './cart-settings';
 import { OrderDetailsSheet } from './order-details-sheet';
+import { KeyboardShortcutsSheet } from './keyboard-shortcuts-sheet';
 import { CartNoteRow } from './cart-note-row';
 import { TenderPane } from './tender-pane';
 import { LedgerPane } from './ledger-pane';
@@ -68,7 +71,7 @@ import { PosPhoneTabBar } from './pos-phone-tab-bar';
 // Stores without a capabilities read stay on order.create v3 (no fees, shipping or custom lines).
 const DEFAULT_CAPABILITIES = { orderCreate: 3 } as const;
 
-export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | 'message' | 'onScan'> {
+export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | 'message' | 'onScan' | 'locked'> {
   cashierRef: string; parkedCarts?: ParkedCartCollection; customers?: CustomerSource | null;
   mailer?: ReceiptMailer | null; receiptEmails?: ReceiptEmailCollection;
   storeSettings: StoreSettings; locale?: string;
@@ -209,6 +212,14 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   useChord('ArrowLeft', () => stepCart(-1), cartChords && stripIds.length > 1);
   useChord('ArrowRight', () => stepCart(1), cartChords && stripIds.length > 1);
   useChord('KeyP', checkout.onCheckout, cartChords && hasLines);
+  // v2's alt+v `pos.cart.void` (commands.ts:40-43): what the Order details Void runs, Undo included, while it is offered.
+  useChord('KeyV', voiding.voidSale, cartChords && voiding.offered);
+  // v2's alt+slash `pos.help.open` has no `when`; its sheet greys each row by the gate its chord uses here.
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  useChord('Slash', () => setShortcutsOpen(true), props.searchChord !== false);
+  const onCart = cartChords && hasLines, canStep = cartChords && stripIds.length > 1;
+  const shortcuts = { 'pos.search.focus': chords, 'pos.checkout.open': onCart, 'pos.cart.new': onCart, 'pos.cart.previous': canStep,
+    'pos.cart.next': canStep, 'pos.cart.discount': onCart, 'pos.cart.void': cartChords && voiding.offered, 'pos.help.open': true };
 
   function onSelect(doc: any) {
     try {
@@ -224,7 +235,10 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     }
   }
 
+  // v2 use-add-product.ts:77-85 / use-add-variation.ts: a closed or counting register refuses every add, and says so.
+  const lock = tillLock(register);
   function addEntry(entry: CatalogueEntry<any>): boolean {
+    if (refuseLockedAdd(lock)) return false;
     try {
       sale.add(entry, connector.traits.product);
       setVariants(undefined);
@@ -242,9 +256,11 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     return added;
   }
 
-  const { onScan, onTenderScan } = saleScanHandlers({
+  const { onScan: scanAdd, onTenderScan } = saleScanHandlers({
     products: props.products, traits: connector.traits.product, currency, add: addEntry,
   });
+  // v2 use-barcode.ts:173-181: refused before the lookup, so a locked till never reads a scan as "not found".
+  const onScan = (code: string) => refuseLockedAdd(lock) ? 'keep' as const : scanAdd(code);
 
   const drawerFigure = drawerFigureText(register, minor => sheetMoney(minor, currency, props.locale));
   const signOutTitle = signOutQuestion(register, drawerFigure);
@@ -269,7 +285,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const browse = variants ? (
     <VariantChooser entries={variants} currency={currency} traits={connector.traits.product} onSelect={onAdd} onClose={() => setVariants(undefined)} />
   ) : <CatalogueView {...props} onSelect={onSelect} onAddEntry={onAdd} onScan={onScan} message={message}
-    tax={tax} inCartCounts={inCart} hideBar
+    tax={tax} locked={lock} inCartCounts={inCart} hideBar
     // v2's `onTill`: Alt+F only on the till's own route, never at checkout; the phone till brings Products forward.
     searchChord={chords} onRevealSearch={phoneLayout ? () => setCartOpen(false) : undefined}
     viewState={viewState} onViewStateChange={setViewState} cashierControl={cashierControl} />;
@@ -344,6 +360,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           <ReceiptPrintSheet orderId={orderId} autoPrint={receiptSettings.autoPrint} printAgain={storeHtml === null}
             ready={storeTemplates.status !== 'loading' && (storeHtml === null || frameLoaded === orderId)}
             onAutoPrinted={receiptSettings.autoShow ? undefined : sale.newSale}>
+          <ReceiptStoreLine posOrder={receiptOrder} />
           {storeHtml !== null ? <StoreReceipt html={storeHtml} doneLabel={doneLabel} onDone={sale.newSale} printed={printCount > 0}
             onLoad={() => setFrameLoaded(orderId)} /> : <>
           <Receipt order={sale.stage.order} posOrder={receiptOrder} store={{ name: props.storeName }}
@@ -382,6 +399,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     <View className="flex-1">
       <RegisterControls currency={currency} storeName={props.storeName} locale={props.locale} cartEmpty={!sale.order.lineItems.length}
         panelOpen={registerPanelOpen} onPanelOpenChange={setRegisterPanelOpen}>{cartPane}</RegisterControls>
+      <KeyboardShortcutsSheet open={shortcutsOpen} onOpenChange={setShortcutsOpen} enabled={shortcuts} />
     </View>
   );
 
