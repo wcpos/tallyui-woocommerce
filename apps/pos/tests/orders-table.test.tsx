@@ -5,6 +5,7 @@ import type { StoreOrder } from '@tallyui/core';
 import type { PosOrder } from '@tallyui/pos';
 import { OrdersTable } from '../components/orders-table';
 import { CARD_CLASSES, classesOf } from './classes-of';
+import { COARSE, FINE, stubMatchMedia } from './match-media';
 import { dateTimeLabel, dayHeading, dayLabel, orderRowCells, orderTableItems, storeTone } from '../lib/orders/order-days';
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -338,4 +339,18 @@ test("the phone row and the open button wash in v2's accent on hover, not muted"
   render(<OrdersTable local={[]} store={[storeOrder]} onOpen={vi.fn()} now={() => now} />);
   expect(classesOf('history-open-901')).toContain('web:hover:bg-accent');
   expect(classesOf('history-open-901')).not.toContain('web:hover:bg-muted');
+});
+
+// v2 list-frame/index.tsx:158: the row follows the pointer, not the width.
+test("a touch tablet at 1024 gets the touch rows; a mouse at 1024 keeps the table", () => {
+  setWidth(1024);
+  stubMatchMedia({ ...COARSE });
+  render(<OrdersTable local={[]} store={[storeOrder]} onOpen={vi.fn()} now={() => now} />);
+  expect(screen.getByTestId('orders-rows')).not.toBeNull();
+  expect(screen.queryByTestId('orders-table')).toBeNull();
+  cleanup();
+  stubMatchMedia({ ...FINE });
+  render(<OrdersTable local={[]} store={[storeOrder]} onOpen={vi.fn()} now={() => now} />);
+  expect(screen.getByTestId('orders-table')).not.toBeNull();
+  expect(screen.queryByTestId('orders-rows')).toBeNull();
 });
