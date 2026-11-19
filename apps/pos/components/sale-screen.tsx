@@ -29,6 +29,7 @@ import { useLeaveTill } from '../lib/sale/use-leave-till';
 import { useParkAndResume } from '../lib/sale/use-park-and-resume';
 import { useParkedCarts } from '../lib/sale/use-parked-carts';
 import { useTenderCancel } from '../lib/sale/use-tender-cancel';
+import { useOfflineLegs } from '../lib/sale/offline-legs';
 import { useTenderStart } from '../lib/sale/use-tender-start';
 import { useVoidSale } from '../lib/sale/use-void-sale';
 import { saleDiscountCodes } from '../lib/sale/discount-codes';
@@ -158,6 +159,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     collection: () => (outbox.enabled && outbox.orders!.database.collections.tender_voids) as TenderVoidCollection,
     sessionId: register?.saleSession?.id, cashierRef: props.cashierRef,
   });
+  const offlineLegs = useOfflineLegs(sale.order.id);
   // WCPOS v2 checkout-column.tsx:32-34: Escape is the tender's own Back; in the cancel view the cashier picks Keep or Cancel.
   useCheckoutBack(() => { if (outbox.enabled && props.multiplePayments === true) requestCancel(); else sale.cancelTender(); },
     { enabled: sale.stage.kind === 'tender' && !cancelling });
@@ -334,9 +336,9 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             {/* v2's CancelPaymentButton (checkout-body-view.tsx:87-101): outline-destructive (button/index.tsx:53-54), sm beside
                 the title when wide, default in the phone sheet (tender-checkout.tsx:129), disabled while the order saves. */}
             {sale.order.payments.length > 0 ? <Button variant="outline" className="border-destructive bg-card" size={width < SALE_SPLIT_MIN_WIDTH ? undefined : 'sm'} disabled={sale.saving} testID="checkout-cancel-payment" onPress={requestCancel}><Text>Cancel payment</Text></Button> : null}
-            <TenderPane multi sale={{ ...sale, cancelTender: requestCancel }} />
+            <TenderPane multi sale={{ ...sale, cancelTender: requestCancel }} onRecordedOffline={offlineLegs.mark} />
             {/* One column below 900: the legs sit under the tender (wide, the ledger has the products panel). */}
-            {width < SALE_SPLIT_MIN_WIDTH ? <LedgerPane order={sale.order} onRemove={sale.saving ? undefined : id => { void removeLeg(id); }} /> : null}
+            {width < SALE_SPLIT_MIN_WIDTH ? <LedgerPane order={sale.order} recordedOffline={offlineLegs.ids} onRemove={sale.saving ? undefined : id => { void removeLeg(id); }} /> : null}
           </>
         )
       ) : <TenderPane sale={sale} />}
@@ -422,7 +424,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     // 84-110 INNER_RIGHT/INNER_LEFT `pr-0`/`pl-0`): the handle is that gutter, so the column's 12 px bleeds under it.
     const productsPanel = <View key="products" testID="pos-products-panel"
       style={{ flexGrow: shown, flexShrink: 1, flexBasis: 0 }}>{multiTender ? <View testID="checkout-ledger-column" className="flex-1 bg-muted p-4">
-        <LedgerPane closing order={sale.order} onRemove={cancelling || sale.saving ? undefined : id => { void removeLeg(id); }} />
+        <LedgerPane closing order={sale.order} recordedOffline={offlineLegs.ids} onRemove={cancelling || sale.saving ? undefined : id => { void removeLeg(id); }} />
       </View> : <View testID="pos-products-bleed" className={`flex-1 ${viewState.position === 'right' ? '-ml-3' : '-mr-3'}`}>{browse}</View>}</View>;
     // The bar heads the cart column on whichever side the cart sits, as v2's goes with its cart, on the cart's surface.
     const cartPanel = <View key="cart" testID="pos-cart-panel"
