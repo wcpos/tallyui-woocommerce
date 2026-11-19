@@ -11,6 +11,7 @@ test('today compares one day with yesterday, fetching from the previous midnight
   expect(period.multiDay).toBe(false);
   expect(period.comparison).toEqual({ from: '2026-11-15', to: '2026-11-15' });
   expect(period.comparisonName).toBe('yesterday');
+  expect(period.chartName).toBe('yesterday');
   expect(period.since).toBe(new Date(2026, 10, 15).toISOString());
   expect(period.bounds).toEqual({ startIso: new Date(2026, 10, 16).toISOString(), endIso: new Date(2026, 10, 17).toISOString() });
 });
@@ -19,14 +20,16 @@ test('lastweek compares the same weekday and names it in the supplied locale', (
   const period = salesPeriod('today', 'lastweek', now, 'en-US');
   expect(period.weekday).toBe('Monday');
   expect(period.comparisonName).toBe('last Monday');
+  expect(period.chartName).toBe('last Monday');
   expect(period.comparison).toEqual({ from: '2026-11-09', to: '2026-11-09' });
 });
 
-test.each([['thisWeek', 'week before'], ['thisMonth', 'month before']] as const)(
-  '%s is multi-day and names the period before', (preset, name) => {
+test.each([['thisWeek', 'the week before', 'last week'], ['thisMonth', 'the month before', 'last month']] as const)(
+  '%s is multi-day and names the period before', (preset, name, chart) => {
     const period = salesPeriod(preset, 'lastweek', now, 'en-US');
     expect(period.multiDay).toBe(true);
     expect(period.comparisonName).toBe(name);
+    expect(period.chartName).toBe(chart);
   });
 
 test('a live day uses the current minute, and a past day has no future buckets', () => {
@@ -78,7 +81,8 @@ test('an eight-day custom range compares with the month before', () => {
   expect(period.range).toBe(range);
   expect(period.multiDay).toBe(true);
   expect(period.comparison).toEqual(comparisonRange(range, 'previous'));
-  expect(period.comparisonName).toBe('month before');
+  expect(period.comparisonName).toBe('the month before');
+  expect(period.chartName).toBe('last month');
 });
 
 test('a three-day custom range compares with the week before', () => {
@@ -86,7 +90,8 @@ test('a three-day custom range compares with the week before', () => {
   const period = salesPeriod(range, 'yesterday', now, 'en-US');
   expect(period.multiDay).toBe(true);
   expect(period.comparison).toEqual(comparisonRange(range, 'previous'));
-  expect(period.comparisonName).toBe('week before');
+  expect(period.comparisonName).toBe('the week before');
+  expect(period.chartName).toBe('last week');
 });
 
 test('a one-day custom range can compare with the same weekday last week', () => {

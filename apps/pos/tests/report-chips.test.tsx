@@ -103,8 +103,8 @@ test('Everyone carries v2 cashier icon and the comparison its swap icon, the fix
     expect(classesOf(`hero-chip-${name}-face`)).toEqual(expect.arrayContaining(['h-11', 'rounded-full']));
   }
   cleanup();
-  render(<CompareChip {...props()} fixed="vs week before" />);
-  expect(screen.getByTestId('hero-chip-compare').textContent).toBe('vs week before');
+  render(<CompareChip {...props()} fixed="vs the week before" />);
+  expect(screen.getByTestId('hero-chip-compare').textContent).toBe('vs the week before');
   expect(screen.getByTestId('hero-chip-compare-icon')).not.toBeNull();
   expect(classesOf('hero-chip-compare')).toEqual(expect.arrayContaining(['h-11', 'rounded-full', 'opacity-45']));
 });
