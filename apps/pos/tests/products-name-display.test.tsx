@@ -9,7 +9,6 @@ import { PortalHost } from '@tallyui/primitives';
 import { AreaDisplayOptions } from '../components/area-display-options';
 import { COUPONS_COLUMNS } from '../components/coupons-screen';
 import { CUSTOMERS_COLUMNS } from '../components/customers-screen';
-import { ORDERS_COLUMNS } from '../components/orders-table';
 import { PRODUCTS_COLUMNS, ProductsScreen } from '../components/products-screen';
 import { areaColumnRows, areaColumnsKey, normalizeAreaColumns, saveAreaColumns } from '../lib/area-columns';
 import { classesOf } from './classes-of';
@@ -135,7 +134,7 @@ test('a column switch keeps the display lines, and Product hidden draws none of 
 });
 
 test.each([
-  ['orders', ORDERS_COLUMNS], ['customers', CUSTOMERS_COLUMNS], ['coupons', COUPONS_COLUMNS],
+  ['customers', CUSTOMERS_COLUMNS], ['coupons', COUPONS_COLUMNS],
 ] as const)('%s draws no nested switches, and plain stored rows stay readable', (area, columns) => {
   render(<><AreaDisplayOptions area={area} columns={columns} settings={areaColumnRows(columns)} onChange={vi.fn()} /><PortalHost /></>);
   const panel = openPanel(area);

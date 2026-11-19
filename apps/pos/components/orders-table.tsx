@@ -44,7 +44,8 @@ export const ORDERS_COLUMNS: readonly AreaColumn<OrdersColumnId>[] = [
   { id: 'customer_id', label: 'Customer', visible: true },
   { id: 'date_created_gmt', label: 'Date Created', visible: true },
   { id: 'payment_method', label: 'Payment Method', visible: true },
-  { id: 'total', label: 'Total', visible: true },
+  // v2's Total carries one display line, the payment title, off by default (initial-settings.json:466-475).
+  { id: 'total', label: 'Total', visible: true, display: [{ id: 'payment_method', label: 'Payment Method', visible: false }] },
 ];
 const ALL_COLUMNS = ORDERS_COLUMNS.map(column => column.id);
 
@@ -57,18 +58,20 @@ function OrderStatus({ cells }: { cells: OrderRowCells }) {
 }
 
 /** v2's OrderTotal (orders/cells/total.tsx:30-56): the total, then any refunds as a negative line in the bad tone
- *  (this theme's destructive), in the table's Total cell and on the phone row (orders/row.tsx:34-37). */
-function OrderTotal({ cells, orderId, testID }: { cells: OrderRowCells; orderId: string; testID?: string }) {
+ *  (this theme's destructive), in the table's Total cell and on the phone row (orders/row.tsx:34-37); then, when the
+ *  table's Payment Method display line is on, the payment title in v2's `key` rank (text/ladder.ts:14). */
+function OrderTotal({ cells, orderId, testID, payment }: { cells: OrderRowCells; orderId: string; testID?: string; payment?: string }) {
   return <>
     <Text testID={testID} className="text-right tabular-nums">{cells.total}</Text>
     {cells.refunds ? <Text testID={`order-total-refunds-${orderId}`} className="text-right text-sm tabular-nums text-destructive">{cells.refunds}</Text> : null}
+    {payment ? <Text testID={`order-total-payment-${orderId}`} className="text-right text-sm text-muted-foreground">{payment}</Text> : null}
   </>;
 }
 
 /** The wide table's filter taps (v2 setFilter through the table's actions). */
 type CellFilters = { onFilterStatus?(status: string): void; onFilterCustomer?(id: string, name: string): void };
 
-function orderCell(id: OrdersColumnId, cells: ReturnType<typeof orderRowCells>, rowId: string, row: OrderTableRow, filters: CellFilters): JSX.Element {
+function orderCell(id: OrdersColumnId, cells: ReturnType<typeof orderRowCells>, rowId: string, row: OrderTableRow, filters: CellFilters, showPayment: boolean): JSX.Element {
   const { onFilterStatus, onFilterCustomer } = filters;
   const chip = 'h-8 max-w-full flex-row items-center self-start rounded-full border border-border px-2.5';
   const name = <Text testID={`${rowId}-customer`} numberOfLines={1} className="shrink text-sm font-normal text-foreground">{cells.customer}</Text>;
@@ -93,7 +96,7 @@ function orderCell(id: OrdersColumnId, cells: ReturnType<typeof orderRowCells>, 
     </TableCell>;
     case 'date_created_gmt': return <TableCell key={id} testID={`${rowId}-date`} className={CELL}><Text>{cells.date}</Text></TableCell>;
     case 'payment_method': return <TableCell key={id} testID={`${rowId}-payment`} className={CELL}><Text>{cells.payment}</Text></TableCell>;
-    case 'total': return <TableCell key={id} testID={`${rowId}-total`} className={`${CELL} ${ALIGN.total}`}><OrderTotal cells={cells} orderId={row.order.id} /></TableCell>;
+    case 'total': return <TableCell key={id} testID={`${rowId}-total`} className={`${CELL} ${ALIGN.total}`}><OrderTotal cells={cells} orderId={row.order.id} payment={showPayment ? cells.payment : undefined} /></TableCell>;
   }
 }
 
@@ -161,7 +164,9 @@ function headCell({ id, label }: AreaColumn<OrdersColumnId>): JSX.Element {
 }
 
 /** v2's orders table (screens/main/orders/index.tsx): grouped by day, newest first; the chevron opens the order. */
-export function OrdersTable({ local, store, onOpen, onEndReached, footer, active = false, onSync, now = () => new Date(), visible = ALL_COLUMNS, total = null, placeholder = false, ...filters }: CellFilters & {
+export function OrdersTable({ local, store, onOpen, onEndReached, footer, active = false, onSync, now = () => new Date(), visible = ALL_COLUMNS, total = null, placeholder = false, showPayment = false, ...filters }: CellFilters & {
+  /** Total's Payment Method display line is on: the table's Total cell shows the payment title (v2 cells/total.tsx:25). */
+  showPayment?: boolean;
   /** No rows yet while the first page loads: v2's syncing rows (data-table/index.tsx:400-409). */
   placeholder?: boolean;
   /** The store's count of every order the query matches; null when it gives none. */
@@ -247,7 +252,7 @@ export function OrdersTable({ local, store, onOpen, onEndReached, footer, active
                 return (
                   <KeyboardRow key={item.id} index={ids.indexOf(item.id)} keyboard={keyboard} testID={`${prefix}-keyrow-${item.order.id}`}>
                   <TableRow testID={`${prefix}-row-${item.order.id}`} className={ROW}>
-                    {columns.map(({ id }) => orderCell(id, cells, `${prefix}-${item.order.id}`, item, filters))}
+                    {columns.map(({ id }) => orderCell(id, cells, `${prefix}-${item.order.id}`, item, filters, showPayment))}
                     <TableCell className="w-14 flex-none items-center justify-center px-0 py-0">
                       <Pressable accessibilityRole="button" accessibilityLabel="Open order" testID={`${prefix}-open-${item.order.id}`}
                         onPress={() => onOpen(item)} className="size-9 items-center justify-center rounded-md web:hover:bg-accent">

@@ -1,7 +1,9 @@
 // Store health › Performance logic, ported from v2 performance-logic.ts.
 import { expect, test } from 'vitest';
 import { REQUEST_METRICS_HOUR_MS, type RequestMetricsBucket } from '@tallyui/database';
-import { deriveUptimeCells, formatCadence, performanceSummary, summarizeLast24h } from '../lib/health/performance';
+import {
+  MIN_TREND_POINTS, deriveUptimeCells, formatCadence, performanceSummary, summarizeLast24h, trendPoints,
+} from '../lib/health/performance';
 
 const HOUR = REQUEST_METRICS_HOUR_MS;
 const nowMs = Date.UTC(2026, 10, 12, 15, 30);
@@ -40,6 +42,19 @@ test('summarizeLast24h sums inside 24 h only, with the rounded mean response, or
   expect(summary).toEqual({ requests: 3, megabytes: 1.5, typicalMs: 134 });
   expect(summarizeLast24h([bucket(currentHour, { requests: 1 })], nowMs)).toEqual({ requests: 1, megabytes: 0, typicalMs: null });
   expect(summarizeLast24h([], nowMs)).toEqual({ requests: 0, megabytes: 0, typicalMs: null });
+});
+
+test('trendPoints keeps request hours with requests and load hours with a loadMax, inside 24 h, in bucket order', () => {
+  const { requestPoints, loadPoints } = trendPoints([
+    bucket(currentHour - 30 * HOUR, { requests: 5, loadMax: 9 }),
+    bucket(currentHour - 2 * HOUR, { requests: 0, loadMax: 1.2 }),
+    bucket(currentHour - HOUR, { requests: 4 }),
+    bucket(currentHour, { requests: 2, loadMax: 0.5 }),
+  ], nowMs);
+  expect(requestPoints).toEqual([{ x: currentHour - HOUR, y: 4 }, { x: currentHour, y: 2 }]);
+  expect(loadPoints).toEqual([{ x: currentHour - 2 * HOUR, y: 1.2 }, { x: currentHour, y: 0.5 }]);
+  expect(trendPoints([], nowMs)).toEqual({ requestPoints: [], loadPoints: [] });
+  expect(MIN_TREND_POINTS).toBe(2);
 });
 
 test('performanceSummary reads v2 copy, drops the typical part when null, and has a no-history line', () => {
