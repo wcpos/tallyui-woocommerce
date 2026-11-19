@@ -112,7 +112,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const printDate = (day: string) => formatClosureDate(rangeBounds({ from: day, to: day }).startIso, { timezone: 'device', locale }).date;
   const money = (amount: number) => formatMoney({ amount, currency }, locale);
   // v2 reports/context.tsx:264-288: unticked orders in the period drop out of every figure; the comparison is untouched.
-  const ordersView = ordersTable(shown, { range, currency, money, leftOut });
+  const ordersView = ordersTable(shown, { range, currency, money, leftOut, cashiers: reportCashierRows });
   const leftOutNow = new Set(ordersView.rows.filter(row => leftOut.has(row.key)).map(row => row.key));
   const counted = leftOutNow.size === 0 ? shown : shown.filter(order => !leftOutNow.has(order.id));
   const room = salesRoom(counted, { now, currency, range, preset, comparison });

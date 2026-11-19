@@ -1118,12 +1118,16 @@ test("the hero's Orders line opens a table of today's orders", async () => {
   expect(table.getAllByTestId(/^sales-table-row-/)).toHaveLength(1);
   // The tick box's ✓ comes first; the Counted column is not painted on screen (v2 orders-panel.tsx).
   expect(within(table.getByTestId(`sales-table-row-${order.id}`)).getAllByText(/./).map(cell => cell.textContent)).toEqual([
-    '✓', orderReference(order), time, 'Cash', '$3.00',
+    '✓', orderReference(order), time, 'Paul', 'Cash', '$3.00',
   ]);
   expect(within(table.getByTestId('sales-table-total')).getAllByText(/./).map(cell => cell.textContent)).toEqual([
     'Counted', '$3.00',
   ]);
   expect(table.getByTestId('sales-table-status').textContent).toBe('1 of 1 counted');
+  // v2 panels/specs.ts:190: Print report (and Export CSV) carry the Cashier column, Counted last.
+  const printed = await printTable();
+  expect(text('sales-table-print-head')).toBe('Order — Time — Cashier — Paid by — Total — Counted');
+  expect(printed.rows).toEqual([`${orderReference(order)} — ${time} — Paul — Cash — $3.00 — Yes`]);
   fireEvent.click(table.getByTestId('sales-table-close'));
   await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
   expect(text('hero-orders')).toBe('1');
@@ -1194,7 +1198,9 @@ test('Export CSV names the Orders table and carries its rows', async () => {
   const table = within(await screen.findByTestId('sales-table'));
   fireEvent.click(table.getByTestId('sales-table-export'));
   const blob = vi.mocked(URL.createObjectURL).mock.calls[0][0] as Blob;
-  expect((await blob.text()).split('\r\n')[1]).toBe(`"${orderReference(order)}","${time}","Cash","$3.00","Yes"`);
+  const csv = (await blob.text()).split('\r\n');
+  expect(csv[0]).toBe('"Order","Time","Cashier","Paid by","Total","Counted"');
+  expect(csv[1]).toBe(`"${orderReference(order)}","${time}","Paul","Cash","$3.00","Yes"`);
   expect(anchors[0].download).toMatch(/^sales-orders-(\d{4}-\d{2}-\d{2})-\1\.csv$/);
 }, 20_000);
 
