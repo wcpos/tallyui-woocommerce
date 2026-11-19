@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { discoverSite, normalizeSiteUrl, SiteError } from '../lib/auth/site';
+import { discoverSite, DISCOVERY_TIMEOUT_MS, normalizeSiteUrl, SiteError } from '../lib/auth/site';
 import { memoryStorage } from './memory-storage';
 
 beforeEach(() => {
@@ -9,6 +9,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 const home = 'https://claudes-mac-mini.tail6a20e3.ts.net:10000';
@@ -40,7 +41,7 @@ test('discovers the real WCPOS index and sends the discovery header', async () =
   });
   expect(fetchImpl).toHaveBeenCalledExactlyOnceWith(
     `${home}/wp-json/?wcpos=1&_fields=name,url,home,namespaces,authentication`,
-    { headers: { 'X-WCPOS': '1' } },
+    { headers: { 'X-WCPOS': '1' }, signal: expect.any(AbortSignal) },
   );
 });
 
@@ -49,9 +50,46 @@ test('uses the index home with its trailing slash removed', async () => {
   expect((await discoverSite('shop.example', fetchImpl as unknown as typeof fetch)).home).toBe(home);
 });
 
-test('maps a network error to unreachable', async () => {
+test("maps a network error to unreachable with v2's copy", async () => {
   const fetchImpl = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>().mockRejectedValue(new TypeError('offline'));
-  await expect(discoverSite(home, fetchImpl as unknown as typeof fetch)).rejects.toMatchObject({ code: 'unreachable' });
+  await expect(discoverSite(home, fetchImpl as unknown as typeof fetch)).rejects.toMatchObject({
+    code: 'unreachable', message: "Couldn't reach the site — check the connection and try again",
+  });
+});
+
+test("gives up after v2's 10 s with the timeout copy", async () => {
+  vi.useFakeTimers();
+  // A store that never answers: the fake settles only when its signal aborts, as fetch does.
+  const fetchImpl = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+    init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+  }));
+  let failure: unknown;
+  void discoverSite(home, fetchImpl as unknown as typeof fetch).catch((error: unknown) => { failure = error; });
+  expect(DISCOVERY_TIMEOUT_MS).toBe(10_000);
+  await vi.advanceTimersByTimeAsync(9_999);
+  expect(failure).toBeUndefined();
+  await vi.advanceTimersByTimeAsync(1);
+  expect(failure).toMatchObject({
+    code: 'timeout', message: 'The site took too long to respond — check the server and try again',
+  });
+});
+
+// v2 use-api-discovery.ts:164-182 isRestrictedApi.
+test("shows the store's own message for a 403 JSON block", async () => {
+  const fetchImpl = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
+    .mockResolvedValue(Response.json({ code: 'rest_forbidden', message: 'Blocked by Shield' }, { status: 403 }));
+  await expect(discoverSite(home, fetchImpl as unknown as typeof fetch)).rejects.toMatchObject({
+    code: 'rest_restricted', message: 'Blocked by Shield',
+  });
+});
+
+test("shows v2's restricted copy for a 401 JSON without a message", async () => {
+  const fetchImpl = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
+    .mockResolvedValue(Response.json({ code: 'rest_not_logged_in' }, { status: 401 }));
+  await expect(discoverSite(home, fetchImpl as unknown as typeof fetch)).rejects.toMatchObject({
+    code: 'rest_restricted',
+    message: 'The WordPress REST API on this site requires authentication. A security plugin may be blocking public access to the REST API.',
+  });
 });
 
 test.each(['challenge', ' Challenge '])('names a Cloudflare challenge (cf-mitigated: %j)', async value => {
@@ -67,7 +105,9 @@ test.each(['challenge', ' Challenge '])('names a Cloudflare challenge (cf-mitiga
 test('a 403 without cf-mitigated: challenge stays not_wordpress', async () => {
   const fetchImpl = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
     .mockResolvedValue(new Response('<html>Forbidden</html>', { status: 403, headers: { 'cf-mitigated': 'block' } }));
-  await expect(discoverSite(home, fetchImpl as unknown as typeof fetch)).rejects.toMatchObject({ code: 'not_wordpress' });
+  await expect(discoverSite(home, fetchImpl as unknown as typeof fetch)).rejects.toMatchObject({
+    code: 'not_wordpress', message: 'Site does not seem to be a WordPress site',
+  });
 });
 
 test.each([new Response('<html>Store</html>'), Response.json({ name: 'Store' })])(

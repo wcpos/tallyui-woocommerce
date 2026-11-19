@@ -31,7 +31,7 @@ import { ChevronRightIcon } from './icons';
 import { InCartBadge } from './in-cart-badge';
 import { LevelBack } from './level-back';
 import { ProductTile } from './product-tile';
-import { QuickFilterBar, SaveAsButton } from './quick-filter-bar';
+import { ClearAllButton, QuickFilterBar, SaveAsButton } from './quick-filter-bar';
 import { RegisterBarShell } from './register-bar-shell';
 import { ParentTile, VariationRow, VariationTile } from './variation-tile';
 import { ViewModeToggle } from './view-mode-toggle';
@@ -261,6 +261,7 @@ export function CatalogueView({
       <CatalogueFilterChips products={products} filters={filters} onChange={next => dispatch({ type: 'filter', filters: next })} dimmed={drilled !== undefined}
         placeField={level === null ? undefined : 'categories'} />
       <QuickFilterBar quickFilters={quickFilters} isActive={isActive} onPress={pressQuickFilter} dimmed={drilled !== undefined} />
+      {filtersOn >= 2 && <ClearAllButton onPress={() => dispatch({ type: 'clearAll', baseline, keep: level === null ? undefined : 'categories' })} />}
       {filtersOn >= 1 && <SaveAsButton onPress={() => setCaptured(captureQuickFilter(queryState, baseline, viewState.sort))} />}
     </ScrollView>
     {/* v2 index.tsx:607-610: the panel mounts under the chips, above the products, and keeps scanning after a decode. */}

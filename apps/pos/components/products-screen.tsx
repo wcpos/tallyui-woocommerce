@@ -326,6 +326,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   const drillTo = useCallback<OnDrill>((doc, match) => setDrill({ id: doc.id, query, match }), [query]);
 
   function clear() { set(''); setFilters({}); }
+  const filtersOn = Object.values(filters).filter(value => Array.isArray(value) ? value.length > 0 : value !== undefined && value !== '').length;
 
   // v2's useBarcode (products/use-barcode.ts:19-63, core.json common.barcode_scanned and product_found_locally_one /
   // _other): toast the local match count, info for 0 or 1 and warn for an ambiguous code, then search for it whatever
@@ -452,7 +453,9 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
             onOpenChange={setOptionsOpen} />
         </AreaToolbar>
         <View testID="products-filter-row" className={`pb-2 ${gutter}`}>
-          <CatalogueFilterChips products={products} filters={filters} onChange={setFilters} />
+          {/* v2's `changed >= 2` Clear all (components/product/filter-bar/index.tsx:25-31,61-65): the filters only; the search stays. */}
+          <CatalogueFilterChips products={products} filters={filters} onChange={setFilters} trailing={filtersOn >= 2
+            ? <Button testID="products-filter-clear-all" variant="ghost" onPress={() => setFilters({})}><Text>Clear all</Text></Button> : undefined} />
         </View>
         {drilled ? pane : <TableSurface testID="products-table-surface">{body}</TableSurface>}
         {drilled ? (
