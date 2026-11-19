@@ -81,9 +81,9 @@ export function ReceiptEmail({ collection, orderId, defaultEmail, localOnly = fa
               accessibilityLabel="Email Address" keyboardType="email-address" autoCapitalize="none" /></Input>
           </View>
           <View className="flex-row items-center gap-2">
-            <Switch size="sm" testID="receipt-email-save-to-billing" accessibilityLabel="Save email to Billing Address"
+            <Switch size="sm" testID="receipt-email-save-to-billing" accessibilityLabel="Save email to the customer"
               checked={saveToBilling} onCheckedChange={setSaveToBilling} />
-            <Text>Save email to Billing Address</Text>
+            <Text>Save email to the customer</Text>
           </View>
           {replacesBilling ? <Text testID="receipt-email-billing-replaces" className="text-muted-foreground">
             {`Replaces ${billingEmail} on this order’s billing address.`}

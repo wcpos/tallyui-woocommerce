@@ -66,7 +66,10 @@ test('the bell opens the notifications sheet with its empty state, and Close shu
   fireEvent.click(screen.getByTestId('register-bar-bell'));
   const sheet = screen.getByTestId('notifications-sheet');
   expect(within(sheet).getByText('Notifications')).not.toBeNull();
-  expect(screen.getByTestId('notifications-empty').textContent).toBe('No notifications');
+  const empty = within(screen.getByTestId('notifications-empty'));
+  expect(empty.getByTestId('no-data-message-title').textContent).toBe('No notifications');
+  expect(empty.getByTestId('no-data-message-description').textContent).toBe('Plugin updates, license notices and announcements arrive here.');
+  expect(empty.getByTestId('no-data-message-glyph').getAttribute('data-glyph')).toBe('notifications');
   fireEvent.click(screen.getByTestId('notifications-close'));
   expect(screen.queryByTestId('notifications-sheet')).toBeNull();
 });

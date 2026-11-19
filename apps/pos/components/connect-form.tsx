@@ -2,7 +2,8 @@ import { useState } from 'react';
 import type { JSX, ReactNode } from 'react';
 import { Linking, ScrollView, View } from 'react-native';
 import { Button, IconButton, Input, Label, Loader, Text, XIcon } from '@tallyui/components';
-import { CONNECT_STAGE_COPY, errorCodeDocUrl, useConnectDiscovery } from '../lib/auth/use-connect-discovery';
+import { CONNECT_STAGE_COPY, useConnectDiscovery } from '../lib/auth/use-connect-discovery';
+import { errorCodeDocUrl } from '../lib/logs/error-code-docs';
 import type { StartSignIn } from '../lib/auth/use-connect-discovery';
 
 export interface ConnectFormProps {

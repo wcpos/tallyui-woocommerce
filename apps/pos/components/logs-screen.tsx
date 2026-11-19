@@ -3,6 +3,7 @@ import { Pressable, View } from 'react-native';
 import { Button, SearchInput, Text } from '@tallyui/components';
 import type { SyncCadenceRunner } from '@tallyui/database';
 import { useCheckStatusLabel } from '../lib/health/use-check-status';
+import { errorCodeDocUrl } from '../lib/logs/error-code-docs';
 import { useIsWide } from '../lib/layout/wide';
 import type { LogCollection, LogRecord } from '../lib/logs/log-store';
 import { IDLE_OUTBOX_STATE, buildDebugInfo, buildLogEntryReport, displayKind, formatDurationMs, formatLogTime, logStats, matchesLogFilter,
@@ -12,6 +13,7 @@ import { useSearchTerm } from '../lib/search-term';
 import { toast } from '../lib/toast/toast';
 import { chipInkClassName, chipToneClassName } from './catalogue-filter-chips';
 import { EmptyState } from './empty-state';
+import { DocsLink } from './docs-link';
 import { ChevronDownIcon, ChevronRightIcon } from './icons';
 
 // v2's Stat (packages/components/src/stat): the number above a muted label, pressable as a filter when it has onPress.
@@ -103,6 +105,8 @@ function RowDetail({ row, phone, copyText }: { row: LogRecord; phone: boolean; c
   ];
   // v2 logs/row-detail.tsx:100-136: copy the whole entry from the first fact line.
   return <View testID={`logs-detail-${row.id}`} className={`${phone ? 'pl-4' : 'ml-42'} gap-1 py-2`}>
+    {/* v2 logs/row-detail.tsx:148-155, :413: "Help — CODE" to the code's docs page, above the facts. */}
+    {row.code ? <DocsLink testID={`logs-help-${row.code}`} href={errorCodeDocUrl(row.code)}>{`Help — ${row.code}`}</DocsLink> : null}
     {facts.filter(([, value]) => value).map(([label, value], index) => <View key={label} className="flex-row items-baseline gap-3">
       <Text className="w-24 text-sm text-muted-foreground">{label}</Text>
       <Text testID={`logs-detail-${row.id}-${label.toLowerCase().replace(' ', '-')}`} selectable

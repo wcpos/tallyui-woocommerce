@@ -2,11 +2,14 @@
 // `register-bar-bell`, labelled Notifications, opening a right side sheet) and its panel
 // (`notification-panel.tsx`: the `notifications-empty` state). v2's feed comes from Novu; this app has no
 // notifications feed yet, so the sheet always shows the empty state.
+// v2 notification-panel.tsx:155-162: EmptyState kind empty, icon notifications, core.json common.no_notifications and
+// notifications.empty_description without "from WCPOS"; no "About notifications" link (its docs page is WCPOS's).
 import { useState } from 'react';
 import type { JSX } from 'react';
 import { View } from 'react-native';
 import { Path } from 'react-native-svg';
 import { Button, createSvgIcon, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, IconButton, Text } from '@tallyui/components';
+import { EmptyState } from './empty-state';
 
 const BellIcon = createSvgIcon('BellIcon', () => <><Path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><Path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></>);
 
@@ -25,7 +28,10 @@ export function NotificationBell({ testID = 'register-bar-bell' }: { testID?: st
     {open && <Dialog open onOpenChange={setOpen}>
       <DialogContent testID="notifications-sheet" className={SIDE_SHEET}>
         <DialogHeader><DialogTitle>Notifications</DialogTitle></DialogHeader>
-        <View testID="notifications-empty" className="flex-1 items-center justify-center p-6"><Text className="text-muted-foreground">No notifications</Text></View>
+        <View testID="notifications-empty" className="flex-1">
+          <EmptyState kind="empty" glyph={{ name: 'notifications', Icon: BellIcon }} title="No notifications"
+            description="Plugin updates, license notices and announcements arrive here." />
+        </View>
         <DialogFooter><Button variant="outline" testID="notifications-close" onPress={() => setOpen(false)}><Text>Close</Text></Button></DialogFooter>
       </DialogContent>
     </Dialog>}

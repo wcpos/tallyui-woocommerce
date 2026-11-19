@@ -139,13 +139,12 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
             {/* The live copy: a sale that reaches the store while its receipt is open loses the line. */}
             <ReceiptStoreLine posOrder={opened.posOrder && (outbox.recent.find(o => o.id === opened.posOrder!.id) || opened.posOrder)} />
             <Receipt receipt={opened.data} posOrder={opened.posOrder} newSale={() => setOpened(null)} doneLabel="Back" /></ReceiptPrintSheet></ReceiptZoom></View>
-          : local.length === 0 && orders.length === 0 && !failed
-            ? loading
-              ? <View testID="orders-loading" className="flex-1" />
-              : search !== '' || filtered
-                ? <EmptyState kind="no-results" title="No orders match these filters" action={{ label: 'Clear filters', onPress: clear }} />
-                : <EmptyState kind="empty" title="No orders yet" description="Sales you take will appear here." />
+          : local.length === 0 && orders.length === 0 && !failed && !loading
+            ? search !== '' || filtered
+              ? <EmptyState kind="no-results" title="No orders match these filters" action={{ label: 'Clear filters', onPress: clear }} />
+              : <EmptyState kind="empty" title="No orders yet" description="Sales you take will appear here." />
             : <OrdersTable local={local} store={orders} footer={footer} active={loading} total={total}
+              placeholder={loading && local.length === 0 && orders.length === 0}
               // v2's guard (useGuardedExtendLimit): none while a page loads, when exhausted, or after a failure until Try again.
               onEndReached={() => { if (hasMore && !loading && !failed) void loadPage(page + 1, search); }}
               visible={columns.filter(column => column.visible).map(column => column.id)}
