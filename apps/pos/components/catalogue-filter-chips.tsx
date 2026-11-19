@@ -7,10 +7,10 @@ import type { ComponentType, JSX, ReactElement, ReactNode } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Circle, Path, Rect } from 'react-native-svg';
 import {
-  Combobox, ComboboxInput, ComboboxItem, createSvgIcon, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, Text, Tooltip, TooltipContent, TooltipTrigger, XIcon,
+  Combobox, ComboboxItem, createSvgIcon, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, Text, Tooltip, TooltipContent, TooltipTrigger, XIcon,
 } from '@tallyui/components';
 import type { SvgIconProps } from '@tallyui/components';
-import { Popover } from '@tallyui/primitives';
+import { Combobox as ComboboxPrimitive, Popover } from '@tallyui/primitives';
 import type { CatalogueFilters, QuickFilterStockStatus } from '../lib/catalogue/quick-filters';
 import { FolderIcon } from './icons';
 
@@ -123,11 +123,12 @@ function TermSearchMenu({ field, options, selected, emptyText, search, onChoose,
         {/* Inside the portal: the primitives' Portal carries only the Popover's own context across. */}
         <Combobox value={selected} onValueChange={option => { if (option) onChoose(option.value); }}
           open={open} onOpenChange={toggle} searchValue={text} onSearchValueChange={setText}>
-          {/* v2's ComboboxInput: focused on open, `mb-2` above the rows (combobox.tsx:238-245). */}
-          <ComboboxInput asChild placeholder={search}>
+          {/* v2's ComboboxInput: focused on open, `mb-2` above the rows (combobox.tsx:238-245), a 44 field. The unstyled
+              primitive: TallyUI's styled one adds `flex-1`, which folds the field's height in this column. */}
+          <ComboboxPrimitive.Input asChild placeholder={search}>
             <TextInput testID={`filter-pill-${field}-search`} autoFocus placeholderTextColorClassName="accent-muted-foreground"
-              className="mb-2 h-10 rounded-md border border-border px-3 text-base text-foreground web:outline-none" />
-          </ComboboxInput>
+              className="mb-2 h-11 rounded-md border border-border px-3 text-base text-foreground web:outline-none" />
+          </ComboboxPrimitive.Input>
           {shown.length ? shown.map(option => <ComboboxItem key={option.value} value={option.value} label={option.label}
             testID={option.testID}><Text>{option.label}</Text></ComboboxItem>)
             /* v2's ComboboxEmpty row (combobox.tsx:312-317); TallyUI's prints fixed copy. */
