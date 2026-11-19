@@ -19,17 +19,15 @@ export interface SaleScanDeps<Doc> {
   currency: string;
   /** Adds the entry to the sale; false when the sale refused it. */
   add(entry: CatalogueEntry<Doc>): boolean;
-  /** Opens the variant choice for a parent product. */
-  choose(product: Doc): void;
 }
 export interface SaleScanHandlers {
   onScan(code: string): 'clear' | 'search' | 'keep';
   onTenderScan(code: string): void;
 }
 
-/** The sale's scan protocol: look the code up, sound the result, add or choose, and report it. */
+/** The sale's scan protocol: look the code up, sound the result, add or search, and report it. */
 export function saleScanHandlers<Doc>(deps: SaleScanDeps<Doc>): SaleScanHandlers {
-  function scan(code: string, choose: boolean): 'clear' | 'search' | 'keep' {
+  function scan(code: string): 'clear' | 'search' | 'keep' {
     try {
       const result = scanOutcome(deps.products, deps.traits, code, { currency: deps.currency });
       if (result.kind === 'add' || result.kind === 'out-of-stock') {
@@ -51,9 +49,9 @@ export function saleScanHandlers<Doc>(deps: SaleScanDeps<Doc>): SaleScanHandlers
       if (result.kind === 'choose') {
         // v2's chooseVariation plays the failure tone: the scan did not add a line.
         scanFeedback('failure');
-        if (choose) deps.choose(result.product);
         scanAlert('warning', 'Choose a variation', `${deps.traits.getName(result.product)} — ${code}`);
-        return 'clear';
+        // v2 use-barcode.ts:486 (#2413): a variable parent is never a cart line; the cashier picks the variation from search.
+        return 'search';
       }
       scanFeedback('failure');
       if (result.kind === 'several') {
@@ -69,9 +67,9 @@ export function saleScanHandlers<Doc>(deps: SaleScanDeps<Doc>): SaleScanHandlers
     }
   }
 
-  const onScan = (code: string) => scan(code, true);
+  const onScan = (code: string) => scan(code);
   // v2 pos-columns.tsx:147 / tender-scans.tsx (#1438): checkout owns scans while the catalogue is absent.
-  const onTenderScan = (code: string) => { scan(code, false); };
+  const onTenderScan = (code: string) => { scan(code); };
 
   return { onScan, onTenderScan };
 }

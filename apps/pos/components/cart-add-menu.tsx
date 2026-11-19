@@ -40,9 +40,9 @@ export function CartAddMenu({ sale, taxClasses, coupons, couponsOffered, custome
   const [dialog, setDialog] = useState<'customer' | 'misc-product' | 'fee' | 'shipping' | 'discount' | null>(null);
   const [kind, setKind] = useState<'quick' | 'coupon'>('quick');
   // v2's alt+d → pos.cart.discount opens this menu's Add Discount (pos/cart/add-cart-items-menu.tsx:41
-  // useRegisterSurface('discount', …)), only on a cart with lines (commands.ts onOrder), never from a field.
+  // useRegisterSurface('discount', …)), only on a cart with lines (commands.ts onOrder).
   useChord('KeyD', () => { setKind('quick'); setDialog('discount'); },
-    { enabled: chords === true && sale.order.lineItems.length > 0 && dialog === null, inFields: false });
+    chords === true && sale.order.lineItems.length > 0 && dialog === null);
   const close = () => setDialog(null);
   const onOpenChange = (open: boolean) => { if (!open) close(); };
   // The Cart's own rule for its Add charge control (chargesOffered).
