@@ -13,7 +13,7 @@
 // connector data the app does not sync. The drilled view has no per-attribute variation selects or variation
 // search: an option's match shows as one chip that clears it.
 import { useCallback, useMemo, useState } from 'react';
-import type { JSX } from 'react';
+import type { JSX, ReactNode } from 'react';
 import { ScrollView, View, useWindowDimensions } from 'react-native';
 import { ConnectorProvider, formatMoney, moneyFromDecimalString } from '@tallyui/core';
 import type { TallyConnector } from '@tallyui/core';
@@ -112,6 +112,8 @@ export interface ProductsScreenProps {
   currency: string;
   /** The store's locale, WordPress style (`en_US`) or BCP 47. */
   locale?: string;
+  /** The caption row's start, v2's TableFooter children (products.tsx:270-276): the Tax based on trigger. */
+  captionStart?: ReactNode;
   onBack(): void;
 }
 
@@ -302,7 +304,7 @@ function variationColumns(columns: (ProductTableColumn<ProductDoc> & { id: Produ
   }));
 }
 
-export function ProductsScreen({ products, connector, currency, locale: storeLocale, onBack }: ProductsScreenProps): JSX.Element {
+export function ProductsScreen({ products, connector, currency, locale: storeLocale, captionStart, onBack }: ProductsScreenProps): JSX.Element {
   const { term, query, type, set } = useSearchTerm();
   // v2's page gutter (ground.ts:46-72): the crumb and chip rows sit on the bar's 12 in a window, 16 on a phone.
   const gutter = useAreaGutter();
@@ -457,7 +459,11 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
               active={sync.active} onSync={sync.sync} />
           </CaptionRowInset>
         ) : shown.length > 0 && (
-          <CaptionRowInset><TableCount shown={shown.length} total={total} active={sync.active} onSync={sync.sync} /></CaptionRowInset>
+          // v2 data-table/footer.tsx:52-55: the caption start fills the row, the count and sync keep their width.
+          <CaptionRowInset><View className="flex-row items-center">
+            <View testID="products-caption-start" className="min-w-0 flex-1 flex-row items-center">{captionStart}</View>
+            <TableCount shown={shown.length} total={total} active={sync.active} onSync={sync.sync} />
+          </View></CaptionRowInset>
         )}
       </View>
     </ConnectorProvider>
