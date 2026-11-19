@@ -158,13 +158,14 @@ test('a variation barcode adds the exact option without opening the chooser', ()
   expect(cartTabCount()).toBe('1');
 });
 
-test('a variable parent barcode opens the chooser without adding', () => {
+test('a variable parent barcode warns and searches without opening the chooser', () => {
   render(<SaleScreen {...props} products={[products[0], products[1], shirt]} />);
-  const input = screen.getByPlaceholderText('Search products');
+  const input = screen.getByPlaceholderText('Search products') as HTMLInputElement;
   fireEvent.change(input, { target: { value: '2000000000121' } });
   fireEvent.keyDown(input, { key: 'Enter' });
-  expect(screen.getByText('Choose an option')).not.toBeNull();
+  expect(screen.queryByText('Choose an option')).toBeNull();
   expect(getToasts()).toEqual([expect.objectContaining({ id: 'pos-scan-alert', type: 'warning', title: 'Choose a variation', description: 'T-Shirt — 2000000000121' })]);
+  expect(input.value).toBe('2000000000121');
   expect(cartTabCount()).toBe('New');
 });
 
@@ -221,7 +222,7 @@ test('with scan sound on, an added product plays success and a parent or unknown
   expect(tones()).toEqual(['square 330', 'square 220']);
   installFakeAudio();
   scanInto(input, '2000000000121');
-  expect(screen.getByText('Choose an option')).not.toBeNull();
+  expect(getToasts()).toContainEqual(expect.objectContaining({ id: 'pos-scan-alert', title: 'Choose a variation', description: 'T-Shirt — 2000000000121' }));
   expect(tones()).toEqual(['square 330', 'square 220']);
 });
 
