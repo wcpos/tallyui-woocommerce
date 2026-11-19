@@ -28,7 +28,7 @@ export function KeyboardShortcutsSheet({ open, onOpenChange, enabled }: {
       <ScrollView className="flex-1" contentContainerClassName="px-2 py-1">
         {TILL_CHORDS.map(({ id, label, code, key }) => <Pressable key={id} testID={`hotkeys-help-row-${id}`} role="button"
           disabled={!enabled[id]} onPress={() => run(code)}
-          className={`min-h-11 w-full flex-row items-center gap-2 rounded-md px-2.5 py-1.5 web:hover:bg-accent active:bg-accent ${enabled[id] ? '' : 'opacity-45'}`}>
+          className={`min-h-11 w-full flex-row items-center gap-2 rounded-md px-2.5 py-1.5 web:hover:bg-accent active:bg-accent ${enabled[id] ? '' : 'opacity-45 web:pointer-events-none'}`}>
           <Text numberOfLines={1} className="min-w-0 flex-1 text-base text-foreground">{label}</Text>
           <View className="flex-row gap-1">{keycaps(key, platform).map(cap => <Text key={cap}
             className="min-w-7 rounded-md border border-border bg-muted px-1.5 text-center text-muted-foreground">{cap}</Text>)}</View>
