@@ -537,3 +537,28 @@ test('first sync on a touch tablet: 5 placeholder rows of two bars, no table bar
   }
   expect(screen.queryAllByTestId(/^coupons-syncing-bar-/)).toHaveLength(0);
 });
+
+// react-native-web drops a ScrollView's horizontal and contentContainerClassName from the DOM, so read the props of the
+// component that took the testID (as product-settings-sheet.test's contentClassesOf).
+function scrollerPropsOf(testID: string): Record<string, unknown> {
+  const node = screen.getByTestId(testID) as unknown as Record<string, unknown>;
+  type ScrollFiber = { memoizedProps?: Record<string, unknown>; return?: ScrollFiber };
+  for (let fiber = node[Object.keys(node).find(name => name.startsWith('__reactFiber$'))!] as ScrollFiber | undefined; fiber; fiber = fiber.return) {
+    const props = fiber.memoizedProps ?? {};
+    if (props.testID === testID && props.horizontal !== undefined) return props;
+  }
+  return {};
+}
+
+test("at 390 the coupon chips sit on v2's ChipRow: one horizontal scroller, no wrap, inside the gutter row", async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  await withCoupons();
+  const scroller = screen.getByTestId('coupons-filter-chips');
+  expect(screen.getByTestId('coupons-filter-row').contains(scroller)).toBe(true);
+  expect(scroller.contains(screen.getByTestId('filter-pill-status'))).toBe(true);
+  const props = scrollerPropsOf('coupons-filter-chips');
+  expect(props.horizontal).toBe(true);
+  expect(props.showsHorizontalScrollIndicator).toBe(false);
+  expect(String(props.contentContainerClassName).split(/\s+/)).toEqual(['items-center', 'gap-2']);
+  expect(classesOf('coupons-filter-chips')).not.toContain('flex-wrap');
+});
