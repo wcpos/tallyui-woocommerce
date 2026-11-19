@@ -2,14 +2,15 @@
 // `packages/core/src/screens/main/pos/products/filter-bar/filter-bar.tsx`): Stock status, On Sale,
 // Category and Tag, in v2's `BUILT_IN_PILL_IDS` order without Featured and Brand, which need
 // connector data this app does not sync yet.
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import type { ComponentType, JSX, ReactElement, ReactNode } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Circle, Path, Rect } from 'react-native-svg';
 import {
-  createSvgIcon, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, Text, Tooltip, TooltipContent, TooltipTrigger, XIcon,
+  Combobox, ComboboxItem, createSvgIcon, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, Text, Tooltip, TooltipContent, TooltipTrigger, XIcon,
 } from '@tallyui/components';
 import type { SvgIconProps } from '@tallyui/components';
+import { Combobox as ComboboxPrimitive, Popover } from '@tallyui/primitives';
 import type { BuiltInPillId } from '../lib/catalogue/filter-bar-pills';
 import type { CatalogueFilters, QuickFilterStockStatus } from '../lib/catalogue/quick-filters';
 import { FolderIcon } from './icons';
@@ -96,7 +97,50 @@ export function termOptions(products: any[], field: 'categories' | 'tags', prefi
     .map(([id, name]) => ({ value: String(id), label: name, testID: `${prefix}-option-${id}` }));
 }
 
-function SelectChip({ field, icon: Icon, active, dimmed = false, label, extra, selected, options, emptyText, onChoose, onRemove }: {
+/** v2's search box copy for the term chips (core en.json:771 common.search_categories, :779 common.search_tags). */
+const TERM_SEARCH = { categories: 'Search Categories', tags: 'Search Tags' } as const;
+
+/** v2's term chip menu (filter-bar.tsx:344-381, collection-search.tsx:74-86): a search box over the terms, narrowing
+ *  by name, and the empty copy on a miss. Flat: v2's category tree needs parent data the connector does not sync.
+ *  The primitives' Popover anchors it under the chip (TallyUI's ComboboxContent does no positioning), and its
+ *  overlay closes it on an outside press, as menu-chip.tsx does; v2's panel is `max-h-75 w-80` (combobox.tsx:183). */
+function TermSearchMenu({ field, options, selected, emptyText, search, onChoose, children }: {
+  field: 'categories' | 'tags'; options: ChipOption[]; selected: { value: string; label: string } | undefined;
+  emptyText?: string; search: string; onChoose(value: string): void; children: ReactNode;
+}): JSX.Element {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const toggle = (next: boolean) => { setOpen(next); if (!next) setText(''); };
+  const term = text.trim().toLowerCase();
+  const shown = options.filter(option => option.label.toLowerCase().includes(term));
+  return <Popover.Root open={open} onOpenChange={toggle}>
+    <Popover.Trigger asChild>
+      <Pressable testID={`filter-pill-${field}`} role="button" className="flex-row items-center gap-1.5">{children}</Pressable>
+    </Popover.Trigger>
+    <Popover.Portal>
+      <Popover.Overlay testID={`filter-pill-${field}-overlay`} style={StyleSheet.absoluteFill} />
+      <Popover.Content testID={`filter-pill-${field}-menu`} align="start" sideOffset={4}
+        className="z-50 max-h-75 w-80 rounded-md border border-border bg-popover p-1 shadow-md outline-none">
+        {/* Inside the portal: the primitives' Portal carries only the Popover's own context across. */}
+        <Combobox value={selected} onValueChange={option => { if (option) onChoose(option.value); }}
+          open={open} onOpenChange={toggle} searchValue={text} onSearchValueChange={setText}>
+          {/* v2's ComboboxInput: focused on open, `mb-2` above the rows (combobox.tsx:238-245), a 44 field. The unstyled
+              primitive: TallyUI's styled one adds `flex-1`, which folds the field's height in this column. */}
+          <ComboboxPrimitive.Input asChild placeholder={search}>
+            <TextInput testID={`filter-pill-${field}-search`} autoFocus placeholderTextColorClassName="accent-muted-foreground"
+              className="mb-2 h-11 rounded-md border border-border px-3 text-base text-foreground web:outline-none" />
+          </ComboboxPrimitive.Input>
+          {shown.length ? shown.map(option => <ComboboxItem key={option.value} value={option.value} label={option.label}
+            testID={option.testID}><Text>{option.label}</Text></ComboboxItem>)
+            /* v2's ComboboxEmpty row (combobox.tsx:312-317); TallyUI's prints fixed copy. */
+            : <Text testID={`filter-pill-${field}-empty`} className="px-2 py-1.5 text-base">{emptyText}</Text>}
+        </Combobox>
+      </Popover.Content>
+    </Popover.Portal>
+  </Popover.Root>;
+}
+
+function SelectChip({ field, icon: Icon, active, dimmed = false, label, extra, selected, options, emptyText, search, onChoose, onRemove }: {
   field: 'stock_status' | 'categories' | 'tags';
   icon: ComponentType<SvgIconProps>;
   active: boolean;
@@ -106,6 +150,8 @@ function SelectChip({ field, icon: Icon, active, dimmed = false, label, extra, s
   selected: { value: string; label: string } | undefined;
   options: ChipOption[];
   emptyText?: string;
+  /** The term chips' search box copy: a searchable menu in place of the plain Select. */
+  search?: string;
   onChoose(value: string): void;
   onRemove(): void;
 }): JSX.Element {
@@ -117,19 +163,23 @@ function SelectChip({ field, icon: Icon, active, dimmed = false, label, extra, s
       {extra > 0 && <Text className={filterChipTextClassName(active)}>{`+${extra}`}</Text>}
     </Pressable>
   </DimmedChipTooltip>;
+  const face = <>
+    <Icon size={16} className={chipGlyphClassName(active)} />
+    <Text className={filterChipTextClassName(active)}>{label}</Text>
+    {extra > 0 && <Text className={filterChipTextClassName(active)}>{`+${extra}`}</Text>}
+  </>;
   return <View className={filterChipClassName(active)}>
-    <Select value={selected} onValueChange={option => { if (option) onChoose(option.value); }}>
+    {search && field !== 'stock_status' ? <TermSearchMenu field={field} options={options} selected={selected} emptyText={emptyText}
+      search={search} onChoose={onChoose}>{face}</TermSearchMenu> : <Select value={selected} onValueChange={option => { if (option) onChoose(option.value); }}>
       {/* v2's filter chips draw no chevron (filter-bar). */}
       <SelectTrigger testID={`filter-pill-${field}`} chevron={false} className="h-auto w-auto justify-start gap-1.5 rounded-none border-0 bg-transparent px-0 py-0">
-        <Icon size={16} className={chipGlyphClassName(active)} />
-        <Text className={filterChipTextClassName(active)}>{label}</Text>
-        {extra > 0 && <Text className={filterChipTextClassName(active)}>{`+${extra}`}</Text>}
+        {face}
       </SelectTrigger>
       <SelectContent><SelectGroup>
         {options.length === 0 && emptyText ? <Text>{emptyText}</Text> : options.map(option =>
           <SelectItem key={option.value} value={option.value} label={option.label} testID={option.testID}><Text>{option.label}</Text></SelectItem>)}
       </SelectGroup></SelectContent>
-    </Select>
+    </Select>}
     {/* The clear sits beside the Select's trigger, not in it, so its press never opens the menu. */}
     {active && <Pressable testID={`filter-pill-remove-${field}`} role="button" accessibilityLabel="Remove"
       className={CHIP_CLEAR_CELL_CLASS} onPress={onRemove}>
@@ -165,7 +215,7 @@ export function CatalogueFilterChips({ products, filters, onChange, dimmed = fal
     const firstId = ids[0];
     const label = firstId === undefined ? baseLabel : options.find(option => option.value === String(firstId))?.label ?? `#${firstId}`;
     return <SelectChip field={field} icon={FolderIcon} active={ids.length > 0} dimmed={dimmed} label={label} extra={Math.max(ids.length - 1, 0)}
-      selected={firstId === undefined ? undefined : { value: String(firstId), label }} options={options} emptyText={emptyText}
+      selected={firstId === undefined ? undefined : { value: String(firstId), label }} options={options} emptyText={emptyText} search={TERM_SEARCH[field]}
       onChoose={value => onChange({ ...filters, [field]: [Number(value)] })} onRemove={() => onChange(without(filters, field))} />;
   }
   const onSaleChip = <Pressable testID="filter-pill-on_sale" role="button" aria-pressed={onSale} disabled={dimmed}

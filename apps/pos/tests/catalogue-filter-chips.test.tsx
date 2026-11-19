@@ -141,6 +141,55 @@ test('Tag narrows the grid to products with that tag', () => {
   expect(visible('Espresso')).toBe(true);
 });
 
+const options = (prefix: string) => screen.queryAllByTestId(new RegExp(`^${prefix}-option-`)).map(el => el.getAttribute('data-testid'));
+const type = (field: string, text: string) => fireEvent.change(screen.getByTestId(`filter-pill-${field}-search`), { target: { value: text } });
+
+// v2 filter-bar.tsx:344-366 (TreeCombobox searchPlaceholder/emptyMessage), core en.json:771 and :700.
+test('the Category chip opens a searchable list: Search Categories, typing narrows it, a miss says No category found, a pick applies', () => {
+  renderView();
+  fireEvent.click(screen.getByTestId('filter-pill-categories'));
+  expect(screen.getByTestId('filter-pill-categories-search').getAttribute('placeholder')).toBe('Search Categories');
+  expect(options('category')).toEqual(['category-option-30', 'category-option-25', 'category-option-27']);
+  type('categories', 'co');
+  expect(options('category')).toEqual(['category-option-25']);
+  type('categories', 'zzz');
+  expect(options('category')).toEqual([]);
+  expect(screen.getByTestId('filter-pill-categories-empty').textContent).toBe('No category found');
+  type('categories', 'mer');
+  fireEvent.click(screen.getByTestId('category-option-27'));
+  expect(visible('T-Shirt')).toBe(true);
+  expect(visible('Espresso')).toBe(false);
+  expect(screen.getByTestId('filter-pill-categories').textContent).toBe('Merch');
+  expect(screen.queryByTestId('filter-pill-categories-menu')).toBeNull();
+  fireEvent.click(screen.getByTestId('filter-pill-categories'));
+  expect(options('category')).toEqual(['category-option-30', 'category-option-25', 'category-option-27']);
+});
+
+// v2 collection-search.tsx:30 (tag: search_tags, no_tag_found), core en.json:779 and :712.
+test('the Tag chip searches with Search Tags and says No tag found on a miss', () => {
+  renderView();
+  fireEvent.click(screen.getByTestId('filter-pill-tags'));
+  expect(screen.getByTestId('filter-pill-tags-search').getAttribute('placeholder')).toBe('Search Tags');
+  type('tags', 'veg');
+  expect(options('tag')).toEqual(['tag-option-7']);
+  type('tags', 'zzz');
+  expect(options('tag')).toEqual([]);
+  expect(screen.getByTestId('filter-pill-tags-empty').textContent).toBe('No tag found');
+  type('tags', 'col');
+  fireEvent.click(screen.getByTestId('tag-option-8'));
+  expect(screen.getByTestId('filter-pill-tags').textContent).toBe('Cold');
+  expect(visible('Espresso')).toBe(false);
+});
+
+test('Stock status keeps its plain select with no search box, and On Sale stays a toggle', () => {
+  renderView();
+  fireEvent.click(screen.getByTestId('filter-pill-stock_status'));
+  expect(screen.getByTestId('stock-status-option-outofstock')).not.toBeNull();
+  expect(screen.queryByTestId('filter-pill-stock_status-search')).toBeNull();
+  expect(screen.queryByPlaceholderText(/^Search (Categories|Tags)$/)).toBeNull();
+  expect(screen.getByTestId('filter-pill-on_sale').getAttribute('aria-pressed')).toBe('false');
+});
+
 test('a category quick filter keeps In Stock on and shows its chip', () => {
   quick([coffee]);
   renderView();
