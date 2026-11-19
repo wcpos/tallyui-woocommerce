@@ -33,6 +33,7 @@ beforeEach(async () => {
 afterEach(async () => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   await db.close();
 });
 
@@ -337,6 +338,56 @@ test('a chip with a search that matches nothing shows the empty state, and Clear
   expect((screen.getByTestId('search-coupons') as HTMLInputElement).value).toBe('');
   expect(pill('status')).toBe('Status');
   expect(screen.queryByTestId('filter-pill-remove-status')).toBeNull();
+});
+
+// v2 coupons/cells/discount-type.tsx:20-24 and status.tsx:20-27 (components/status-filter-cell.tsx:24-32): a row's type
+// chip and status set that filter chip (v2 cells/query-filters.test.tsx).
+const showStatusColumn = () => vi.stubGlobal('localStorage', {
+  getItem: (key: string) => (key === areaColumnsKey('coupons') ? JSON.stringify([{ id: 'status', visible: true }]) : null), setItem: () => {},
+});
+
+test("tapping a row's Discount Type chip turns on that Discount Type filter and narrows the list", async () => {
+  await db.coupons.insert(draft);
+  await withCoupons();
+  fireEvent.click(screen.getByTestId('coupon-type-filter-5dollars'));
+  await waitFor(() => expect(rowCodes()).toEqual(['coupons-row-5dollars', 'coupons-row-drafty']));
+  expect(pill('discount_type')).toBe('Fixed Cart Discount');
+  expect(screen.getByTestId('filter-pill-remove-discount_type')).not.toBeNull();
+});
+
+test("tapping a row's Status cell turns on that Status filter and narrows the list", async () => {
+  showStatusColumn();
+  await db.coupons.insert(draft);
+  await withCoupons();
+  fireEvent.click(screen.getByTestId('coupon-status-filter-drafty'));
+  await waitFor(() => expect(rowCodes()).toEqual(['coupons-row-drafty']));
+  expect(pill('status')).toBe('Draft');
+});
+
+test('the Status and Discount Type cells are buttons named for the filter they set', async () => {
+  showStatusColumn();
+  await withCoupons();
+  const status = screen.getByTestId('coupon-status-filter-10off');
+  expect(status.getAttribute('role')).toBe('button');
+  expect(status.getAttribute('aria-label')).toBe('Published');
+  expect(status.contains(screen.getByTestId('coupon-status-10off'))).toBe(true);
+  const type = screen.getByTestId('coupon-type-filter-10off');
+  expect(type.getAttribute('role')).toBe('button');
+  expect(type.getAttribute('aria-label')).toBe('Percentage');
+});
+
+test('Clear all turns off both filters the cells set', async () => {
+  showStatusColumn();
+  await db.coupons.insert(draft);
+  await withCoupons();
+  fireEvent.click(screen.getByTestId('coupon-type-filter-5dollars'));
+  await waitFor(() => expect(rowCodes()).toHaveLength(2));
+  fireEvent.click(screen.getByTestId('coupon-status-filter-5dollars'));
+  await waitFor(() => expect(rowCodes()).toEqual(['coupons-row-5dollars']));
+  fireEvent.click(screen.getByTestId('coupons-filter-clear-all'));
+  await waitFor(() => expect(rowCodes()).toHaveLength(4));
+  expect(pill('status')).toBe('Status');
+  expect(pill('discount_type')).toBe('Discount Type');
 });
 
 test("at 1280 the table sits on v2's card, with the count under it", async () => {
