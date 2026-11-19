@@ -1,6 +1,7 @@
 import type { JSX, ReactNode } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Button, Text } from '@tallyui/components';
+import { AreaToolbar } from '../area-header';
 import { ChevronLeftIcon, ChevronRightIcon } from '../icons';
 
 export interface SettingsNavItem { href: string; label: string; testID: string;
@@ -32,7 +33,7 @@ export function SettingsArea({ items, currentHref, onNavigate, onBack, onIndex, 
   testIDPrefix?: string;
   currentHref: string;
   onNavigate(href: string): void;
-  /** The phone index's Back: leaves the area. */
+  /** AreaToolbar's `onBack`; the phone index draws v2's Menu button in its place, so no Back is drawn. */
   onBack(): void;
   /** A phone leaf page's back ("‹ Settings"): the area index (v2 `router.navigate(indexHref)`; here `dismissTo`, which pops to
    *  the index when it is in the stack and replaces otherwise, so the index's Back still leaves the area). */
@@ -72,17 +73,13 @@ export function SettingsArea({ items, currentHref, onNavigate, onBack, onIndex, 
       </View>
     );
   }
-  const header = (
-    <View className="flex-row items-center gap-4 p-4">
-      <Button testID={`${id}-back`} onPress={onBack}><Text>Back</Text></Button>
-      <Text className="text-xl font-semibold">{areaTitle}</Text>
-    </View>
-  );
   // v2 `NavigationAreaIndex` (navigation-area/index.tsx:146-151): on a phone the area opens on its page list, rows with a chevron, no page.
+  // Its bar is v2's ManagementBar with `title={areaLabel}` and no `back` (:87-99), so PageBar draws the menu
+  // (page-bar/index.tsx:94-112): the six area bars' AreaToolbar, its Menu button, drawer, bell and avatar.
   if (title === undefined) {
     return (
       <View testID={`${id}-navigation`} className="flex-1 bg-background">
-        {header}
+        <AreaToolbar area={id} title={areaTitle} onBack={onBack} />
         <ScrollView testID={`screen-${id}`} className="flex-1 bg-background">
           <View testID={`${id}-navigation-rail`} className="gap-1 p-3">
             {items.map(item => <NavRow key={item.href} item={item} selected={false} chevron onPress={() => onNavigate(item.href)} />)}

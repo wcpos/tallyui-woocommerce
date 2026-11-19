@@ -148,15 +148,11 @@ test('on a phone a leaf page shows only "‹ Settings", which goes to the index'
   expect(onBack).not.toHaveBeenCalled();
 });
 
-test('on the phone index the bar keeps the area title and Back leaves the area', () => {
-  const onBack = vi.fn();
-  const onIndex = vi.fn();
-  renderArea({ wide: false, currentHref: '/settings', onBack, onIndex });
-  expect(screen.getByText('Settings')).not.toBeNull();
-  expect(screen.getByTestId('settings-back').textContent).toBe('Back');
-  fireEvent.click(screen.getByTestId('settings-back'));
-  expect(onBack).toHaveBeenCalledOnce();
-  expect(onIndex).not.toHaveBeenCalled();
+test('on the phone index the bar is the Menu button and the area title, with no Back', () => {
+  renderArea({ wide: false, currentHref: '/settings' });
+  expect(screen.getByTestId('settings-menu').getAttribute('aria-label')).toBe('Menu');
+  expect(screen.getByRole('heading', { name: 'Settings' })).not.toBeNull();
+  expect(screen.queryByTestId('settings-back')).toBeNull();
 });
 
 test('on a phone the Settings index lists every page with a chevron and no page card', () => {

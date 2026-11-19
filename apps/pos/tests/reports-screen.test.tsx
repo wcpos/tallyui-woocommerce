@@ -1004,6 +1004,80 @@ test('the Top products card opens a table of products', async () => {
   await table.close();
 }, 20_000);
 
+// v2 panels/panel.tsx:207-226 and line-filters.ts: the Products panel's category chip. Espresso (80) stays in Coffee
+// (25); Cold Brew (84) is moved to Tea (26) so the one sale spans two categories.
+const twoCategories = products.map(product => product.id === 84 ? { ...product, categories: [{ id: 26, name: 'Tea', slug: 'tea' }] } : product);
+
+async function sellTwoCategories() {
+  await setup({ synced: twoCategories });
+  fireEvent.click(within(screen.getByTestId('product-tile-80')).getByText('Espresso'));
+  fireEvent.click(within(screen.getByTestId('product-tile-84')).getByText('Cold Brew'));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
+  await takeCash(1000);
+  expect(await screen.findByTestId('receipt-order')).not.toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'New sale' }));
+  await waitFor(() => expect(text('hero-total')).toBe('$7.00'));
+}
+
+async function chooseCategory(value: string) {
+  fireEvent.click(screen.getByTestId('detail-panel-category'));
+  fireEvent.click(within(await screen.findByTestId('detail-panel-category-menu')).getByTestId(`detail-panel-category-${value}`));
+  await waitFor(() => expect(screen.queryByTestId('detail-panel-category-menu')).toBeNull());
+}
+
+const bothProducts = [['sales-table-row-84', 'Cold Brew', '1', '$4.00'], ['sales-table-row-80', 'Espresso', '1', '$3.00']];
+
+test("the Top products panel draws v2's All categories chip above its table (detail-panel-filters)", async () => {
+  await sellTwoCategories();
+  const table = await openCardTable('card-products-open');
+  const filters = screen.getByTestId('detail-panel-filters');
+  expect(within(filters).getByTestId('detail-panel-category').textContent).toBe('All categories');
+  expect(filters.compareDocumentPosition(screen.getByTestId('sales-table-body')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(table.rows).toEqual(bothProducts);
+  await table.close();
+}, 20_000);
+
+test('choosing a category narrows Top products to it, and the total, status and scope follow', async () => {
+  await sellTwoCategories();
+  await openCardTable('card-products-open');
+  const scope = text('sales-table-scope');
+  await chooseCategory('25');
+  expect(text('detail-panel-category')).toBe('Coffee');
+  const table = within(screen.getByTestId('sales-table'));
+  expect(table.getAllByTestId(/^sales-table-row-/).map(row => row.getAttribute('data-testid'))).toEqual(['sales-table-row-80']);
+  expect(within(table.getByTestId('sales-table-total')).getAllByText(/./).map(cell => cell.textContent)).toEqual(['All products', '1', '$3.00']);
+  expect(text('sales-table-status')).toBe('1 products · $3.00');
+  expect(text('sales-table-scope')).toBe(`${scope} · Coffee`);
+}, 20_000);
+
+test("All categories or the chip's Clear shows every product again", async () => {
+  await sellTwoCategories();
+  await openCardTable('card-products-open');
+  const status = text('sales-table-status');
+  const rows = () => screen.getAllByTestId(/^sales-table-row-/).map(row => row.getAttribute('data-testid'));
+  await chooseCategory('25');
+  expect(rows()).toEqual(['sales-table-row-80']);
+  fireEvent.click(screen.getByTestId('detail-panel-category-clear'));
+  await waitFor(() => expect(rows()).toEqual(['sales-table-row-84', 'sales-table-row-80']));
+  expect(text('sales-table-status')).toBe(status);
+  expect(text('detail-panel-category')).toBe('All categories');
+  await chooseCategory('26');
+  expect(rows()).toEqual(['sales-table-row-84']);
+  await chooseCategory('all');
+  expect(rows()).toEqual(['sales-table-row-84', 'sales-table-row-80']);
+  expect(screen.queryByTestId('detail-panel-category-clear')).toBeNull();
+}, 20_000);
+
+test('only the Top products panel draws the category chip', async () => {
+  await sellTwoCategories();
+  for (const opener of ['card-payments-open', 'card-taxes-open', 'card-where-sold-open', 'sales-room-orders-open', 'card-categories-open', 'card-cashiers-open']) {
+    const table = await openCardTable(opener);
+    expect(screen.queryByTestId('detail-panel-filters'), opener).toBeNull();
+    expect(screen.queryByTestId('detail-panel-category'), opener).toBeNull();
+    await table.close();
+  }
+}, 30_000);
+
 test('the Categories card opens a table of categories', async () => {
   // The fixture's Espresso (id 80) is in Coffee (id 25).
   await setup({ synced: products });
