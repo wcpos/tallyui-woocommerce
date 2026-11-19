@@ -35,7 +35,7 @@ export interface ReceiptEmail {
   attempts: number;
   nextAttemptAt?: string;
   lastAttemptAt?: string;
-  /** v2 receipt/email.tsx "Save email to Billing Address"; read by the sender in a later job. */
+  /** v2 receipt/email.tsx "Save email to the customer" (core.json receipt.save_email_to_billing_address); read by the sender in a later job. */
   saveToBilling?: boolean;
   sentAt?: string;
   error?: string;
