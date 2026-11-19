@@ -5,14 +5,15 @@ import { formatMoney, moneyFromMajor } from '@tallyui/core';
 import type { TallyConnector } from '@tallyui/core';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Text } from '@tallyui/components';
 import type { ProductSort } from '@tallyui/pos';
-import { describeQuickFilter } from '../lib/catalogue/quick-filters';
-import type { QuickFilter } from '../lib/catalogue/quick-filters';
+import { describeQuickFilter, isQuickFilterValid } from '../lib/catalogue/quick-filters';
+import type { CapturedQuickFilter, QuickFilter } from '../lib/catalogue/quick-filters';
+import { CaptureQuickFilter } from './capture-quick-filter';
 import { QuickFilterEditor } from './quick-filter-editor';
 
 type Editing = { mode: 'new' } | { mode: 'edit'; quickFilter: QuickFilter } | null;
 
 /** Controlled: v2 opens it from Product settings › Customise filter bar (ui-settings-form.tsx), not from the chip row. */
-export function FilterBarDialog({ open, onOpenChange, quickFilters, onChange, products, connector, currency, baselineSort }: {
+export function FilterBarDialog({ open, onOpenChange, quickFilters, onChange, products, connector, currency, baselineSort, captured = null }: {
   open: boolean;
   onOpenChange(open: boolean): void;
   quickFilters: QuickFilter[];
@@ -21,8 +22,11 @@ export function FilterBarDialog({ open, onOpenChange, quickFilters, onChange, pr
   connector: TallyConnector;
   currency: string;
   baselineSort: ProductSort | null;
+  /** v2's capture mode (modal.tsx:40,114): the bar's Save as button opens the dialog on what is on screen now. */
+  captured?: CapturedQuickFilter | null;
 }): JSX.Element {
   const [editing, setEditing] = useState<Editing>(null);
+  const [captureDraft, setCaptureDraft] = useState<QuickFilter | null>(null);
   const [deleting, setDeleting] = useState<QuickFilter | null>(null);
   const { height } = useWindowDimensions();
   const formatPrice = (value: number) => {
@@ -33,6 +37,7 @@ export function FilterBarDialog({ open, onOpenChange, quickFilters, onChange, pr
     onOpenChange(false);
     setEditing(null);
     setDeleting(null);
+    setCaptureDraft(null);
   }
   function handleSave(quickFilter: QuickFilter) {
     const next = quickFilters.some(qf => qf.id === quickFilter.id)
@@ -50,9 +55,10 @@ export function FilterBarDialog({ open, onOpenChange, quickFilters, onChange, pr
   return <>
     {open && <Dialog open onOpenChange={next => { if (!next) close(); }}>
       <DialogContent testID="filter-bar-modal" className="w-full max-w-3xl">
-        <DialogHeader><DialogTitle>Filter bar</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{captured ? 'Save as button' : 'Filter bar'}</DialogTitle></DialogHeader>
         <ScrollView style={{ maxHeight: Math.round(height * 0.7) }}>
-          <View className="flex-col gap-4 md:flex-row">
+          {captured ? <CaptureQuickFilter captured={captured} products={products} currency={currency} onDraftChange={setCaptureDraft} />
+          : <View className="flex-col gap-4 md:flex-row">
             <View className="gap-2 md:w-2/5">
               {quickFilters.map((qf, index) => <View key={qf.id} testID={`filter-bar-item-${qf.id}`} className="gap-1">
                 <View>
@@ -80,10 +86,12 @@ export function FilterBarDialog({ open, onOpenChange, quickFilters, onChange, pr
                 currency={currency} baselineSort={baselineSort} onSave={handleSave} onCancel={() => setEditing(null)} />
                 : <Text testID="filter-bar-hint">Select a quick filter to edit it, or add a new one.</Text>}
             </View>
-          </View>
+          </View>}
         </ScrollView>
         <DialogFooter>
-          <Button testID="filter-bar-modal-close" onPress={close}><Text>Close</Text></Button>
+          <Button variant={captured ? 'outline' : 'default'} testID="filter-bar-modal-close" onPress={close}><Text>Close</Text></Button>
+          {captured && <Button testID="quick-filter-add" disabled={!captureDraft || !isQuickFilterValid(captureDraft)}
+            onPress={() => { if (captureDraft && isQuickFilterValid(captureDraft)) { handleSave({ ...captureDraft, label: captureDraft.label.trim() }); close(); } }}><Text>Add to bar</Text></Button>}
         </DialogFooter>
       </DialogContent>
     </Dialog>}
