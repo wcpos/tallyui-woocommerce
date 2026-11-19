@@ -1397,12 +1397,13 @@ test('This week counts the week by day against the week before, cut at now on it
     expect(text('reports-period')).toBe('This week · 5–6 Oct');
     await waitFor(() => expect(text('hero-total')).toBe('$6.00'));
     // Tuesday the week before at 16:00 is after now's 14:30: only Monday's sale is compared.
-    expect(text('hero-delta')).toBe('+100.0% vs week before');
+    expect(text('hero-delta')).toBe('+100.0% vs the week before');
+    expect(screen.getByTestId('sales-day-2026-10-05').getAttribute('aria-label')).toMatch(/; last week \$3\.00$/);
     expect(screen.getAllByTestId(/^sales-day-\d{4}-\d\d-\d\d$/).map(column => column.getAttribute('data-testid')))
       .toEqual(['sales-day-2026-10-05', 'sales-day-2026-10-06']);
     expect(text('hero-chart-toggle-segment-hour')).toBe('By day');
     const chip = screen.getByTestId('hero-chip-compare');
-    expect(chip.textContent).toBe('vs week before');
+    expect(chip.textContent).toBe('vs the week before');
     expect(chip.getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(chip);
     expect(screen.queryByTestId('hero-compare-menu')).toBeNull();
@@ -1412,6 +1413,23 @@ test('This week counts the week by day against the week before, cut at now on it
 }, 40_000);
 
 const runPoints = () => screen.getByTestId('hero-chart-run').getAttribute('points')!.split(' ');
+
+test('Last month is compared with the month before', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 9, 6, 14, 30));
+  try {
+    const app = await setup();
+    await salesAt(app, [new Date(2026, 8, 28, 10, 0), new Date(2026, 7, 10, 10, 0), new Date(2026, 7, 11, 10, 0)]);
+    await choosePeriod('lastMonth');
+    await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+    // v2 hero/index.tsx:476-481: September against August's two sales, "vs the month before"; chart.tsx:150-158 "last month".
+    expect(text('hero-delta')).toBe('−50.0% vs the month before');
+    expect(text('hero-chip-compare')).toBe('vs the month before');
+    expect(screen.getByTestId('sales-day-2026-09-10').getAttribute('aria-label')).toMatch(/; last month \$3\.00$/);
+  } finally {
+    vi.useRealTimers();
+  }
+}, 40_000);
 
 test("Last month's running total runs through a late sale to the month's last day", async () => {
   vi.useFakeTimers({ toFake: ['Date'] });

@@ -6,7 +6,7 @@ import { isMultiDay, rangeBounds, storeDay, type Compare } from './sales-room';
  *  same weekday last week for one day; the period before for several days), and the comparison's name. */
 export function salesPeriod(period: DatePreset | DayRange, compare: Compare, opened: Date, locale: string): {
   range: DayRange; multiDay: boolean; comparison: DayRange; bounds: ReturnType<typeof rangeBounds>;
-  since: string; weekday: string; comparisonName: string;
+  since: string; weekday: string; comparisonName: string; chartName: string;
 } {
   const preset = typeof period === 'string' ? period : undefined;
   const range = typeof period === 'string' ? presetRange(period, opened, 'device') : period;
@@ -15,9 +15,12 @@ export function salesPeriod(period: DatePreset | DayRange, compare: Compare, ope
   const bounds = rangeBounds(range);
   const since = rangeBounds(comparison).startIso;
   const weekday = new Date(bounds.startIso).toLocaleDateString(locale, { weekday: 'long' });
-  const comparisonName = multiDay ? ((preset ? preset.endsWith('Month') : daysOf(range).length > 7) ? 'month before' : 'week before')
-    : compare === 'yesterday' ? 'yesterday' : `last ${weekday}`;
-  return { range, multiDay, comparison, bounds, since, weekday, comparisonName };
+  const month = preset ? preset.endsWith('Month') : daysOf(range).length > 7;
+  const day = compare === 'yesterday' ? 'yesterday' : `last ${weekday}`;
+  // v2 hero/index.tsx:476-481 names the period before "the week/month before"; v2 chart.tsx:150-158 calls it last week/month.
+  const comparisonName = multiDay ? (month ? 'the month before' : 'the week before') : day;
+  const chartName = multiDay ? (month ? 'last month' : 'last week') : day;
+  return { range, multiDay, comparison, bounds, since, weekday, comparisonName, chartName };
 }
 
 /** A live period's buckets after now are the future. Returns live = the period ends today, and nowKey = now's minute
