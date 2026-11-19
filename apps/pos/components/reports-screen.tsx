@@ -201,7 +201,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
             </View>
             {/* v2 `ClosuresExportButton`: the CSV holds closures, so with Open selected there is nothing to export. */}
             <ClosuresExportButton disabled={closureFilter === 'open'}
-              onPress={() => downloadCsv(closuresCsv(closures, currency, session?.tokens.user, storeName), `closures-${closuresRange.from}-${closuresRange.to}.csv`)} />
+              onPress={() => downloadCsv(closuresCsv(closures, currency, deviceCashiers(session, cashiers), storeName), `closures-${closuresRange.from}-${closuresRange.to}.csv`)} />
           </View>
           <View testID="reports-closures" className="gap-2">
             {/* v2 feeds the strip every row and open session, whatever the All / Open / Closed tab shows. */}

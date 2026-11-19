@@ -1,6 +1,6 @@
 import { minorUnitDigits } from '@tallyui/core';
 import { exportCsv, type Closure } from '@tallyui/pos';
-import type { AuthTokens } from '../auth/login';
+import { cashierNameFor, type CashierName } from '../auth/cashier-name';
 
 const labels: Record<string, string> = {
   'reports.csv_business_day': 'Business day',
@@ -22,7 +22,10 @@ const labels: Record<string, string> = {
   'reports.corrected': 'Corrected',
 };
 
-export function closuresCsv(closures: readonly Closure[], currency: string, user: AuthTokens['user'] | undefined, storeName: string): string {
-  const names = user ? { [String(user.id)]: user.displayName } : {};
-  return exportCsv(closures, minorUnitDigits(currency), key => labels[key] ?? key, names, storeName);
+export function closuresCsv(closures: readonly Closure[], currency: string, cashiers: readonly CashierName[], storeName: string): string {
+  // v2 export-csv.ts:55 writes the stamped closed_by_name; a closure without one names its closer as the closures list does.
+  const rows = closures.map(row => row.breakdowns.closed_by_name || !row.closed_by ? row
+    : { ...row, breakdowns: { ...row.breakdowns, closed_by_name: cashierNameFor(cashiers, row.closed_by) } });
+  // `names` is exportCsv's register-name map (v2 export-csv.ts:52), not a cashier map.
+  return exportCsv(rows, minorUnitDigits(currency), key => labels[key] ?? key, {}, storeName);
 }
