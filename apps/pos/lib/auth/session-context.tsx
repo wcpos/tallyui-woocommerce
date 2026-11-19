@@ -8,6 +8,7 @@ import type { Session } from './session';
 import { otherCashiers, rosterAfterSignIn, rosterAfterSignOut, rosterAfterSwitch, savedSites, withoutCashier, withoutSite } from './roster';
 import type { Roster, SavedSite } from './roster';
 import { runBeforeLeave } from '../sale/before-leave';
+import { toast } from '../toast/toast';
 
 interface SessionContextValue {
   session: Session | null;
@@ -139,6 +140,8 @@ export function SessionProvider({ children }: { children: ReactNode }): JSX.Elem
       saveCashiers(updated);
       setRoster(updated);
     }
+    // v2 wp-user.tsx:108 toasts auth.signed_in_as_different_user; the copy is adapted, since here the new user becomes active.
+    if (kept) toast({ id: 'reauth-other-user', type: 'info', title: `Signed in as a different user — ${next.tokens.user.displayName || 'the new user'} is now signed in, and ${kept.tokens.user.displayName || 'the previous cashier'} stays in the cashier list.` });
     try { globalThis.sessionStorage.removeItem(PENDING_KEY); } catch {}
     return next;
   }, [updateSession]);
