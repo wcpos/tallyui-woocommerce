@@ -216,10 +216,12 @@ export type CartWithSettingsProps = ComponentProps<typeof Cart> & {
   customers?: CustomerSource | null;     // for the + menu's Add new customer
   createCustomersBlockedReason?: string; // why Add new customer is disabled
   chords?: boolean;                      // the till chords are live: Alt+D opens Add Discount
+  // v2's note row sits above the foot's buttons (cart/foot.tsx:36); TallyUI's Cart has no slot there, so it goes under.
+  note?: ReactNode;
 };
 
 export function CartWithSettings({ position, onPositionChange, openOrders, coupons = null, couponsOffered = false, customer, customers = null,
-  createCustomersBlockedReason, chords, sale, ...cartProps }: CartWithSettingsProps): JSX.Element {
+  createCustomersBlockedReason, chords, sale, note, ...cartProps }: CartWithSettingsProps): JSX.Element {
   const [settings, setSettings] = useCartSettings();
   const openOrdersStrip = <View testID="cart-open-orders">{openOrders}</View>;
   return <>
@@ -234,6 +236,7 @@ export function CartWithSettings({ position, onPositionChange, openOrders, coupo
     </View>
     {/* Sort a copy for display only: the order builder's lineItems keep the add order (receipts, parking, the order). */}
     <Cart {...cartProps} quickDiscounts={settings.quickDiscounts} sale={{ ...sale, ...withRemovedToasts(sale), order: { ...sale.order, lineItems: sortCartLines(sale.order.lineItems, settings.sortLines) } }} />
+    {note}
     {settings.openOrdersPosition !== 'top' && openOrdersStrip}
   </>;
 }
