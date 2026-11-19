@@ -785,3 +785,25 @@ test('the Sync preset with verbose on keeps debug sync rows, and the sync pill l
   expect(shownRows()).toEqual([`logs-row-${syncRow.id}`]);
   expect(screen.getByTestId('logs-chip-kind').textContent).toBe('sync ×');
 });
+
+// v2 logs/row-detail.tsx:148-155 (HelpLink) and core.json:2106 "Help — {code}".
+test("an expanded coded row links Help — SYNC121 to that code's docs page", async () => {
+  const open = vi.spyOn(ReactNative.Linking, 'openURL').mockResolvedValue(true);
+  const coded: LogRecord = { id: logRecordId(now() - 500, 4), timestamp: now() - 500, level: 'warn', scope: 'connectivity',
+    message: 'Store unreachable', code: 'SYNC121' };
+  await collection.insert(coded);
+  render(<LogsScreen {...props} collection={collection} />);
+  fireEvent.click(await screen.findByTestId(`logs-chevron-${coded.id}`));
+  const link = screen.getByTestId('logs-help-SYNC121');
+  expect(link.textContent).toBe('Help — SYNC121');
+  fireEvent.click(link);
+  expect(open).toHaveBeenCalledExactlyOnceWith('https://docs.wcpos.com/error-codes/SYNC121');
+});
+
+test('an expanded row without a code shows no help link', async () => {
+  render(<LogsScreen {...props} collection={collection} />);
+  const id = rows[2].id;
+  fireEvent.click(await screen.findByTestId(`logs-chevron-${id}`));
+  expect(screen.getByTestId(`logs-detail-${id}`)).not.toBeNull();
+  expect(document.querySelector('[data-testid^="logs-help-"]')).toBeNull();
+});
