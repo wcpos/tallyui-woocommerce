@@ -573,3 +573,28 @@ test("a touch tablet at 1024 gets the touch rows; a mouse at 1024 keeps the tabl
   expect(screen.getByRole('table')).not.toBeNull();
   expect(screen.queryByTestId('products-phone-figures-1')).toBeNull();
 });
+
+// react-native-web drops a ScrollView's horizontal and contentContainerClassName from the DOM, so read the props of the
+// component that took the testID (as product-settings-sheet.test's contentClassesOf).
+function scrollerPropsOf(testID: string): Record<string, unknown> {
+  const node = screen.getByTestId(testID) as unknown as Record<string, unknown>;
+  type ScrollFiber = { memoizedProps?: Record<string, unknown>; return?: ScrollFiber };
+  for (let fiber = node[Object.keys(node).find(name => name.startsWith('__reactFiber$'))!] as ScrollFiber | undefined; fiber; fiber = fiber.return) {
+    const props = fiber.memoizedProps ?? {};
+    if (props.testID === testID && props.horizontal !== undefined) return props;
+  }
+  return {};
+}
+
+test("at 390 the filter chips sit on v2's ChipRow: one horizontal scroller, no wrap, inside the gutter row", () => {
+  setWidth(390);
+  renderScreen([product(1, 'Tea')]);
+  const scroller = screen.getByTestId('products-chip-row');
+  expect(screen.getByTestId('products-filter-row').contains(scroller)).toBe(true);
+  expect(scroller.contains(screen.getByTestId('filter-chips'))).toBe(true);
+  const props = scrollerPropsOf('products-chip-row');
+  expect(props.horizontal).toBe(true);
+  expect(props.showsHorizontalScrollIndicator).toBe(false);
+  expect(String(props.contentContainerClassName).split(/\s+/)).toEqual(['items-center', 'gap-2']);
+  expect(classesOf('filter-chips')).not.toContain('flex-wrap');
+});

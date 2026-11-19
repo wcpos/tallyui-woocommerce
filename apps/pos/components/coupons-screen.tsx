@@ -387,14 +387,16 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
         <AreaDisplayOptions area="coupons" columns={COUPONS_COLUMNS} settings={settings} onChange={setSettings} />
       </AreaToolbar>
       <View testID="coupons-filter-row" className={`pb-2 ${gutter}`}>
-        <View testID="coupons-filter-chips" className="flex-row flex-wrap items-center gap-2">
+        {/* v2's ChipRow (chip-row/index.tsx:29-37, coupons/filter-bar/index.tsx:17): one row that scrolls sideways. */}
+        <ScrollView testID="coupons-filter-chips" horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+          contentContainerClassName="items-center gap-2">
           {pill('status', InfoIcon, 'Status', STATUS_CHOICES)}
           {pill('discount_type', PercentIcon, 'Discount Type', TYPE_CHOICES)}
           {pill('date_expires_gmt', CalendarIcon, 'Expires', EXPIRES_CHOICES)}
           {Object.keys(filters).length >= 2 && (
             <Button testID="coupons-filter-clear-all" variant="ghost" size="sm" onPress={() => setFilters({})}><Text>Clear all</Text></Button>
           )}
-        </View>
+        </ScrollView>
       </View>
       <TableSurface testID="coupons-table-surface">{body}</TableSurface>
       {shown.length > 0 && (

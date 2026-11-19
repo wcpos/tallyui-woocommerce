@@ -453,9 +453,13 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
             onOpenChange={setOptionsOpen} />
         </AreaToolbar>
         <View testID="products-filter-row" className={`pb-2 ${gutter}`}>
-          {/* v2's `changed >= 2` Clear all (components/product/filter-bar/index.tsx:25-31,61-65): the filters only; the search stays. */}
-          <CatalogueFilterChips products={products} filters={filters} onChange={setFilters} trailing={filtersOn >= 2
-            ? <Button testID="products-filter-clear-all" variant="ghost" onPress={() => setFilters({})}><Text>Clear all</Text></Button> : undefined} />
+          {/* v2's ChipRow (chip-row/index.tsx:29-37): the chips stay on one row that scrolls sideways at every width. */}
+          <ScrollView testID="products-chip-row" horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+            contentContainerClassName="items-center gap-2">
+            {/* v2's `changed >= 2` Clear all (components/product/filter-bar/index.tsx:25-31,61-65): the filters only; the search stays. */}
+            <CatalogueFilterChips products={products} filters={filters} onChange={setFilters} trailing={filtersOn >= 2
+              ? <Button testID="products-filter-clear-all" variant="ghost" onPress={() => setFilters({})}><Text>Clear all</Text></Button> : undefined} />
+          </ScrollView>
         </View>
         {drilled ? pane : <TableSurface testID="products-table-surface">{body}</TableSurface>}
         {drilled ? (
