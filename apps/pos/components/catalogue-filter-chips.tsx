@@ -7,13 +7,14 @@ import type { ComponentType, JSX, ReactElement, ReactNode } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Circle, Path, Rect } from 'react-native-svg';
 import {
-  Combobox, ComboboxItem, createSvgIcon, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, Text, Tooltip, TooltipContent, TooltipTrigger, XIcon,
+  Combobox, ComboboxItem, createSvgIcon, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Select, SelectContent, SelectGroup,
+  SelectItem, SelectTrigger, Text, Tooltip, TooltipContent, TooltipTrigger, XIcon,
 } from '@tallyui/components';
 import type { SvgIconProps } from '@tallyui/components';
 import { Combobox as ComboboxPrimitive, Popover } from '@tallyui/primitives';
 import type { BuiltInPillId } from '../lib/catalogue/filter-bar-pills';
 import type { CatalogueFilters, QuickFilterStockStatus } from '../lib/catalogue/quick-filters';
-import { FolderIcon } from './icons';
+import { FiltersIcon, FolderIcon } from './icons';
 
 export const WarehouseIcon = createSvgIcon('WarehouseIcon', () => <>
   <Path d="M22 8.35V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.35A2 2 0 0 1 3.26 6.5l8-3.2a2 2 0 0 1 1.48 0l8 3.2A2 2 0 0 1 22 8.35Z" />
@@ -77,6 +78,27 @@ export function DimmedChipTooltip({ children }: { children: ReactElement }): JSX
   </View>;
 }
 
+/** v2's BarSlot (filter-bar.tsx:141-251): a long press opens the chip's menu from a hidden trigger laid over the chip. */
+export function LongPressMenu({ chip, children }: { chip(onLongPress: () => void): JSX.Element; children: ReactNode }): JSX.Element {
+  const trigger = useRef<View & { open?(): void }>(null);
+  return <View className="relative">
+    <DropdownMenu>
+      {chip(() => trigger.current?.open?.())}
+      <DropdownMenuTrigger ref={trigger} className="absolute inset-0" pointerEvents="none" tabIndex={-1} aria-hidden />
+      <DropdownMenuContent>{children}</DropdownMenuContent>
+    </DropdownMenu>
+  </View>;
+}
+
+/** v2's Customise row, on every chip's menu (filter-bar.tsx:233-240, core en.json:1238). */
+export function CustomiseMenuItem({ id, onPress }: { id: string; onPress(): void }): JSX.Element {
+  return <DropdownMenuItem testID={`filter-bar-menu-customize-${id}`} className="gap-2" onPress={onPress}>
+    <FiltersIcon size={18} strokeWidth={1.5} className="text-foreground" /><Text>Customise filter bar</Text></DropdownMenuItem>;
+}
+
+/** v2's built-in chip menu (filter-bar.tsx:215-240): Hide from bar, then Customise filter bar. */
+export type PillMenu = { onHide(id: BuiltInPillId): void; onCustomise(): void };
+
 /** A copy of the filters with the key deleted: a key set to `undefined` would still hide every product. */
 function without(filters: CatalogueFilters, field: keyof CatalogueFilters): CatalogueFilters {
   const next = { ...filters };
@@ -104,9 +126,9 @@ const TERM_SEARCH = { categories: 'Search Categories', tags: 'Search Tags' } as 
  *  by name, and the empty copy on a miss. Flat: v2's category tree needs parent data the connector does not sync.
  *  The primitives' Popover anchors it under the chip (TallyUI's ComboboxContent does no positioning), and its
  *  overlay closes it on an outside press, as menu-chip.tsx does; v2's panel is `max-h-75 w-80` (combobox.tsx:183). */
-function TermSearchMenu({ field, options, selected, emptyText, search, onChoose, children }: {
+function TermSearchMenu({ field, options, selected, emptyText, search, onChoose, onLongPress, children }: {
   field: 'categories' | 'tags'; options: ChipOption[]; selected: { value: string; label: string } | undefined;
-  emptyText?: string; search: string; onChoose(value: string): void; children: ReactNode;
+  emptyText?: string; search: string; onChoose(value: string): void; onLongPress?(): void; children: ReactNode;
 }): JSX.Element {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
@@ -115,7 +137,7 @@ function TermSearchMenu({ field, options, selected, emptyText, search, onChoose,
   const shown = options.filter(option => option.label.toLowerCase().includes(term));
   return <Popover.Root open={open} onOpenChange={toggle}>
     <Popover.Trigger asChild>
-      <Pressable testID={`filter-pill-${field}`} role="button" className="flex-row items-center gap-1.5">{children}</Pressable>
+      <Pressable testID={`filter-pill-${field}`} role="button" className="flex-row items-center gap-1.5" onLongPress={onLongPress}>{children}</Pressable>
     </Popover.Trigger>
     <Popover.Portal>
       <Popover.Overlay testID={`filter-pill-${field}-overlay`} style={StyleSheet.absoluteFill} />
@@ -140,7 +162,7 @@ function TermSearchMenu({ field, options, selected, emptyText, search, onChoose,
   </Popover.Root>;
 }
 
-function SelectChip({ field, icon: Icon, active, dimmed = false, label, extra, selected, options, emptyText, search, onChoose, onRemove }: {
+function SelectChip({ field, icon: Icon, active, dimmed = false, label, extra, selected, options, emptyText, search, onChoose, onRemove, onLongPress }: {
   field: 'stock_status' | 'categories' | 'tags';
   icon: ComponentType<SvgIconProps>;
   active: boolean;
@@ -154,6 +176,8 @@ function SelectChip({ field, icon: Icon, active, dimmed = false, label, extra, s
   search?: string;
   onChoose(value: string): void;
   onRemove(): void;
+  /** Opens the chip's menu; react-native-web drops the press after a long press, so the Select stays shut. */
+  onLongPress?(): void;
 }): JSX.Element {
   // v2's DimmedChip: a dimmed chip is a plain chip with its label and no menu, the tooltip's trigger itself.
   if (dimmed) return <DimmedChipTooltip>
@@ -170,9 +194,9 @@ function SelectChip({ field, icon: Icon, active, dimmed = false, label, extra, s
   </>;
   return <View className={filterChipClassName(active)}>
     {search && field !== 'stock_status' ? <TermSearchMenu field={field} options={options} selected={selected} emptyText={emptyText}
-      search={search} onChoose={onChoose}>{face}</TermSearchMenu> : <Select value={selected} onValueChange={option => { if (option) onChoose(option.value); }}>
+      search={search} onChoose={onChoose} onLongPress={onLongPress}>{face}</TermSearchMenu> : <Select value={selected} onValueChange={option => { if (option) onChoose(option.value); }}>
       {/* v2's filter chips draw no chevron (filter-bar). */}
-      <SelectTrigger testID={`filter-pill-${field}`} chevron={false} className="h-auto w-auto justify-start gap-1.5 rounded-none border-0 bg-transparent px-0 py-0">
+      <SelectTrigger testID={`filter-pill-${field}`} chevron={false} onLongPress={onLongPress} className="h-auto w-auto justify-start gap-1.5 rounded-none border-0 bg-transparent px-0 py-0">
         {face}
       </SelectTrigger>
       <SelectContent><SelectGroup>
@@ -202,35 +226,48 @@ export interface CatalogueFilterChipsProps {
   trailing?: ReactNode;
   /** The built-ins switched off in the Filter bar dialog (v2 filter-bar.tsx:505, `!item.show` draws nothing). */
   hidden?: readonly BuiltInPillId[];
+  /** The long-press menu on each chip; the Products screen has none. */
+  menu?: PillMenu;
 }
 
-export function CatalogueFilterChips({ products, filters, onChange, dimmed = false, placeField, trailing, hidden = [] }: CatalogueFilterChipsProps): JSX.Element {
+export function CatalogueFilterChips({ products, filters, onChange, dimmed = false, placeField, trailing, hidden = [], menu }: CatalogueFilterChipsProps): JSX.Element {
   const stock = filters.stock_status;
   const stockLabel = stock !== undefined && stock in STOCK_LABELS ? STOCK_LABELS[stock] : undefined;
   const onSale = filters.on_sale === true;
+  /** v2's BarSlot: a long press opens the chip's menu; a dimmed chip opens nothing (filter-bar.tsx:147-149). */
+  function slot(id: BuiltInPillId, chip: (onLongPress?: () => void) => JSX.Element): JSX.Element {
+    if (!menu || (dimmed && id !== 'stock_status')) return chip();
+    return <LongPressMenu chip={chip}>
+      {/* v2's row leads with an eye-off icon (`Icon name="hide"`); the app has none and new icons wait on a licence
+          check, so a blank of the icon's size keeps the label in line with Customise's. */}
+      <DropdownMenuItem testID={`filter-bar-menu-hide-${id}`} className="gap-2" onPress={() => menu.onHide(id)}>
+        <View className="size-[18px]" /><Text>Hide from bar</Text></DropdownMenuItem>
+      <CustomiseMenuItem id={id} onPress={menu.onCustomise} />
+    </LongPressMenu>;
+  }
   function termChip(field: 'categories' | 'tags', prefix: string, baseLabel: string, emptyText: string): JSX.Element | null {
     if (field === placeField) return null;
     const options = termOptions(products, field, prefix);
     const ids = filters[field] ?? [];
     const firstId = ids[0];
     const label = firstId === undefined ? baseLabel : options.find(option => option.value === String(firstId))?.label ?? `#${firstId}`;
-    return <SelectChip field={field} icon={FolderIcon} active={ids.length > 0} dimmed={dimmed} label={label} extra={Math.max(ids.length - 1, 0)}
+    return slot(field, onLongPress => <SelectChip field={field} icon={FolderIcon} active={ids.length > 0} dimmed={dimmed} label={label} extra={Math.max(ids.length - 1, 0)}
       selected={firstId === undefined ? undefined : { value: String(firstId), label }} options={options} emptyText={emptyText} search={TERM_SEARCH[field]}
-      onChoose={value => onChange({ ...filters, [field]: [Number(value)] })} onRemove={() => onChange(without(filters, field))} />;
+      onChoose={value => onChange({ ...filters, [field]: [Number(value)] })} onRemove={() => onChange(without(filters, field))} onLongPress={onLongPress} />);
   }
-  const onSaleChip = <Pressable testID="filter-pill-on_sale" role="button" aria-pressed={onSale} disabled={dimmed}
-    className={filterChipClassName(onSale, dimmed)}
+  const onSaleChip = (onLongPress?: () => void) => <Pressable testID="filter-pill-on_sale" role="button" aria-pressed={onSale} disabled={dimmed}
+    className={filterChipClassName(onSale, dimmed)} onLongPress={onLongPress}
     onPress={() => onChange(onSale ? without(filters, 'on_sale') : { ...filters, on_sale: true })}>
     <CurrencyIcon size={16} className={chipGlyphClassName(onSale)} />
     <Text className={filterChipTextClassName(onSale)}>On Sale</Text>
   </Pressable>;
   return <View testID="filter-chips" className="flex-row flex-wrap items-center gap-2">
-    {!hidden.includes('stock_status') && <SelectChip field="stock_status" icon={WarehouseIcon} active={'stock_status' in filters} label={stockLabel ?? 'Stock Status'} extra={0}
+    {!hidden.includes('stock_status') && slot('stock_status', onLongPress => <SelectChip field="stock_status" icon={WarehouseIcon} active={'stock_status' in filters} label={stockLabel ?? 'Stock Status'} extra={0}
       selected={stockLabel === undefined ? undefined : { value: stock!, label: stockLabel }}
       options={(Object.keys(STOCK_LABELS) as QuickFilterStockStatus[]).map(value => ({ value, label: STOCK_LABELS[value], testID: `stock-status-option-${value}` }))}
       onChoose={value => onChange({ ...filters, stock_status: value as QuickFilterStockStatus })}
-      onRemove={() => onChange(without(filters, 'stock_status'))} />}
-    {!hidden.includes('on_sale') && (dimmed ? <DimmedChipTooltip>{onSaleChip}</DimmedChipTooltip> : onSaleChip)}
+      onRemove={() => onChange(without(filters, 'stock_status'))} onLongPress={onLongPress} />)}
+    {!hidden.includes('on_sale') && (dimmed ? <DimmedChipTooltip>{onSaleChip()}</DimmedChipTooltip> : slot('on_sale', onSaleChip))}
     {!hidden.includes('categories') && termChip('categories', 'category', 'Category', 'No category found')}
     {!hidden.includes('tags') && termChip('tags', 'tag', 'Tag', 'No tag found')}
     {trailing}

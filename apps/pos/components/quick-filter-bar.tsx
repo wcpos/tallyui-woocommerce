@@ -1,11 +1,9 @@
-import { useRef } from 'react';
 import type { JSX } from 'react';
 import { Pressable, View } from 'react-native';
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, IconButton, Text, Tooltip,
-  TooltipContent, TooltipTrigger } from '@tallyui/components';
+import { Button, DropdownMenuItem, DropdownMenuSeparator, IconButton, Text, Tooltip, TooltipContent, TooltipTrigger } from '@tallyui/components';
 import type { QuickFilter } from '../lib/catalogue/quick-filters';
-import { DimmedChipTooltip, filterChipClassName, filterChipTextClassName } from './catalogue-filter-chips';
-import { BookmarkIcon, EditIcon, FiltersIcon, TrashIcon } from './icons';
+import { CustomiseMenuItem, DimmedChipTooltip, filterChipClassName, filterChipTextClassName, LongPressMenu } from './catalogue-filter-chips';
+import { BookmarkIcon, EditIcon, TrashIcon } from './icons';
 
 /** v2's bare bookmark after the chips (filter-bar.tsx:538-553), shown while a filter is on. */
 export function SaveAsButton({ onPress }: { onPress(): void }): JSX.Element {
@@ -27,26 +25,18 @@ export function ClearAllButton({ onPress }: { onPress(): void }): JSX.Element {
 export type QuickFilterMenu = { onEdit(quickFilter: QuickFilter): void; onCustomise(): void; onRemove(quickFilter: QuickFilter): void };
 const ICON = { size: 18, strokeWidth: 1.5 } as const;
 
-/** v2's BarSlot (filter-bar.tsx:125-252): a long press opens the chip's menu from a hidden trigger laid over the chip. */
+/** v2's quick-filter menu (filter-bar.tsx:205-249): Edit, Customise filter bar, then Remove from bar. */
 function ChipMenu({ quickFilter, menu, chip }: { quickFilter: QuickFilter; menu: QuickFilterMenu; chip(onLongPress: () => void): JSX.Element }): JSX.Element {
-  const trigger = useRef<View & { open?(): void }>(null);
   const id = quickFilter.id;
-  return <View className="relative">
-    <DropdownMenu>
-      {chip(() => trigger.current?.open?.())}
-      <DropdownMenuTrigger ref={trigger} className="absolute inset-0" pointerEvents="none" tabIndex={-1} aria-hidden />
-      <DropdownMenuContent>
-        <DropdownMenuItem testID={`filter-bar-menu-edit-${id}`} className="gap-2" onPress={() => menu.onEdit(quickFilter)}>
-          <EditIcon {...ICON} className="text-foreground" /><Text>{`Edit “${quickFilter.label}”`}</Text></DropdownMenuItem>
-        <DropdownMenuItem testID={`filter-bar-menu-customize-${id}`} className="gap-2" onPress={menu.onCustomise}>
-          <FiltersIcon {...ICON} className="text-foreground" /><Text>Customise filter bar</Text></DropdownMenuItem>
-        <DropdownMenuSeparator />
-        {/* TallyUI's DropdownMenuItem has no destructive variant (v2 `variant="destructive"`): the row is coloured instead. */}
-        <DropdownMenuItem testID={`filter-bar-menu-remove-${id}`} className="gap-2" onPress={() => menu.onRemove(quickFilter)}>
-          <TrashIcon {...ICON} className="text-destructive" /><Text className="text-destructive">Remove from bar</Text></DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  </View>;
+  return <LongPressMenu chip={chip}>
+    <DropdownMenuItem testID={`filter-bar-menu-edit-${id}`} className="gap-2" onPress={() => menu.onEdit(quickFilter)}>
+      <EditIcon {...ICON} className="text-foreground" /><Text>{`Edit “${quickFilter.label}”`}</Text></DropdownMenuItem>
+    <CustomiseMenuItem id={id} onPress={menu.onCustomise} />
+    <DropdownMenuSeparator />
+    {/* TallyUI's DropdownMenuItem has no destructive variant (v2 `variant="destructive"`): the row is coloured instead. */}
+    <DropdownMenuItem testID={`filter-bar-menu-remove-${id}`} className="gap-2" onPress={() => menu.onRemove(quickFilter)}>
+      <TrashIcon {...ICON} className="text-destructive" /><Text className="text-destructive">Remove from bar</Text></DropdownMenuItem>
+  </LongPressMenu>;
 }
 
 export function QuickFilterBar({ quickFilters, isActive, onPress, dimmed = false, menu }: {
