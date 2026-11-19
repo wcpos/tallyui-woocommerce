@@ -1,6 +1,11 @@
 import { useEffect, useState, type JSX } from 'react';
-import { Pressable, View } from 'react-native';
-import { Badge, Button, Card, Input, RadioGroup, RadioGroupItem, Slider, Switch, Text } from '@tallyui/components';
+import { Pressable, ScrollView, View } from 'react-native';
+import {
+  Badge, Button, Card, Dialog, DialogContent, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  IconButton, Input, RadioGroup, RadioGroupItem, Slider, Switch, Text, XIcon,
+} from '@tallyui/components';
+import { removeScannerProfile, scannerProfiles$, useDeviceScanControls, type ScannerProfile } from '@tallyui/pos';
+import { useCatalogue } from '../../lib/catalogue/catalogue-context';
 import { useScanSettings } from '../../lib/scan/scan-settings';
 import { scanSuggestions } from '../../lib/scan/scan-suggestions';
 import {
@@ -10,8 +15,9 @@ import {
 import { useWedgeScanner } from '../../lib/scan/use-wedge-scanner';
 import type { ScanSettings, WedgeAttempt, WedgeResult } from '../../lib/scan/wedge';
 import { SavedFieldProvider, SavedMark, savedKeys, SettingsField, SettingsSection, SETTINGS_HELP_CLASS, SETTINGS_KEY_CLASS, useMarkSaved } from './settings-form';
-import { CheckIcon } from '../icons';
+import { CheckIcon, MoreIcon } from '../icons';
 import { DocsLink, SCANNER_DOCS_URL } from '../docs-link';
+import { RIGHT_SHEET, SHEET_TITLE, SheetCloseButton } from '../sheet';
 
 // v2 settings.barcode_test_result_*; badge tones follow v2's History (ok, warning, muted).
 const RESULT_WORDS: Record<WedgeResult, string> = { scan: 'scan', too_short: 'too short', typing: 'typing' };
@@ -183,16 +189,92 @@ function SoundSettings(): JSX.Element {
   );
 }
 
-// v2 input-sources.tsx:326-362 with no saved scanner profile (the keyboard lane); "Direct connection" (HID-POS, serial, BLE pairing) waits for TallyUI #682.
-function ScannerSection(): JSX.Element {
+// v2 input-sources.tsx scannerStatus() l.76-99 and the type and status words (core.json settings.scanner_*).
+const TYPE_LABEL: Record<ScannerProfile['connectionType'], string> = {
+  keyboard: 'Keyboard mode', 'usb-serial': 'USB', 'bluetooth-spp': 'Bluetooth serial', 'bluetooth-le': 'Bluetooth', 'hid-pos': 'HID POS',
+};
+function scannerStatus(type: ScannerProfile['connectionType'], live: boolean): string {
+  if (type === 'keyboard') return 'Registered';
+  if (live) return 'Connected';
+  return type === 'usb-serial' ? 'Not plugged in' : type === 'bluetooth-spp' || type === 'bluetooth-le' ? 'Not in range' : 'Not connected';
+}
+
+// v2 input-sources.tsx ScannerProfileRow l.101-174: name, `type · vendor:product`, a status muted unless live, a ⋮ with Remove.
+function ScannerProfileRow({ profile, live, first, onRemove }: { profile: ScannerProfile; live: boolean; first: boolean; onRemove(): void }): JSX.Element {
+  const type = TYPE_LABEL[profile.connectionType];
+  const detail = profile.vendorId !== undefined && profile.productId !== undefined ? `${profile.vendorId}:${profile.productId}` : profile.serviceUuid;
   return (
-    <SettingsSection title="Scanner" testID="barcode-input-sources"
-      description="Almost all barcode scanners pair as a Bluetooth or USB keyboard. Pair it in your device’s settings, then scan into the POS — the app recognises the scan automatically.">
+    <View testID="scanner-profile-row" className={`flex-row items-center gap-3 py-3 ${first ? '' : 'border-t border-border'}`}>
+      <View className="min-w-0 flex-1 gap-0.5">
+        <Text className="text-base text-foreground" numberOfLines={1}>{profile.name || profile.deviceName || type}</Text>
+        <Text className={SETTINGS_KEY_CLASS} numberOfLines={1}>{[type, detail].filter(Boolean).join(' · ')}</Text>
+      </View>
+      <Text testID="scanner-profile-status" className={`text-sm ${live ? 'text-success' : 'text-muted-foreground'}`}>{scannerStatus(profile.connectionType, live)}</Text>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <IconButton testID="scanner-profile-menu" accessibilityLabel="Actions" className="h-11 w-11">
+            <MoreIcon size={18} strokeWidth={1.5} className="text-muted-foreground" />
+          </IconButton>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem testID="scanner-profile-delete" onPress={onRemove}><Text className="text-destructive">Remove</Text></DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </View>
+  );
+}
+
+// v2 input-sources.tsx:177-211 and 223-460 (InputSources): saved scanners stay on the page; connecting one is the Direct
+// connection sheet's. The keyboard register flow, BLE and UUID entry and the device chooser are not ported.
+function ScannerSection(): JSX.Element {
+  const collection = useCatalogue().catalogue?.scannerProfiles;
+  const [profiles, setProfiles] = useState<ScannerProfile[]>([]);
+  useEffect(() => {
+    if (!collection) return;
+    const sub = scannerProfiles$(collection).subscribe(setProfiles);
+    return () => sub.unsubscribe();
+  }, [collection]);
+  const { hid, serial } = useDeviceScanControls();
+  const [open, setOpen] = useState(false);
+  const live = new Set([hid.connectedDeviceKey, serial.connectedDeviceKey]);
+  const none = profiles.length === 0;
+  const verb = none ? 'Connect a scanner directly (advanced)' : 'Connect another scanner (advanced)';
+  return (
+    <SettingsSection title="Scanner" testID="barcode-input-sources" description={none
+      ? 'Almost all barcode scanners pair as a Bluetooth or USB keyboard. Pair it in your device’s settings, then scan into the POS — the app recognises the scan automatically.' : undefined}>
       <View className="gap-2 pt-1">
         {/* v2's `subheading` rank (text/ladder.ts:12, text-base font-ui). */}
-        <Text testID="scanner-no-setup-needed" className="text-base font-medium text-foreground">No setup needed for most scanners.</Text>
+        {none && <Text testID="scanner-no-setup-needed" className="text-base font-medium text-foreground">No setup needed for most scanners.</Text>}
+        {profiles.length > 0 && <View>{profiles.map((profile, index) => <ScannerProfileRow key={profile.deviceKey} profile={profile} first={index === 0}
+          live={live.has(profile.deviceKey)} onRemove={() => { if (collection) void removeScannerProfile(collection, profile.deviceKey); }} />)}</View>}
+        {!none && <Text testID="scanner-registered-hint" className={SETTINGS_HELP_CLASS}>Scans from these devices are captured directly, with no typing-speed guesswork. Keyboard-mode scanners still work alongside them — those need no setup.</Text>}
         <DocsLink testID="scanner-setup-guide-link" href={SCANNER_DOCS_URL}>Scanner setup guide</DocsLink>
+        {collection && (hid.available || serial.available) && (
+          <SettingsField testID="scanner-row-direct" label="Direct connection" trailing={
+            <Button testID="scanner-advanced-trigger" variant="link" size="sm" onPress={() => setOpen(true)}><Text>{verb}</Text></Button>}>
+            {none ? <Text className="text-muted-foreground">None</Text> : null}
+          </SettingsField>
+        )}
       </View>
+      {open && <Dialog open onOpenChange={next => { if (!next) setOpen(false); }}>
+        <DialogContent testID="scanner-advanced-content" className={RIGHT_SHEET}>
+          <View className="pl-4 pr-11"><DialogTitle className={SHEET_TITLE}>{verb}</DialogTitle></View>
+          <View className="absolute right-1 top-1">
+            <IconButton variant="ghost" className="h-11 w-11" accessibilityLabel="Close" onPress={() => setOpen(false)}><XIcon size={18} /></IconButton>
+          </View>
+          <ScrollView className="flex-1" contentContainerClassName="gap-2 px-4 py-1">
+            <Text className={SETTINGS_HELP_CLASS}>A direct connection identifies scans by the device itself instead of by typing speed. The scanner must first be switched out of keyboard mode using a barcode from its manual.</Text>
+            <View className="flex-row flex-wrap gap-2">
+              {hid.available && <Button testID="hid-connect-button" variant="outline" size="sm" onPress={() => void (hid.connected ? hid.disconnect() : hid.connect())}>
+                <Text>{hid.connected ? 'Disconnect USB scanner' : 'Connect over USB'}</Text></Button>}
+              {serial.available && <Button testID="serial-connect-button" variant="outline" size="sm" onPress={() => void (serial.connected ? serial.disconnect() : serial.connect())}>
+                <Text>{serial.connected ? 'Disconnect Bluetooth serial scanner' : 'Connect over Bluetooth serial'}</Text></Button>}
+            </View>
+            <Text testID="scanner-keyboard-wall-note" className={SETTINGS_HELP_CLASS}>Scanners in keyboard mode can’t be connected to directly — that’s an operating-system restriction, not a POS one. They still scan into the POS normally.</Text>
+          </ScrollView>
+          <View className="flex-row justify-end border-t border-border px-4 pt-4"><SheetCloseButton testID="scanner-advanced-close" onPress={() => setOpen(false)} /></View>
+        </DialogContent>
+      </Dialog>}
     </SettingsSection>
   );
 }

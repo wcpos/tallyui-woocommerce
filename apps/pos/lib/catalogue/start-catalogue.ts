@@ -10,7 +10,9 @@ import type {
   TallyReplicationState,
 } from '@tallyui/database';
 import type { RxCollection } from 'rxdb';
-import { addPrinterProfileCollection, type PrinterProfileCollection } from '@tallyui/pos';
+import {
+  addPrinterProfileCollection, addScannerProfileCollection, type PrinterProfileCollection, type ScannerProfileCollection,
+} from '@tallyui/pos';
 import { appStorage } from '../app-storage';
 import type { Session } from '../auth/session';
 import { fetchCashierCapabilities, type CashierCapabilities } from '../auth/capabilities';
@@ -32,6 +34,8 @@ export interface Catalogue {
   receiptEmails: ReceiptEmailCollection;
   logs: LogCollection;
   printerProfiles: PrinterProfileCollection;
+  // Scanners connected directly on this device (v2 device-local scanner_profiles); never replicated.
+  scannerProfiles: ScannerProfileCollection;
   connector: TallyConnector;
   store: StoreInfo;
   cashier: CashierCapabilities;
@@ -94,6 +98,7 @@ export async function startCatalogue(
   const cadenceProfile = await readSyncCadence(syncCadence);
   // Also local only (v2 device-local schema); the Print Dialog stays in memory, never stored.
   const printerProfiles = await addPrinterProfileCollection(db);
+  const scannerProfiles = await addScannerProfileCollection(db);
   const logStore = attachLogStore(logs);
   // RxDB fixes the page size at start, so a change on the Performance page applies from the next start.
   const { pullBatchSize } = cadenceProfile;
@@ -116,7 +121,7 @@ export async function startCatalogue(
   const pullLogs = [logPulledBatches(replication, 'products'), logPulledBatches(couponReplication, 'coupons')];
   const cadence = startSyncCadence({ targets: [replication], cadence$: syncCadence$(syncCadence) });
   return {
-    db, coupons: db.coupons, parkedCarts, receiptEmails, logs, printerProfiles,
+    db, coupons: db.coupons, parkedCarts, receiptEmails, logs, printerProfiles, scannerProfiles,
     connector, store, cashier, capabilities, replication, couponReplication, requestMetrics, syncCadence, cadence,
     setAccessToken(token) {
       Object.assign(context.headers, connector.auth.getHeaders({ token }));
