@@ -80,7 +80,8 @@ test("the test values are v2's filled, read-only mono boxes, empty before a scan
 test('the test panel shows a passing scan, then a too-short code', () => {
   vi.useFakeTimers();
   render(<BarcodeScanningSettings />);
-  expect(screen.getByTestId('barcode-test-verdict').textContent).toBe('Scan into this page to see keystroke timing');
+  // The pre-attempt copy is the timing chart's (v2 settings.barcode_test_chart_empty), so no verdict yet.
+  expect(screen.queryByTestId('barcode-test-verdict')).toBeNull();
   expect(screen.queryByTestId('barcode-test-result')).toBeNull();
   burst('2000000000015', 5);
   expect(value('barcode-test-keys')).toBe('2000000000015');
@@ -156,6 +157,62 @@ function unevenBurst(keys: string, gapMs: number, lastGapMs: number) {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
   });
 }
+
+// One burst with these gaps between its keys, in order.
+function timedBurst(keys: string, gapsMs: number[]) {
+  act(() => {
+    [...keys].forEach((key, i) => {
+      if (i > 0) vi.advanceTimersByTime(gapsMs[i - 1]);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    });
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  });
+}
+
+function chartBars(): HTMLElement[] {
+  return screen.queryAllByTestId(/^barcode-test-chart-bar-\d+$/);
+}
+
+function amberBars(): number[] {
+  return chartBars().map((_, i) => i).filter(i => classesOf(`barcode-test-chart-bar-${i}`).includes('bg-warning'));
+}
+
+test("the timing chart shows v2's empty copy before any attempt", () => {
+  render(<BarcodeScanningSettings />);
+  // v2 core.json settings.barcode_test_chart_empty.
+  expect(screen.getByTestId('barcode-test-chart').textContent).toBe('Scan into this page to see keystroke timing');
+  expect(chartBars()).toEqual([]);
+  expect(screen.queryByTestId('barcode-test-chart-legend')).toBeNull();
+  expect(screen.queryByTestId('barcode-test-verdict')).toBeNull();
+});
+
+test('the timing chart draws a bar per gap in order and flags gaps over the threshold amber', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  timedBurst('1234', [10, 40, 10]);
+  // v2 test-panel.tsx:35-81: a bar per gap, bg-warning when gap > threshold, bg-primary otherwise.
+  expect(chartBars().map(bar => bar.getAttribute('data-testid'))).toEqual(
+    ['barcode-test-chart-bar-0', 'barcode-test-chart-bar-1', 'barcode-test-chart-bar-2']);
+  expect([0, 1, 2].map(i => screen.getByTestId(`barcode-test-chart-gap-${i}`).textContent)).toEqual(['10', '40', '10']);
+  expect(amberBars()).toEqual([1]);
+  expect(classesOf('barcode-test-chart-bar-0')).toContain('bg-primary');
+  expect(classesOf('barcode-test-chart-bar-2')).toContain('bg-primary');
+  expect(screen.getByTestId('barcode-test-chart').textContent).toContain('—');
+  expect(screen.getByTestId('barcode-test-chart-threshold')).not.toBeNull();
+});
+
+test('the chart legend names the threshold, and a new threshold redraws the flags', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  timedBurst('1234', [10, 40, 10]);
+  // v2 core.json settings.barcode_test_chart_threshold.
+  expect(screen.getByTestId('barcode-test-chart-legend').textContent).toBe('Dashed line = your 24ms threshold — amber bars exceed it');
+  fireEvent.change(screen.getByTestId('settings-barcode-threshold'), { target: { value: '50' } });
+  expect(amberBars()).toEqual([]);
+  expect(screen.getByTestId('barcode-test-chart-legend').textContent).toBe('Dashed line = your 50ms threshold — amber bars exceed it');
+  fireEvent.change(screen.getByTestId('settings-barcode-threshold'), { target: { value: '5' } });
+  expect(amberBars()).toEqual([0, 1, 2]);
+});
 
 function historyRow(index: number): string | null {
   return screen.queryByTestId(`barcode-test-history-row-${index}`)?.textContent ?? null;

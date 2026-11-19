@@ -26,8 +26,7 @@ const RESULT_VARIANTS = { scan: 'success', too_short: 'warning', typing: 'second
 const MAX_ATTEMPTS = 5;
 
 // v2 test-panel.tsx headlines (settings.barcode_test_*).
-function verdict(attempt: WedgeAttempt | null): string {
-  if (!attempt) return 'Scan into this page to see keystroke timing';
+function verdict(attempt: WedgeAttempt): string {
   // v2 analyze-trace.ts:54: a too-short code is a detected scan; its fix is the suggestion notice below.
   if (attempt.result === 'scan' || attempt.result === 'too_short') return `Detected as a scan → ${attempt.code}`;
   if (attempt.avgGapMs === undefined) return 'Treated as typing — only one key pressed, so there are no gaps to measure';
@@ -55,6 +54,42 @@ function TextField({ testID, label, value, onChange }: { testID: string; label: 
   );
 }
 
+// v2 test-panel.tsx:26: bars stop growing at 60ms, so the dashed line sits at most 60px up.
+const BAR_HEIGHT_CAP_MS = 60;
+
+// v2 test-panel.tsx:35-81 (TimingChart): a column per key with its bar, key and gap; amber where a gap is over the threshold.
+// Before an attempt the area reads v2's settings.barcode_test_chart_empty.
+function TimingChart({ attempt, threshold }: { attempt: WedgeAttempt | null; threshold: number }): JSX.Element {
+  if (!attempt) return <View testID="barcode-test-chart"><Text className={SETTINGS_HELP_CLASS}>Scan into this page to see keystroke timing</Text></View>;
+  return (
+    <View testID="barcode-test-chart" className="gap-1">
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View className="relative flex-row gap-1 pt-2">
+          <View testID="barcode-test-chart-threshold" className="absolute left-0 right-0 border-t border-dashed border-border"
+            style={{ top: 8 + BAR_HEIGHT_CAP_MS - Math.min(threshold, BAR_HEIGHT_CAP_MS) }} />
+          {[...attempt.raw].map((key, index) => {
+            const gap = index > 0 ? attempt.gapsMs[index - 1] : undefined;
+            return (
+              <View key={index} className="w-6 items-center gap-0.5">
+                <View className="items-center justify-end" style={{ height: BAR_HEIGHT_CAP_MS }}>
+                  <View testID={gap === undefined ? undefined : `barcode-test-chart-bar-${index - 1}`}
+                    className={`w-4 rounded-t-sm ${gap !== undefined && gap > threshold ? 'bg-warning' : 'bg-primary'}`}
+                    style={{ height: Math.max(3, Math.min(gap ?? 0, BAR_HEIGHT_CAP_MS)) }} />
+                </View>
+                <Text className="font-mono text-xs text-foreground">{key}</Text>
+                <Text testID={gap === undefined ? undefined : `barcode-test-chart-gap-${index - 1}`} className={SETTINGS_HELP_CLASS}>
+                  {gap === undefined ? '—' : String(gap)}</Text>
+              </View>
+            );
+          })}
+        </View>
+      </ScrollView>
+      <Text testID="barcode-test-chart-legend" className={SETTINGS_HELP_CLASS}>
+        {`Dashed line = your ${threshold}ms threshold — amber bars exceed it`}</Text>
+    </View>
+  );
+}
+
 // `settings` is the page's own useScanSettings() value, so an edit above shows in the next verdict; Apply saves through `update`.
 function ScanTestPanel({ settings, update }: { settings: ScanSettings; update(patch: Partial<ScanSettings>): void }): JSX.Element {
   const [attempts, setAttempts] = useState<WedgeAttempt[]>([]);
@@ -76,12 +111,14 @@ function ScanTestPanel({ settings, update }: { settings: ScanSettings; update(pa
         <Input testID="barcode-test-detected-box" className="bg-accent"><Input.Field testID="barcode-test-detected" accessibilityLabel="Detected Barcode"
           className="font-mono" value={attempt?.result === 'scan' ? attempt.code : ''} editable={false} aria-disabled /></Input>
       </View>
-      <View className="flex-row items-center gap-2">
-        {attempt && <Badge testID="barcode-test-result" variant={RESULT_VARIANTS[attempt.result]} label={RESULT_WORDS[attempt.result]} />}
+      {/* v2 test-panel.tsx:171-177: the chart sits between the Detected Barcode box and the verdict. */}
+      <TimingChart attempt={attempt} threshold={settings.threshold} />
+      {attempt && <View className="flex-row items-center gap-2">
+        <Badge testID="barcode-test-result" variant={RESULT_VARIANTS[attempt.result]} label={RESULT_WORDS[attempt.result]} />
         {/* v2 test-panel.tsx:226-240: a scan is the success check and a subheading, then its timing as help. */}
         {detected && <CheckIcon testID="barcode-test-scan-check" size={16} className="text-success" />}
         <Text testID="barcode-test-verdict" className={`flex-1 ${detected ? 'text-base font-medium text-foreground' : 'text-sm text-muted-foreground'}`}>{verdict(attempt)}</Text>
-      </View>
+      </View>}
       {detected && <Text testID="barcode-test-scan-detail" className={SETTINGS_HELP_CLASS}>
         {`Average keystroke gap ${Math.round(attempt?.avgGapMs ?? 0)}ms, under the ${settings.threshold}ms threshold`}</Text>}
       {/* v2 test-panel.tsx:247-256: a Notice tone="info" per suggestion with one Apply action. */}
