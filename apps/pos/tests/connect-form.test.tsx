@@ -230,3 +230,44 @@ test('the address form is a tight stack', () => {
   expect(classes).toContain('gap-2');
   expect(classes).not.toContain('gap-4');
 });
+
+// v2 demo-button.tsx:178-186 and core.json auth.try_the_demo_store; the demo store is ADR 0007's.
+const DEMO_URL = 'https://tally-woo-demo.wcpos.com';
+const neverResolves = () => vi.fn<StartSignIn>(() => new Promise<void>(() => {}));
+const storeUrl = () => screen.getByTestId('store-url-input') as HTMLInputElement;
+const demoDisabled = () => screen.getByTestId('enter-demo-store-button').getAttribute('aria-disabled');
+
+test('the Connect screen offers Try the demo store', () => {
+  render(<ConnectForm startSignIn={vi.fn()} />);
+  expect(screen.getByTestId('enter-demo-store-button').textContent).toBe('Try the demo store');
+  cleanup();
+  render(<ConnectForm startSignIn={vi.fn()} saved={() => <Text testID="saved-slot">saved</Text>} />);
+  expect(screen.queryByTestId('store-url-input')).toBeNull();
+  expect(screen.getByTestId('enter-demo-store-button').textContent).toBe('Try the demo store');
+});
+
+test('Try the demo store connects to the demo store, not the typed address', async () => {
+  const startSignIn = neverResolves();
+  render(<ConnectForm startSignIn={startSignIn} />);
+  fireEvent.change(storeUrl(), { target: { value: 'shop.example' } });
+  fireEvent.click(screen.getByTestId('enter-demo-store-button'));
+  await screen.findByTestId('connect-progress');
+  expect(startSignIn).toHaveBeenCalledExactlyOnceWith(DEMO_URL, expect.any(Function));
+  expect(storeUrl().value).toBe(DEMO_URL);
+});
+
+test('Try the demo store opens the folded address form', async () => {
+  render(<ConnectForm startSignIn={neverResolves()} saved={() => <Text testID="saved-slot">saved</Text>} />);
+  fireEvent.click(screen.getByTestId('enter-demo-store-button'));
+  expect((await screen.findByTestId('connect-progress')).textContent).toBe('Finding your store…');
+  expect(storeUrl().value).toBe(DEMO_URL);
+});
+
+test('Try the demo store is disabled while the store connects', async () => {
+  render(<ConnectForm startSignIn={neverResolves()} />);
+  expect(demoDisabled()).not.toBe('true');
+  fireEvent.change(storeUrl(), { target: { value: 'shop.example' } });
+  fireEvent.click(screen.getByTestId('connect-store-button'));
+  await screen.findByTestId('connect-progress');
+  expect(demoDisabled()).toBe('true');
+});
