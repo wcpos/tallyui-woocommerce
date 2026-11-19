@@ -19,7 +19,7 @@ import { useRegister } from '../lib/register/register-context';
 import { REGISTER_ID } from '../lib/register/register-id';
 import { buildReceiptIdentity } from '../lib/receipts/receipt-identity';
 import { useReceiptPrintCount } from '../lib/receipts/use-receipt-print-count';
-import { renderedStoreReceipt } from '../lib/receipts/store-receipt';
+import { pickReceiptTemplate, receiptTemplateIdFor, renderedStoreReceipt } from '../lib/receipts/store-receipt';
 import { useStoreTemplates } from '../lib/receipts/use-store-templates';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { useCartRestore } from '../lib/sale/use-cart-restore';
@@ -51,6 +51,7 @@ import { ReceiptIdentity } from './receipt-identity';
 import { ReceiptZoom } from './receipt-zoom';
 import { ReceiptPrintSheet } from './receipt-print-sheet';
 import { StoreReceipt } from './store-receipt';
+import { ReceiptTemplateRow } from './receipt-template-row';
 import { ReceiptPaidMoment } from './receipt-paid-moment';
 import { ReceiptStoreLine } from './receipt-store-line';
 import { useReceiptSettings } from '../lib/receipts/receipt-settings';
@@ -122,6 +123,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const storeTemplates = useStoreTemplates(auth?.session ? connector : undefined, requestContext, 'receipt');
   // The order whose store receipt frame has loaded; until then the auto print waits.
   const [frameLoaded, setFrameLoaded] = useState<string | null>(null);
+  // The cashier's receipt template pick, in memory and for one order (v2 use-template-renderer.ts:267-285).
+  const [templatePick, setTemplatePick] = useState<{ orderId: string; id: string } | null>(null);
   useReceiptEmailSender({ collection: mailer ? receiptEmails ?? null : null, mailer: mailer ?? null,
     orders: outbox.enabled ? outbox.orders : null });
   const outboxOrders = outbox.enabled ? outbox.orders : null;
@@ -349,13 +352,18 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         const receiptCoupons = sale.stage.order.display.coupons ?? [], receiptCurrency = sale.stage.order.currency;
         const doneLabel = receiptSettings.autoPrint ? 'Print receipt · New sale' : 'New sale';
         // The store's own template (v2's receipt screen) when one renders on the web; the built-in receipt otherwise.
+        const templateId = receiptTemplateIdFor(templatePick, orderId);
         const storeHtml = Platform.OS === 'web' ? renderedStoreReceipt(storeTemplates, { kind: 'pos', order: receiptOrder }, {
           config: { storeName: props.storeName, cashier: props.cashierName, registerName: register?.registerName ?? undefined },
           pricesIncludeTax: props.storeSettings.pricesIncludeTax,
-        }) : null;
+        }, templateId) : null;
+        const shownTemplate = storeTemplates.status === 'ready' ? pickReceiptTemplate(storeTemplates.templates, templateId) : null;
         return (
         <>
           <ReceiptPaidMoment posOrder={receiptOrder} locale={props.locale} onClose={sale.newSale} />
+          {/* v2's Template row sits above the paper, outside the zoom and the print (receipt-body.tsx:84-98). */}
+          {storeHtml !== null && storeTemplates.status === 'ready' && shownTemplate ? <ReceiptTemplateRow
+            templates={storeTemplates.templates} selectedId={shownTemplate.id} onSelect={id => setTemplatePick({ orderId, id })} /> : null}
           <ReceiptZoom>
           <ReceiptPrintSheet orderId={orderId} autoPrint={receiptSettings.autoPrint} printAgain={storeHtml === null}
             ready={storeTemplates.status !== 'loading' && (storeHtml === null || frameLoaded === orderId)}

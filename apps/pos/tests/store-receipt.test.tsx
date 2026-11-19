@@ -1,5 +1,5 @@
 import { noTaxSettings } from './fixtures/store-settings';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
@@ -11,11 +11,12 @@ import { Text } from '@tallyui/components';
 import { SaleScreen, type SaleScreenProps } from '../components/sale-screen';
 import { ReceiptPrintSheet } from '../components/receipt-print-sheet';
 import { StoreReceipt } from '../components/store-receipt';
+import { ReceiptTemplateRow } from '../components/receipt-template-row';
 import { classesOf } from './classes-of';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
-import { pickReceiptTemplate, renderedStoreReceipt } from '../lib/receipts/store-receipt';
+import { pickReceiptTemplate, receiptTemplateIdFor, renderedStoreReceipt } from '../lib/receipts/store-receipt';
 import { saveReceiptSettings } from '../lib/receipts/receipt-settings';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
@@ -36,9 +37,26 @@ const order: PosOrder = {
 } as PosOrder;
 const context = { config: { storeName: 'G12 Store', cashier: 'Paul' }, pricesIncludeTax: false };
 
-test('pickReceiptTemplate takes the first template in the connector order, or none', () => {
-  expect(pickReceiptTemplate([marked, html('second', '<p>2</p>')])).toBe(marked);
-  expect(pickReceiptTemplate([])).toBeNull();
+const second = html('second', '<h1>{{store.name}}</h1><p>SECOND-MARKER</p>');
+
+test('pickReceiptTemplate takes the selected template, else the first in the connector order, or none', () => {
+  expect(pickReceiptTemplate([marked, second])).toBe(marked);
+  expect(pickReceiptTemplate([marked, second], 'second')).toBe(second);
+  expect(pickReceiptTemplate([marked, second], 'gone')).toBe(marked);
+  expect(pickReceiptTemplate([], 'second')).toBeNull();
+});
+
+// v2 keys the pick on the order (use-template-renderer.ts:267-285).
+test('receiptTemplateIdFor honours a pick only for the order it was made for', () => {
+  expect(receiptTemplateIdFor({ orderId: 'order-1', id: 'second' }, 'order-1')).toBe('second');
+  expect(receiptTemplateIdFor({ orderId: 'order-1', id: 'second' }, 'order-2')).toBeNull();
+  expect(receiptTemplateIdFor(null, 'order-1')).toBeNull();
+});
+
+test('renderedStoreReceipt renders the selected template', () => {
+  const out = renderedStoreReceipt({ status: 'ready', templates: [marked, second] }, { kind: 'pos', order }, context, 'second');
+  expect(out).toContain('SECOND-MARKER');
+  expect(out).not.toContain('G12-MARKER');
 });
 
 test('renderedStoreReceipt is null while loading, after an error, with no templates, and when the render throws', () => {
@@ -129,6 +147,7 @@ test('the receipt stage holds auto print until the store template has loaded', a
   const pending = new Promise<ReceiptTemplate[]>(r => { resolve = r; });
   await sellEspresso(() => pending);
   await screen.findByTestId('receipt-order');
+  expect(screen.queryByTestId('receipt-template-row')).toBeNull();
   expect(print).not.toHaveBeenCalled();
   resolve([marked]);
   const frame = await screen.findByTestId('store-receipt-frame');
@@ -140,6 +159,61 @@ test('when the templates cannot be read, the receipt stage keeps the built-in re
   await sellEspresso(async () => { throw new Error('templates down'); });
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
   expect(screen.queryByTestId('store-receipt-frame')).toBeNull();
+  expect(screen.queryByTestId('receipt-template-row')).toBeNull();
+}, 20_000);
+
+test('with no store templates the receipt keeps the built-in receipt and no Template row', async () => {
+  await sellEspresso(async () => []);
+  expect(await screen.findByTestId('receipt-order')).not.toBeNull();
+  expect(screen.queryByTestId('store-receipt-frame')).toBeNull();
+  expect(screen.queryByTestId('receipt-template-row')).toBeNull();
+}, 20_000);
+
+// v2's Template row (receipt-body.tsx:84-98, template-switcher.tsx:28-84): a select only when there is a choice.
+test('with two store templates the receipt shows a Template select on the first, and picking the second re-renders the frame with it', async () => {
+  await sellEspresso(async () => [marked, second]);
+  const frame = await screen.findByTestId('store-receipt-frame');
+  expect(within(screen.getByTestId('receipt-template-row')).getByText('Template')).not.toBeNull();
+  expect(screen.getByTestId('receipt-template-select').textContent).toBe('g12');
+  expect(frame.getAttribute('srcdoc')).toContain('G12-MARKER');
+  fireEvent.click(screen.getByTestId('receipt-template-select'));
+  fireEvent.click(screen.getByTestId('receipt-template-second'));
+  await waitFor(() => expect(screen.getByTestId('store-receipt-frame').getAttribute('srcdoc')).toContain('SECOND-MARKER'));
+  expect(screen.getByTestId('store-receipt-frame').getAttribute('srcdoc')).not.toContain('G12-MARKER');
+  expect(screen.getByTestId('receipt-template-select').textContent).toBe('second');
+}, 20_000);
+
+// v2's PropertyRow (property-row/index.tsx:103,147-163): key · value on one line off a phone, stacked on a phone.
+test('the Template row keeps one line off a phone and stacks the key above the select on a phone', () => {
+  const row = () => render(<ReceiptTemplateRow templates={[marked, second]} selectedId="g12" onSelect={() => {}} />);
+  row();
+  expect(classesOf('receipt-template-row')).toEqual(expect.arrayContaining(['flex-row', 'items-center']));
+  cleanup();
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  row();
+  expect(classesOf('receipt-template-row')).not.toContain('flex-row');
+  expect(screen.getByTestId('receipt-template-select').textContent).toBe('g12');
+});
+
+test('with one store template the receipt shows its title and no select', async () => {
+  await sellEspresso(async () => [marked]);
+  await screen.findByTestId('store-receipt-frame');
+  expect(screen.getByTestId('receipt-template-title').textContent).toBe('g12');
+  expect(screen.queryByTestId('receipt-template-select')).toBeNull();
+}, 20_000);
+
+test('the printed area carries the chosen template, not the first', async () => {
+  await sellEspresso(async () => [marked, second]);
+  await screen.findByTestId('store-receipt-frame');
+  fireEvent.click(screen.getByTestId('receipt-template-select'));
+  fireEvent.click(screen.getByTestId('receipt-template-second'));
+  const area = screen.getByTestId('receipt-print-area');
+  await waitFor(() => expect(within(area).getByTestId('store-receipt-frame').getAttribute('srcdoc')).toContain('SECOND-MARKER'));
+  expect(within(area).getByTestId('store-receipt-frame').getAttribute('srcdoc')).not.toContain('G12-MARKER');
+  expect(within(area).queryByTestId('receipt-template-row')).toBeNull();
+  const print = vi.spyOn(window, 'print').mockImplementation(() => {});
+  fireEvent.click(screen.getByTestId('store-receipt-print'));
+  expect(print).toHaveBeenCalledTimes(1);
 }, 20_000);
 
 test('ReceiptPrintSheet holds the auto print until it is ready, then prints once', () => {

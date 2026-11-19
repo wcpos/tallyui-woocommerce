@@ -3,13 +3,20 @@ import { renderStoreReceiptTemplate, type PrintableSale, type StoreTemplateConte
 import type { StoreTemplatesState } from './use-store-templates';
 
 // v2 takes Pro's active template, else the lowest menu_order; the connector exposes neither, so its order stands.
-export function pickReceiptTemplate(templates: ReceiptTemplate[]): ReceiptTemplate | null {
-  return templates[0] ?? null;
+// The cashier's pick (v2's template switcher) wins while it names a served template.
+export function pickReceiptTemplate(templates: ReceiptTemplate[], selectedId?: string | null): ReceiptTemplate | null {
+  return templates.find(template => template.id === selectedId) ?? templates[0] ?? null;
+}
+
+/** v2 keys the pick on its order (use-template-renderer.ts:267-285): a new sale starts on the default again. */
+export function receiptTemplateIdFor(pick: { orderId: string; id: string } | null, orderId: string): string | null {
+  return pick?.orderId === orderId ? pick.id : null;
 }
 
 /** The store's receipt template rendered to HTML (thermal bodies through their preview), or null for the built-in receipt. */
-export function renderedStoreReceipt(state: StoreTemplatesState, sale: PrintableSale, context: StoreTemplateContext): string | null {
-  const template = state.status === 'ready' ? pickReceiptTemplate(state.templates) : null;
+export function renderedStoreReceipt(state: StoreTemplatesState, sale: PrintableSale, context: StoreTemplateContext,
+  selectedId?: string | null): string | null {
+  const template = state.status === 'ready' ? pickReceiptTemplate(state.templates, selectedId) : null;
   if (!template) return null;
   try {
     return renderStoreReceiptTemplate(template, sale, context);
