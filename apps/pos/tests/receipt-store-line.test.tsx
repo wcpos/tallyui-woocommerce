@@ -157,3 +157,14 @@ test('the line prints: it sits inside the print area, before the receipt, outsid
   await openOrdersReceipt();
   expectPrinted(screen.getByTestId('receipt-store-line'));
 }, 20_000);
+
+// orders-screen.tsx reads the outbox's live copy: the opened row is a snapshot taken when the receipt opened.
+test('the awaiting line on an open Orders receipt goes when the store confirms the sale, and the receipt stays open', async () => {
+  const { send, release } = gated(applied);
+  await sellEspresso(send);
+  await openOrdersReceipt();
+  expect(screen.getByTestId('receipt-store-line').textContent).toBe(AWAITING);
+  release();
+  await vi.waitFor(() => expect(screen.queryByTestId('receipt-store-line')).toBeNull());
+  expect(screen.getByTestId('receipt-order')).not.toBeNull();
+}, 20_000);
