@@ -60,6 +60,7 @@ import { OpenOrderTabs, stripCartIds } from './open-order-tabs';
 import { PanelResizeHandle } from './panel-resize-handle';
 import { CartWithSettings } from './cart-settings';
 import { OrderDetailsSheet } from './order-details-sheet';
+import { KeyboardShortcutsSheet } from './keyboard-shortcuts-sheet';
 import { CartNoteRow } from './cart-note-row';
 import { TenderPane } from './tender-pane';
 import { LedgerPane } from './ledger-pane';
@@ -209,6 +210,14 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   useChord('ArrowLeft', () => stepCart(-1), cartChords && stripIds.length > 1);
   useChord('ArrowRight', () => stepCart(1), cartChords && stripIds.length > 1);
   useChord('KeyP', checkout.onCheckout, cartChords && hasLines);
+  // v2's alt+v `pos.cart.void` (commands.ts:40-43): what the Order details Void runs, Undo included, while it is offered.
+  useChord('KeyV', voiding.voidSale, cartChords && voiding.offered);
+  // v2's alt+slash `pos.help.open` has no `when`; its sheet greys each row by the gate its chord uses here.
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  useChord('Slash', () => setShortcutsOpen(true), props.searchChord !== false);
+  const onCart = cartChords && hasLines, canStep = cartChords && stripIds.length > 1;
+  const shortcuts = { 'pos.search.focus': chords, 'pos.checkout.open': onCart, 'pos.cart.new': onCart, 'pos.cart.previous': canStep,
+    'pos.cart.next': canStep, 'pos.cart.discount': onCart, 'pos.cart.void': cartChords && voiding.offered, 'pos.help.open': true };
 
   function onSelect(doc: any) {
     try {
@@ -382,6 +391,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     <View className="flex-1">
       <RegisterControls currency={currency} storeName={props.storeName} locale={props.locale} cartEmpty={!sale.order.lineItems.length}
         panelOpen={registerPanelOpen} onPanelOpenChange={setRegisterPanelOpen}>{cartPane}</RegisterControls>
+      <KeyboardShortcutsSheet open={shortcutsOpen} onOpenChange={setShortcutsOpen} enabled={shortcuts} />
     </View>
   );
 
