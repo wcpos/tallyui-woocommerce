@@ -215,10 +215,11 @@ export type CartWithSettingsProps = ComponentProps<typeof Cart> & {
   customer?: ReactNode;          // the customer label and chip, at the head row's start
   customers?: CustomerSource | null;     // for the + menu's Add new customer
   createCustomersBlockedReason?: string; // why Add new customer is disabled
+  chords?: boolean;                      // the till chords are live: Alt+D opens Add Discount
 };
 
 export function CartWithSettings({ position, onPositionChange, openOrders, coupons = null, couponsOffered = false, customer, customers = null,
-  createCustomersBlockedReason, sale, ...cartProps }: CartWithSettingsProps): JSX.Element {
+  createCustomersBlockedReason, chords, sale, ...cartProps }: CartWithSettingsProps): JSX.Element {
   const [settings, setSettings] = useCartSettings();
   const openOrdersStrip = <View testID="cart-open-orders">{openOrders}</View>;
   return <>
@@ -228,7 +229,7 @@ export function CartWithSettings({ position, onPositionChange, openOrders, coupo
     <View testID="cart-head" className="flex-row items-center gap-1">
       <View className="min-w-0 flex-1">{customer}</View>
       <CartAddMenu sale={sale} taxClasses={cartProps.taxClasses} coupons={coupons} couponsOffered={couponsOffered}
-        customers={customers} createCustomersBlockedReason={createCustomersBlockedReason} />
+        customers={customers} createCustomersBlockedReason={createCustomersBlockedReason} chords={chords} />
       <CartSettingsDialog position={position} onPositionChange={onPositionChange} settings={settings} onSettingsChange={setSettings} />
     </View>
     {/* Sort a copy for display only: the order builder's lineItems keep the add order (receipts, parking, the order). */}
