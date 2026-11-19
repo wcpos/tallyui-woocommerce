@@ -5,28 +5,48 @@ import { useCallback, useState } from 'react';
 
 /** v2's DisplayOptions ids: the areas whose bar carries the settings icon. */
 export type AreaId = 'orders' | 'customers' | 'products' | 'coupons';
-export interface AreaColumnSetting<Id extends string = string> { id: Id; visible: boolean }
-/** One column of an area, its v2 label and its v2 default (`initial-settings.json`'s `show`). */
-export interface AreaColumn<Id extends string = string> extends AreaColumnSetting<Id> { label: string }
+/** One of a column's display lines (v2's `display` keys, `initial-settings.json`), e.g. the Product column's SKU. */
+export interface AreaDisplaySetting { id: string; visible: boolean }
+export interface AreaColumnSetting<Id extends string = string> { id: Id; visible: boolean; display?: AreaDisplaySetting[] }
+/** One column of an area, its v2 label and its v2 default (`initial-settings.json`'s `show`), and its display lines. */
+export interface AreaColumn<Id extends string = string> extends AreaColumnSetting<Id> {
+  label: string;
+  display?: (AreaDisplaySetting & { label: string })[];
+}
 
 export function areaColumnsKey(area: AreaId): string {
   return `tallywoo.${area}_columns.v1`;
 }
 
-/** Columns as stored rows: `{ id, visible }` only, so a label never reaches storage. */
+/** Columns as stored rows: `{ id, visible }`, plus `display` rows only for a column that has them, so a label never
+ *  reaches storage and an area without display lines stores what it always has. */
 export function areaColumnRows<Id extends string>(columns: readonly AreaColumnSetting<Id>[]): AreaColumnSetting<Id>[] {
-  return columns.map(({ id, visible }) => ({ id, visible }));
+  return columns.map(({ id, visible, display }) => display
+    ? { id, visible, display: display.map(line => ({ id: line.id, visible: line.visible })) } : { id, visible });
 }
 
+/** The stored row with `id` in `rows`, when `rows` is an array and holds one. */
+const storedRow = (rows: unknown, id: string): { visible?: unknown; display?: unknown } | undefined => Array.isArray(rows)
+  ? rows.find(item => typeof item === 'object' && item !== null && (item as { id?: unknown }).id === id) : undefined;
+const storedVisible = (row: { visible?: unknown } | undefined, fallback: boolean): boolean =>
+  typeof row?.visible === 'boolean' ? row.visible : fallback;
+
 /** Reads stored rows against the area's defaults: an id the area does not know is dropped, a missing or
- *  malformed one takes its default, and the rows come back in the defaults' order. */
+ *  malformed one takes its default, and the rows come back in the defaults' order; display lines likewise. */
 export function normalizeAreaColumns<Id extends string>(raw: unknown, defaults: readonly AreaColumnSetting<Id>[]): AreaColumnSetting<Id>[] {
   if (!Array.isArray(raw)) return areaColumnRows(defaults);
-  return defaults.map(({ id, visible }) => {
-    const entry: unknown = raw.find(item => typeof item === 'object' && item !== null && (item as { id?: unknown }).id === id);
-    const stored = entry === undefined ? undefined : (entry as { visible?: unknown }).visible;
-    return { id, visible: typeof stored === 'boolean' ? stored : visible };
+  return defaults.map(({ id, visible, display }) => {
+    const entry = storedRow(raw, id);
+    const row = { id, visible: storedVisible(entry, visible) };
+    return !display ? row
+      : { ...row, display: display.map(line => ({ id: line.id, visible: storedVisible(storedRow(entry?.display, line.id), line.visible) })) };
   });
+}
+
+/** Whether a column is shown with its display line `key` on (v2's name cell `show(key)`). */
+export function areaDisplayShown(settings: readonly AreaColumnSetting[], columnId: string, key: string): boolean {
+  const setting = settings.find(row => row.id === columnId);
+  return setting?.visible === true && setting.display?.some(line => line.id === key && line.visible) === true;
 }
 
 /** The columns whose setting is visible, in the columns' own order; a column with no setting is hidden. */

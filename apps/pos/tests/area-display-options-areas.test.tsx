@@ -228,7 +228,9 @@ test('Products: the display options sit before the bell', () => {
 test("Products: Product Settings lists v2's columns in order with v2's defaults", () => {
   renderProducts();
   expectSwitches('products', openPanel('products'), 'Product Settings', [
-    ['image', true], ['id', false], ['name', true], ['type', false], ['sku', false], ['barcode', false],
+    // The Product column's display switches (v2's name `display`) follow its own, off.
+    ['image', true], ['id', false], ['name', true], ['name-sku', false], ['name-barcode', false], ['name-attributes', false],
+    ['type', false], ['sku', false], ['barcode', false],
     ['stock_quantity', true], ['stock_status', true], ['categories', true], ['tags', false], ['price', true],
     ['regular_price', true], ['sale_price', true], ['date_modified_gmt', false],
   ]);
