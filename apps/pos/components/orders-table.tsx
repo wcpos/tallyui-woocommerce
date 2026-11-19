@@ -17,6 +17,9 @@ const SortDownIcon = createSvgIcon('SortDownIcon', () => <Path d="m6 9 6 6 6-6" 
 // v2's orders column aligns (ui-settings/initial-settings.json:388): the number is centred, header and cell
 // (data-table/header.tsx:37, column-style.ts:22); the total stays right.
 const ALIGN: Partial<Record<OrdersColumnId, string>> = { number: 'items-center', total: 'items-end' };
+// v2's orders flex (initial-settings.json:381): Status takes 1.6, head and cells alike; the rest keep the default 1
+// from TableHead's and TableCell's own `flex-1`.
+const FLEX: Partial<Record<OrdersColumnId, string>> = { status: 'flex-[1.6]' };
 // v2's body cell (components/src/table/index.tsx:129, `flex-col justify-center px-3 py-1.5`): every cell centres its
 // content on the row, as the 32 px chip already sat. The row is v2's order row: its list sizes one at 56
 // (orders/index.tsx:203 `estimatedItemSize`) under the row's 1 px rule (data-table/rows.tsx:116 `border-b`), the
@@ -60,7 +63,7 @@ function orderCell(id: OrdersColumnId, cells: ReturnType<typeof orderRowCells>, 
     // v2's status-filter-cell.tsx:24-32: pressed, it filters to the row's own Woo status. A local row's status is its
     // sync state, which is no Woo status, so it stays plain. A Pressable stops Enter's propagation (react-native-web
     // PressResponder), so Enter on either cell never reaches the table's open-the-row key.
-    case 'status': return <TableCell key={id} testID={`${rowId}-status`} className={CELL}>
+    case 'status': return <TableCell key={id} testID={`${rowId}-status`} className={`${CELL} ${FLEX.status}`}>
       {onFilterStatus && row.kind === 'store' ? <Pressable accessibilityRole="button" accessibilityLabel={cells.statusLabel}
         testID={`${rowId}-status-filter`} className="self-start" onPress={() => onFilterStatus(row.order.status)}>
         <OrderStatus cells={cells} />
@@ -131,8 +134,12 @@ function dayHeadingView(item: Extract<OrderTableItem, { type: 'day' }>) {
  *  is always newest first (v2's default, initial-settings.json:376-377) and offers no other sort, so the chevron on
  *  Date Created is a static down. */
 function headCell({ id, label }: AreaColumn<OrdersColumnId>): JSX.Element {
-  if (id !== 'date_created_gmt') return <TableHead key={id} className={ALIGN[id]}><Text>{label}</Text></TableHead>;
-  return <TableHead key={id}>
+  if (id !== 'date_created_gmt') {
+    return <TableHead key={id} testID={`orders-head-${id}`} className={[ALIGN[id], FLEX[id]].filter(Boolean).join(' ')}>
+      <Text>{label}</Text>
+    </TableHead>;
+  }
+  return <TableHead key={id} testID={`orders-head-${id}`}>
     <View testID={`data-table-sort-${id}-desc`} className="max-w-full flex-row items-center gap-1">
       <Text numberOfLines={1} className="shrink">{label}</Text>
       <SortDownIcon testID="orders-sort-chevron" size={14} strokeWidth={1.5} className="text-foreground" />
