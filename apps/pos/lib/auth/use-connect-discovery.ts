@@ -2,13 +2,6 @@ import { useCallback, useState } from 'react';
 import { SiteError } from './site';
 import type { ConnectStage } from './site';
 
-// WCPOS v2's error-code docs root (monorepo packages/utils/src/logger/constants.ts).
-export const ERROR_CODE_DOCS_BASE_URL = 'https://docs.wcpos.com/error-codes';
-
-export function errorCodeDocUrl(code: string): string {
-  return `${ERROR_CODE_DOCS_BASE_URL}/${code}`;
-}
-
 // v2 copy: auth.finding_your_store, auth.checking_wordpress, auth.checking_woocommerce_pos, auth.saving.
 export const CONNECT_STAGE_COPY: Record<ConnectStage, string> = {
   'finding-store': 'Finding your store…',
