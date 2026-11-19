@@ -158,6 +158,33 @@ export function quickFilterToQueryPatch(quickFilter: QuickFilter): { filters: Ca
   return { filters, search };
 }
 
+export interface CapturedQuickFilter { conditions: QuickFilterCondition[]; sort?: QuickFilterSort }
+
+/** v2's captureQuickFilter (apply-quick-filter.ts:87-120): what differs from the baseline, the trimmed search, a non-settings sort. */
+export function captureQuickFilter(
+  state: { filters: CatalogueFilters; search: string; sort: ProductSort | null },
+  baseline: CatalogueFilters,
+  settingsSort: ProductSort | null,
+): CapturedQuickFilter {
+  const conditions: QuickFilterCondition[] = [];
+  for (const field of QUICK_FILTER_CONDITION_FIELDS) {
+    if (field === 'search') continue;
+    let value: unknown = state.filters[field];
+    if (field === 'price') {
+      value = Object.fromEntries(Object.entries(state.filters.price ?? {}).filter(([, bound]) => typeof bound === 'number' && Number.isFinite(bound)));
+      if (!Object.keys(value as object).length) continue;
+    }
+    if (value === undefined || value === null || (Array.isArray(value) && !value.length)) continue;
+    if (JSON.stringify(value) !== JSON.stringify(baseline[field])) conditions.push({ field, value } as QuickFilterCondition);
+  }
+  const search = state.search.trim();
+  if (search) conditions.push({ field: 'search', value: search });
+  const sort = state.sort;
+  const keepSort = sort !== null && QUICK_FILTER_SORT_FIELDS.includes(sort.field as QuickFilterSortField)
+    && (settingsSort === null || sort.field !== settingsSort.field || sort.dir !== settingsSort.dir);
+  return { conditions, ...(keepSort ? { sort: { field: sort.field as QuickFilterSortField, dir: sort.dir } } : {}) };
+}
+
 export function matchesCatalogueFilters(doc: any, filters: CatalogueFilters): boolean {
   return Object.entries(filters).every(([field, value]) => {
     switch (field) {

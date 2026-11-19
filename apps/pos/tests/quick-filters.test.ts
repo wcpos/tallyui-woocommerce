@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { ProductSort } from '@tallyui/pos';
 import type { CatalogueFilters, QuickFilter } from '../lib/catalogue/quick-filters';
 import {
-  CATALOGUE_FILTER_BASELINE, QUICK_FILTERS_KEY, catalogueFilterBaseline, describeQuickFilter, isQuickFilterActive, isQuickFilterValid,
+  CATALOGUE_FILTER_BASELINE, QUICK_FILTERS_KEY, captureQuickFilter, catalogueFilterBaseline, describeQuickFilter, isQuickFilterActive, isQuickFilterValid,
   loadQuickFilters, matchesCatalogueFilters, normalizeQuickFilters, quickFilterToQueryPatch,
   rebaseStockStatus, saveQuickFilters, useQuickFilters,
 } from '../lib/catalogue/quick-filters';
@@ -268,4 +268,41 @@ test('rebaseStockStatus deletes stock_status when out-of-stock products show and
   expect('stock_status' in shown).toBe(false);
   expect(shown.on_sale).toBe(true);
   expect(rebaseStockStatus({ on_sale: true }, false)).toEqual({ on_sale: true, stock_status: 'instock' });
+});
+
+// v2's captureQuickFilter (apply-quick-filter.ts:87-120; its own cases in apply-quick-filter.test.ts).
+const nameAsc: ProductSort = { field: 'name', dir: 'asc' };
+const capture = (filters: CatalogueFilters, search = '', sort: ProductSort | null = nameAsc) =>
+  captureQuickFilter({ filters, search, sort }, CATALOGUE_FILTER_BASELINE, nameAsc);
+
+test('captureQuickFilter: an unchanged filter is not captured', () => {
+  expect(capture({ stock_status: 'instock' })).toEqual({ conditions: [] });
+});
+
+test('captureQuickFilter: a changed filter becomes a condition', () => {
+  expect(capture({ stock_status: 'outofstock', on_sale: true, categories: [25] }).conditions).toEqual([
+    { field: 'categories', value: [25] }, { field: 'on_sale', value: true }, { field: 'stock_status', value: 'outofstock' },
+  ]);
+  expect(capture({ stock_status: 'instock', on_sale: false }).conditions).toEqual([{ field: 'on_sale', value: false }]);
+});
+
+test('captureQuickFilter: an empty array is skipped', () => {
+  expect(capture({ stock_status: 'instock', categories: [], tags: [] }).conditions).toEqual([]);
+});
+
+test('captureQuickFilter: a non-finite price bound is dropped', () => {
+  expect(capture({ price: { min: 2, max: Infinity } }).conditions).toEqual([{ field: 'price', value: { min: 2 } }]);
+  expect(capture({ stock_status: 'instock', price: { max: Number.NaN } }).conditions).toEqual([]);
+});
+
+test('captureQuickFilter: a search is trimmed and kept', () => {
+  expect(capture({ stock_status: 'instock' }, '  esp  ').conditions).toEqual([{ field: 'search', value: 'esp' }]);
+  expect(capture({ stock_status: 'instock' }, '   ').conditions).toEqual([]);
+});
+
+test('captureQuickFilter: the sort is kept only when it differs from the settings', () => {
+  expect(capture({ stock_status: 'instock' }, '', { field: 'name', dir: 'asc' }).sort).toBeUndefined();
+  expect(capture({ stock_status: 'instock' }, '', { field: 'price', dir: 'asc' }).sort).toEqual({ field: 'price', dir: 'asc' });
+  expect(capture({ stock_status: 'instock' }, '', { field: 'name', dir: 'desc' }).sort).toEqual({ field: 'name', dir: 'desc' });
+  expect(capture({ stock_status: 'instock' }, '', { field: 'date_created', dir: 'desc' }).sort).toBeUndefined();
 });
