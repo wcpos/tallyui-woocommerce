@@ -6,6 +6,8 @@ import { createSvgIcon, Text } from '@tallyui/components';
 import type { SvgIconProps } from '@tallyui/components';
 import { useThemeChoice } from '../../lib/theme/theme-setting';
 import type { ThemeChoice } from '../../lib/theme/theme-setting';
+import { useScaleChoice } from '../../lib/theme/scale-setting';
+import { Segmented } from '../segmented';
 
 // v2's glyphs for the theme tiles (theme.tsx:444-498), its tabler set at stroke 1.5
 // (packages/components/src/icon/components/tabler/<name>.tsx).
@@ -112,6 +114,32 @@ export function ThemeSettings(): JSX.Element {
               </View>
             ))}
           </View>
+        </View>
+      </View>
+      <ScaleSection />
+    </View>
+  );
+}
+
+// v2's SCALE_OPTIONS (theme.tsx:157): Auto first, the default; copy from core.json settings.scale.*.
+const SCALE_OPTIONS = [{ value: 'auto', label: 'Auto' }, { value: 'compact', label: 'Compact' }, { value: 'regular', label: 'Regular' }, { value: 'spacious', label: 'Spacious' }] as const;
+
+/** v2's ScaleSection (theme.tsx:166-221): a later SettingsSection (hairline, -mt-1 pt-4), a stacked status row over the control. */
+function ScaleSection(): JSX.Element {
+  const [scale, setScale] = useScaleChoice();
+  const label = SCALE_OPTIONS.find(option => option.value === scale)?.label;
+  return (
+    <View testID="settings-theme-scale" className="-mt-1 gap-1 border-t border-border pt-4">
+      <View className="gap-0.5">
+        <Text testID="settings-theme-scale-heading" role="heading" aria-level={2} className="text-base font-semibold text-foreground">Scale</Text>
+        <Text className="text-xs text-muted-foreground">Auto follows the window size.</Text>
+      </View>
+      <View className="gap-1 py-1">
+        <View className="min-h-9"><Text testID="settings-scale-status" className="text-sm text-muted-foreground">{`Current scale: ${label}`}</Text></View>
+        <View className="self-start">
+          <Segmented testID="settings-scale-control" label="Scale" value={scale}
+            segments={SCALE_OPTIONS.map(option => ({ ...option, testID: `settings-scale-${option.value}` }))}
+            onChange={value => setScale(value as typeof scale)} />
         </View>
       </View>
     </View>

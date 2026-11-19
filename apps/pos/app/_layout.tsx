@@ -18,6 +18,7 @@ import { UpdateRequiredGate } from '../components/update-required';
 import { railNavigation } from '../lib/layout/rail-routes';
 import { useIsWide } from '../lib/layout/wide';
 import { applyStoredTheme } from '../lib/theme/theme-setting';
+import { ScaleSettingProvider } from '../lib/theme/scale-setting';
 
 // Before the first render: this device's System/Light/Dark choice (Settings > Theme).
 applyStoredTheme();
@@ -37,24 +38,27 @@ export default function RootLayout() {
   // v2 clears before hydration, before any provider opens a database.
   return (
     <LocalDataResetGate>
-      <StatusBar style="auto" />
-      <SessionProvider>
-        <SessionOnlineStatusProvider>
-          <OnlineStatusLogger />
-          <CatalogueProvider>
-            <OutboxProvider>
-              <RegisterProvider>
-                <UnreadLogsProvider>
-                  {/* v2 (app)/_layout.tsx:306-322: the gate sits below every provider, so it never unmounts the catalogue. */}
-                  <UpdateRequiredGate><RailFrame><Stack screenOptions={{ headerShown: false }} /></RailFrame></UpdateRequiredGate>
-                  <PortalHost />
-                </UnreadLogsProvider>
-              </RegisterProvider>
-            </OutboxProvider>
-          </CatalogueProvider>
-        </SessionOnlineStatusProvider>
-      </SessionProvider>
-      <Toaster />
+      {/* v2 contexts/scale: this device's Scale step (Settings > Theme), round the stack and the toaster. */}
+      <ScaleSettingProvider>
+        <StatusBar style="auto" />
+        <SessionProvider>
+          <SessionOnlineStatusProvider>
+            <OnlineStatusLogger />
+            <CatalogueProvider>
+              <OutboxProvider>
+                <RegisterProvider>
+                  <UnreadLogsProvider>
+                    {/* v2 (app)/_layout.tsx:306-322: the gate sits below every provider, so it never unmounts the catalogue. */}
+                    <UpdateRequiredGate><RailFrame><Stack screenOptions={{ headerShown: false }} /></RailFrame></UpdateRequiredGate>
+                    <PortalHost />
+                  </UnreadLogsProvider>
+                </RegisterProvider>
+              </OutboxProvider>
+            </CatalogueProvider>
+          </SessionOnlineStatusProvider>
+        </SessionProvider>
+        <Toaster />
+      </ScaleSettingProvider>
     </LocalDataResetGate>
   );
 }
