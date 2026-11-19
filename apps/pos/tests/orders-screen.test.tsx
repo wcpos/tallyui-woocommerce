@@ -126,7 +126,7 @@ const storeOrder: StoreOrder = {
   discountMinor: 0, discountTaxMinor: 0, taxMinor: 0, totalMinor: 600,
 };
 
-test('store history opens its detail, and Receipt there opens the reprint', async () => {
+test('store history opens its detail, and Receipt there opens a clean receipt', async () => {
   const list = vi.fn<OrderHistorySource['list']>(async () => ({ orders: [storeOrder], hasMore: false }));
   await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
   expect(await screen.findByTestId('history-row-901')).not.toBeNull();
@@ -144,12 +144,13 @@ test('store history opens its detail, and Receipt there opens the reprint', asyn
   expect(list).toHaveBeenCalledTimes(1);
   const back = () => screen.getAllByRole('button', { name: 'Back' }).find(button => button.getAttribute('data-testid') !== 'orders-back')!;
   fireEvent.click(screen.getByTestId('order-modal-receipt'));
-  expect(screen.getByTestId('receipt-reprint').textContent).toBe('Reprint 1');
+  // v2 counts prints, not opens (use-receipt-data.ts:108-109): an unprinted receipt is no copy.
+  expect(screen.queryByTestId('receipt-reprint')).toBeNull();
   expect(screen.getByTestId('receipt-order').textContent).toBe('Order 901');
   fireEvent.click(back());
   expect(screen.getByTestId('order-modal-title')).not.toBeNull();
   fireEvent.click(screen.getByTestId('order-modal-receipt'));
-  expect(screen.getByTestId('receipt-reprint').textContent).toBe('Reprint 2');
+  expect(screen.queryByTestId('receipt-reprint')).toBeNull();
   fireEvent.click(back());
   fireEvent.click(screen.getByTestId('order-modal-close'));
   expect(screen.getByTestId('history-row-901')).not.toBeNull();
@@ -157,18 +158,55 @@ test('store history opens its detail, and Receipt there opens the reprint', asyn
   expect(list).toHaveBeenCalledTimes(1);
 });
 
-test('a till sale opens as a reprint', async () => {
+test('a till sale opens clean from Orders', async () => {
   const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => ({ kind: 'results', results: batch.map(applied) }));
   await setup(send);
   const reference = await payCash();
   await vi.waitFor(() => expect(table().getByText(`${reference} · #305`)).not.toBeNull());
   fireEvent.click(screen.getByRole('button', { name: 'New sale' }));
   fireEvent.click(screen.getByTestId(/^order-open-/));
-  expect(screen.getByTestId('receipt-reprint').textContent).toBe('Reprint 1');
+  expect(screen.queryByTestId('receipt-reprint')).toBeNull();
   expect(screen.getByTestId('receipt-order').textContent).toBe(`Order ${reference} · #305`);
   // The till's own sales are paid at tender: their receipt never says Not paid.
   expect(screen.queryByTestId('receipt-not-paid')).toBeNull();
 }, 20_000);
+
+const printed = () => act(() => { window.dispatchEvent(new Event('afterprint')); });
+const sheetBack = () => screen.getAllByRole('button', { name: 'Back' }).find(button => button.getAttribute('data-testid') !== 'orders-back')!;
+
+async function openReceiptOf(id: string) {
+  fireEvent.click(await screen.findByTestId(`history-open-${id}`));
+  fireEvent.click(screen.getByTestId('order-modal-receipt'));
+}
+
+test('a print marks the open store receipt as a copy, one more each print', async () => {
+  const list = vi.fn<OrderHistorySource['list']>(async () => ({ orders: [storeOrder], hasMore: false }));
+  await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list }, false);
+  await openReceiptOf('901');
+  expect(screen.queryByTestId('receipt-reprint')).toBeNull();
+  printed();
+  expect(screen.getByTestId('receipt-reprint').textContent).toBe('Reprint 1');
+  printed();
+  expect(screen.getByTestId('receipt-reprint').textContent).toBe('Reprint 2');
+  // The count is in memory for this screen: the same order opened again keeps it.
+  fireEvent.click(sheetBack());
+  fireEvent.click(screen.getByTestId('order-modal-receipt'));
+  expect(screen.getByTestId('receipt-reprint').textContent).toBe('Reprint 2');
+});
+
+test('a print counts for its own order only', async () => {
+  const other: StoreOrder = { ...storeOrder, id: '902', reference: '902' };
+  const list = vi.fn<OrderHistorySource['list']>(async () => ({ orders: [storeOrder, other], hasMore: false }));
+  await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list }, false);
+  await openReceiptOf('901');
+  printed();
+  expect(screen.getByTestId('receipt-reprint').textContent).toBe('Reprint 1');
+  fireEvent.click(sheetBack());
+  fireEvent.click(screen.getByTestId('order-modal-close'));
+  await openReceiptOf('902');
+  expect(screen.getByTestId('receipt-order').textContent).toBe('Order 902');
+  expect(screen.queryByTestId('receipt-reprint')).toBeNull();
+});
 
 // v2's receipt mark (receipt/receipt.tsx:75-94): a live store order the store does not count as paid says what is due.
 async function openStoreReceipt(status: string) {

@@ -4,12 +4,13 @@ import { Button, Switch, Text } from '@tallyui/components';
 import type { CustomerSummary } from '@tallyui/pos';
 import type { CurrencyPosition, StoreInfo } from '../../lib/catalogue/store-info';
 import type { CustomerSource } from '../../lib/customers/customer-source';
-import type { DefaultCustomerSetting } from '../../lib/customers/default-customer';
+import { clearDefaultCustomerSetting, type DefaultCustomerSetting } from '../../lib/customers/default-customer';
 import { useRegister } from '../../lib/register/register-context';
 import { CUSTOMER_SELECT_FACE, CustomerPicker, CustomerSelectFace } from '../customer-picker';
 import { OpenExternalIcon } from '../docs-link';
 import { RegisterSwitch } from '../register-controls';
 import { ClearLocalData } from './clear-local-data';
+import { RestoreServerSettings } from './restore-server-settings';
 import { SavedFieldProvider, savedKeys, SETTINGS_KEY_CLASS, SettingsField, SettingsSection, useMarkSaved } from './settings-form';
 
 export function wooSettingsUrl(siteHome: string): string {
@@ -125,6 +126,8 @@ export function GeneralSettings(props: {
   const address = props.store.address;
   const format = props.store.numberFormat;
   const register = useRegister();
+  // A restore remounts the Default Customer rows, so a customer picked on this visit gives way to the store's.
+  const [restores, setRestores] = useState(0);
   return (
     // v2 general.tsx:235-237: the sections stack in a gap-5 VStack, the first with no rule above it.
     <SavedFieldProvider><View testID="screen-settings-general" className="gap-5">
@@ -138,7 +141,7 @@ export function GeneralSettings(props: {
       </SettingsSection>
       <SettingsSection title="Localization" testID="settings-general-localization">
         <LockedRow testID="settings-general-locked-locale" label="Language" value={languageLabel(props.store.locale)} href={href} />
-        {props.defaultCustomer ? <DefaultCustomerRows {...props.defaultCustomer} /> : null}
+        {props.defaultCustomer ? <DefaultCustomerRows key={restores} {...props.defaultCustomer} /> : null}
       </SettingsSection>
       {/* Locked: @tallyui/components formats cart money from the locale only, so an edited format would not reach
           the cart. v2's order; an empty thousand separator (no grouping) reads as a dash. */}
@@ -154,7 +157,8 @@ export function GeneralSettings(props: {
       {/* The same switch as Cart Settings, read from the one RegisterProvider at the root layout, so the two agree. It
           is here because a closed register replaces the cart, and Cart Settings with it. Open or closed, it shows. */}
       {register && <SettingsSection title="Register sessions" testID="settings-general-register"><RegisterSwitch inset={false} /></SettingsSection>}
-      {/* v2 general.tsx:425-434: General ends with the local-data danger zone. */}
+      {/* v2 general.tsx:406-434: Restore server settings, then General ends with the local-data danger zone. */}
+      <RestoreServerSettings restore={() => clearDefaultCustomerSetting(props.siteHome)} onRestored={() => setRestores(n => n + 1)} />
       <ClearLocalData />
     </View></SavedFieldProvider>
   );
