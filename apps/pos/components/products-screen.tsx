@@ -28,6 +28,7 @@ import type { CatalogueFilters } from '../lib/catalogue/quick-filters';
 import { useAreaColumns, visibleAreaColumns } from '../lib/area-columns';
 import type { AreaColumn } from '../lib/area-columns';
 import { NARROW_WIDTH } from '../lib/layout/wide';
+import { usePointer } from '../lib/layout/pointer';
 import { useSearchTerm } from '../lib/search-term';
 import { lookupCode } from '../lib/scan/lookup';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
@@ -313,6 +314,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   const [settings, setSettings] = useAreaColumns('products', PRODUCTS_COLUMNS);
   const [drill, setDrill] = useState<Drill | null>(null);
   const { width } = useWindowDimensions();
+  const pointer = usePointer();
   const sync = useCatalogueSync();
   const locale = storeLocale?.replaceAll('_', '-');
 
@@ -347,9 +349,10 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
     [products, query, connector.traits.product]);
   const shown = useMemo(() => searched.filter(doc => matchesCatalogueFilters(doc, filters)), [searched, filters]);
   const total = products.length;
-  const narrow = width < NARROW_WIDTH;
-  const listed = useMemo(() => narrow ? sortProducts([...shown], NAME_ASC,
-    (doc, field) => columns.find(column => column.id === field)?.sortValue?.(doc)) as ProductDoc[] : [], [narrow, shown, columns]);
+  // v2 picks the row by pointer (list-frame/index.tsx:158); the first-sync placeholders follow the row they stand in for.
+  const touchRows = width < NARROW_WIDTH || pointer === 'coarse';
+  const listed = useMemo(() => touchRows ? sortProducts([...shown], NAME_ASC,
+    (doc, field) => columns.find(column => column.id === field)?.sortValue?.(doc)) as ProductDoc[] : [], [touchRows, shown, columns]);
   const variations = useMemo(() => drilled ? drilledVariations(drilled, filters, drill?.match) : [], [drilled, filters, drill?.match]);
   const bodyColumns = useMemo(() => centred(tableColumns), [tableColumns]);
   const paneColumns = useMemo(() => drilled ? centred(variationColumns(tableColumns, drilled)) : [], [drilled, tableColumns]);
@@ -371,7 +374,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
         ) : null}
       </View>
       <TableSurface testID="products-variations-surface">
-        {variations.length === 0 ? noVariations : narrow ? (
+        {variations.length === 0 ? noVariations : touchRows ? (
           <ScrollView testID="products-variations-body">
             {variations.map(variation => (
               <View key={variation.id} testID={`products-row-${variation.id}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
@@ -402,7 +405,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   // empty list is rows in flight, not "No products yet". ProductTable drops its header with no rows, so bars only.
   const body = total === 0 && sync.active ? (
     <View testID="products-syncing-rows" accessibilityLabel="Loading products…" aria-busy className="flex-1 overflow-hidden">
-      {narrow ? SYNCING_ROWS.map(i => (
+      {touchRows ? SYNCING_ROWS.map(i => (
         <View key={i} testID={`products-syncing-row-${i}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
           <View className="h-10 w-10 rounded bg-muted" />
           <View className="flex-1 gap-1"><View className={BAR} /><View className="h-5 w-1/2 rounded-lg bg-muted" /></View>
@@ -417,7 +420,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
     <EmptyState kind="empty" title="No products yet" description="Products you add to the store will appear here." />
   ) : shown.length === 0 ? (
     <EmptyState kind="no-results" title="Nothing here matches the filters" action={{ label: 'Clear filters', onPress: clear }} />
-  ) : narrow ? (
+  ) : touchRows ? (
         // A phone row is v2's ListRow (list-row/index.tsx:31,54-65): min-h-14 px-3 py-2, a min-w-0 body, a regular-weight name over a text-sm SKU.
         <ScrollView testID="products-body">
           {listed.map(doc => (
