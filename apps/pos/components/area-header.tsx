@@ -74,7 +74,7 @@ export function useAreaGutter(): 'px-3' | 'px-4' {
  *  (`max-w-160`), then the area's own actions, then the bell and the avatar (`BarControls`). With no rail the title
  *  row carries the cluster and the search takes a row of its own, as v2's phone bar does. An area passes its
  *  display options (v2's `DisplayOptions` settings icon, area-display-options.tsx) as a child, so they sit before the bell. */
-export function AreaToolbar({ area, title, onBack, titleSlot, search, children }: {
+export function AreaToolbar({ area, title, onBack, titleSlot, search, controls = 'all', children }: {
   /** The testID stem: `<area>-bar`, `<area>-menu`, `<area>-bar-offline`, `<area>-bar-bell`, `<area>-bar-avatar`. */
   area: string;
   title: string;
@@ -83,6 +83,9 @@ export function AreaToolbar({ area, title, onBack, titleSlot, search, children }
    *  a row of its own under the title row, which keeps the menu and `title`. */
   titleSlot?: ReactNode;
   search?: ReactNode;
+  /** v2's ManagementBar `controls` (management-bar/index.tsx:15-20, :52): 'phone' draws the bell and the avatar on a
+   *  phone alone, and beside the rail the row is the title (Support, support/index.tsx:42). */
+  controls?: 'all' | 'phone';
   /** The area's own actions, drawn before the bell. */
   children?: ReactNode;
 }): JSX.Element {
@@ -92,9 +95,10 @@ export function AreaToolbar({ area, title, onBack, titleSlot, search, children }
   const navigate = useContext(AppRailNavigate);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const px = useAreaGutter();
-  const controls = <View testID={`${area}-bar-controls`} className="flex-row items-center gap-1">
+  const offline = !online && <BarStatusPill testID={`${area}-bar-offline`} label="Offline" />;
+  const cluster = <View testID={`${area}-bar-controls`} className="flex-row items-center gap-1">
     {children}
-    {!online && <BarStatusPill testID={`${area}-bar-offline`} label="Offline" />}
+    {offline}
     <NotificationBell testID={`${area}-bar-bell`} />
     <AreaAvatar testID={`${area}-bar-avatar`} />
   </View>;
@@ -107,16 +111,22 @@ export function AreaToolbar({ area, title, onBack, titleSlot, search, children }
     <MenuIcon size={20} />
   </IconButton>;
   if (!railShown) return <View testID={`${area}-bar`}>
-    <AreaHeader title={title} backTestID={`${area}-back`} onBack={onBack} controls={controls} menu={menu} />
+    <AreaHeader title={title} backTestID={`${area}-back`} onBack={onBack} controls={cluster} menu={menu} />
     {slot && <View testID={`${area}-bar-slot-row`} className={`flex-row pb-2 ${px}`}>{slot}</View>}
     {searchBox && <View testID={`${area}-bar-search-row`} className={`flex-row pb-2 ${px}`}>{searchBox}</View>}
     <DrawerSheet open={drawerOpen} onOpenChange={setDrawerOpen} active={railArea ?? undefined} onNavigate={navigate ?? undefined} />
   </View>;
   return (
     <View testID={`${area}-bar`} className={`flex-row items-center gap-4 pb-2 pt-4 ${px}`}>
-      {slot}
+      {controls === 'phone' ? <>
+        {/* v2's wide PageBar title (page-bar/index.tsx): a control-height box, semibold; the status badge stays. */}
+        <View className="min-h-11 min-w-0 shrink justify-center">
+          <Text testID={`${area}-bar-title`} accessibilityRole="header" className="font-semibold" numberOfLines={1}>{title}</Text>
+        </View>
+        {offline}
+      </> : slot}
       <View className="min-w-0 flex-1 flex-row">{searchBox}</View>
-      {controls}
+      {controls === 'all' && cluster}
     </View>
   );
 }
