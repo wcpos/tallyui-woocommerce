@@ -35,6 +35,21 @@ export function summarizeLast24h(buckets: RequestMetricsBucket[], nowMs: number)
   return { requests, megabytes: bytes / 1_048_576, typicalMs: durationCount > 0 ? Math.round(durationTotal / durationCount) : null };
 }
 
+export type TrendPoint = { x: number; y: number };
+/** Two samples make a line — below that there is no trend to draw (v2 trend-frame.tsx MIN_TREND_POINTS). */
+export const MIN_TREND_POINTS = 2;
+
+/** v2 summarizeLast24h's trend points: request hours with requests > 0, load hours with a loadMax; last 24 h, bucket order. */
+export function trendPoints(buckets: RequestMetricsBucket[], nowMs: number): { requestPoints: TrendPoint[]; loadPoints: TrendPoint[] } {
+  const cutoff = nowMs - 24 * REQUEST_METRICS_HOUR_MS;
+  const recent = buckets.filter(bucket => bucket.hourStartMs >= cutoff);
+  return {
+    // A load sample can open an hour's bucket before any request lands in it; plotting that would draw a dip the till never had.
+    requestPoints: recent.filter(bucket => bucket.requests > 0).map(bucket => ({ x: bucket.hourStartMs, y: bucket.requests })),
+    loadPoints: recent.flatMap(bucket => bucket.loadMax === undefined ? [] : [{ x: bucket.hourStartMs, y: bucket.loadMax }]),
+  };
+}
+
 /** The status line's words after "✓ Normal" (v2 health.performance.summary / no_history). */
 export function performanceSummary({ requests, megabytes, typicalMs }: PerformanceSummary): string {
   if (requests === 0) return '— no history yet. These numbers fill in as this till runs; the controls below work now.';

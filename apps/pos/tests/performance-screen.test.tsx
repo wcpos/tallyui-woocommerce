@@ -1,4 +1,6 @@
 // Store health › Performance: the status line and the Engine uptime strip over live request metrics.
+// Uniwind's runtime does not load under Vitest; the trend lines read fixed colours (as hourly-bars.test).
+vi.mock('uniwind', () => ({ useCSSVariable: (names: string[]) => names.map(() => '#000000') }));
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
