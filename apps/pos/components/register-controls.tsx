@@ -2,7 +2,9 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 import { ClosureSheet, RegisterColumn, RegisterCount, RegisterPanel, Switch, Text } from '@tallyui/components';
 import { Portal } from '@tallyui/primitives';
+import { formatMoney } from '@tallyui/core';
 import { useRegister } from '../lib/register/register-context';
+import { toast } from '../lib/toast/toast';
 import { SavedMark, savedKeys, useMarkSaved } from './settings/settings-form';
 import { ClosurePrint } from './closure-print';
 
@@ -54,13 +56,20 @@ export function RegisterControls({ currency, storeName, locale, cartEmpty, child
     }
   }, [register?.enabled, register?.session?.status, register?.lastClosure]);
   if (!register?.enabled) return <>{children}</>;
+  // v2 open-register-card.tsx:62-70: the toast follows the cashier's own open, once openSession resolves
+  // (core.json register.register_open_toast); a reload's hydration never calls it, so it never toasts.
+  const withOpenToast = { ...register, actions: { ...register.actions, openSession: async (input: Parameters<typeof register.actions.openSession>[0]) => {
+    const doc = await register.actions.openSession(input);
+    toast({ title: `✓ Register open · float ${formatMoney({ amount: input.countedFloatMinor, currency }, locale) ?? ''}`, type: 'success' });
+    return doc;
+  } } };
   return (
     <View className="flex-1" dataSet={showClosure ? { print: 'hide' } : undefined}>
       {/* No row of its own over the column: v2 draws one bar over the cart (cart/index.tsx RegisterBar), so the
           register's pill is RegisterBarShell's and the way into the panel is the cashier sheet's drawer door.
           No registerName: a Tally till has one register, so RegisterPanel titles itself "Register", as v2
           register-panel.tsx does for a single register. */}
-      <RegisterColumn register={register} registerId={register.boundRegisterId} registers={[]} onPick={() => {}}
+      <RegisterColumn register={withOpenToast} registerId={register.boundRegisterId} registers={[]} onPick={() => {}}
         currency={currency} cartEmpty={cartEmpty} countSlot={<RegisterCount register={register} currency={currency} />}>
         {children}
       </RegisterColumn>
