@@ -13,8 +13,8 @@ import { noTaxSettings } from './fixtures/store-settings';
 import { memoryStorage } from './memory-storage';
 
 // WCPOS v2's till chords (hotkeys/bindings.ts:9-16, hotkeys.web.tsx:12-29, commands/commands.ts:12-37,
-// commands/provider.tsx:57-75, pos/cart/add-cart-items-menu.tsx:41). By desk ruling (19 Nov 2026) they never fire
-// while a text field has focus; Alt+F still does.
+// commands/provider.tsx:57-75, pos/cart/add-cart-items-menu.tsx:41). By desk ruling (19 Nov 2026) they fire in text
+// fields as v2's do, a letter being typed there aside; on a phone the cart chords need the Cart tab shown (v2's inCart).
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
@@ -177,32 +177,66 @@ test('alt+p opens the tender as Checkout does; on a blank cart it does nothing',
 }, 20_000);
 
 // RNW's TextInput stops every keydown it sees (react-native-web TextInput handleKeyDown, "Prevent key events
-// bubbling"), so a key typed in the catalogue search never reaches the document. The plain input stands for any field
-// that lets its keys bubble: the chords' own field guard is what leaves it alone.
-test.each([['the search field', 'catalogue-search'], ['a plain input', 'plain-input']])(
-  'in %s alt+n, alt+right, alt+d and alt+p do nothing and are not prevented', async (_, testID) => {
-    render(<><SaleScreen {...props} /><input data-testid="plain-input" /><PortalHost /></>);
-    add('Espresso');
-    await press('n');
-    add('Cold Brew');
-    const field = screen.getByTestId(testID);
-    field.focus();
-    expect(document.activeElement).toBe(field);
-    for (const chord of ['n', 'right', 'd', 'p'] as const) expect(await press(chord, field)).toBe(false);
-    expect(openLine()).toBe('Cold Brew');
-    expect(tabs()).toEqual([false, true]);
-    expect(screen.queryByTestId('add-discount-dialog')).toBeNull();
-    expect(screen.getByTestId('cart-checkout')).not.toBeNull();
-  }, 20_000);
+// bubbling"), so a key typed in the catalogue search never reaches the document. v2's search is the same RNW TextInput
+// under the same document listener (react-hotkeys-hook), so there too the search keeps its keys.
+test('in the catalogue search the chords do nothing and are not prevented, as in v2', async () => {
+  till();
+  add('Espresso');
+  await press('n');
+  add('Cold Brew');
+  const field = screen.getByTestId('catalogue-search');
+  field.focus();
+  for (const chord of ['n', 'right', 'd', 'p'] as const) expect(await press(chord, field)).toBe(false);
+  expect(openLine()).toBe('Cold Brew');
+  expect(tabs()).toEqual([false, true]);
+  expect(screen.queryByTestId('add-discount-dialog')).toBeNull();
+}, 20_000);
 
-test('alt+f still works from a field the cart chords leave alone', async () => {
+test('in a focused plain input alt+n parks the cart and is prevented', async () => {
   render(<><SaleScreen {...props} /><input data-testid="plain-input" /><PortalHost /></>);
   add('Espresso');
   const field = screen.getByTestId('plain-input');
   field.focus();
-  expect(await press('n', field)).toBe(false);
+  expect(document.activeElement).toBe(field);
+  expect(await press('n', field)).toBe(true);
+  expect(tabs()).toEqual([false]);
+  expect(blank()).toBe(true);
+}, 20_000);
+
+test.each([['a dead key', 'Dead'], ['an accented letter', 'ñ']])(
+  'in a focused input %s on alt+n is typed, not a chord, and not prevented', async (_, key) => {
+    render(<><SaleScreen {...props} /><input data-testid="plain-input" /><PortalHost /></>);
+    add('Espresso');
+    const field = screen.getByTestId('plain-input');
+    field.focus();
+    const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, altKey: true, key, code: 'KeyN' });
+    await act(async () => { field.dispatchEvent(event); });
+    expect(event.defaultPrevented).toBe(false);
+    expect(tabs()).toEqual([true]);
+    expect(line('Espresso')).not.toBeNull();
+  }, 20_000);
+
+test('alt+f works from a field', async () => {
+  render(<><SaleScreen {...props} /><input data-testid="plain-input" /><PortalHost /></>);
+  const field = screen.getByTestId('plain-input');
+  field.focus();
   expect(await press('f', field)).toBe(true);
   await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('catalogue-search')));
+}, 20_000);
+
+test('on a phone the cart chords wait for the Cart tab; alt+f does not', async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  till();
+  add('Espresso');
+  for (const chord of ['n', 'd', 'p'] as const) expect(await press(chord)).toBe(false);
+  expect(screen.queryByTestId('add-discount-dialog')).toBeNull();
+  expect(screen.getByTestId('cart-checkout')).not.toBeNull();
+  expect(line('Espresso')).not.toBeNull();
+  expect(await press('f')).toBe(true);
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('catalogue-search')));
+  fireEvent.click(screen.getByTestId('pos-tab-cart'));
+  expect(await press('n')).toBe(true);
+  expect(line('Espresso')).toBeNull();
 }, 20_000);
 
 /** Presses every cart chord and checks that none fired: no park, no step, no dialog, no tender. */

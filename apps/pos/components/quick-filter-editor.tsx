@@ -1,18 +1,23 @@
 import { Fragment, useEffect, useState } from 'react';
 import type { JSX } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import type { TallyConnector } from '@tallyui/core';
 import { Button, Input, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Text } from '@tallyui/components';
 import { productSortValue, searchProducts, sortProducts } from '@tallyui/pos';
 import type { ProductSort } from '@tallyui/pos';
 import { createQuickFilterId, isQuickFilterValid, matchesCatalogueFilters, QUICK_FILTER_CONDITION_FIELDS, QUICK_FILTER_SORT_FIELDS, quickFilterToQueryPatch } from '../lib/catalogue/quick-filters';
 import type { QuickFilter, QuickFilterCondition, QuickFilterConditionField, QuickFilterSort } from '../lib/catalogue/quick-filters';
+import { QUICK_FILTER_STARTERS } from '../lib/catalogue/quick-filter-starters';
+import { CategoryIcon, ChevronRightIcon, CurrencyIcon, PlusIcon, TagIcon, WarehouseIcon } from './icons';
 
 const PREVIEW_LIMIT = 200;
 const fieldLabels = { categories: 'Category', tags: 'Tag', price: 'Price', on_sale: 'On Sale', stock_status: 'Stock Status', type: 'Type', search: 'Search' };
 const sortLabels = { name: 'Name', sku: 'SKU', barcode: 'Barcode', price: 'Price', stock: 'Stock Quantity' };
 const stockLabels = { instock: 'In Stock', outofstock: 'Out of Stock', onbackorder: 'On Backorder' };
 const typeLabels = { simple: 'Simple', variable: 'Variable', grouped: 'Grouped', external: 'External' };
+const starterIcons = { category: CategoryIcon, currency: CurrencyIcon, warehouse: WarehouseIcon, tag: TagIcon };
+// v2's ListRow: a hairline under each row, a bg-muted wash on press and hover.
+const starterRowClass = 'flex-row items-center gap-3 border-b border-border px-3 py-2 web:hover:bg-muted active:bg-muted';
 
 function createCondition(field: QuickFilterConditionField): QuickFilterCondition {
   switch (field) {
@@ -42,6 +47,7 @@ export function QuickFilterEditor({ initial, products, connector, currency, base
   const [minText, setMinText] = useState(() => initialPrice?.min === undefined ? '' : String(initialPrice.min));
   const [maxText, setMaxText] = useState(() => initialPrice?.max === undefined ? '' : String(initialPrice.max));
   const [preview, setPreview] = useState<any[] | null>(null);
+  const [started, setStarted] = useState(initial !== null);
   const firstUnusedField = QUICK_FILTER_CONDITION_FIELDS.find(field => !draft.conditions.some(condition => condition.field === field));
 
   useEffect(() => {
@@ -56,6 +62,38 @@ export function QuickFilterEditor({ initial, products, connector, currency, base
     }, 250);
     return () => clearTimeout(timer);
   }, [draft.conditions, draft.sort, products, connector.traits.product, currency, baselineSort]);
+
+  // v2 opens a new quick filter on its starter list (quick-filter-editor.tsx:583, quick-filter-starters.ts).
+  // A starter's still-empty kind shows as its open, empty row in the form below.
+  if (!started) return <View className="gap-2">
+    <Text className="text-muted-foreground">Start from one of these, then change what you like.</Text>
+    <View>
+      {QUICK_FILTER_STARTERS.map(starter => {
+        const Glyph = starterIcons[starter.icon];
+        return <Pressable key={starter.id} accessibilityRole="button" testID={`quick-filter-starter-${starter.id}`}
+          className={`min-h-14 ${starterRowClass}`} onPress={() => {
+            setStarted(true);
+            setDraft({ ...draft, label: starter.sort ? starter.title : '', conditions: [...starter.conditions],
+              ...(starter.sort ? { sort: { ...starter.sort } } : {}) });
+          }}>
+          <Glyph size={20} />
+          <View className="min-w-0 flex-1">
+            <Text>{starter.title}</Text>
+            <Text className="text-sm text-muted-foreground">{starter.line}</Text>
+          </View>
+          <ChevronRightIcon size={20} className="text-muted-foreground" />
+        </Pressable>;
+      })}
+      <Pressable accessibilityRole="button" testID="quick-filter-start-scratch" className={`min-h-11 ${starterRowClass}`}
+        onPress={() => setStarted(true)}>
+        <PlusIcon size={20} className="text-primary" />
+        <Text className="font-medium text-primary">Start from scratch</Text>
+      </Pressable>
+    </View>
+    <View className="flex-row flex-wrap items-center gap-2">
+      <Button variant="outline" testID="quick-filter-cancel" onPress={onCancel}><Text>Cancel</Text></Button>
+    </View>
+  </View>;
 
   return <View className="gap-4">
     <Text>Button name</Text>

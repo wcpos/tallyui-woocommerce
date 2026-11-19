@@ -84,6 +84,7 @@ test('adding a quick filter saves it to the bar and storage', () => {
   render(<><CatalogueView {...props} /><PortalHost /></>);
   openFilterBar();
   fireEvent.click(screen.getByTestId('filter-bar-add-quick-filter'));
+  fireEvent.click(screen.getByTestId('quick-filter-start-scratch'));
   fireEvent.change(screen.getByTestId('quick-filter-name'), { target: { value: 'Coffee' } });
   fireEvent.click(screen.getByTestId('quick-filter-add-condition'));
   fireEvent.click(screen.getByTestId('quick-filter-term-categories-25'));

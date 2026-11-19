@@ -205,17 +205,94 @@ test("the store's total reaches the footer: Showing 1 of 40", async () => {
   expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 1 of 40');
 });
 
-test('Load more fetches the next page', async () => {
+// v2's list pages near its end (data-table/index.tsx:388, onEndReachedThreshold 0.1). RNW attaches onLayout to the
+// node and jsdom has no ResizeObserver, so the test reports the list's viewport and its content's height.
+type Measured = Element & { __reactLayoutHandler: (event: { nativeEvent: { layout: { x: number; y: number; width: number; height: number } } }) => void };
+const report = (node: Element | null, height: number) =>
+  (node as Measured).__reactLayoutHandler({ nativeEvent: { layout: { x: 0, y: 0, width: 900, height } } });
+function measure(viewport: number, content: number) {
+  const scroll = screen.getByTestId('orders-scroll');
+  act(() => { report(scroll.firstElementChild, content); report(scroll, viewport); });
+}
+function scrollTo(offset: number, content: number, viewport = 600) {
+  const scroll = screen.getByTestId('orders-scroll');
+  Object.defineProperties(scroll, { scrollTop: { value: offset, configurable: true },
+    scrollHeight: { value: content, configurable: true }, offsetHeight: { value: viewport, configurable: true } });
+  fireEvent.scroll(scroll);
+}
+
+test('the list asks for the next page once as it nears its end', async () => {
   const next = { ...storeOrder, id: '902', reference: '902' };
   const list = vi.fn<OrderHistorySource['list']>()
     .mockResolvedValueOnce({ orders: [storeOrder], hasMore: true })
     .mockResolvedValueOnce({ orders: [storeOrder, next], hasMore: false });
   await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
-  fireEvent.click(await screen.findByTestId('orders-load-more'));
+  expect(await screen.findByTestId('history-row-901')).not.toBeNull();
+  measure(600, 2000);
+  scrollTo(1000, 2000);
+  expect(list).toHaveBeenCalledTimes(1);
+  scrollTo(1350, 2000);
+  scrollTo(1400, 2000);
   expect(await screen.findByTestId('history-row-902')).not.toBeNull();
   expect(screen.getAllByTestId('history-row-901')).toHaveLength(1);
-  expect(screen.queryByTestId('orders-load-more')).toBeNull();
   expect(list.mock.calls).toEqual([[1], [2]]);
+});
+
+test('rows shorter than the list ask for the next page by themselves', async () => {
+  const list = vi.fn<OrderHistorySource['list']>()
+    .mockResolvedValueOnce({ orders: [storeOrder], hasMore: true })
+    .mockResolvedValueOnce({ orders: [{ ...storeOrder, id: '902', reference: '902' }], hasMore: false });
+  await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
+  expect(await screen.findByTestId('history-row-901')).not.toBeNull();
+  measure(600, 300);
+  expect(await screen.findByTestId('history-row-902')).not.toBeNull();
+  expect(list.mock.calls).toEqual([[1], [2]]);
+});
+
+test('while the next page is in flight a new end asks for nothing and the spinner shows', async () => {
+  let resolveNext!: (page: StoreOrderPage) => void;
+  const list = vi.fn<OrderHistorySource['list']>()
+    .mockResolvedValueOnce({ orders: [storeOrder], hasMore: true })
+    .mockReturnValueOnce(new Promise<StoreOrderPage>(resolve => { resolveNext = resolve; }));
+  await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
+  expect(await screen.findByTestId('history-row-901')).not.toBeNull();
+  expect(screen.queryByTestId('orders-page-spinner')).toBeNull();
+  measure(600, 2000);
+  scrollTo(1400, 2000);
+  expect(await screen.findByTestId('orders-page-spinner')).not.toBeNull();
+  // The spinner makes the content taller: a new end, which the screen's guard answers with nothing.
+  scrollTo(1440, 2040);
+  measure(600, 300);
+  expect(list.mock.calls).toEqual([[1], [2]]);
+  await act(async () => { resolveNext({ orders: [{ ...storeOrder, id: '902', reference: '902' }], hasMore: false }); });
+  expect(screen.getByTestId('history-row-902')).not.toBeNull();
+  expect(screen.queryByTestId('orders-page-spinner')).toBeNull();
+});
+
+test('an exhausted list asks for nothing at its end', async () => {
+  const list = vi.fn<OrderHistorySource['list']>().mockResolvedValue({ orders: [storeOrder], hasMore: false });
+  await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
+  expect(await screen.findByTestId('history-row-901')).not.toBeNull();
+  measure(600, 300);
+  scrollTo(0, 320);
+  expect(list.mock.calls).toEqual([[1]]);
+});
+
+test('after a failed page the list asks for nothing at its end until Try again', async () => {
+  const list = vi.fn<OrderHistorySource['list']>()
+    .mockResolvedValueOnce({ orders: [storeOrder], hasMore: true })
+    .mockRejectedValueOnce(new Error('Offline'))
+    .mockResolvedValueOnce({ orders: [{ ...storeOrder, id: '902', reference: '902' }], hasMore: false });
+  await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
+  expect(await screen.findByTestId('history-row-901')).not.toBeNull();
+  measure(600, 300);
+  expect(await screen.findByText("Store orders couldn't be loaded.")).not.toBeNull();
+  measure(600, 360);
+  scrollTo(0, 380);
+  expect(list.mock.calls).toEqual([[1], [2]]);
+  fireEvent.click(screen.getByTestId('orders-history-retry'));
+  expect(await screen.findByTestId('history-row-902')).not.toBeNull();
+  expect(list.mock.calls).toEqual([[1], [2], [2]]);
 });
 
 test('a failed history load says so and Try again reloads', async () => {
@@ -235,7 +312,8 @@ test('Search Orders asks the store after a pause and starts again at page 1', as
     .mockResolvedValueOnce({ orders: [{ ...storeOrder, id: '903', reference: '903' }], hasMore: false })
     .mockResolvedValueOnce({ orders: [{ ...storeOrder, id: '902', reference: '902' }], hasMore: false });
   await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list });
-  fireEvent.click(await screen.findByTestId('orders-load-more'));
+  expect(await screen.findByTestId('history-row-901')).not.toBeNull();
+  measure(600, 300);
   expect(await screen.findByTestId('history-row-903')).not.toBeNull();
   const input = screen.getByPlaceholderText('Search Orders');
   fireEvent.change(input, { target: { value: '9' } });
@@ -244,7 +322,6 @@ test('Search Orders asks the store after a pause and starts again at page 1', as
   expect(await screen.findByTestId('history-row-902')).not.toBeNull();
   expect(screen.queryByTestId('history-row-901')).toBeNull();
   expect(screen.queryByTestId('history-row-903')).toBeNull();
-  expect(screen.queryByTestId('orders-load-more')).toBeNull();
   expect(list.mock.calls).toEqual([[1], [2], [1, '902']]);
 });
 

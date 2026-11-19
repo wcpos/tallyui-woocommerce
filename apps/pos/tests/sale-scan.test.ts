@@ -21,7 +21,7 @@ const catalogue = [products[0], products[1], shirt];
 const alert = (type: 'warning' | 'error', title: string, description: string) => ({ id: 'pos-scan-alert', type, title, description, duration: 6000 });
 
 function deps(overrides: Partial<SaleScanDeps<(typeof catalogue)[number]>> = {}) {
-  return { products: catalogue, traits, currency: 'USD', add: vi.fn(() => true), choose: vi.fn(), ...overrides };
+  return { products: catalogue, traits, currency: 'USD', add: vi.fn(() => true), ...overrides };
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -34,7 +34,6 @@ test('onScan adds Espresso and clears the search field', () => {
   expect(showAddedToCartToast).toHaveBeenCalledWith('Espresso');
   expect(d.add).toHaveBeenCalledTimes(1);
   expect(d.add).toHaveBeenCalledWith(expect.objectContaining({ product: expect.objectContaining({ id: 80 }) }));
-  expect(d.choose).not.toHaveBeenCalled();
   expect(toast).not.toHaveBeenCalled();
 });
 
@@ -45,7 +44,6 @@ test('onScan warns with an error toast when the sale refuses Espresso', () => {
   expect(scanFeedback).toHaveBeenCalledWith('failure');
   expect(d.add).toHaveBeenCalledTimes(1);
   expect(d.add).toHaveBeenCalledWith(expect.objectContaining({ product: expect.objectContaining({ id: 80 }) }));
-  expect(d.choose).not.toHaveBeenCalled();
   expect(toast).toHaveBeenCalledTimes(1);
   expect(toast).toHaveBeenCalledWith(alert('error', 'Couldn’t add to cart', 'Espresso'));
 });
@@ -55,17 +53,14 @@ test('onScan keeps an out-of-stock code and warns with a toast', () => {
   expect(saleScanHandlers(d).onScan('2000000000015')).toBe('keep');
   expect(scanFeedback).toHaveBeenCalledWith('failure');
   expect(d.add).not.toHaveBeenCalled();
-  expect(d.choose).not.toHaveBeenCalled();
   expect(toast).toHaveBeenCalledTimes(1);
   expect(toast).toHaveBeenCalledWith(alert('warning', 'Espresso out of stock', '2000000000015'));
 });
 
-test('onScan opens the variant choice for a parent code and warns to choose a variation', () => {
+test('onScan searches for a parent code and warns to choose a variation', () => {
   const d = deps();
-  expect(saleScanHandlers(d).onScan('MER-TEE')).toBe('clear');
+  expect(saleScanHandlers(d).onScan('MER-TEE')).toBe('search');
   expect(scanFeedback).toHaveBeenCalledWith('failure');
-  expect(d.choose).toHaveBeenCalledTimes(1);
-  expect(d.choose).toHaveBeenCalledWith(expect.objectContaining({ id: products[2].id }));
   expect(d.add).not.toHaveBeenCalled();
   expect(toast).toHaveBeenCalledTimes(1);
   expect(toast).toHaveBeenCalledWith(alert('warning', 'Choose a variation', 'T-Shirt — MER-TEE'));
@@ -76,7 +71,6 @@ test('onScan searches for an unknown code and warns it is not in this store', ()
   expect(saleScanHandlers(d).onScan('999')).toBe('search');
   expect(scanFeedback).toHaveBeenCalledWith('failure');
   expect(d.add).not.toHaveBeenCalled();
-  expect(d.choose).not.toHaveBeenCalled();
   expect(toast).toHaveBeenCalledTimes(1);
   expect(toast).toHaveBeenCalledWith(alert('warning', 'Barcode not found', '999 — not in this store'));
 });
@@ -96,7 +90,6 @@ test('onScan keeps the code and shows an exception from add as an error toast', 
   expect(scanFeedback).toHaveBeenCalledWith('failure');
   expect(d.add).toHaveBeenCalledTimes(1);
   expect(d.add).toHaveBeenCalledWith(expect.objectContaining({ product: expect.objectContaining({ id: 80 }) }));
-  expect(d.choose).not.toHaveBeenCalled();
   expect(toast).toHaveBeenCalledTimes(1);
   expect(toast).toHaveBeenCalledWith(alert('error', 'Couldn’t add to cart', 'boom'));
 });
@@ -109,7 +102,6 @@ test('onTenderScan adds Espresso and reports through toast', () => {
   expect(toast).not.toHaveBeenCalled();
   expect(d.add).toHaveBeenCalledTimes(1);
   expect(d.add).toHaveBeenCalledWith(expect.objectContaining({ product: expect.objectContaining({ id: 80 }) }));
-  expect(d.choose).not.toHaveBeenCalled();
 });
 
 test('onTenderScan warns with an error toast when the sale refuses Espresso', () => {
@@ -121,7 +113,6 @@ test('onTenderScan warns with an error toast when the sale refuses Espresso', ()
   expect(toast).toHaveBeenCalledWith(alert('error', 'Couldn’t add to cart', 'Espresso'));
   expect(d.add).toHaveBeenCalledTimes(1);
   expect(d.add).toHaveBeenCalledWith(expect.objectContaining({ product: expect.objectContaining({ id: 80 }) }));
-  expect(d.choose).not.toHaveBeenCalled();
 });
 
 test('onTenderScan warns about out-of-stock Espresso', () => {
@@ -131,7 +122,6 @@ test('onTenderScan warns about out-of-stock Espresso', () => {
   expect(toast).toHaveBeenCalledTimes(1);
   expect(toast).toHaveBeenCalledWith(alert('warning', 'Espresso out of stock', '2000000000015'));
   expect(d.add).not.toHaveBeenCalled();
-  expect(d.choose).not.toHaveBeenCalled();
 });
 
 test('onTenderScan warns to choose a variation without choosing', () => {
@@ -141,7 +131,6 @@ test('onTenderScan warns to choose a variation without choosing', () => {
   expect(toast).toHaveBeenCalledTimes(1);
   expect(toast).toHaveBeenCalledWith(alert('warning', 'Choose a variation', 'T-Shirt — MER-TEE'));
   expect(d.add).not.toHaveBeenCalled();
-  expect(d.choose).not.toHaveBeenCalled();
 });
 
 test('onTenderScan warns about an unknown code', () => {
@@ -151,7 +140,6 @@ test('onTenderScan warns about an unknown code', () => {
   expect(toast).toHaveBeenCalledTimes(1);
   expect(toast).toHaveBeenCalledWith(alert('warning', 'Barcode not found', '999 — not in this store'));
   expect(d.add).not.toHaveBeenCalled();
-  expect(d.choose).not.toHaveBeenCalled();
 });
 
 test('onTenderScan warns about several matches', () => {
