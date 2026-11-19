@@ -22,7 +22,6 @@ import {
 } from '@tallyui/components';
 import type { SvgIconProps } from '@tallyui/components';
 import { useAreaColumns, visibleAreaColumns } from '../lib/area-columns';
-import { useCatalogue } from '../lib/catalogue/catalogue-context';
 import type { AreaColumn } from '../lib/area-columns';
 import { NARROW_WIDTH } from '../lib/layout/wide';
 import { usePointer } from '../lib/layout/pointer';
@@ -283,21 +282,6 @@ function couponContent(id: CouponsColumnId, c: CouponDoc, now: Date, currency: s
   }
 }
 
-/** v2's per-collection `syncing`: the coupons pull is its own replication (start-catalogue.ts:101), which the
- *  catalogue status does not cover, so wait for its first pull; before the catalogue starts, its status speaks. */
-function useCouponsSyncing(): boolean {
-  const { catalogue, status } = useCatalogue();
-  const [pulling, setPulling] = useState(true);
-  useEffect(() => {
-    if (!catalogue) return;
-    let live = true;
-    setPulling(true);
-    void catalogue.couponReplication.awaitInitialReplication().catch(() => {}).finally(() => { if (live) setPulling(false); });
-    return () => { live = false; };
-  }, [catalogue]);
-  return catalogue ? pulling : status === 'starting' || status === 'syncing';
-}
-
 export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }: CouponsScreenProps): JSX.Element {
   const [all, setAll] = useState<CouponDoc[] | null>(null);
   // v2's page gutter (ground.ts:46-72): the chip row sits on the bar's 12 in a window, 16 on a phone.
@@ -312,7 +296,6 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
   const pointer = usePointer();
   const touchRows = width < NARROW_WIDTH || pointer === 'coarse';
   const sync = useCatalogueSync();
-  const syncing = useCouponsSyncing();
   const locale = storeLocale?.replaceAll('_', '-');
 
   useEffect(() => {
@@ -344,7 +327,7 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
 
   // v2's syncing rows (data-table/index.tsx:198-200, :402-407), in products-screen's pattern: mid-sync an empty list is
   // rows in flight, not "No coupons yet". No header with no rows, so bars only.
-  const body = total === 0 && syncing ? (
+  const body = total === 0 && sync.active ? (
     <View testID="coupons-syncing-rows" accessibilityLabel="Loading coupons…" aria-busy className="flex-1 overflow-hidden">
       {touchRows ? SYNCING_ROWS.map(i => (
         <View key={i} testID={`coupons-syncing-row-${i}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
