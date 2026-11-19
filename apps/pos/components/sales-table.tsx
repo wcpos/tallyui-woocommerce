@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
-import { Button, Checkbox, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow, Text } from '@tallyui/components';
+import { Button, Checkbox, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, IconButton, Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow, Text, XIcon } from '@tallyui/components';
 import { useIsWide } from '../lib/layout/wide';
 import type { SalesTable as SalesTableData } from '../lib/reports/sales-tables';
 import { ChevronLeftIcon } from './icons';
+import { PHONE_PAGE, RIGHT_SHEET } from './sheet';
 
 /** The Orders table's tick boxes (v2 reports/panels/orders-panel.tsx): unticked rows are left out of every figure. */
 export type TableTicks = { leftOut: ReadonlySet<string>; onInclude(keys: string[], included: boolean): void };
@@ -34,7 +35,8 @@ export function SalesTable({ table, scope, ticks, onClose, onExport, onPrint }: 
   table: SalesTableData; scope: string; ticks?: TableTicks; onClose: () => void; onExport?: () => void; onPrint?: () => void;
 }) {
   const { width } = useWindowDimensions();
-  const phone = !useIsWide();
+  const wide = useIsWide();
+  const phone = !wide;
   // v2's checklist paints no Counted column: the tick box says it. Print and CSV keep the column.
   const paint = (cells: string[]) => ticks ? cells.slice(0, -1) : cells;
   const leftOut = ticks ? table.rows.filter(row => ticks.leftOut.has(row.key)).length : 0;
@@ -44,12 +46,15 @@ export function SalesTable({ table, scope, ticks, onClose, onExport, onPrint }: 
       checked={!ticks.leftOut.has(row.key)} onCheckedChange={checked => ticks.onInclude([row.key], checked)} />;
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent testID="sales-table" className="max-h-[80%] overflow-hidden">
-        <DialogHeader>
+      {/* v2 report-panel.tsx:21-33: a right-side sheet in a window (dialog/index.tsx `right`, `lg`, with its close at
+          right-1 top-1), the full page on a phone; the host the closure panel draws. */}
+      <DialogContent testID="sales-table" className={wide ? RIGHT_SHEET : PHONE_PAGE}>
+        <DialogHeader className="pl-4 pr-11">
           {phone ? <PanelCrumb title={table.title} onBack={onClose} /> : <DialogTitle>{table.title}</DialogTitle>}
           <Text testID="sales-table-scope">{scope}</Text>
         </DialogHeader>
-        <ScrollView>
+        {wide && <View className="absolute right-1 top-1"><IconButton variant="ghost" className="h-11 w-11" testID="sales-table-x" accessibilityLabel="Close" onPress={onClose}><XIcon size={18} /></IconButton></View>}
+        <ScrollView testID="sales-table-body" className="min-h-0 flex-1" contentContainerClassName="px-4">
           {/* v2 orders-panel.tsx:37-58: the tick-all row, "All orders", and how many are left out. */}
           {ticks && <View testID="orders-panel-tick-all-row" className="min-h-12 flex-row items-center gap-3 border-b border-border py-2">
             <Checkbox testID="orders-panel-tick-all" accessibilityLabel="Toggle selection" disabled={table.rows.length === 0}
@@ -106,8 +111,8 @@ export function SalesTable({ table, scope, ticks, onClose, onExport, onPrint }: 
             </TableFooter>
           </Table>}
         </ScrollView>
-        <Text testID="sales-table-status">{table.status}</Text>
-        <DialogFooter>
+        <Text testID="sales-table-status" className="px-4">{table.status}</Text>
+        <DialogFooter testID="sales-table-footer" className="gap-2 border-t border-border px-4 pt-4">
           {onExport && <Button testID="sales-table-export" variant="outline" onPress={onExport}><Text>Export CSV</Text></Button>}
           {/* v2 reports/panels/panel.tsx:321: Print report beside Export CSV. v2 holds Print only while the store,
               data or templates load, never for an empty table, so it is never disabled here. */}
