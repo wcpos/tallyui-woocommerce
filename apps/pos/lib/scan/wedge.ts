@@ -20,6 +20,10 @@ export interface WedgeAttempt {
   /** Each gap in ms between consecutive keys, in order (v2 analyze-trace.ts:44-45, without its leading 0). */
   gapsMs: number[];
   result: WedgeResult;
+  /** Enter ended the attempt (v2 analyze-trace.ts:57-58 trailingEnter); not Tab or the end-of-scan timer. */
+  trailingEnter: boolean;
+  /** Shift keydowns in the attempt (v2 analyze-trace.ts:60 shiftMangled counts them); never in the buffer or gaps. */
+  shiftKeys: number;
 }
 
 export interface WedgeDetectorOptions {
@@ -52,6 +56,7 @@ export function createWedgeDetector(onScan: (code: string) => void, options: Wed
   let first = 0;
   let avg: number | undefined;
   let gaps: number[] = [];
+  let shifts = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   function reset() {
@@ -61,12 +66,14 @@ export function createWedgeDetector(onScan: (code: string) => void, options: Wed
     last = 0;
     avg = undefined;
     gaps = [];
+    shifts = 0;
   }
 
-  function finish(): boolean {
+  function finish(trailingEnter = false): boolean {
     const raw = buffer;
     const gap = avg;
     const gapsMs = gaps;
+    const shiftKeys = shifts;
     reset();
     if (!raw) return false;
     const settings = getSettings();
@@ -74,14 +81,15 @@ export function createWedgeDetector(onScan: (code: string) => void, options: Wed
     // v2 checks the minimum length after the prefix and suffix come off; an empty code is never a scan.
     const result: WedgeResult = gap === undefined || gap >= settings.threshold ? 'typing'
       : code.length < Math.max(1, settings.minChars) ? 'too_short' : 'scan';
-    options.onAttempt?.({ raw, code, avgGapMs: gap, gapsMs, result });
+    options.onAttempt?.({ raw, code, avgGapMs: gap, gapsMs, result, trailingEnter, shiftKeys });
     if (result === 'scan') onScan(code);
     return result === 'scan';
   }
 
   return {
     key(key) {
-      if (key === 'Enter' || key === 'Tab') return finish();
+      if (key === 'Enter' || key === 'Tab') return finish(key === 'Enter');
+      if (key === 'Shift') shifts++;
       if (key.length !== 1) return false;
       const t = Date.now();
       if (buffer) {
@@ -92,7 +100,7 @@ export function createWedgeDetector(onScan: (code: string) => void, options: Wed
       buffer += key;
       last = t;
       clearTimeout(timer);
-      timer = setTimeout(finish, WEDGE_END_OF_SCAN_MS);
+      timer = setTimeout(() => finish(), WEDGE_END_OF_SCAN_MS);
       return false;
     },
     reset,

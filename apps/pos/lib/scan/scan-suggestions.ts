@@ -1,7 +1,7 @@
 import type { ScanSettings, WedgeAttempt } from './wedge';
 
 // v2 analyze-trace.ts:32-33: slower than this is a person typing, not a mis-tuned scanner.
-const SCANNER_FAST_CEILING_MS = 60;
+export const SCANNER_FAST_CEILING_MS = 60;
 const THRESHOLD_HEADROOM_MS = 8;
 
 export type ScanSuggestionKind = 'raise-threshold' | 'lower-min-chars' | 'set-prefix';
