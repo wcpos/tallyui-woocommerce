@@ -39,8 +39,16 @@ function product(id: number, name: string, price: string, taxStatus: 'taxable' |
   };
 }
 
-function renderProducts(options: { price?: string; tax?: TileTax | null } = {}) {
-  const products = [product(1, 'Tea', options.price ?? '8.60', 'taxable'), product(2, 'Mug', '5.00', 'none')];
+// A variable product whose variations are not taxable themselves: only the parent's tax status can make words (v2
+// variable-price.tsx:23-24 passes the parent's).
+function variable(prices: [string, string], taxStatus: 'taxable' | 'none' = 'taxable') {
+  const variation = (id: number, price: string) => ({ ...product(id, `Hoodie ${id}`, price, 'none'), type: 'variation', status: 'publish' });
+  return { ...product(3, 'Hoodie', '', taxStatus), type: 'variable', variations: [31, 32],
+    variation_docs: [variation(31, prices[0]), variation(32, prices[1])] };
+}
+
+function renderProducts(options: { price?: string; tax?: TileTax | null; hoodie?: ReturnType<typeof variable> } = {}) {
+  const products = [product(1, 'Tea', options.price ?? '8.60', 'taxable'), product(2, 'Mug', '5.00', 'none'), options.hoodie ?? variable(['20.00', '40.00'])];
   render(<ProductsScreen products={products} connector={connector} currency="USD" locale="en_US"
     tax={options.tax === null ? undefined : options.tax ?? tax(false)} onBack={vi.fn()} />,
   { wrapper: ({ children }) => <>{children}<PortalHost /></> });
@@ -132,4 +140,61 @@ test('the choice survives a remount and Restore turns it off', () => {
   fireEvent.click(screen.getByTestId('products-display-restore'));
   expect(screen.getByTestId(SWITCH).getAttribute('aria-checked')).toBe('false');
   expect(screen.queryByTestId('product-price-tax-1')).toBeNull();
+});
+
+test('with Tax on, a variable product\'s range carries the tax words under each end, min then max', () => {
+  renderProducts();
+  switchTaxOn();
+  const min = screen.getByTestId('product-price-tax-3-min');
+  const max = screen.getByTestId('product-price-tax-3-max');
+  expect(min.textContent).toBe('excl. $2.00 tax');
+  expect(max.textContent).toBe('excl. $4.00 tax');
+  expect(screen.getByTestId('product-price-3-min').textContent).toBe('$20.00');
+  expect(screen.getByTestId('product-price-3-max').textContent).toBe('$40.00');
+  expect(min.compareDocumentPosition(max) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  const cell = screen.getByTestId('product-cell-price-3');
+  expect(cell.contains(min) && cell.contains(max)).toBe(true);
+  expect(screen.queryByTestId('product-price-tax-3')).toBeNull();
+});
+
+test('a variable product whose variations cost the same shows one price with one tax line', () => {
+  renderProducts({ hoodie: variable(['30.00', '30.00']) });
+  switchTaxOn();
+  expect(screen.getByTestId('product-price-3').textContent).toBe('$30.00');
+  expect(screen.getByTestId('product-price-tax-3').textContent).toBe('excl. $3.00 tax');
+  expect(screen.queryByTestId('product-price-3-min')).toBeNull();
+  expect(screen.queryByTestId('product-price-tax-3-max')).toBeNull();
+});
+
+test('with Tax off, each end\'s words are that end\'s tooltip', () => {
+  renderProducts();
+  expect(screen.getByTestId('product-price-3').textContent).toBe('$20.00 - $40.00');
+  expect(screen.queryByTestId('product-price-tax-3-min')).toBeNull();
+  expect(screen.queryByTestId('product-price-tax-3-max')).toBeNull();
+  fireEvent.pointerEnter(screen.getByTestId('product-price-trigger-3-min'));
+  expect(screen.getByRole('tooltip').textContent).toBe('excl. $2.00 tax');
+
+  cleanup();
+  renderProducts();
+  fireEvent.pointerEnter(screen.getByTestId('product-price-trigger-3-max'));
+  expect(screen.getByRole('tooltip').textContent).toBe('excl. $4.00 tax');
+});
+
+test('a variable product that is not taxable, or with taxes off, shows no tax words at either end', () => {
+  renderProducts({ hoodie: variable(['20.00', '40.00'], 'none') });
+  switchTaxOn();
+  expect(screen.getByTestId('product-price-tax-1').textContent).toBe('excl. $0.86 tax');
+  for (const end of ['min', 'max']) {
+    expect(screen.queryByTestId(`product-price-tax-3-${end}`)).toBeNull();
+    expect(screen.queryByTestId(`product-price-trigger-3-${end}`)).toBeNull();
+  }
+
+  cleanup();
+  renderProducts({ tax: null });
+  for (const end of ['min', 'max']) {
+    expect(screen.queryByTestId(`product-price-trigger-3-${end}`)).toBeNull();
+    fireEvent.pointerEnter(screen.getByTestId(`product-price-3-${end}`));
+  }
+  expect(screen.queryByRole('tooltip')).toBeNull();
+  expect(screen.getByTestId('product-price-3').textContent).toBe('$20.00 - $40.00');
 });
