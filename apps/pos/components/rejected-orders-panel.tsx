@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { Button, Text } from '@tallyui/components';
 import { isRequeueable, type PosOrder } from '@tallyui/pos';
-import { refusedReason, useRefusedOrders } from '../lib/orders/use-refused-orders';
+import { refusedReason, useRefusedOrdersRead } from '../lib/orders/use-refused-orders';
 import { toast } from '../lib/toast/toast';
 import { queuedAgo } from './queued-emails-panel';
 
@@ -15,7 +15,7 @@ export function RejectedOrdersPanel({ orders, onRequeue, now = () => new Date() 
   onRequeue(orderIds: string[]): Promise<number>;
   now?: () => Date;
 }): JSX.Element | null {
-  const rows = useRefusedOrders(orders);
+  const { rows, readError } = useRefusedOrdersRead(orders);
   const [busy, setBusy] = useState(false);
   const guard = useRef(false);
 
@@ -30,6 +30,13 @@ export function RejectedOrdersPanel({ orders, onRequeue, now = () => new Date() 
     } catch { toast(REQUEUE_FAILED); }
     finally { guard.current = false; setBusy(false); }
   }
+  // v2 rejected-mutations.tsx:70-82: a failed read is a bad-tone Notice (TallyUI has none: session-hold-banner's band), never "none refused".
+  if (readError) return (
+    <View testID="db-rejected-read-error" className="gap-1 rounded-lg border border-destructive/45 bg-destructive/10 px-3 py-2.5">
+      <Text className="font-medium text-foreground">Couldn't read recovery data</Text>
+      <Text className="text-muted-foreground">This panel could not check for refused changes, so it may be missing sales that only exist on this device. Reload this screen to try again.</Text>
+    </View>
+  );
   if (!rows.length) return null;
   const n = rows.length;
   return (
