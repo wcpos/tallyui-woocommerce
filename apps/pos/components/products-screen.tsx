@@ -25,7 +25,7 @@ import { resolveStock, STOCK_LABEL } from '../lib/products/resolve-stock';
 import type { StockState } from '../lib/products/resolve-stock';
 import { matchesCatalogueFilters } from '../lib/catalogue/quick-filters';
 import type { CatalogueFilters } from '../lib/catalogue/quick-filters';
-import { useAreaColumns, visibleAreaColumns } from '../lib/area-columns';
+import { areaDisplayShown, useAreaColumns, visibleAreaColumns } from '../lib/area-columns';
 import type { AreaColumn } from '../lib/area-columns';
 import { NARROW_WIDTH } from '../lib/layout/wide';
 import { usePointer } from '../lib/layout/pointer';
@@ -39,7 +39,7 @@ import { BrowseCrumb } from './browse-terms-view';
 import { CatalogueFilterChips } from './catalogue-filter-chips';
 import { EmptyState } from './empty-state';
 import { LevelBack } from './level-back';
-import { ProductAttributes, variationMatches, variationName } from './product-attributes';
+import { PlainAttributes, ProductAttributes, variationMatches, variationName } from './product-attributes';
 import type { ProductAttribute, VariationDoc, VariationMatch } from './product-attributes';
 import { utcDate } from './coupons-screen';
 import { BAR } from './customers-screen';
@@ -67,7 +67,9 @@ export type ProductsColumnId = 'image' | 'id' | 'name' | 'type' | 'sku' | 'barco
 export const PRODUCTS_COLUMNS: readonly AreaColumn<ProductsColumnId>[] = [
   { id: 'image', label: 'Image', visible: true },
   { id: 'id', label: 'ID', visible: false },
-  { id: 'name', label: 'Product', visible: true },
+  // v2's name `display` (initial-settings.json:264-277): the lines its cell draws under the name, all off.
+  { id: 'name', label: 'Product', visible: true, display: [{ id: 'sku', label: 'SKU', visible: false },
+    { id: 'barcode', label: 'Barcode', visible: false }, { id: 'attributes', label: 'Attributes', visible: false }] },
   { id: 'type', label: 'Type', visible: false },
   { id: 'sku', label: 'SKU', visible: false },
   { id: 'barcode', label: 'Barcode', visible: false },
@@ -186,12 +188,19 @@ function StockBadge({ doc, quantity }: { doc: ProductDoc | VariationDoc; quantit
   return <StatusDot testID={`product-stock-status-${doc.id}`} tone={STOCK_TONE[state]} label={quantity === undefined ? STOCK_LABEL[state] : `${quantity} · ${STOCK_LABEL[state]}`} />;
 }
 
-/** v2's ProductName (cells/name.tsx): the name, then ProductAttributes for a variable product. */
-function NameCell({ doc, onDrill, numberOfLines, showSku }: { doc: ProductDoc; onDrill: OnDrill; numberOfLines?: number; showSku?: boolean }): JSX.Element {
+/** The Product column's display lines the display options leave on (v2's name `display`). */
+type NameLines = Record<'sku' | 'barcode' | 'attributes', boolean>;
+
+/** v2's ProductName (cells/name.tsx:48-51): the name, the display lines that are on (SKU, Barcode, Attributes), then
+ *  ProductAttributes for a variable product. */
+function NameCell({ doc, onDrill, numberOfLines, showSku, lines }: { doc: ProductDoc; onDrill: OnDrill; numberOfLines?: number; showSku?: boolean; lines?: NameLines }): JSX.Element {
   return (
     <View className={showSku ? undefined : 'gap-1'}>
       <Text numberOfLines={numberOfLines} className={showSku ? 'text-foreground' : 'font-medium text-foreground'}>{doc.name}</Text>
       {showSku && doc.sku ? <Text testID={`products-phone-sku-${doc.id}`} numberOfLines={1} className="text-sm text-muted-foreground">{doc.sku}</Text> : null}
+      {lines?.sku && doc.sku ? <Text testID={`product-name-sku-${doc.id}`} className="text-sm text-foreground">{doc.sku}</Text> : null}
+      {lines?.barcode && doc.barcode ? <Text testID={`product-name-barcode-${doc.id}`} className="text-sm text-foreground">{doc.barcode}</Text> : null}
+      {lines?.attributes ? <PlainAttributes id={doc.id} attributes={doc.attributes} /> : null}
       {doc.type === 'variable' ? (
         <ProductAttributes id={doc.id} attributes={doc.attributes} count={doc.variations?.length ?? 0}
           options={!showSku} onDrill={match => onDrill(doc, match)} />
@@ -219,7 +228,7 @@ function termNames(terms: { name?: string }[] | undefined): string {
 }
 
 /** Every column of PRODUCTS_COLUMNS, in its order; the screen hands ProductTable the ones left on. */
-function productColumns(currency: string, locale: string | undefined, onDrill: OnDrill): (ProductTableColumn<ProductDoc> & { id: ProductsColumnId })[] {
+function productColumns(currency: string, locale: string | undefined, onDrill: OnDrill, lines: NameLines): (ProductTableColumn<ProductDoc> & { id: ProductsColumnId })[] {
   // v2 sorts Price only; Regular and Sale Price are `disableSort` (initial-settings.json:323-349), all three `right`.
   const priceColumn = (id: PriceField) => ({
     id, header: LABEL[id], flex: 1, align: 'right' as const,
@@ -238,7 +247,7 @@ function productColumns(currency: string, locale: string | undefined, onDrill: O
     // `hideHeader` draws no label and keeps "Image" as the head's accessible name. id, Stock, Stock Status centre (:256-299 `center`).
     { id: 'image', header: LABEL.image, hideHeader: true, flex: 0.6, render: doc => <ProductImage doc={doc} size={IMAGE_SIZE} /> },
     { id: 'id', header: LABEL.id, flex: 0.6, align: 'center', render: doc => <Text testID={`product-id-${doc.id}`}>{String(doc.id)}</Text>, sortValue: doc => doc.id },
-    { id: 'name', header: LABEL.name, flex: 3, render: doc => <NameCell doc={doc} onDrill={onDrill} />, sortValue: doc => doc.name },
+    { id: 'name', header: LABEL.name, flex: 3, render: doc => <NameCell doc={doc} onDrill={onDrill} lines={lines} />, sortValue: doc => doc.name },
     textColumn('type', 1),
     textColumn('sku', 1),
     textColumn('barcode', 1.2),
@@ -343,7 +352,9 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   }
   useWedgeScanner(scan, true);
 
-  const columns = useMemo(() => productColumns(currency, locale, drillTo), [currency, locale, drillTo]);
+  const [sku, barcode, attributes] = (['sku', 'barcode', 'attributes'] as const).map(key => areaDisplayShown(settings, 'name', key));
+  const columns = useMemo(() => productColumns(currency, locale, drillTo, { sku, barcode, attributes }),
+    [currency, locale, drillTo, sku, barcode, attributes]);
   // The columns the display options leave on, in the area's order; the narrow list keeps sorting on every column.
   const tableColumns = useMemo(() => visibleAreaColumns(columns, settings), [columns, settings]);
   const searched = useMemo(() => query ? searchProducts(products, query, connector.traits.product) : products,
