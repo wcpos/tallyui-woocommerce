@@ -42,7 +42,11 @@ export function useElapsed(active: boolean, ms: number): boolean {
  * WCPOS v2's tender pane for a store that takes one payment per order: tiles, keypad, change or refusal hint, one commit.
  * `multi` takes the order leg by leg (several payments per order); the leg that covers the balance completes the sale.
  */
-export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof useSale>; multi?: boolean }): JSX.Element | null {
+export function TenderPane({ sale, multi = false, onRecordedOffline }: {
+  sale: ReturnType<typeof useSale>; multi?: boolean;
+  /** Multi: called with the id of a leg the cashier took through the offline question (v2's recorded_offline). */
+  onRecordedOffline?: (paymentId: string) => void;
+}): JSX.Element | null {
   const [state, dispatch] = useReducer(tenderReducer,
     { methodId: sale.stage.kind === 'tender' && sale.stage.method === 'cash' ? 'pos_cash' : 'pos_card', balanceMinor: multi ? sale.order.balanceDueMinor : sale.order.totalMinor },
     initTenderState);
@@ -118,9 +122,9 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
     take();
   }
   const cancelOffline = () => { taking.current = false; setAsking(false); };
-  const confirmOffline = () => { taking.current = false; setAsking(false); take(); };
+  const confirmOffline = () => { taking.current = false; setAsking(false); take(true); };
 
-  function take() {
+  function take(offline = false) {
     if (taking.current) return;
     if (multi) {
       taking.current = true;
@@ -135,6 +139,7 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
         if (id === null) taking.current = false;
       }
       if (id === null) return;
+      if (offline) onRecordedOffline?.(id);
       setReference('');
       // WCPOS v2: tender-state.ts:198-213. A leg taken ends percent entry.
       setPercent(false);

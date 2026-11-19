@@ -19,8 +19,10 @@ function LegStatus({ payment: p }: { payment: Payment }): JSX.Element {
 }
 
 /** WCPOS v2's checkout ledger: the balance, each local leg taken so far, and (closing) Total / Paid / Remaining. */
-export function LedgerPane({ order, onRemove, closing = false }: {
+export function LedgerPane({ order, onRemove, closing = false, recordedOffline }: {
   order: ReturnType<typeof useSale>['order'];
+  /** The ids of the legs taken offline: each gets v2's "Recorded offline" help line (ledger-pane.tsx:287-293). */
+  recordedOffline?: ReadonlySet<string>;
   /** When given, each leg has a Remove button that calls it with the payment id; when absent, no Remove buttons. */
   onRemove?: (paymentId: string) => void;
   /** Adds the Total / Paid / Remaining block: the wide layout's pane. */
@@ -56,6 +58,7 @@ export function LedgerPane({ order, onRemove, closing = false }: {
             {p.reference ? <Text className="text-sm text-muted-foreground">{p.reference}</Text> : null}
             {p.method === 'cash' && p.tenderedMinor ? <Text testID={`checkout-tendered-leg-${p.id}`} className="text-sm text-muted-foreground">
               {`Tendered ${fmt(p.tenderedMinor)} · change ${fmt(p.changeMinor ?? 0)}`}</Text> : null}
+            {recordedOffline?.has(p.id) ? <Text testID={`checkout-offline-leg-${p.id}`} className="text-sm text-muted-foreground">Recorded offline</Text> : null}
           </View>
           <Text className="tabular-nums text-foreground">{fmt(p.amountMinor)}</Text>
           <LegStatus payment={p} />
