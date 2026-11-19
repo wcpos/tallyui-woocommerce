@@ -9,6 +9,7 @@ import { NARROW_WIDTH } from '../lib/layout/wide';
 import { usePointer } from '../lib/layout/pointer';
 import { orderRowCells, orderTableItems, type OrderRowCells, type OrderTableItem, type OrderTableRow, type OrderTone } from '../lib/orders/order-days';
 import { useRowKeyboard } from '../lib/orders/use-row-keyboard';
+import { BAR } from './customers-screen';
 import { CaptionRowInset, TableCount, TableSurface } from './table-surface';
 
 const ChevronRightIcon = createSvgIcon('ChevronRightIcon', () => <Polyline points="9 18 15 12 9 6" />);
@@ -27,6 +28,8 @@ const FLEX: Partial<Record<OrdersColumnId, string>> = { status: 'flex-[1.6]' };
 // demo's 57; TallyUI's cell `py-4` made 64.
 const CELL = 'justify-center py-1.5';
 const ROW = 'min-h-[57px]';
+// v2's SYNCING_SKELETON_ROWS (data-table/index.tsx:199-202): the rows an empty list shows while it loads.
+const SKELETON_ROWS = Array.from({ length: 5 }, (_, i) => i);
 // v2's status dots (packages/components/src/lib/tone.ts) in this theme's tokens.
 const TONE_DOT: Record<OrderTone, string> = {
   ok: 'bg-success', info: 'bg-info', warning: 'bg-warning', bad: 'bg-destructive', muted: 'bg-muted-foreground', default: 'bg-primary',
@@ -149,7 +152,9 @@ function headCell({ id, label }: AreaColumn<OrdersColumnId>): JSX.Element {
 }
 
 /** v2's orders table (screens/main/orders/index.tsx): grouped by day, newest first; the chevron opens the order. */
-export function OrdersTable({ local, store, onOpen, onEndReached, footer, active = false, onSync, now = () => new Date(), visible = ALL_COLUMNS, total = null, ...filters }: CellFilters & {
+export function OrdersTable({ local, store, onOpen, onEndReached, footer, active = false, onSync, now = () => new Date(), visible = ALL_COLUMNS, total = null, placeholder = false, ...filters }: CellFilters & {
+  /** No rows yet while the first page loads: v2's syncing rows (data-table/index.tsx:400-409). */
+  placeholder?: boolean;
   /** The store's count of every order the query matches; null when it gives none. */
   total?: number | null;
   /** The columns the Orders display options leave on; the table keeps its own order. The chevron always shows. */
@@ -189,7 +194,7 @@ export function OrdersTable({ local, store, onOpen, onEndReached, footer, active
   const webProps: ViewProps & { onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void } = Platform.OS === 'web'
     ? { tabIndex: 0, onKeyDown: keyboard.onKeyDown } : {};
   const columns = ORDERS_COLUMNS.filter(column => visible.includes(column.id));
-  return (
+  const frame = (
     <>
       <TableSurface testID="orders-table-surface">
         <ScrollView testID="orders-scroll" className="flex-1" scrollEventThrottle={16}
@@ -201,6 +206,12 @@ export function OrdersTable({ local, store, onOpen, onEndReached, footer, active
           }}>
           <View testID="orders-keyboard" {...webProps as ViewProps}>
           {touchRows ? <View testID="orders-rows">
+            {placeholder && SKELETON_ROWS.map(i => (
+              <View key={i} testID={`orders-skeleton-row-${i}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
+                <View className="flex-1 gap-1"><View className={BAR} /><View className="h-5 w-1/2 rounded-lg bg-muted" /></View>
+                <View className="h-5 w-16 rounded-lg bg-muted" />
+              </View>
+            ))}
             {items.map(item => item.type === 'day' ? dayHeadingView(item) : (
               <KeyboardRow key={item.id} index={ids.indexOf(item.id)} keyboard={keyboard} testID={`${item.kind === 'store' ? 'history' : 'order'}-keyrow-${item.order.id}`}>
               <OrderPhoneRow item={item} cells={orderRowCells(item, today)}
@@ -216,6 +227,10 @@ export function OrdersTable({ local, store, onOpen, onEndReached, footer, active
               </TableRow>
             </TableHeader>
             <TableBody>
+              {placeholder && SKELETON_ROWS.map(i => <TableRow key={i} testID={`orders-skeleton-row-${i}`} className={ROW}>
+                {columns.map(({ id }) => <TableCell key={id} className={[CELL, FLEX[id]].filter(Boolean).join(' ')}><View className={BAR} /></TableCell>)}
+                <TableCell className="w-14 flex-none" />
+              </TableRow>)}
               {items.map(item => {
                 if (item.type === 'day') return dayHeadingView(item);
                 const cells = orderRowCells(item, today);
@@ -247,4 +262,5 @@ export function OrdersTable({ local, store, onOpen, onEndReached, footer, active
       </CaptionRowInset>
     </>
   );
+  return placeholder ? <View testID="orders-loading" aria-busy accessibilityLabel="Loading…" className="min-h-0 flex-1">{frame}</View> : frame;
 }

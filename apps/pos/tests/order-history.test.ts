@@ -29,6 +29,16 @@ test('orderHistorySource exposes fields and forwards filters without changing un
   }
 });
 
+test('orderHistorySource get reads one order through getOrders and is absent without it', async () => {
+  const getOrders = vi.fn<NonNullable<TallyConnector['getOrders']>>(async (_, ids) => ids.includes('901') ? [order] : []);
+  const source = orderHistorySource({ ...createWooCommerceConnector(), getOrders }, () => context)!;
+  expect(await source.get!('901')).toBe(order);
+  expect(getOrders).toHaveBeenLastCalledWith(context, ['901']);
+  expect(await source.get!('902')).toBeUndefined();
+  expect(getOrders).toHaveBeenCalledTimes(2);
+  expect(orderHistorySource({ ...createWooCommerceConnector(), getOrders: undefined }, () => context)!.get).toBeUndefined();
+});
+
 test('initialOrderFilters scopes only supported fields and a given cashier', () => {
   expect(initialOrderFilters(['status', 'cashierId', 'createdVia'], '2')).toEqual({ cashierId: '2', createdVia: 'woocommerce-pos' });
   expect(initialOrderFilters(['status'], '2')).toEqual({});
