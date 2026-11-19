@@ -16,6 +16,7 @@ import { OrderDetailSheet, orderPaymentState } from './order-detail';
 import { ReceiptPrintSheet } from './receipt-print-sheet';
 import { ReceiptZoom } from './receipt-zoom';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
+import { useReceiptPrintCount } from '../lib/receipts/use-receipt-print-count';
 import { AreaToolbar, useAreaGutter } from './area-header';
 import { RefusedOrdersNotice } from './refused-orders-notice';
 import { toast } from '../lib/toast/toast';
@@ -52,8 +53,10 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
   // v2's page gutter (ground.ts:46-72): the bar, the table card (OrdersTable) and this page's notes; the receipt keeps 16.
   const gutter = useAreaGutter();
   const request = useRef(0);
-  // The count is in memory only, for each order opened in this screen.
-  const counts = useRef(new Map<string, number>());
+  // v2 counts prints, not opens (use-receipt-data.ts:108-109): the receipt is a copy only once printed, as the sale's COPY n.
+  const receiptId = opened ? opened.posOrder?.id ?? opened.data.header.orderNumber : null;
+  const copies = useReceiptPrintCount(receiptId);
+  const receipt = opened && { ...opened.data, fiscal: { ...opened.data.fiscal, is_reprint: copies > 0, reprint_count: copies } };
 
   async function loadPage(nextPage: number, query: string) {
     const mine = ++request.current;
@@ -104,10 +107,8 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
   }
 
   function open(row: PosOrder | OrderHistoryRow) {
-    const n = (counts.current.get(row.id) ?? 0) + 1;
-    counts.current.set(row.id, n);
     const config: ReceiptConfig = { storeName, cashier: cashierName, register: REGISTER_ID,
-      registerName: register?.registerName ?? undefined, fiscal: { reprint_count: n } };
+      registerName: register?.registerName ?? undefined };
     if ('placedAt' in row) {
       const storeOrder = orders.find(order => order.id === row.id)!;
       setOpened({ data: buildReceiptDataFromStoreOrder(storeOrder, config), storeOrder });
@@ -150,7 +151,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
       </View>}
       {outbox.enabled
         ? opened
-          ? <View className="min-h-0 flex-1 px-4 pb-4">{opened.storeOrder && <NotPaidLine order={opened.storeOrder} />}<ReceiptZoom><ReceiptPrintSheet orderId={opened.posOrder?.id ?? opened.data.header.orderNumber}><Receipt receipt={opened.data} posOrder={opened.posOrder} newSale={() => setOpened(null)} doneLabel="Back" /></ReceiptPrintSheet></ReceiptZoom></View>
+          ? <View className="min-h-0 flex-1 px-4 pb-4">{opened.storeOrder && <NotPaidLine order={opened.storeOrder} />}<ReceiptZoom><ReceiptPrintSheet orderId={opened.posOrder?.id ?? opened.data.header.orderNumber}><Receipt receipt={receipt!} posOrder={opened.posOrder} newSale={() => setOpened(null)} doneLabel="Back" /></ReceiptPrintSheet></ReceiptZoom></View>
           : local.length === 0 && orders.length === 0 && !failed && !loading
             ? search !== '' || filtered
               ? <EmptyState kind="no-results" title="No orders match these filters" action={{ label: 'Clear filters', onPress: clear }} />
