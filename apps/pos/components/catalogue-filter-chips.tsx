@@ -10,16 +10,17 @@ import {
   createSvgIcon, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, Text, Tooltip, TooltipContent, TooltipTrigger, XIcon,
 } from '@tallyui/components';
 import type { SvgIconProps } from '@tallyui/components';
+import type { BuiltInPillId } from '../lib/catalogue/filter-bar-pills';
 import type { CatalogueFilters, QuickFilterStockStatus } from '../lib/catalogue/quick-filters';
 import { FolderIcon } from './icons';
 
-const WarehouseIcon = createSvgIcon('WarehouseIcon', () => <>
+export const WarehouseIcon = createSvgIcon('WarehouseIcon', () => <>
   <Path d="M22 8.35V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.35A2 2 0 0 1 3.26 6.5l8-3.2a2 2 0 0 1 1.48 0l8 3.2A2 2 0 0 1 22 8.35Z" />
   <Path d="M6 18h12" />
   <Path d="M6 14h12" />
   <Rect x={6} y={10} width={12} height={12} />
 </>);
-const CurrencyIcon = createSvgIcon('CurrencyIcon', () => <>
+export const CurrencyIcon = createSvgIcon('CurrencyIcon', () => <>
   <Circle cx={12} cy={12} r={10} />
   <Path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
   <Path d="M12 18V6" />
@@ -149,9 +150,11 @@ export interface CatalogueFilterChipsProps {
   placeField?: 'categories' | 'tags';
   /** Drawn last in the row: the Products screen's Clear all (v2 components/product/filter-bar/index.tsx:61-65). */
   trailing?: ReactNode;
+  /** The built-ins switched off in the Filter bar dialog (v2 filter-bar.tsx:505, `!item.show` draws nothing). */
+  hidden?: readonly BuiltInPillId[];
 }
 
-export function CatalogueFilterChips({ products, filters, onChange, dimmed = false, placeField, trailing }: CatalogueFilterChipsProps): JSX.Element {
+export function CatalogueFilterChips({ products, filters, onChange, dimmed = false, placeField, trailing, hidden = [] }: CatalogueFilterChipsProps): JSX.Element {
   const stock = filters.stock_status;
   const stockLabel = stock !== undefined && stock in STOCK_LABELS ? STOCK_LABELS[stock] : undefined;
   const onSale = filters.on_sale === true;
@@ -172,14 +175,14 @@ export function CatalogueFilterChips({ products, filters, onChange, dimmed = fal
     <Text className={filterChipTextClassName(onSale)}>On Sale</Text>
   </Pressable>;
   return <View testID="filter-chips" className="flex-row flex-wrap items-center gap-2">
-    <SelectChip field="stock_status" icon={WarehouseIcon} active={'stock_status' in filters} label={stockLabel ?? 'Stock Status'} extra={0}
+    {!hidden.includes('stock_status') && <SelectChip field="stock_status" icon={WarehouseIcon} active={'stock_status' in filters} label={stockLabel ?? 'Stock Status'} extra={0}
       selected={stockLabel === undefined ? undefined : { value: stock!, label: stockLabel }}
       options={(Object.keys(STOCK_LABELS) as QuickFilterStockStatus[]).map(value => ({ value, label: STOCK_LABELS[value], testID: `stock-status-option-${value}` }))}
       onChoose={value => onChange({ ...filters, stock_status: value as QuickFilterStockStatus })}
-      onRemove={() => onChange(without(filters, 'stock_status'))} />
-    {dimmed ? <DimmedChipTooltip>{onSaleChip}</DimmedChipTooltip> : onSaleChip}
-    {termChip('categories', 'category', 'Category', 'No category found')}
-    {termChip('tags', 'tag', 'Tag', 'No tag found')}
+      onRemove={() => onChange(without(filters, 'stock_status'))} />}
+    {!hidden.includes('on_sale') && (dimmed ? <DimmedChipTooltip>{onSaleChip}</DimmedChipTooltip> : onSaleChip)}
+    {!hidden.includes('categories') && termChip('categories', 'category', 'Category', 'No category found')}
+    {!hidden.includes('tags') && termChip('tags', 'tag', 'Tag', 'No tag found')}
     {trailing}
   </View>;
 }
