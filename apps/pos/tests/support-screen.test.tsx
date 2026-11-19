@@ -33,9 +33,8 @@ test('each link opens its own URL', () => {
   expect(open).toHaveBeenCalledTimes(2);
 });
 
-test('Back calls onBack', () => {
-  const onBack = vi.fn();
-  render(<SupportScreen onBack={onBack} />);
-  fireEvent.click(screen.getByTestId('support-back'));
-  expect(onBack).toHaveBeenCalledOnce();
+test('the phone bar draws Menu, not Back', () => {
+  render(<SupportScreen onBack={vi.fn()} />);
+  expect(screen.getByTestId('support-menu').getAttribute('aria-label')).toBe('Menu');
+  expect(screen.queryByTestId('support-back')).toBeNull();
 });

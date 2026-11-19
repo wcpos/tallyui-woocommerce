@@ -16,7 +16,7 @@ import { useRegister } from '../lib/register/register-context';
 import { AppRailShown } from './app-rail';
 import { NotificationBell } from './notification-bell';
 
-const MenuIcon = createSvgIcon('MenuIcon', () => <><Line x1={4} y1={6} x2={20} y2={6} /><Line x1={4} y1={12} x2={20} y2={12} /><Line x1={4} y1={18} x2={20} y2={18} /></>);
+export const MenuIcon = createSvgIcon('MenuIcon', () => <><Line x1={4} y1={6} x2={20} y2={6} /><Line x1={4} y1={12} x2={20} y2={12} /><Line x1={4} y1={18} x2={20} y2={18} /></>);
 
 export interface BarRegister {
   enabled: boolean;

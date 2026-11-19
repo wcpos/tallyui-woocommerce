@@ -322,10 +322,10 @@ test('without a store it says so', () => {
   expect(screen.queryByTestId('customers-add-button')).toBeNull();
 });
 
-test('Back calls onBack', () => {
-  const { onBack } = renderScreen();
-  fireEvent.click(screen.getByTestId('customers-back'));
-  expect(onBack).toHaveBeenCalledOnce();
+test('the phone bar draws Menu, not Back', () => {
+  renderScreen();
+  expect(screen.getByTestId('customers-menu').getAttribute('aria-label')).toBe('Menu');
+  expect(screen.queryByTestId('customers-back')).toBeNull();
 });
 
 test('rows sort by Last Name and a header press flips or moves the sort', async () => {
