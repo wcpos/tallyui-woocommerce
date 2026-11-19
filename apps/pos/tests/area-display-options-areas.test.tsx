@@ -231,7 +231,7 @@ test("Products: Product Settings lists v2's columns in order with v2's defaults"
     // The Product column's display switches (v2's name `display`) follow its own, off.
     ['image', true], ['id', false], ['name', true], ['name-sku', false], ['name-barcode', false], ['name-attributes', false],
     ['type', false], ['sku', false], ['barcode', false],
-    ['stock_quantity', true], ['stock_status', true], ['categories', true], ['tags', false], ['price', true],
+    ['stock_quantity', true], ['stock_status', true], ['categories', true], ['tags', false], ['price', true], ['price-tax', false],
     ['regular_price', true], ['sale_price', true], ['date_modified_gmt', false],
   ]);
   expect(headers()).toEqual(PRODUCT_DEFAULT_HEADERS);
