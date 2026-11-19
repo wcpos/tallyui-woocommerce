@@ -23,7 +23,10 @@ export type CatalogueQueryAction =
   | { type: 'clearQuickFilter'; baseline: CatalogueFilters }
   /** The applied quick filter was deleted or changed in the filter bar, or the empty state's Clear filters was pressed,
    *  so the catalogue resets to the baseline but stays in its browse place. */
-  | { type: 'appliedQuickFilterGone'; baseline: CatalogueFilters };
+  | { type: 'appliedQuickFilterGone'; baseline: CatalogueFilters }
+  /** v2's clearConditions (browse/level-place.ts:86-104), the chip row's Clear all: the filters go back to the baseline
+   *  and the search clears; the open level's own field (`keep`) stays, and so do the sort and the place. */
+  | { type: 'clearAll'; baseline: CatalogueFilters; keep?: 'categories' };
 
 export function initialCatalogueQuery(baseline: CatalogueFilters): CatalogueQuery {
   return { term: '', filters: baseline, sortOverride: null, place: null };
@@ -43,5 +46,9 @@ export function catalogueQuery(state: CatalogueQuery, action: CatalogueQueryActi
     }
     case 'clearQuickFilter': return initialCatalogueQuery(action.baseline);
     case 'appliedQuickFilterGone': return { ...state, term: '', filters: action.baseline, sortOverride: null };
+    case 'clearAll': {
+      const kept = action.keep ? state.filters[action.keep] : undefined;
+      return { ...state, term: '', filters: kept?.length ? { ...action.baseline, [action.keep!]: kept } : action.baseline };
+    }
   }
 }

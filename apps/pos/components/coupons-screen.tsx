@@ -31,6 +31,7 @@ import { nextSort } from '../lib/table-sort';
 import type { TableSort } from '../lib/table-sort';
 import { AreaDisplayOptions } from './area-display-options';
 import { AreaToolbar, useAreaGutter } from './area-header';
+import { BAR } from './customers-screen';
 import {
   CHIP_CLEAR_CELL_CLASS, CHIP_CLEAR_GLYPH_SIZE, chipInkClassName, filterChipClassName, filterChipTextClassName,
 } from './catalogue-filter-chips';
@@ -43,6 +44,8 @@ import { CaptionRowInset, TableCount, TableSurface, useCatalogueSync } from './t
 
 // v2 coupons/discount-type-label.ts with the English strings of core.json; an unknown type reads as itself.
 const TYPE_LABELS: Record<string, string> = { percent: 'Percentage', fixed_cart: 'Fixed Cart', fixed_product: 'Fixed Product' };
+
+const SYNCING_ROWS = Array.from({ length: 5 }, (_, i) => i); // v2's SYNCING_SKELETON_ROWS (data-table/index.tsx:198-200).
 
 // v2's filter-bar choices (status-pill.tsx, discount-type-pill.tsx) with the English strings of core.json.
 type Choice = { value: string; label: string; testID: string };
@@ -322,7 +325,21 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
   // The columns the display options leave on, in the area's order.
   const columns = visibleAreaColumns(COUPONS_COLUMNS, settings);
 
-  const body = all === null ? null : total === 0 ? (
+  // v2's syncing rows (data-table/index.tsx:198-200, :402-407), in products-screen's pattern: mid-sync an empty list is
+  // rows in flight, not "No coupons yet". No header with no rows, so bars only.
+  const body = total === 0 && sync.active ? (
+    <View testID="coupons-syncing-rows" accessibilityLabel="Loading coupons…" aria-busy className="flex-1 overflow-hidden">
+      {touchRows ? SYNCING_ROWS.map(i => (
+        <View key={i} testID={`coupons-syncing-row-${i}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
+          <View className="flex-1 gap-1"><View className={BAR} /><View className="h-5 w-1/2 rounded-lg bg-muted" /></View>
+        </View>
+      )) : <Table><TableBody>{SYNCING_ROWS.map(i => <TableRow key={i} testID={`coupons-syncing-row-${i}`}>
+        {columns.map(({ id, className }) => <TableCell key={id} className={classes(CELL, ALIGN[id], className)}>
+          <View testID={`coupons-syncing-bar-${id}`} className={BAR} />
+        </TableCell>)}
+      </TableRow>)}</TableBody></Table>}
+    </View>
+  ) : all === null ? null : total === 0 ? (
     <EmptyState kind="empty" title="No coupons yet" description="Coupons you create will appear here." />
   ) : shown.length === 0 ? (
     <EmptyState kind="no-results" title="No coupons match these filters" action={{ label: 'Clear filters', onPress: clear }} />
