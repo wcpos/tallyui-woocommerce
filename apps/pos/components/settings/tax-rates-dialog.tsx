@@ -1,4 +1,4 @@
-import { useState, type JSX } from 'react';
+import { useMemo, useState, type JSX } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Path } from 'react-native-svg';
 import {
@@ -6,7 +6,7 @@ import {
   SelectTrigger, SelectValue, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Tabs, TabsContent, TabsList,
   TabsTrigger, Text, XIcon,
 } from '@tallyui/components';
-import type { StoreTaxRate } from '@tallyui/core';
+import { woocommerceTax, type StoreSettings, type StoreTaxRate } from '@tallyui/core';
 import { useIsWide } from '../../lib/layout/wide';
 import { taxClassOptions } from '../../lib/sale/tax-classes';
 import { SHEET_TITLE, SheetCloseButton } from '../sheet';
@@ -18,6 +18,34 @@ export function ratePercent(rate: string): string {
   const trimmed = rate.includes('.') ? rate.replace(/0+$/, '').replace(/\.$/, '') : rate;
   return `${trimmed}%`;
 }
+
+// @tallyui/core's woocommerceTax namespace exports these two as values only, so they are read off StoreSettings.
+export type WooTaxRate = NonNullable<StoreSettings['taxRateTable']>[number];
+export type TaxAddress = NonNullable<StoreSettings['baseTaxAddress']>;
+
+// v2 tax-rates/rate-rows.ts:90-101: the ids of the rates the address matches, by the matcher the cart and the "Tax based on"
+// panel use (TallyUI's port of v2's filterTaxRates over the store's whole table), so the marks agree with the panel.
+export function matchedRateIds(table: WooTaxRate[], address: TaxAddress): ReadonlySet<string> {
+  const { country, state, postcode, city } = address;
+  return new Set(woocommerceTax.filterTaxRates(table, country, state, postcode, city).map(rate => String(rate.id)));
+}
+
+// v2 rate-rows.ts:103-106: whether the address the sheet was opened with matched this rate.
+export function isApplied(appliesTo: ReadonlySet<string> | null, rate: Pick<StoreTaxRate, 'id'>): boolean {
+  return appliesTo?.has(rate.id) ?? false;
+}
+
+// v2 rate-rows.ts:108-118 and en core.json tax_rates.count_applies*: the parenthesis only with a country.
+export function appliesCount(n: number, country: string): string {
+  const where = country ? ` (${country})` : '';
+  if (n === 0) return `none apply to this address${where}`;
+  return `${n.toLocaleString()} ${n === 1 ? 'applies' : 'apply'} to this address${where}`;
+}
+
+// v2 rate-table.tsx:35,96-99 BLEED and components lib/current-row.ts:10-13 currentRowMark(true): a 2 px primary bar on
+// bg-muted, bled to the sheet's edge. TallyUI's TableRow has no `selected`, so the mark is classes; the bar's width is
+// important because TableBody's `[&>*:last-child]:border-0` would strip it from the last row.
+const MARKED_ROW = '-mx-4 border-l-2! border-l-primary bg-muted pl-3.5 pr-4';
 
 // v2 tax-rates/rate-rows.ts:23-30: the name's second line, only when the booleans say something.
 export function rateTags(rate: Pick<StoreTaxRate, 'compound' | 'shipping'>): string {
@@ -62,8 +90,8 @@ const HEADS: Array<[keyof typeof COLUMNS, string]> = [
   ['rate', 'Rate'], ['name', 'Name'], ['priority', 'Priority'],
 ];
 
-// v2 rate-table.tsx:57-183, without the "applies" marks; a phone gets v2's list rows (:87-115).
-function TaxRateTable({ rates }: { rates: StoreTaxRate[] }) {
+// v2 rate-table.tsx:57-183; a phone gets v2's list rows (:87-115). A row is `selected` only when marked (:92-99,148-156).
+function TaxRateTable({ rates, appliesTo }: { rates: StoreTaxRate[]; appliesTo: ReadonlySet<string> | null }) {
   const wide = useIsWide();
   // v2 rate-table.tsx:62-70, en core.json tax_rates.none_in_class.
   if (rates.length === 0) return <Text testID="tax-rates-empty" className="p-8 text-center text-muted-foreground">No rates in this class</Text>;
@@ -72,8 +100,10 @@ function TaxRateTable({ rates }: { rates: StoreTaxRate[] }) {
     <View testID="tax-rates-list">
       {rates.map(rate => {
         const tags = phoneTags(rate);
+        const marked = isApplied(appliesTo, rate);
         return (
-          <View key={rate.id} testID={`tax-rates-row-${rate.id}`} className="min-h-14 flex-row items-center gap-3 border-b border-border py-2">
+          <View key={rate.id} testID={`tax-rates-row-${rate.id}`} aria-selected={marked || undefined}
+            className={`min-h-14 flex-row items-center gap-3 border-b border-border py-2 ${marked ? MARKED_ROW : ''}`}>
             <View className="min-w-0 flex-1">
               <Text numberOfLines={1}>{rate.name}</Text>
               <Text testID={`tax-rates-row-${rate.id}-location`} numberOfLines={1} className={SETTINGS_KEY_CLASS}>{phoneLocation(rate)}</Text>
@@ -99,8 +129,10 @@ function TaxRateTable({ rates }: { rates: StoreTaxRate[] }) {
       <TableBody>
         {rates.map(rate => {
           const tags = rateTags(rate);
+          const marked = isApplied(appliesTo, rate);
           return (
-            <TableRow key={rate.id} testID={`tax-rates-row-${rate.id}`} className="gap-3">
+            <TableRow key={rate.id} testID={`tax-rates-row-${rate.id}`} aria-selected={marked || undefined}
+              className={marked ? `gap-3 ${MARKED_ROW}` : 'gap-3'}>
               <TableCell className={`px-0 ${COLUMNS.country}`}><Location value={rate.location.country} /></TableCell>
               <TableCell className={`px-0 ${COLUMNS.state}`}><Location value={rate.location.region} /></TableCell>
               <TableCell className={`px-0 ${COLUMNS.postcode}`}><Location value={rate.location.postcodes} /></TableCell>
@@ -130,9 +162,13 @@ const SyncIcon = createSvgIcon('SyncIcon', () => <><Path d="M3 12a9 9 0 0 1 9-9 
 
 // v2 tax-rates/tax-rates.tsx: one tab per class, each holding that class's rates. The rates come with the store
 // settings, which have no refresh once ready (@tallyui/pos useStoreSettings), so the sync icon is drawn but disabled.
-export function TaxRatesDialog({ rates, taxClassSlugs, onClose }: {
+// v2 rate-rows.ts:71-88: opened with the "Tax based on" address (and the table to match it against) the sheet marks the rates
+// that apply and counts them; opened from anywhere else, no marks and the plain count.
+export function TaxRatesDialog({ rates, taxClassSlugs, onClose, address, rateTable }: {
   rates: StoreTaxRate[] | undefined; taxClassSlugs: string[] | undefined; onClose: () => void;
+  address?: TaxAddress; rateTable?: WooTaxRate[];
 }): JSX.Element {
+  const appliesTo = useMemo(() => (address && rateTable ? matchedRateIds(rateTable, address) : null), [address, rateTable]);
   // v2 tax-rates.tsx:111-119: classes in the store's order; a rate with no class is WooCommerce's standard.
   const groups = [{ id: 'standard', label: 'Standard' }, ...taxClassOptions(taxClassSlugs)].map(({ id, label }) => ({
     slug: id, name: label, rates: (rates ?? []).filter(rate => (rate.taxClass || 'standard') === id),
@@ -141,6 +177,7 @@ export function TaxRatesDialog({ rates, taxClassSlugs, onClose }: {
   const wide = useIsWide();
   const current = groups.find(group => group.slug === value) ?? groups[0]!;
   const count = rates?.length ?? 0;
+  const applied = (rates ?? []).filter(rate => isApplied(appliesTo, rate)).length;
   return (
     <Dialog open onOpenChange={next => { if (!next) onClose(); }}>
       <DialogContent testID="tax-rates-dialog" className={SHEET}>
@@ -188,18 +225,19 @@ export function TaxRatesDialog({ rates, taxClassSlugs, onClose }: {
           )}
           {groups.map(group => (
             <TabsContent key={group.slug} value={group.slug} className="min-h-0 flex-1">
-              <ScrollView className="flex-1" contentContainerClassName="px-4"><TaxRateTable rates={group.rates} /></ScrollView>
+              <ScrollView className="flex-1" contentContainerClassName="px-4"><TaxRateTable rates={group.rates} appliesTo={appliesTo} /></ScrollView>
             </TabsContent>
           ))}
         </Tabs></View>
         {/* v2 tax-rates.tsx:185-196 and footer.tsx:50-62: the count left, Close right; a phone stacks it. */}
         <DialogFooter className={`gap-2 border-t border-border px-4 pt-4 ${wide
           ? 'flex-row items-center justify-between sm:flex-row sm:justify-between' : 'flex-col sm:flex-col'}`}>
-          {/* v2 footer.tsx:54-63: the count, then the SyncButton in a `min-w-0 gap-1` row. sync-button.tsx:39-53 is
+          {/* v2 footer.tsx:54-63: the count (then the applies count, :56-61), then the SyncButton in a `min-w-0 gap-1` row. sync-button.tsx:39-53 is
               an `xs` IconButton (icon-button/index.tsx:27 `size-6`; icon/index.tsx:28 a `size-3.5` glyph, :93 muted). */}
           <View className="min-w-0 shrink flex-row items-center gap-1">
             <Text testID="tax-rates-count" className={`min-w-0 shrink ${SETTINGS_KEY_CLASS}`}>
-              {count === 1 ? '1 tax rate' : `${count.toLocaleString()} tax rates`}
+              {[count === 1 ? '1 tax rate' : `${count.toLocaleString()} tax rates`,
+                address && appliesTo ? appliesCount(applied, address.country) : null].filter(Boolean).join(' · ')}
             </Text>
             {/* Disabled, as TableCount is with no `onSync`: nothing here can refresh the rates. */}
             <IconButton testID="tax-rates-sync" accessibilityLabel="Sync" variant="ghost" size="sm" className="h-6 w-6" disabled>

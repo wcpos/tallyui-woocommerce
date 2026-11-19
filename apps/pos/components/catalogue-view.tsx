@@ -11,8 +11,8 @@ import type { CatalogueEntry } from '@tallyui/pos';
 import { catalogueQuery, initialCatalogueQuery } from '../lib/catalogue/catalogue-query';
 import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
 import type { AppCatalogueViewState } from '../lib/catalogue/catalogue-view-state';
-import { catalogueFilterBaseline, isQuickFilterActive, matchesCatalogueFilters, useQuickFilters } from '../lib/catalogue/quick-filters';
-import type { QuickFilter } from '../lib/catalogue/quick-filters';
+import { captureQuickFilter, catalogueFilterBaseline, isQuickFilterActive, matchesCatalogueFilters, useQuickFilters } from '../lib/catalogue/quick-filters';
+import type { CapturedQuickFilter, QuickFilter } from '../lib/catalogue/quick-filters';
 import { optionsLabel } from '../lib/catalogue/tile-words';
 import type { TileTax } from '../lib/catalogue/tile-words';
 import { needsAnyPick, variantMatchesStock } from '../lib/catalogue/variation-match';
@@ -31,7 +31,7 @@ import { ChevronRightIcon } from './icons';
 import { InCartBadge } from './in-cart-badge';
 import { LevelBack } from './level-back';
 import { ProductTile } from './product-tile';
-import { QuickFilterBar } from './quick-filter-bar';
+import { QuickFilterBar, SaveAsButton } from './quick-filter-bar';
 import { RegisterBarShell } from './register-bar-shell';
 import { ParentTile, VariationRow, VariationTile } from './variation-tile';
 import { ViewModeToggle } from './view-mode-toggle';
@@ -108,6 +108,7 @@ export function CatalogueView({
   const [quickFilters, setQuickFilters] = useQuickFilters();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [filterBarOpen, setFilterBarOpen] = useState(false);
+  const [captured, setCaptured] = useState<CapturedQuickFilter | null>(null);
   function scan(code: string) {
     const result = onScan?.(code);
     if (result === 'clear') dispatch({ type: 'search', term: '' });
@@ -217,6 +218,9 @@ export function CatalogueView({
     return visible;
   })();
   const queryState = { filters, search: term, sort };
+  // v2's `active` (filter-bar.tsx:495-503): set filters that differ from the baseline; an open level's place is not one.
+  const filtersOn = Object.entries(filters).filter(([key, value]) => !(level !== null && key === 'categories') && (Array.isArray(value)
+    ? value.length > 0 : value !== undefined && value !== null) && JSON.stringify(value) !== JSON.stringify(baseline[key as keyof typeof baseline])).length;
   const isActive = (qf: QuickFilter) => isQuickFilterActive(qf, queryState, viewState.sort, baseline);
   // Like v2, a press replaces the whole filter state, and pressing the active button restores the baseline.
   function pressQuickFilter(qf: QuickFilter) {
@@ -257,12 +261,14 @@ export function CatalogueView({
       <CatalogueFilterChips products={products} filters={filters} onChange={next => dispatch({ type: 'filter', filters: next })} dimmed={drilled !== undefined}
         placeField={level === null ? undefined : 'categories'} />
       <QuickFilterBar quickFilters={quickFilters} isActive={isActive} onPress={pressQuickFilter} dimmed={drilled !== undefined} />
+      {filtersOn >= 1 && <SaveAsButton onPress={() => setCaptured(captureQuickFilter(queryState, baseline, viewState.sort))} />}
     </ScrollView>
     {/* v2 index.tsx:607-610: the panel mounts under the chips, above the products, and keeps scanning after a decode. */}
     {scannerOpen && onScan ? <CameraScannerPanel onClose={() => setScannerOpen(false)} onDetected={camera.onDetected}
       onOpen={camera.onOpen} scanCount={camera.scanCount} /> : null}
-    <FilterBarDialog open={filterBarOpen} onOpenChange={setFilterBarOpen} quickFilters={quickFilters} onChange={changeQuickFilters}
-      products={products} connector={connector} currency={currency} baselineSort={viewState.sort} />
+    <FilterBarDialog open={filterBarOpen || captured !== null} onOpenChange={open => { setFilterBarOpen(open); if (!open) setCaptured(null); }}
+      quickFilters={quickFilters} onChange={changeQuickFilters} products={products} connector={connector} currency={currency}
+      baselineSort={viewState.sort} captured={captured} />
   </View>;
   // v2's conditionsBeyond (browse/level-place.ts:53): what Clear filters can clear. The open level is the place, not a condition.
   const conditionsOn = searching || !filtersAtBaseline(filters, baseline) || quickFilters.some(isActive);
