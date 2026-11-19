@@ -19,6 +19,7 @@ import { optionsLabel } from '../lib/catalogue/tile-words';
 import type { TileTax } from '../lib/catalogue/tile-words';
 import { needsAnyPick, variantMatchesStock } from '../lib/catalogue/variation-match';
 import { useIsWide } from '../lib/layout/wide';
+import { useOnlineStatus } from '../lib/online/online-status';
 import { useCameraScan } from '../lib/scan/use-camera-scan';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { useSearchChord } from '../lib/sale/use-search-chord';
@@ -269,6 +270,11 @@ export function CatalogueView({
   // search, between it and the chips, and under the chips. TallyUI's slot pads 8 above and below (`py-2`), so this
   // adds 4 to each. A phone keeps its own spacing (the phone head below).
   const wide = useIsWide();
+  const online = useOnlineStatus().status;
+  // v2 camera-scanner-panel.tsx:165-173 readinessMessage (core.json camera_scan_offline / _engine_not_ready): offline
+  // outranks a catalogue still starting or syncing. v2's storage-loss note has no app signal yet.
+  const readiness = online === 'offline' ? 'Offline — only products already on this device will scan.'
+    : status === 'starting' || status === 'syncing' ? 'Sync is still starting — some products may not be found yet.' : undefined;
   const searchSlot = <View testID="catalogue-search-slot" className={wide ? 'gap-3 pt-1 pb-1' : 'gap-2'}>
     <View className="flex-row items-center gap-2">
       {/* h-11: v2's control height `h-ctl`, 44 px (monorepo apps/main/global.css:40), over TallyUI's 40. */}
@@ -294,7 +300,7 @@ export function CatalogueView({
     </ScrollView>
     {/* v2 index.tsx:607-610: the panel mounts under the chips, above the products, and keeps scanning after a decode. */}
     {scannerOpen && onScan ? <CameraScannerPanel onClose={() => setScannerOpen(false)} onDetected={camera.onDetected}
-      onOpen={camera.onOpen} scanCount={camera.scanCount} /> : null}
+      onOpen={camera.onOpen} scanCount={camera.scanCount} readiness={readiness} /> : null}
     {/* v2 index.tsx:615: the locked notice is the column's last row, after the scanner panel. */}
     <LockedNotice lock={locked} />
     <FilterBarDialog open={filterBarOpen || captured !== null} onOpenChange={open => { setFilterBarOpen(open); if (!open) { setCaptured(null); setBarStart(null); } }}
