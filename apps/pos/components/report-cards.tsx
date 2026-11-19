@@ -8,7 +8,7 @@ import type { ProductFigure } from '../lib/reports/product-figures';
 import type { Period } from '../lib/reports/sales-room';
 import type { ReportCashier } from './report-chips';
 
-export type ReportTable = 'orders' | 'payments' | 'where-sold' | 'taxes';
+export type ReportTable = 'orders' | 'payments' | 'where-sold' | 'taxes' | 'products';
 type Money = (minor: number) => string;
 
 /** v2 reports/cards/card.tsx: a named card whose head carries its figure, and opens its table when it can. */
@@ -166,9 +166,11 @@ export function WhereSoldCard({ period, money, moneyWhole, onOpen }: CardProps &
 }
 
 /** v2 reports/cards/top-products.tsx: the four best sellers with their share of the period and units sold. */
-export function TopProductsCard({ period, money, products }: { period: Period; money: Money; products: readonly ProductFigure[] }) {
+export function TopProductsCard({ period, money, products, onOpen }: {
+  period: Period; money: Money; products: readonly ProductFigure[]; onOpen(): void;
+}) {
   return (
-    <ReportCard testID="card-products" name="Top products" figure={String(period.items)}>
+    <ReportCard testID="card-products" name="Top products" figure={String(period.items)} onOpen={onOpen}>
       {products.length === 0
         ? <Text testID="card-products-empty">No sales in this period</Text>
         : products.slice(0, 4).map((row, index) => {
@@ -276,7 +278,7 @@ export function ReportCards({ period, money, moneyWhole, onOpenTable, cashiers =
     <OrdersCard key="orders" period={period} money={money} onOpen={() => onOpenTable('orders')} />,
     <PaymentsCard key="payments" period={period} money={money} moneyWhole={moneyWhole} onOpen={() => onOpenTable('payments')} />,
     <WhereSoldCard key="where-sold" period={period} money={money} moneyWhole={moneyWhole} onOpen={() => onOpenTable('where-sold')} />,
-    <TopProductsCard key="products" period={period} money={money} products={products} />,
+    <TopProductsCard key="products" period={period} money={money} products={products} onOpen={() => onOpenTable('products')} />,
     <CategoriesCard key="categories" period={period} money={money} moneyWhole={moneyWhole} categories={categories} />,
     <CashiersCard key="cashiers" period={period} money={money} moneyWhole={moneyWhole} cashiers={cashiers} />,
     <TaxesCard key="taxes" period={period} money={money} onOpen={() => onOpenTable('taxes')} />,

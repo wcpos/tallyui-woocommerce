@@ -5,7 +5,8 @@ import { afterAll, expect, test } from 'vitest';
 import { formatMoney } from '@tallyui/core';
 import type { PosOrder } from '@tallyui/pos';
 import { salesRoom, type Period } from '../lib/reports/sales-room';
-import { ordersTable, paymentsTable, taxesTable, whereSoldTable } from '../lib/reports/sales-tables';
+import { productFigures } from '../lib/reports/product-figures';
+import { ordersTable, paymentsTable, productsTable, taxesTable, whereSoldTable } from '../lib/reports/sales-tables';
 
 afterAll(() => {
   if (savedTimezone === undefined) delete process.env.TZ;
@@ -164,4 +165,18 @@ test('orders table with no orders today', () => {
   expect(table.rows).toEqual([]);
   expect(table.total).toEqual(['Total', '', '', '$0.00']);
   expect(table.status).toBe('0 orders · $0.00');
+}, 20_000);
+
+test('products table lists every product with its units and an All products total', () => {
+  const table = productsTable(today, productFigures(orders, { currency: 'USD', range: day.range }), money);
+  expect(table.title).toBe('Top products');
+  expect(table.head).toEqual(['Product', 'Qty', 'Amount']);
+  expect(table.align).toEqual(['left', 'right', 'right']);
+  expect(table.rows.map(row => [row.key, ...row.cells])).toEqual([
+    ['product3', 'Item 3', '1', '$17.38'], ['product2', 'Item 2', '1', '$8.58'],
+  ]);
+  // v2 specs.ts:244: the rows carry line totals, so the total is theirs, not the orders'.
+  expect(table.total).toEqual(['All products', '2', '$25.96']);
+  expect(table.status).toBe('4 orders · $29.96');
+  expect(table.empty).toBe('No sales in this period');
 }, 20_000);

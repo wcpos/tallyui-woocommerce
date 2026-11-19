@@ -976,6 +976,33 @@ test('the Where sold card opens a table of channels', async () => {
   await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
 }, 20_000);
 
+/** Opens a card's table and reads its title, its rows' cells and its total. */
+async function openCardTable(opener: string) {
+  fireEvent.click(screen.getByTestId(opener));
+  const table = within(await screen.findByTestId('sales-table'));
+  const cells = (row: HTMLElement) => within(row).getAllByText(/./).map(cell => cell.textContent);
+  return {
+    hasText: (copy: string) => table.queryByText(copy) !== null,
+    rows: table.getAllByTestId(/^sales-table-row-/).map(row => [row.getAttribute('data-testid'), ...cells(row)]),
+    total: cells(table.getByTestId('sales-table-total')),
+    close: async () => {
+      fireEvent.click(table.getByTestId('sales-table-close'));
+      await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
+    },
+  };
+}
+
+test('the Top products card opens a table of products', async () => {
+  await setup();
+  await payCash();
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+  const table = await openCardTable('card-products-open');
+  expect(table.hasText('Top products')).toBe(true);
+  expect(table.rows).toEqual([['sales-table-row-80', 'Espresso', '1', '$3.00']]);
+  expect(table.total).toEqual(['All products', '1', '$3.00']);
+  await table.close();
+}, 20_000);
+
 test("the hero's Orders line opens a table of today's orders", async () => {
   const app = await setup();
   await payCash();
@@ -1177,7 +1204,7 @@ test('each Reports table dialog has Print report after Export CSV (v2 detail-pan
   await setup();
   await payCash();
   await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
-  for (const opener of ['card-payments-open', 'card-taxes-open', 'card-where-sold-open', 'sales-room-orders-open']) {
+  for (const opener of ['card-payments-open', 'card-taxes-open', 'card-where-sold-open', 'sales-room-orders-open', 'card-products-open']) {
     fireEvent.click(screen.getByTestId(opener));
     const dialog = await screen.findByTestId('sales-table');
     const footer = Array.from(dialog.querySelectorAll('[data-testid="sales-table-export"], [data-testid="detail-panel-print"], [data-testid="sales-table-close"]'));

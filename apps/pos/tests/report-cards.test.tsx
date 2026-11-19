@@ -198,7 +198,7 @@ test('Where sold reads an empty period', () => {
 });
 
 test('the Top products card lists the four best sellers with amount, share bar and units sold', () => {
-  cards({ products });
+  const onOpenTable = cards({ products });
   expect(text('card-products-figure')).toBe('23');
   expect(screen.getAllByTestId(/^card-products-row-\d$/).map(row => row.getAttribute('data-testid'))).toEqual([
     'card-products-row-0', 'card-products-row-1', 'card-products-row-2', 'card-products-row-3',
@@ -213,7 +213,9 @@ test('the Top products card lists the four best sellers with amount, share bar a
   expect(fourth.getByText('$157.64')).not.toBeNull();
   expect(fourth.getByText('10% · 2 sold')).not.toBeNull();
   expect((screen.getByTestId('card-products-row-0-bar').firstElementChild as HTMLElement).style.transform).toBe('translateX(-62.5%)');
-  expect(screen.queryByTestId('card-products-open')).toBeNull();
+  // v2 panels/specs.ts products: the card opens its table.
+  fireEvent.click(screen.getByTestId('card-products-open'));
+  expect(onOpenTable).toHaveBeenCalledWith('products');
 });
 
 test('a product with no name reads Unknown, and a tiny share still draws a sliver', () => {

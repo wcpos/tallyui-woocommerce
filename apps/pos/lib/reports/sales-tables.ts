@@ -1,5 +1,6 @@
 import { orderReference } from '@tallyui/components';
 import type { DayRange, PosOrder } from '@tallyui/pos';
+import type { ProductFigure } from './product-figures';
 import { rangeBounds, type Period } from './sales-room';
 
 export type SalesTable = {
@@ -13,6 +14,11 @@ export type SalesTable = {
   empty: string;
 };
 
+/** A share of the total to one decimal, a dash when the total is nothing. */
+const percentOf = (minor: number, totalMinor: number) =>
+  totalMinor === 0 ? '—' : `${(Math.round(minor * 1000 / totalMinor) / 10).toFixed(1)}%`;
+const statusOf = (count: number, total: string) => `${count} ${count === 1 ? 'order' : 'orders'} · ${total}`;
+
 export function paymentsTable(period: Period, money: (minor: number) => string | undefined): SalesTable {
   const format = (minor: number) => money(minor) ?? '';
   return {
@@ -22,8 +28,7 @@ export function paymentsTable(period: Period, money: (minor: number) => string |
     align: ['left', 'right', 'right', 'right'],
     rows: [...period.byMethod].sort((a, b) => b.totalMinor - a.totalMinor || a.label.localeCompare(b.label)).map(row => ({
       key: row.method,
-      cells: [row.label, String(row.count), format(row.totalMinor), period.totalMinor === 0
-        ? '—' : `${(Math.round(row.totalMinor * 1000 / period.totalMinor) / 10).toFixed(1)}%`],
+      cells: [row.label, String(row.count), format(row.totalMinor), percentOf(row.totalMinor, period.totalMinor)],
     })),
     total: ['Total', String(period.count), format(period.totalMinor), ''],
     status: `${period.count} ${period.count === 1 ? 'order' : 'orders'} · ${format(period.totalMinor)}`,
@@ -87,5 +92,20 @@ export function ordersTable(
     }),
     total: ['Total', '', '', format(sum)],
     status: `${today.length} ${today.length === 1 ? 'order' : 'orders'} · ${format(sum)}`,
+  };
+}
+
+/** v2 panels/specs.ts:235-256: every product in the card's figures; the total sums the lines, not the orders. */
+export function productsTable(period: Period, products: readonly ProductFigure[], money: (minor: number) => string | undefined): SalesTable {
+  const format = (minor: number) => money(minor) ?? '';
+  return {
+    title: 'Top products',
+    empty: 'No sales in this period',
+    head: ['Product', 'Qty', 'Amount'],
+    align: ['left', 'right', 'right'],
+    rows: products.map(row => ({ key: row.key, cells: [row.name || 'Unknown', String(row.quantity), format(row.amountMinor)] })),
+    total: ['All products', String(products.reduce((sum, row) => sum + row.quantity, 0)),
+      format(products.reduce((sum, row) => sum + row.amountMinor, 0))],
+    status: statusOf(period.count, format(period.totalMinor)),
   };
 }
