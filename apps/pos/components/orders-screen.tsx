@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
-import { Button, OrderFilterBar, Receipt, SearchInput, Text, type OrderHistoryRow } from '@tallyui/components';
+import { Button, Loader, OrderFilterBar, Receipt, SearchInput, Text, type OrderHistoryRow } from '@tallyui/components';
 import type { StoreOrder } from '@tallyui/core';
 import { buildReceiptDataFromPosOrder, buildReceiptDataFromStoreOrder, orderFiltersQuery, type PosOrder, type ReceiptConfig } from '@tallyui/pos';
 import { useOutbox } from '../lib/sale/outbox-context';
@@ -101,7 +101,8 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
   const filtered = (['status', 'customerId', 'cashierId', 'registerId', 'paymentMethod', 'storeId', 'createdVia'] as const)
     .some(key => value[key] !== initial[key]) || value.dateRange?.from !== initial.dateRange?.from || value.dateRange?.to !== initial.dateRange?.to;
   const footer = history ? <>
-    {hasMore && <Button testID="orders-load-more" disabled={loading} onPress={() => { void loadPage(page + 1, search); }}><Text>Load more</Text></Button>}
+    {/* v2's list footer (data-table/list-footer.tsx): a centred Loader under the last row while a page loads. */}
+    {loading && page > 0 && <View testID="orders-page-spinner" className="items-center justify-center bg-card p-2"><Loader /></View>}
     {failed && <>
       <Text>Store orders couldn't be loaded.</Text>
       <Button testID="orders-history-retry" disabled={loading} onPress={() => { void loadPage(page + 1, search); }}><Text>Try again</Text></Button>
@@ -140,6 +141,8 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
                 ? <EmptyState kind="no-results" title="No orders match these filters" action={{ label: 'Clear filters', onPress: clear }} />
                 : <EmptyState kind="empty" title="No orders yet" description="Sales you take will appear here." />
             : <OrdersTable local={local} store={orders} footer={footer} active={loading} total={total}
+              // v2's guard (useGuardedExtendLimit): none while a page loads, when exhausted, or after a failure until Try again.
+              onEndReached={() => { if (hasMore && !loading && !failed) void loadPage(page + 1, search); }}
               visible={columns.filter(column => column.visible).map(column => column.id)}
               onSync={history ? () => { void loadPage(1, search); } : undefined}
               // v2's cell taps (status-filter-cell.tsx:29, order/customer.tsx:39) set the bar's filter, so only where it shows.

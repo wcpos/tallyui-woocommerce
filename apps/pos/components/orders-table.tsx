@@ -1,4 +1,4 @@
-import type { JSX, KeyboardEvent, ReactNode } from 'react';
+import { useRef, type JSX, type KeyboardEvent, type ReactNode } from 'react';
 import { Platform, Pressable, ScrollView, View, useWindowDimensions, type ViewProps } from 'react-native';
 import { Path, Polyline } from 'react-native-svg';
 import { createSvgIcon, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Text } from '@tallyui/components';
@@ -148,7 +148,7 @@ function headCell({ id, label }: AreaColumn<OrdersColumnId>): JSX.Element {
 }
 
 /** v2's orders table (screens/main/orders/index.tsx): grouped by day, newest first; the chevron opens the order. */
-export function OrdersTable({ local, store, onOpen, footer, active = false, onSync, now = () => new Date(), visible = ALL_COLUMNS, total = null, ...filters }: CellFilters & {
+export function OrdersTable({ local, store, onOpen, onEndReached, footer, active = false, onSync, now = () => new Date(), visible = ALL_COLUMNS, total = null, ...filters }: CellFilters & {
   /** The store's count of every order the query matches; null when it gives none. */
   total?: number | null;
   /** The columns the Orders display options leave on; the table keeps its own order. The chevron always shows. */
@@ -160,9 +160,20 @@ export function OrdersTable({ local, store, onOpen, footer, active = false, onSy
   local: readonly PosOrder[];
   store: readonly StoreOrder[];
   onOpen(row: OrderTableRow): void;
+  /** The list is within 10% of its end, or its rows do not fill it: once per content height. */
+  onEndReached?(): void;
   footer?: ReactNode;
   now?: () => Date;
 }) {
+  // v2's list (data-table/index.tsx:388, FlatList `onEndReachedThreshold={0.1}`): it asks for more within a tenth
+  // of a viewport of its end, which also covers rows that do not fill it; the screen guards the rest.
+  const size = useRef({ viewport: 0, content: 0, fired: 0 });
+  function nearEnd(offset = 0) {
+    const { viewport, content, fired } = size.current;
+    if (!onEndReached || !viewport || !content || content === fired || content - viewport - offset > viewport * 0.1) return;
+    size.current.fired = content;
+    onEndReached();
+  }
   const { width } = useWindowDimensions();
   const narrow = width < NARROW_WIDTH;
   const today = now();
@@ -178,7 +189,13 @@ export function OrdersTable({ local, store, onOpen, footer, active = false, onSy
   return (
     <>
       <TableSurface testID="orders-table-surface">
-        <ScrollView className="flex-1">
+        <ScrollView testID="orders-scroll" className="flex-1" scrollEventThrottle={16}
+          onLayout={event => { size.current.viewport = event.nativeEvent.layout.height; nearEnd(); }}
+          onContentSizeChange={(_, height) => { size.current.content = height; nearEnd(); }}
+          onScroll={({ nativeEvent: { contentOffset, contentSize, layoutMeasurement } }) => {
+            Object.assign(size.current, { viewport: layoutMeasurement.height, content: contentSize.height });
+            nearEnd(contentOffset.y);
+          }}>
           <View testID="orders-keyboard" {...webProps as ViewProps}>
           {narrow ? <View testID="orders-rows">
             {items.map(item => item.type === 'day' ? dayHeadingView(item) : (
