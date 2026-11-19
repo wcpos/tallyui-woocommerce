@@ -3,7 +3,7 @@ import { scanSuggestions } from '../lib/scan/scan-suggestions';
 import { DEFAULT_SCAN_SETTINGS, type ScanSettings, type WedgeAttempt } from '../lib/scan/wedge';
 
 const settings = (patch: Partial<ScanSettings> = {}): ScanSettings => ({ ...DEFAULT_SCAN_SETTINGS, ...patch });
-const attempt = (a: Partial<WedgeAttempt>): WedgeAttempt => ({ raw: '12345678', code: '12345678', avgGapMs: 5, gapsMs: [], result: 'scan', ...a });
+const attempt = (a: Partial<WedgeAttempt>): WedgeAttempt => ({ raw: '12345678', code: '12345678', avgGapMs: 5, gapsMs: [], result: 'scan', trailingEnter: true, shiftKeys: 0, ...a });
 
 test('raise-threshold when typing under 60ms is still at or over the threshold', () => {
   expect(scanSuggestions(attempt({ result: 'typing', avgGapMs: 30 }), settings({ threshold: 20 }))).toEqual([

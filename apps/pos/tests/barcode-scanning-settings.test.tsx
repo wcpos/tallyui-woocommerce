@@ -375,6 +375,76 @@ test('Scanner sits between Sound and the Test, with the keyboard copy', () => {
   expect(screen.getByTestId('barcode-input-sources').textContent).not.toContain('WCPOS');
 });
 
+// One burst of these keys `gapMs` apart, ended by `end` (Enter, Tab) or, with none, by the 150ms end-of-scan timer.
+function keyBurst(keys: string[], gapMs: number, end?: string) {
+  act(() => {
+    keys.forEach((key, i) => {
+      if (i > 0 && key !== 'Shift') vi.advanceTimersByTime(gapMs);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    });
+    if (end) document.dispatchEvent(new KeyboardEvent('keydown', { key: end, bubbles: true, cancelable: true }));
+    else vi.advanceTimersByTime(150);
+  });
+}
+
+test('a near-miss typing attempt reads as a warning notice, and a slower one stays correctly ignored', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  fireEvent.change(screen.getByTestId('settings-barcode-threshold'), { target: { value: '20' } });
+  burst('2000000000015', 30);
+  expect(screen.getByTestId('barcode-test-result').textContent).toBe('typing');
+  expect(screen.getByTestId('barcode-test-near-miss-title').textContent)
+    .toBe('Treated as typing — average gap 30ms is above your 20ms threshold');
+  expect(classesOf('barcode-test-near-miss')).toEqual(expect.arrayContaining(['border-warning/45', 'bg-warning/15']));
+  expect(screen.queryByTestId('barcode-test-verdict')).toBeNull();
+  // v2 test-panel.tsx:247: the Raise threshold suggestion still follows the warning.
+  expect(screen.getByTestId('barcode-test-suggestion-raise-threshold')).not.toBeNull();
+  burst('2000000000015', 70);
+  expect(screen.getByTestId('barcode-test-verdict').textContent).toBe('Treated as typing (average gap 70ms) — correctly ignored');
+  expect(screen.queryByTestId('barcode-test-near-miss')).toBeNull();
+});
+
+test('an attempt ended by Enter notes the trailing Enter; the timer or Tab adds nothing', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  keyBurst([...'2000000000015'], 5, 'Enter');
+  expect(screen.getByTestId('barcode-test-trailing-enter').textContent).toBe('Trailing Enter detected and ignored — no suffix needed');
+  expect(classesOf('barcode-test-trailing-enter')).toEqual(expect.arrayContaining(['text-muted-foreground', 'text-xs']));
+  keyBurst([...'2000000000015'], 5);
+  expect(screen.getByTestId('barcode-test-result').textContent).toBe('scan');
+  expect(screen.queryByTestId('barcode-test-trailing-enter')).toBeNull();
+  keyBurst([...'2000000000015'], 5, 'Tab');
+  expect(screen.getAllByTestId(/^barcode-test-history-row-\d+$/)).toHaveLength(3);
+  expect(screen.queryByTestId('barcode-test-trailing-enter')).toBeNull();
+});
+
+test('two separate Shift keydowns show the Shift-mangled notice; one shows nothing', () => {
+  vi.useFakeTimers();
+  render(<BarcodeScanningSettings />);
+  keyBurst(['Shift', 'A', 'Shift', 'B', ...'000000015'], 5, 'Enter');
+  expect(screen.getByTestId('barcode-test-result').textContent).toBe('scan');
+  expect(value('barcode-test-detected')).toBe('AB000000015');
+  expect(screen.getByTestId('barcode-test-shift-mangled-title').textContent).toBe('Scanner is sending Shift as separate keys');
+  expect(screen.getByTestId('barcode-test-shift-mangled-description').textContent).toBe('Reconfigure it to a US-keyboard / no-modifier mode.');
+  expect(classesOf('barcode-test-shift-mangled')).toEqual(expect.arrayContaining(['border-warning/45', 'bg-warning/15']));
+  keyBurst(['Shift', 'A', 'B', ...'000000015'], 5, 'Enter');
+  expect(screen.getAllByTestId(/^barcode-test-history-row-\d+$/)).toHaveLength(2);
+  expect(screen.queryByTestId('barcode-test-shift-mangled')).toBeNull();
+});
+
+test('Troubleshooting guide sits after Recent attempts and opens the test-panel docs', () => {
+  vi.useFakeTimers();
+  const open = vi.spyOn(ReactNative.Linking, 'openURL').mockResolvedValue(true);
+  render(<BarcodeScanningSettings />);
+  expect(screen.getByTestId('barcode-test-docs-link').textContent).toBe('Troubleshooting guide');
+  burst('2000000000015', 5);
+  const link = screen.getByTestId('barcode-test-docs-link');
+  expect(screen.getByTestId('settings-barcode-test').contains(link)).toBe(true);
+  expect(screen.getByTestId('barcode-test-history').compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  fireEvent.click(link);
+  expect(open).toHaveBeenCalledExactlyOnceWith('https://docs.wcpos.com/hardware/scanners/setup-wizard#test-panel');
+});
+
 test('Scanner setup guide opens the scanner docs', () => {
   const open = vi.spyOn(ReactNative.Linking, 'openURL').mockResolvedValue(true);
   render(<BarcodeScanningSettings />);
