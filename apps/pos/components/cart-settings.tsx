@@ -126,6 +126,18 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
           <QuickDiscountsSetting key={settings.quickDiscounts.join(',')} keys={settings.quickDiscounts}
             onChange={next => onSettingsChange({ ...settings, quickDiscounts: next })} />
           <AutoPrintReceiptSetting />
+          {/* v2's UISettingsColumnsForm, the form's last v2 section (ui-settings-form.tsx:172): "Columns", then the Qty
+              column with its Split display switch nested under it, `pl-10` (columns-form.tsx). Off by default
+              (initial-settings.json pos-cart quantity.display.split). The other columns' switches are not offered yet. */}
+          <View testID="cart-setting-columns" className="gap-2 px-1 pt-2">
+            <Text role="heading" aria-level={2} className="text-sm font-semibold">Columns</Text>
+            <FieldLabel>Qty</FieldLabel>
+            <View className="pl-10">
+              <SwitchRow label="Split" testID="cart-setting-column-quantity-split" accessibilityLabel="Show Split on Qty"
+                checked={settings.columns.quantity.split}
+                onCheckedChange={next => onSettingsChange({ ...settings, columns: { quantity: { split: next } } })} />
+            </View>
+          </View>
           {/* The register sessions switch, once under the cart and only with a register. v2 has no such row; it is
               drawn as v2's FormSwitch with a description (form/switch.tsx, as ui-settings-form.tsx's autoPrintReceipt):
               FormItem's gap-1.5, the switch and its muted label, then the help line under the row: FormDescription's
@@ -235,7 +247,7 @@ export function CartWithSettings({ position, onPositionChange, openOrders, coupo
       <CartSettingsDialog position={position} onPositionChange={onPositionChange} settings={settings} onSettingsChange={setSettings} />
     </View>
     {/* Sort a copy for display only: the order builder's lineItems keep the add order (receipts, parking, the order). */}
-    <Cart {...cartProps} quickDiscounts={settings.quickDiscounts} sale={{ ...sale, ...withRemovedToasts(sale), order: { ...sale.order, lineItems: sortCartLines(sale.order.lineItems, settings.sortLines) } }} />
+    <Cart {...cartProps} quickDiscounts={settings.quickDiscounts} columns={settings.columns} sale={{ ...sale, ...withRemovedToasts(sale), order: { ...sale.order, lineItems: sortCartLines(sale.order.lineItems, settings.sortLines) } }} />
     {note}
     {settings.openOrdersPosition !== 'top' && openOrdersStrip}
   </>;

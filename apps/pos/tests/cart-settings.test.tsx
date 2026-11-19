@@ -80,7 +80,7 @@ test('sortCartLines keeps the add order between equal names and equal prices', (
 
 test('saved cart settings load with newest at top as the fallback', () => {
   const storage = memoryStorage();
-  expect(loadCartSettings(storage)).toEqual({ sortLines: 'newest_top', openOrdersPosition: 'bottom', quickDiscounts: [5, 10, 15] });
+  expect(loadCartSettings(storage)).toEqual({ sortLines: 'newest_top', openOrdersPosition: 'bottom', quickDiscounts: [5, 10, 15], columns: { quantity: { split: false } } });
   storage.setItem(CART_SETTINGS_KEY, '{"sortLines":"price"}');
   expect(loadCartSettings(storage).sortLines).toBe('price');
   storage.setItem(CART_SETTINGS_KEY, '{"sortLines":"oldest"}');
@@ -93,10 +93,10 @@ test('saved cart settings load with newest at top as the fallback', () => {
 
 test('saving cart settings writes the device key and ignores a refusing storage', () => {
   const storage = memoryStorage();
-  saveCartSettings({ sortLines: 'name', openOrdersPosition: 'bottom', quickDiscounts: [5, 10, 15] }, storage);
-  expect(storage.getItem(CART_SETTINGS_KEY)).toBe('{"sortLines":"name","openOrdersPosition":"bottom","quickDiscounts":[5,10,15]}');
+  saveCartSettings({ sortLines: 'name', openOrdersPosition: 'bottom', quickDiscounts: [5, 10, 15], columns: { quantity: { split: false } } }, storage);
+  expect(storage.getItem(CART_SETTINGS_KEY)).toBe('{"sortLines":"name","openOrdersPosition":"bottom","quickDiscounts":[5,10,15],"columns":{"quantity":{"split":false}}}');
   const refusing = { ...memoryStorage(), setItem: () => { throw new Error('full'); } } as Storage;
-  expect(() => saveCartSettings({ sortLines: 'name', openOrdersPosition: 'bottom', quickDiscounts: [5, 10, 15] }, refusing)).not.toThrow();
+  expect(() => saveCartSettings({ sortLines: 'name', openOrdersPosition: 'bottom', quickDiscounts: [5, 10, 15], columns: { quantity: { split: false } } }, refusing)).not.toThrow();
 });
 
 test('the cart shows the newest line at the top by default and leaves the order alone', () => {
@@ -118,7 +118,7 @@ test('choosing a sort in Cart Settings reorders the shown lines and saves it for
   fireEvent.click(screen.getByTestId('cart-sort-items-option-name'));
   expect(shown()).toEqual(['Remove Banana Bread', 'Remove Cold Brew', 'Remove Espresso']);
   expect(screen.getByTestId('cart-sort-items').textContent).toBe('Name');
-  expect(localStorage.getItem(CART_SETTINGS_KEY)).toBe('{"sortLines":"name","openOrdersPosition":"bottom","quickDiscounts":[5,10,15]}');
+  expect(localStorage.getItem(CART_SETTINGS_KEY)).toBe('{"sortLines":"name","openOrdersPosition":"bottom","quickDiscounts":[5,10,15],"columns":{"quantity":{"split":false}}}');
   expect(kept()).toEqual(['Cold Brew', 'Espresso', 'Banana Bread']);
   fireEvent.click(screen.getByTestId('cart-sort-items'));
   fireEvent.click(screen.getByTestId('cart-sort-items-option-price'));
@@ -164,7 +164,7 @@ test('Restore Default Settings puts the cart right and newest at top and keeps t
   fireEvent.click(screen.getByTestId('cart-settings-button'));
   fireEvent.click(screen.getByTestId('ui-settings-restore-defaults'));
   expect(onPositionChange).toHaveBeenCalledWith('left');
-  expect(localStorage.getItem(CART_SETTINGS_KEY)).toBe('{"sortLines":"newest_top","openOrdersPosition":"bottom","quickDiscounts":[5,10,15]}');
+  expect(localStorage.getItem(CART_SETTINGS_KEY)).toBe('{"sortLines":"newest_top","openOrdersPosition":"bottom","quickDiscounts":[5,10,15],"columns":{"quantity":{"split":false}}}');
   expect(shown()).toEqual(['Remove Banana Bread', 'Remove Espresso', 'Remove Cold Brew']);
   expect(screen.getByTestId('cart-settings')).not.toBeNull();
   fireEvent.click(screen.getByTestId('ui-settings-close'));
@@ -183,7 +183,7 @@ test('open orders position loads as bottom unless top was saved, keeping an olde
   const storage = memoryStorage();
   expect(loadCartSettings(storage).openOrdersPosition).toBe('bottom');
   storage.setItem(CART_SETTINGS_KEY, '{"sortLines":"name"}');
-  expect(loadCartSettings(storage)).toEqual({ sortLines: 'name', openOrdersPosition: 'bottom', quickDiscounts: [5, 10, 15] });
+  expect(loadCartSettings(storage)).toEqual({ sortLines: 'name', openOrdersPosition: 'bottom', quickDiscounts: [5, 10, 15], columns: { quantity: { split: false } } });
   storage.setItem(CART_SETTINGS_KEY, '{"sortLines":"name","openOrdersPosition":"sideways"}');
   expect(loadCartSettings(storage).openOrdersPosition).toBe('bottom');
   storage.setItem(CART_SETTINGS_KEY, '{"sortLines":"name","openOrdersPosition":"top"}');
@@ -193,7 +193,7 @@ test('open orders position loads as bottom unless top was saved, keeping an olde
 test('Open orders position shows Bottom selected and Top keeps the other settings', () => {
   const onSettingsChange = vi.fn();
   render(<><CartSettingsDialog position="left" onPositionChange={() => {}}
-    settings={{ sortLines: 'name', openOrdersPosition: 'bottom', quickDiscounts: [5, 10, 15] }} onSettingsChange={onSettingsChange} /><PortalHost /></>);
+    settings={{ sortLines: 'name', openOrdersPosition: 'bottom', quickDiscounts: [5, 10, 15], columns: { quantity: { split: false } } }} onSettingsChange={onSettingsChange} /><PortalHost /></>);
   fireEvent.click(screen.getByTestId('cart-settings-button'));
   expect(within(screen.getByTestId('cart-settings')).getByText('Open orders position')).not.toBeNull();
   expect(screen.getByTestId('cart-setting-open-orders-top').textContent).toBe('Top');
@@ -201,7 +201,7 @@ test('Open orders position shows Bottom selected and Top keeps the other setting
   expect(screen.getByTestId('cart-setting-open-orders-bottom').getAttribute('aria-selected')).toBe('true');
   expect(screen.getByTestId('cart-setting-open-orders-top').getAttribute('aria-selected')).toBe('false');
   fireEvent.click(screen.getByTestId('cart-setting-open-orders-top'));
-  expect(onSettingsChange).toHaveBeenLastCalledWith({ sortLines: 'name', openOrdersPosition: 'top', quickDiscounts: [5, 10, 15] });
+  expect(onSettingsChange).toHaveBeenLastCalledWith({ sortLines: 'name', openOrdersPosition: 'top', quickDiscounts: [5, 10, 15], columns: { quantity: { split: false } } });
 });
 
 const follows = (a: Node, b: Node) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
@@ -232,7 +232,7 @@ test('normalizeQuickDiscounts keeps up to three valid percents in order and defa
 test('settings saved before quick discounts load the default keys and keep their sort', () => {
   const storage = memoryStorage();
   storage.setItem(CART_SETTINGS_KEY, '{"sortLines":"price","openOrdersPosition":"top"}');
-  expect(loadCartSettings(storage)).toEqual({ sortLines: 'price', openOrdersPosition: 'top', quickDiscounts: [5, 10, 15] });
+  expect(loadCartSettings(storage)).toEqual({ sortLines: 'price', openOrdersPosition: 'top', quickDiscounts: [5, 10, 15], columns: { quantity: { split: false } } });
   storage.setItem(CART_SETTINGS_KEY, '{"sortLines":"price","quickDiscounts":[]}');
   expect(loadCartSettings(storage).quickDiscounts).toEqual([]);
 });
@@ -570,4 +570,60 @@ test('the sheet takes v2\'s light scrim, the keys v2\'s 13 px semibold, the Quic
   expect(classesOf('cart-setting-quick-discounts-hint')).not.toContain('text-sm');
   // The Sort items hint is v2's `key` rank (ui-settings-form.tsx:129), 13 px.
   expect(classesOf('cart-sort-items-hint')).toContain('text-sm');
+});
+
+// v2's Split (pos/cart/cells/quantity-keypad.tsx:100-110): under a quantity above 1 when Columns › Qty › Split is on.
+const SPLIT_ON = '{"sortLines":"newest_bottom","columns":{"quantity":{"split":true}}}';
+const quantities = () => latest.order.lineItems.map(l => [l.name, l.quantity]);
+
+function addColdBrew(quantity: number) {
+  act(() => { latest.add(catalogueEntries([coldBrew], connector.traits.product, { currency: 'USD' })[0], connector.traits.product); });
+  act(() => latest.setQuantity(latest.order.lineItems[0].id, quantity));
+}
+
+test('with Split on, a quantity 3 line shows Split and pressing it leaves three lines of quantity 1', () => {
+  localStorage.setItem(CART_SETTINGS_KEY, SPLIT_ON);
+  renderCart();
+  addColdBrew(3);
+  expect(screen.getAllByTestId('cart-line-split')).toHaveLength(1);
+  expect(screen.getByTestId('cart-line-split').textContent).toBe('Split');
+  fireEvent.click(screen.getByTestId('cart-line-split'));
+  expect(quantities()).toEqual([['Cold Brew', 1], ['Cold Brew', 1], ['Cold Brew', 1]]);
+  expect(screen.queryByTestId('cart-line-split')).toBeNull();
+});
+
+test('a quantity 1 line shows no Split link with Split on', () => {
+  localStorage.setItem(CART_SETTINGS_KEY, SPLIT_ON);
+  renderCart();
+  addColdBrew(1);
+  expect(quantities()).toEqual([['Cold Brew', 1]]);
+  expect(screen.queryByTestId('cart-line-split')).toBeNull();
+});
+
+test('with Split off (the default), a quantity 3 line shows no Split link', () => {
+  renderCart();
+  addColdBrew(3);
+  expect(quantities()).toEqual([['Cold Brew', 3]]);
+  expect(screen.queryByTestId('cart-line-split')).toBeNull();
+});
+
+test('the Split switch in Cart Settings › Columns saves for this device and survives a remount', () => {
+  const first = renderCart();
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  const columns = screen.getByTestId('cart-setting-columns');
+  expect(within(columns).getByRole('heading').textContent).toBe('Columns');
+  expect(within(columns).getByText('Qty')).not.toBeNull();
+  const toggle = screen.getByRole('switch', { name: 'Show Split on Qty' });
+  expect(toggle.getAttribute('aria-checked')).toBe('false');
+  fireEvent.click(toggle);
+  expect(JSON.parse(localStorage.getItem(CART_SETTINGS_KEY)!).columns).toEqual({ quantity: { split: true } });
+  first.unmount();
+  renderCart();
+  addColdBrew(2);
+  expect(screen.getAllByTestId('cart-line-split')).toHaveLength(1);
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  expect(screen.getByRole('switch', { name: 'Show Split on Qty' }).getAttribute('aria-checked')).toBe('true');
+  fireEvent.click(screen.getByTestId('ui-settings-restore-defaults'));
+  expect(loadCartSettings().columns).toEqual({ quantity: { split: false } });
+  expect(screen.queryByTestId('cart-line-split')).toBeNull();
 });
