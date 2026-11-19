@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { JSX } from 'react';
-import { View } from 'react-native';
+import { TextInput, View } from 'react-native';
 import {
   Combobox, ComboboxInput, ComboboxItem, ComboboxTrigger,
   Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Text,
@@ -47,7 +47,9 @@ export function VariationSelect({ group, selected, onSelect }: {
       {/* Inline under the trigger: TallyUI's ComboboxContent portals with no positioning, and its Empty prints fixed copy. */}
       {open ? (
         <View role="list" className="mt-1 rounded-md border border-border bg-popover p-1">
-          <ComboboxInput testID="variation-combobox-search" placeholder="Search Variations" className="h-9 px-2" />
+          <ComboboxInput asChild testID="variation-combobox-search" placeholder="Search Variations">
+            <TextInput placeholderTextColorClassName="accent-muted-foreground" className="mb-1 h-9 border-b border-border px-2 text-sm text-foreground web:outline-none" />
+          </ComboboxInput>
           {shown.length ? shown.map(option => <ComboboxItem key={option} value={option} label={option} testID={`variation-option-${option}`}
             disabled={off(option)} className={off(option) ? 'opacity-50' : undefined}><Text>{option}</Text></ComboboxItem>)
             : <Text testID="variation-combobox-empty" className="py-6 text-center text-sm text-muted-foreground">No variation found</Text>}
