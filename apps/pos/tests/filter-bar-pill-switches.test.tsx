@@ -52,7 +52,8 @@ const toggle = (id: string) => screen.getByTestId(`filter-bar-toggle-${id}`);
 test('the dialog lists the built-in filters with icons and switches under v2\'s hint', () => {
   renderView();
   openFilterBar();
-  expect(screen.getByTestId('filter-bar-list-hint').textContent).toBe('Drag to reorder. Switch a filter off to take it off the bar.');
+  expect(screen.getByTestId('filter-bar-list-hint').textContent).toBe('Switch a filter off to take it off the bar.');
+  expect(screen.queryByText(/Drag to reorder/)).toBeNull();
   const rows = screen.getAllByTestId(/^filter-bar-pill-/);
   expect(rows.map(row => row.getAttribute('data-testid'))).toEqual(PILLS.map(id => `filter-bar-pill-${id}`));
   expect(rows.map(row => row.textContent)).toEqual(['Stock Status', 'On Sale', 'Categories', 'Tags']);

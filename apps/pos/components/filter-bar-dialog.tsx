@@ -76,7 +76,8 @@ export function FilterBarDialog({ open, onOpenChange, quickFilters, onChange, hi
           {captured ? <CaptureQuickFilter captured={captured} products={products} currency={currency} onDraftChange={setCaptureDraft} />
           : <View className="flex-col gap-4 md:flex-row">
             <View className="gap-2 md:w-2/5">
-              <Text testID="filter-bar-list-hint" className="text-sm text-muted-foreground">Drag to reorder. Switch a filter off to take it off the bar.</Text>
+              {/* v2's hint (`pos_products.filter_bar_hint`) starts "Drag to reorder."; that sentence returns when the bar is draggable. */}
+              <Text testID="filter-bar-list-hint" className="text-sm text-muted-foreground">Switch a filter off to take it off the bar.</Text>
               {/* v2 lists the pills first (DEFAULT_FILTER_BAR); here they keep that fixed order, and only quick filters move. */}
               {BUILT_IN_PILL_IDS.map(id => {
                 const Icon = PILL_ICONS[id];
