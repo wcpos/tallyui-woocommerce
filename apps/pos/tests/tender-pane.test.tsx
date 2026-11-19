@@ -610,3 +610,22 @@ test('multi: a typed share is a whole percent of the balance, and above 100 % ta
   expect(text('checkout-entry')).toBe('$20.00');
   expect(text('checkout-commit')).toBe('Take $20.00 in Cash');
 }, 20_000);
+
+// WCPOS v2: tender-pane.tsx:790-812, 893, 905. Percent entry hides the quick amounts and Exact; Split again leaves it.
+test('multi: percent entry hides the quick amounts and Exact, and closing then reopening Split leaves it', async () => {
+  await startTender('Cash', 'online-website-available', true, '20.00');
+  fireEvent.click(screen.getByTestId('checkout-split-chip'));
+  fireEvent.click(screen.getByTestId('checkout-percent'));
+  fireEvent.click(screen.getByTestId('checkout-percent-50'));
+  expect(text('checkout-entry')).toBe('$10.00');
+  expect(screen.queryAllByTestId(/^checkout-quick-/)).toHaveLength(0);
+  fireEvent.click(screen.getByTestId('checkout-split-chip'));
+  fireEvent.click(screen.getByTestId('checkout-split-chip'));
+  const tiles = within(screen.getByTestId('checkout-split-ways')).getAllByRole('button');
+  expect(tiles.map(tile => tile.getAttribute('data-testid'))).toEqual(['checkout-percent', ...[2, 3, 4, 5, 6].map(ways => `checkout-even-${ways}`)]);
+  expect(screen.queryByTestId('checkout-percent-50')).toBeNull();
+  expect(text('checkout-entry')).toBe('$20.00');
+  expect(text('checkout-entry-hint')).toBe('');
+  expect(screen.getByTestId('checkout-quick-exact')).not.toBeNull();
+  expect(screen.getAllByTestId(/^checkout-quick-\d/).length).toBeGreaterThan(0);
+}, 20_000);
