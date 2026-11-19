@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 import { View } from 'react-native';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Text } from '@tallyui/components';
 import type { ReceiptTemplate } from '@tallyui/core';
+import { useIsWide } from '../lib/layout/wide';
 import { ChevronDownIcon, FieldLabel, SELECT_FACE } from './select-chevron';
 
 /**
@@ -12,12 +13,14 @@ import { ChevronDownIcon, FieldLabel, SELECT_FACE } from './select-chevron';
 export function ReceiptTemplateRow({ templates, selectedId, onSelect }: {
   templates: ReceiptTemplate[]; selectedId: string; onSelect(id: string): void;
 }): JSX.Element | null {
+  const wide = useIsWide();
   if (templates.length === 0) return null;
   const selected = templates.find(template => template.id === selectedId);
   return (
-    <View testID="receipt-template-row" className="flex-row items-center gap-3">
-      <View className="w-32"><FieldLabel>Template</FieldLabel></View>
-      <View className="flex-1">
+    // v2's PropertyRow (components property-row/index.tsx:103,147-163): one line off a phone, the key stacked above on one.
+    <View testID="receipt-template-row" className={wide ? 'flex-row items-center gap-3' : 'gap-1'}>
+      <View className={wide ? 'w-32 shrink-0' : undefined}><FieldLabel>Template</FieldLabel></View>
+      <View className={wide ? 'min-w-0 flex-1' : undefined}>
         {templates.length > 1 ? (
           <Select value={selected ? { value: selected.id, label: selected.title } : undefined}
             onValueChange={option => { if (option) onSelect(option.value); }}>

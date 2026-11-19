@@ -11,6 +11,7 @@ import { Text } from '@tallyui/components';
 import { SaleScreen, type SaleScreenProps } from '../components/sale-screen';
 import { ReceiptPrintSheet } from '../components/receipt-print-sheet';
 import { StoreReceipt } from '../components/store-receipt';
+import { ReceiptTemplateRow } from '../components/receipt-template-row';
 import { classesOf } from './classes-of';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
@@ -181,6 +182,18 @@ test('with two store templates the receipt shows a Template select on the first,
   expect(screen.getByTestId('store-receipt-frame').getAttribute('srcdoc')).not.toContain('G12-MARKER');
   expect(screen.getByTestId('receipt-template-select').textContent).toBe('second');
 }, 20_000);
+
+// v2's PropertyRow (property-row/index.tsx:103,147-163): key · value on one line off a phone, stacked on a phone.
+test('the Template row keeps one line off a phone and stacks the key above the select on a phone', () => {
+  const row = () => render(<ReceiptTemplateRow templates={[marked, second]} selectedId="g12" onSelect={() => {}} />);
+  row();
+  expect(classesOf('receipt-template-row')).toEqual(expect.arrayContaining(['flex-row', 'items-center']));
+  cleanup();
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  row();
+  expect(classesOf('receipt-template-row')).not.toContain('flex-row');
+  expect(screen.getByTestId('receipt-template-select').textContent).toBe('g12');
+});
 
 test('with one store template the receipt shows its title and no select', async () => {
   await sellEspresso(async () => [marked]);
