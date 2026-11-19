@@ -8,6 +8,7 @@ import type { RxCollection } from 'rxdb';
 import { Cart, ChargeForm, createSvgIcon, Dialog, DialogContent, DialogHeader, DialogTitle, DiscountForm, DropdownMenu, DropdownMenuContent,
   DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, IconButton, Text } from '@tallyui/components';
 import type { CustomerSource } from '../lib/customers/customer-source';
+import { useChord } from '../lib/sale/use-search-chord';
 import { AddCustomerDialog } from './add-customer-dialog';
 import { CouponPicker } from './coupon-entry';
 import { BoxIcon } from './icons';
@@ -27,16 +28,21 @@ const ICON = { size: 18, strokeWidth: 1.5, className: 'text-foreground' } as con
 
 type CartProps = ComponentProps<typeof Cart>;
 
-export function CartAddMenu({ sale, taxClasses, coupons, couponsOffered, customers = null, createCustomersBlockedReason }: {
+export function CartAddMenu({ sale, taxClasses, coupons, couponsOffered, customers = null, createCustomersBlockedReason, chords }: {
   sale: CartProps['sale'];
   taxClasses?: CartProps['taxClasses'];
   coupons: RxCollection | null; // the synced coupons, when the app has them
   couponsOffered: boolean;      // the sale screen's coupon gate
   customers?: CustomerSource | null;     // the store's customers; without them there is no Add new customer
   createCustomersBlockedReason?: string; // why the cashier cannot create customers (v2's capability tooltip)
+  chords?: boolean;                      // the till chords are live (sale-screen's gate)
 }): JSX.Element {
   const [dialog, setDialog] = useState<'customer' | 'misc-product' | 'fee' | 'shipping' | 'discount' | null>(null);
   const [kind, setKind] = useState<'quick' | 'coupon'>('quick');
+  // v2's alt+d → pos.cart.discount opens this menu's Add Discount (pos/cart/add-cart-items-menu.tsx:41
+  // useRegisterSurface('discount', …)), only on a cart with lines (commands.ts onOrder), never from a field.
+  useChord('KeyD', () => { setKind('quick'); setDialog('discount'); },
+    { enabled: chords === true && sale.order.lineItems.length > 0 && dialog === null, inFields: false });
   const close = () => setDialog(null);
   const onOpenChange = (open: boolean) => { if (!open) close(); };
   // The Cart's own rule for its Add charge control (chargesOffered).

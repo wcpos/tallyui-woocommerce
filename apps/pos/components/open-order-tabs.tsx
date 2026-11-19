@@ -25,6 +25,22 @@ function centredOffset(rowWidth: number, contentWidth: number, tabX: number, tab
   return Math.max(0, Math.min(tabX + tabWidth / 2 - rowWidth / 2, contentWidth - rowWidth));
 }
 
+/**
+ * The strip's carts, oldest first, newer carts joining on the right; the current cart keeps its place, so a press only
+ * selects (v2 open-orders-scope.ts OPEN_ORDERS_SORT: date created, then id); without currentOpenedAt it goes last. The
+ * blank cart (no lines) has no tab. The tabs and the till chords both read this order.
+ */
+export function stripCartIds(parked: readonly { id: string; parkedAt: string }[], current: { id: string; lineItems: readonly unknown[] },
+  currentOpenedAt: string | undefined): string[] {
+  // The store hands them over newest first, so sort a copy.
+  const sorted = [...parked].sort((a, b) => a.parkedAt.localeCompare(b.parkedAt) || a.id.localeCompare(b.id));
+  const place = currentOpenedAt === undefined ? -1
+    : sorted.findIndex(cart => (cart.parkedAt.localeCompare(currentOpenedAt) || cart.id.localeCompare(current.id)) > 0);
+  const ids = sorted.map(cart => cart.id);
+  if (current.lineItems.length > 0) ids.splice(place < 0 ? ids.length : place, 0, current.id);
+  return ids;
+}
+
 export interface OpenOrderTabsParked {
   id: string; parkedAt: string; totalMinor: number;
   lines: readonly { name: string }[];
@@ -95,15 +111,10 @@ export function OpenOrderTabs({ parked, current, currentOpenedAt, currency, loca
   // reads "Guest $16.83", never the contents. Tally's walk-in cart has no customer, so the tab reads no contents.
   const who = (customerName: string | undefined) => tabWho({ customerName, lines: [] });
 
-  // Oldest first, newer carts join on the right; the current cart keeps its place, so a press only selects (v2
-  // open-orders-scope.ts OPEN_ORDERS_SORT: date created, then id). The store hands them over newest first, so sort a copy.
-  const sorted: (OpenOrderTabsParked | null)[] = [...parked].sort((a, b) => a.parkedAt.localeCompare(b.parkedAt) || a.id.localeCompare(b.id));
-  const place = currentOpenedAt === undefined ? -1
-    : sorted.findIndex(cart => (cart!.parkedAt.localeCompare(currentOpenedAt) || cart!.id.localeCompare(current.id)) > 0);
+  const ids = stripCartIds(parked, current, currentOpenedAt);
   // null marks the current cart's slot.
-  if (!fresh) sorted.splice(place < 0 ? sorted.length : place, 0, null);
-  const openCount = parked.length + (fresh ? 0 : 1);
-  const ids = sorted.map(cart => cart?.id ?? current.id);
+  const sorted = ids.map(id => id === current.id && !fresh ? null : parked.find(cart => cart.id === id)!);
+  const openCount = ids.length;
   const selectedId = fresh ? 'new' : current.id;
   // v2 cart/tab-window.ts tabOffsets: a tab's x is the sum of the measured widths before it; an unmeasured one stops the sum.
   let selected: { x: number; width: number } | undefined;

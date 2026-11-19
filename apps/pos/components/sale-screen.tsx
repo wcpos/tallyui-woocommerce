@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { Platform, ScrollView, View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
@@ -24,6 +24,7 @@ import { useStoreTemplates } from '../lib/receipts/use-store-templates';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { useCartRestore } from '../lib/sale/use-cart-restore';
 import { useCheckoutBack } from '../lib/sale/use-checkout-back';
+import { useChord } from '../lib/sale/use-search-chord';
 import { useLeaveTill } from '../lib/sale/use-leave-till';
 import { useParkAndResume } from '../lib/sale/use-park-and-resume';
 import { useParkedCarts } from '../lib/sale/use-parked-carts';
@@ -55,7 +56,7 @@ import { RegisterControls } from './register-controls';
 import { CancelPaymentView } from './cancel-payment-view';
 import { CashierSheet, type CashierOption } from './cashier-sheet';
 import { CouponRows } from './coupon-entry';
-import { OpenOrderTabs } from './open-order-tabs';
+import { OpenOrderTabs, stripCartIds } from './open-order-tabs';
 import { PanelResizeHandle } from './panel-resize-handle';
 import { CartWithSettings } from './cart-settings';
 import { OrderDetailsSheet } from './order-details-sheet';
@@ -181,6 +182,31 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     actions: [{ label: 'Order details', onPress: () => setDetailsOpen(true) }],
   };
 
+  // v2's `onTill` (extensions/commands/commands.ts:12-37): the chords only on the till with the cart shown, never at
+  // checkout or on the receipt. Alt+F fires in fields; the cart chords never do (front desk, 19 Nov 2026).
+  const chords = props.searchChord !== false && sale.stage.kind === 'cart';
+  const hasLines = sale.order.lineItems.length > 0;
+  const stripIds = stripCartIds(parked, sale.order, currentOpenedAt);
+  // v2 hotkeys.web.tsx: a chord whose previous run has not settled is dropped.
+  const chordBusy = useRef(false);
+  const runChord = (action: () => Promise<string | null>) => {
+    if (chordBusy.current) return;
+    chordBusy.current = true;
+    action().then(result => { if (typeof result === 'string') setMessage(result); },
+      error => setMessage(error instanceof Error ? error.message : String(error)))
+      .finally(() => { chordBusy.current = false; });
+  };
+  // v2 provider.tsx:57-75 selectOrder: the strip's carts wrap at both ends; the blank cart sits past the last one.
+  const stepCart = (step: 1 | -1) => {
+    const at = stripIds.indexOf(sale.order.id);
+    const target = stripIds[at < 0 ? (step > 0 ? 0 : stripIds.length - 1) : (at + step + stripIds.length) % stripIds.length];
+    if (target !== sale.order.id) runChord(() => resume(target));
+  };
+  useChord('KeyN', () => runChord(park), { enabled: chords && hasLines, inFields: false });
+  useChord('ArrowLeft', () => stepCart(-1), { enabled: chords && stripIds.length > 1, inFields: false });
+  useChord('ArrowRight', () => stepCart(1), { enabled: chords && stripIds.length > 1, inFields: false });
+  useChord('KeyP', checkout.onCheckout, { enabled: chords && hasLines, inFields: false });
+
   function onSelect(doc: any) {
     try {
       const entries = catalogueEntries([doc], connector.traits.product, { currency });
@@ -243,7 +269,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   ) : <CatalogueView {...props} onSelect={onSelect} onAddEntry={onAdd} onScan={onScan} message={message}
     tax={tax} inCartCounts={inCart} hideBar
     // v2's `onTill`: Alt+F only on the till's own route, never at checkout; the phone till brings Products forward.
-    searchChord={props.searchChord !== false && sale.stage.kind === 'cart'} onRevealSearch={phoneLayout ? () => setCartOpen(false) : undefined}
+    searchChord={chords} onRevealSearch={phoneLayout ? () => setCartOpen(false) : undefined}
     viewState={viewState} onViewStateChange={setViewState} cashierControl={cashierControl} />;
   // v2's cart column paints its own surface, white in Light (pos/cart/index.tsx:75 `isColumn ? 'bg-cart'`, :187), and
   // its rows sit 8 px in (cart/foot.tsx:35 `gap-2 p-2`; cart-header.tsx:119 `px-2 py-2`).
@@ -263,7 +289,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             // B5/B6: v2's cart head row starts with the customer chip; Add new customer is in the + menu.
             customer={props.customers ? <CustomerPicker source={props.customers} customer={sale.order.customer ?? null} onChange={sale.setCustomer} /> : null}
             customers={props.customers ?? null} createCustomersBlockedReason={createCustomersBlockedReason(effective, props.siteHome)}
-            checkout={checkout}
+            checkout={checkout} chords={chords}
             position={viewState.position} onPositionChange={position => setViewState({ ...viewState, position })}
             openOrders={<OpenOrderTabs parked={parked} current={sale.order} currentOpenedAt={currentOpenedAt} currency={currency} locale={props.locale} onSelect={resume} onNew={park} onError={setMessage}
               onOpenList={() => setParkedOpen(true)} listOpen={parkedOpen} compact={phoneLayout} />} />
