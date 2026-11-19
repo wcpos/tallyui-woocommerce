@@ -13,6 +13,8 @@ import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
 import type { AppCatalogueViewState } from '../lib/catalogue/catalogue-view-state';
 import { captureQuickFilter, catalogueFilterBaseline, isQuickFilterActive, matchesCatalogueFilters, useQuickFilters } from '../lib/catalogue/quick-filters';
 import type { CapturedQuickFilter, QuickFilter } from '../lib/catalogue/quick-filters';
+import { useHiddenPills } from '../lib/catalogue/filter-bar-pills';
+import type { BuiltInPillId } from '../lib/catalogue/filter-bar-pills';
 import { optionsLabel } from '../lib/catalogue/tile-words';
 import type { TileTax } from '../lib/catalogue/tile-words';
 import { needsAnyPick, variantMatchesStock } from '../lib/catalogue/variation-match';
@@ -111,6 +113,7 @@ export function CatalogueView({
   tax, inCartCounts, onSync, hideBar, searchChord, onRevealSearch,
 }: CatalogueViewProps): JSX.Element {
   const [quickFilters, setQuickFilters] = useQuickFilters();
+  const [hiddenPills, setHiddenPills] = useHiddenPills();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [filterBarOpen, setFilterBarOpen] = useState(false);
   const [captured, setCaptured] = useState<CapturedQuickFilter | null>(null);
@@ -248,6 +251,15 @@ export function CatalogueView({
     if (applied && !next.some(qf => qf.id === applied.id && isActive(qf))) { dispatch({ type: 'appliedQuickFilterGone', baseline }); }
     setQuickFilters(next);
   }
+  // v2's showPill (use-filter-bar-commands.ts); a pill switched off also puts its filter back to the baseline, so
+  // nothing the bar no longer shows keeps narrowing the products.
+  function showPill(id: BuiltInPillId, show: boolean) {
+    setHiddenPills(show ? hiddenPills.filter(hidden => hidden !== id) : [...hiddenPills.filter(hidden => hidden !== id), id]);
+    if (show || JSON.stringify(filters[id]) === JSON.stringify(baseline[id])) return;
+    const next = { ...filters, [id]: baseline[id] };
+    if (baseline[id] === undefined) delete next[id];
+    dispatch({ type: 'filter', filters: next });
+  }
   // v2's PageBar: the search fills the row, the view toggle and Product settings sit beside it, the chips below.
   // In a window v2's bar row sits the page gutter under the column's top (page-bar/index.tsx:86 `ground.pt`) and
   // its ChipRow pads the gutter all round (chip-row/index.tsx:29 `useGround().p`, ground.ts:46-58): 12 px over the
@@ -271,7 +283,7 @@ export function CatalogueView({
           index.tsx:599): the Categories source's field, for a category and All products alike, and for a product drilled
           inside the level. A product drilled from no level only dims it (filter-bar.tsx:508). */}
       <CatalogueFilterChips products={products} filters={filters} onChange={next => dispatch({ type: 'filter', filters: next })} dimmed={drilled !== undefined}
-        placeField={level === null ? undefined : 'categories'} />
+        placeField={level === null ? undefined : 'categories'} hidden={hiddenPills} />
       <QuickFilterBar quickFilters={quickFilters} isActive={isActive} onPress={pressQuickFilter} dimmed={drilled !== undefined} menu={chipMenu} />
       {filtersOn >= 2 && <ClearAllButton onPress={() => dispatch({ type: 'clearAll', baseline, keep: level === null ? undefined : 'categories' })} />}
       {filtersOn >= 1 && <SaveAsButton onPress={() => setCaptured(captureQuickFilter(queryState, baseline, viewState.sort))} />}
@@ -282,7 +294,7 @@ export function CatalogueView({
     {/* v2 index.tsx:615: the locked notice is the column's last row, after the scanner panel. */}
     <LockedNotice lock={locked} />
     <FilterBarDialog open={filterBarOpen || captured !== null} onOpenChange={open => { setFilterBarOpen(open); if (!open) { setCaptured(null); setBarStart(null); } }}
-      quickFilters={quickFilters} onChange={changeQuickFilters} products={products} connector={connector} currency={currency}
+      quickFilters={quickFilters} onChange={changeQuickFilters} hiddenPills={hiddenPills} onShowPill={showPill} products={products} connector={connector} currency={currency}
       baselineSort={viewState.sort} captured={captured} start={barStart} />
   </View>;
   // v2's conditionsBeyond (browse/level-place.ts:53): what Clear filters can clear. The open level is the place, not a condition.
