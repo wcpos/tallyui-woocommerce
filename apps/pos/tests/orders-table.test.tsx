@@ -176,6 +176,22 @@ test("a body row is v2's 57 px order row with every cell centred on it; the day 
   expect(classesOf('orders-day-heading-2026-11-10')).toContain('h-7');
 });
 
+// v2 ui-settings/initial-settings.json:381: `{"key":"status","flex":1.6}`; Order Number has no flex, so it keeps 1.
+test("at 1280 the Status head and a store row's status cell take v2's flex 1.6; Order Number keeps the default", () => {
+  render(<OrdersTable local={[]} store={[storeOrder]} onOpen={vi.fn()} now={() => now} />);
+  for (const testID of ['orders-head-status', 'history-901-status']) {
+    expect(classesOf(testID)).toContain('flex-[1.6]');
+  }
+  for (const testID of ['orders-head-number', 'history-901-number']) {
+    expect(classesOf(testID)).not.toContain('flex-[1.6]');
+  }
+});
+
+test("a till row's status cell takes the same flex 1.6", () => {
+  render(<OrdersTable local={[posOrder({ id: 'local-1' })]} store={[]} onOpen={vi.fn()} now={() => now} />);
+  expect(classesOf('order-local-1-status')).toContain('flex-[1.6]');
+});
+
 test("at 390 each order is v2's two-line phone row: number and customer, then status, day and payment, and its total", () => {
   setWidth(390);
   render(<OrdersTable local={[]} store={[{ ...storeOrder, id: '1042', reference: '1042', customer: { name: 'Brenda Walsh' } as StoreOrder['customer'] }]}
