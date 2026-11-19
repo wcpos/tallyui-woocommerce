@@ -1,5 +1,5 @@
 import { noTaxSettings } from './fixtures/store-settings';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
@@ -77,6 +77,9 @@ async function openRegister() {
   fireEvent.change(await screen.findByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
   await screen.findByTestId('cart-empty');
+  // The open's render comes from the session subscription, outside act, and RNW's Pressable takes its new onPress in a
+  // passive effect: under CI load a tile tapped now still holds the closed till's refusal. The empty act waits a task.
+  await act(async () => {});
 }
 
 async function closeRegister(counted: string) {

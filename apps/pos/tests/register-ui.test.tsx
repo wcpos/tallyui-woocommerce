@@ -1,5 +1,5 @@
 import { noTaxSettings } from './fixtures/store-settings';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
@@ -134,6 +134,9 @@ test('open, pay out, sell, count and close, then reuse the counted float', async
   fireEvent.change(await screen.findByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
   await screen.findByTestId('cart-empty');
+  // The open's render comes from the session subscription, outside act, and RNW's Pressable takes its new onPress in a
+  // passive effect: under CI load a tile tapped now still holds the closed till's refusal. The empty act waits a task.
+  await act(async () => {});
   await waitFor(() => expect(app.register.session?.status).toBe('open'));
   await openRegisterPanel();
   fireEvent.click(await screen.findByTestId('register-panel-paid-out'));
@@ -171,6 +174,9 @@ test('switching sessions off removes the register UI and allows a sale without a
   fireEvent.change(screen.getByTestId('open-register-amount'), { target: { value: '100.00' } });
   fireEvent.click(screen.getByTestId('open-register-button'));
   await screen.findByTestId('cart-empty');
+  // The open's render comes from the session subscription, outside act, and RNW's Pressable takes its new onPress in a
+  // passive effect: under CI load a tile tapped now still holds the closed till's refusal. The empty act waits a task.
+  await act(async () => {});
   await waitFor(() => expect(app.register.session?.status).toBe('open'));
   await toggleRegisterSessions();
   expect(app.register.setting).toBe(false);
