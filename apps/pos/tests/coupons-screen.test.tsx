@@ -9,6 +9,7 @@ import { PortalHost } from '@tallyui/primitives';
 import { CouponsScreen, gmtDayText } from '../components/coupons-screen';
 import { areaColumnsKey } from '../lib/area-columns';
 import { CARD_CLASSES } from './classes-of';
+import { COARSE, FINE, stubMatchMedia } from './match-media';
 
 const connector = createWooCommerceConnector();
 const base = { used_by: [], status: 'publish' };
@@ -477,4 +478,19 @@ test("the columns take v2's flex: Active 1.4, Code and Description 2", async () 
   for (const testID of ['coupons-head-code', 'coupons-cell-code-10off', 'coupons-head-description', 'coupons-cell-description-10off']) {
     expect(classesOf(testID)).toContain('flex-[2]');
   }
+});
+
+// v2 list-frame/index.tsx:158: the row follows the pointer, not the width.
+test("a touch tablet at 1024 gets the touch rows; a mouse at 1024 keeps the table", async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1024, height: 768, scale: 1, fontScale: 1 });
+  stubMatchMedia({ ...COARSE });
+  await withCoupons();
+  expect(screen.getByTestId('coupons-row-chevron-10off')).not.toBeNull();
+  expect(screen.queryByTestId('coupons-head-code')).toBeNull();
+  cleanup();
+  stubMatchMedia({ ...FINE });
+  renderScreen();
+  await screen.findByTestId('coupons-row-10off');
+  expect(screen.getByTestId('coupons-head-code')).not.toBeNull();
+  expect(screen.queryByTestId('coupons-row-chevron-10off')).toBeNull();
 });
