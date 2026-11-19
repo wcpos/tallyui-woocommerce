@@ -251,7 +251,7 @@ function ScannerSection(): JSX.Element {
         <DocsLink testID="scanner-setup-guide-link" href={SCANNER_DOCS_URL}>Scanner setup guide</DocsLink>
         {collection && (hid.available || serial.available) && (
           <SettingsField testID="scanner-row-direct" label="Direct connection" trailing={
-            <Button testID="scanner-advanced-trigger" variant="ghost" size="sm" onPress={() => setOpen(true)}><Text>{verb}</Text></Button>}>
+            <Button testID="scanner-advanced-trigger" variant="link" size="sm" onPress={() => setOpen(true)}><Text>{verb}</Text></Button>}>
             {none ? <Text className="text-muted-foreground">None</Text> : null}
           </SettingsField>
         )}
