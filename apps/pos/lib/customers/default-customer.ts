@@ -35,6 +35,15 @@ export function saveDefaultCustomerSetting(site: string, setting: DefaultCustome
   listeners.forEach(listener => listener());
 }
 
+/** v2's Restore server settings: drops this site's override so the store's value shows. A failed write throws. */
+export function clearDefaultCustomerSetting(site: string, storage?: Storage): void {
+  let all: Record<string, unknown> = {};
+  try { all = readAll(storage); } catch {}
+  delete all[site];
+  (storage ?? globalThis.localStorage).setItem(DEFAULT_CUSTOMER_KEY, JSON.stringify(all));
+  listeners.forEach(listener => listener());
+}
+
 /** The stored setting, else the store's: Guest and not the cashier when the store sends neither. */
 export function effectiveDefaultCustomerSetting(store: Store, stored: DefaultCustomerSetting | undefined): DefaultCustomerSetting {
   return stored ?? { customerId: store.defaultCustomerId ?? 0, isCashier: store.defaultCustomerIsCashier ?? false };

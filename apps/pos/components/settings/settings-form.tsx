@@ -81,12 +81,13 @@ export const savedKeys = (before: object, patch: object): string[] => Object.key
   String((before as Record<string, unknown>)[key] ?? '') !== String((patch as Record<string, unknown>)[key] ?? ''));
 
 // v2 SavedMark (saved-mark.tsx:95-108): a check and "Saved" in the help rank, both in the success ink.
-const Mark = ({ name }: { name?: string }): JSX.Element => (
+const Mark = ({ name, label = 'Saved' }: { name?: string; label?: string }): JSX.Element => (
   <View testID={`saved-${name}`} className="h-5 flex-row items-center gap-1">
     <CheckIcon testID={`saved-${name}-icon`} size={12} className="text-success" />
-    <Text testID={`saved-${name}-label`} className={SETTINGS_HELP_CLASS.replace('text-muted-foreground', 'text-success')}>Saved</Text>
+    <Text testID={`saved-${name}-label`} className={SETTINGS_HELP_CLASS.replace('text-muted-foreground', 'text-success')}>{label}</Text>
   </View>
 );
 
-export const SavedMark = ({ name }: { name: string }): JSX.Element | null =>
-  useContext(SavedFieldContext).name === name ? <Mark name={name} /> : null;
+// v2 SavedMark's `label`: "Restored" after a restore (general.tsx:414).
+export const SavedMark = ({ name, label }: { name: string; label?: string }): JSX.Element | null =>
+  useContext(SavedFieldContext).name === name ? <Mark name={name} label={label} /> : null;
