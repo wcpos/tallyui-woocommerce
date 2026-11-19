@@ -12,6 +12,7 @@ export interface PaperSize { width: number; height: number }
 
 // True paper sizes in CSS px, from v2. The height holds the frame until the receipt has been measured.
 export const PAPER_DIMENSIONS: Record<ReceiptPaperWidth, PaperSize> = {
+  a4: { width: 794, height: 1123 },
   '58mm': { width: 219, height: 520 },
   '80mm': { width: 302, height: 520 },
 };
