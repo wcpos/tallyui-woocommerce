@@ -48,13 +48,13 @@ vi.mock('../components/sale-screen', () => ({
 
 afterEach(() => { cleanup(); mocks.pathname = '/catalogue'; });
 
-test("the till's Alt+F is live only while the till is the shown route, not under a pushed screen", () => {
+test("the till's Alt+F and wedge claim are live only while the till is the shown route, not under a pushed screen", () => {
   render(<Catalogue />);
-  expect(mocks.props.searchChord).toBe(true);
+  expect([mocks.props.searchChord, mocks.props.scanActive]).toEqual([true, true]);
   cleanup();
   mocks.pathname = '/orders';
   render(<Catalogue />);
-  expect(mocks.props.searchChord).toBe(false);
+  expect([mocks.props.searchChord, mocks.props.scanActive]).toEqual([false, false]);
 });
 
 test("the till's drawer opens Products at /products and Coupons at /coupons", () => {

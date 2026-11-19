@@ -25,7 +25,8 @@ export default function Catalogue() {
   const store = useTillStoreSettings(session);
   const { catalogue, products, status, notice, error } = useCatalogue();
   const router = useRouter();
-  // The web stack keeps the till mounted under a pushed screen (display none): its Alt+F is live only while it shows.
+  // The web stack keeps the till mounted under a pushed screen (display none): its Alt+F and its wedge claim are live
+  // only while it shows.
   const tillShown = usePathname() === '/catalogue';
   const connector = catalogue?.connector;
   const context = useRequestContext(connector, session);
@@ -66,6 +67,7 @@ export default function Catalogue() {
       adminUrl={`${session.site.home}/wp-admin`}
       siteHome={session.site.home}
       searchChord={tillShown}
+      scanActive={tillShown}
       cashierName={session.tokens.user.displayName}
       cashierRef={String(session.tokens.user.id)}
       cashiers={cashiers.map(c => ({ uuid: c.tokens.user.uuid, name: c.tokens.user.displayName }))}

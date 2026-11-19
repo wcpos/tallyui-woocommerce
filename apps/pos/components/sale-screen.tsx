@@ -421,7 +421,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
 
   // WCPOS v2's two-pane checkout: during a multi-payment tender the ledger takes the products panel, beside the tender.
   const multiTender = outbox.enabled && props.multiplePayments === true && sale.stage.kind === 'tender';
-  useWedgeScanner(onTenderScan, multiTender && width >= SALE_SPLIT_MIN_WIDTH);
+  useWedgeScanner(onTenderScan, props.scanActive !== false && multiTender && width >= SALE_SPLIT_MIN_WIDTH);
   if (width >= SALE_SPLIT_MIN_WIDTH) {
     const shown = liveWidth ?? viewState.width;
     // v2 keeps no inset on the products column's edge facing the cart (pos-columns.tsx `GroundInnerEdge`, lib/ground.ts:

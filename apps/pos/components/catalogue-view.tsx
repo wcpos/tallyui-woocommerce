@@ -87,6 +87,9 @@ export interface CatalogueViewProps {
   searchChord?: boolean;
   /** Shows the pane the search sits in before Alt+F focuses it (the phone till's Products tab). */
   onRevealSearch?(): void;
+  /** The catalogue claims the wedge only while this is not false: the till route shows (v2 use-barcode.ts:115-117
+   *  "The POS section owns scans", isActive: inPos), so a remount under a pushed screen cannot take scans back. */
+  scanActive?: boolean;
 }
 
 export type PosBarProps = Pick<CatalogueViewProps, 'storeName' | 'cashierName' | 'cashierControl' | 'onSignOut'
@@ -110,7 +113,7 @@ export function PosBar({ storeName, cashierName, cashierControl, onSignOut,
 export function CatalogueView({
   connector, currency, products, storeName, cashierName, cashierControl, status, notice, onSignOut, onOpenProducts, onOpenOrders, onOpenCoupons, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings, onOpenSupport, onSelect, onAddEntry, onScan, message, locked = null,
   viewState: controlledViewState, onViewStateChange,
-  tax, inCartCounts, onSync, hideBar, searchChord, onRevealSearch,
+  tax, inCartCounts, onSync, hideBar, searchChord, onRevealSearch, scanActive,
 }: CatalogueViewProps): JSX.Element {
   const [quickFilters, setQuickFilters] = useQuickFilters();
   const [hiddenPills, setHiddenPills] = useHiddenPills();
@@ -129,7 +132,7 @@ export function CatalogueView({
     if (result === 'clear') dispatch({ type: 'search', term: '' });
     else if (result === 'search') dispatch({ type: 'search', term: code });
   }
-  const ownsScan = useWedgeScanner(scan, Boolean(onScan));
+  const ownsScan = useWedgeScanner(scan, Boolean(onScan) && scanActive !== false);
   // v2 pos/products/index.tsx:331: the inline camera scanner; its decodes take the wedge's scan path.
   const [scannerOpen, setScannerOpen] = useState(false);
   const camera = useCameraScan(scan, ownsScan);
