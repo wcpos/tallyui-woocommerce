@@ -137,3 +137,86 @@ test('Cancel closes the picker and adds nothing', () => {
   expect(screen.getByText('T-Shirt')).not.toBeNull();
   expect(cartTabCount()).toBe('New');
 });
+
+// v2's characterCount rule: the colours below total 15 or more characters, so Colour is a select.
+const longName: Record<string, string> = { Black: 'Midnight Black', White: 'Arctic White' };
+const longShirt = {
+  ...shirt,
+  attributes: [attributes[0], { ...attributes[1], options: ['Midnight Black', 'Arctic White'] }],
+  variation_docs: docs.map(doc => ({ ...doc, attributes: doc.attributes.map(attr =>
+    attr.name === 'Colour' ? { ...attr, option: longName[attr.option] } : attr) })),
+};
+// Over 10 values: a searchable combobox. Red and the rest have no variation, so they are unavailable.
+const manyShirt = { ...shirt, attributes: [attributes[0], { ...attributes[1],
+  options: ['Black', 'White', 'Red', 'Green', 'Blue', 'Yellow', 'Purple', 'Orange', 'Pink', 'Brown', 'Grey'] }] };
+
+function search(text: string) {
+  fireEvent.change(screen.getByTestId('variation-combobox-search'), { target: { value: text } });
+}
+
+test('long values are a Select an option select, and picking one chooses it as the buttons do', () => {
+  open([longShirt]);
+  expect(screen.getByTestId('variation-select-Colour').textContent).toBe('Select an option');
+  expect(screen.queryByText('Midnight Black')).toBeNull();
+  expect(screen.getByText('S')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('variation-select-Colour'));
+  fireEvent.click(screen.getByTestId('variation-option-Arctic White'));
+  expect(screen.getByTestId('variation-select-Colour').textContent).toBe('Arctic White');
+  pick('S');
+  addAndOpenCart();
+  expect(screen.getByText('T-Shirt · S / Arctic White')).not.toBeNull();
+});
+
+test('more than 10 values are a searchable combobox with Search Variations and No variation found', () => {
+  open([manyShirt]);
+  expect(screen.queryByTestId('variation-select-Colour')).toBeNull();
+  expect(screen.getByTestId('variation-combobox-Colour').textContent).toBe('Select an option');
+  fireEvent.click(screen.getByTestId('variation-combobox-Colour'));
+  expect(screen.getByTestId('variation-combobox-search').getAttribute('placeholder')).toBe('Search Variations');
+  search('whi');
+  expect(screen.getByTestId('variation-option-White')).not.toBeNull();
+  expect(screen.queryByTestId('variation-option-Black')).toBeNull();
+  expect(screen.queryByText('No variation found')).toBeNull();
+  search('zzz');
+  expect(screen.queryByTestId('variation-option-White')).toBeNull();
+  expect(screen.getByTestId('variation-combobox-empty').textContent).toBe('No variation found');
+  search('whi');
+  fireEvent.click(screen.getByTestId('variation-option-White'));
+  expect(screen.queryByTestId('variation-combobox-search')).toBeNull();
+  expect(screen.getByTestId('variation-combobox-Colour').textContent).toBe('White');
+  pick('S');
+  addAndOpenCart();
+  expect(screen.getByText('T-Shirt · S / White')).not.toBeNull();
+});
+
+test('short values keep the buttons', () => {
+  open();
+  expect(screen.queryByText('Select an option')).toBeNull();
+  for (const name of ['Size', 'Colour']) {
+    expect(screen.queryByTestId(`variation-select-${name}`)).toBeNull();
+    expect(screen.queryByTestId(`variation-combobox-${name}`)).toBeNull();
+  }
+  for (const text of ['Black', 'White']) expect(screen.getByText(text)).not.toBeNull();
+});
+
+test('unavailable values are disabled in the select and the combobox', () => {
+  open([longShirt]);
+  pick('M');
+  expect(screen.getByTestId('variation-select-Colour').textContent).toBe('Midnight Black');
+  fireEvent.click(screen.getByTestId('variation-select-Colour'));
+  expect(screen.getByTestId('variation-option-Arctic White').getAttribute('aria-disabled')).toBe('true');
+  expect(screen.getByTestId('variation-option-Midnight Black').getAttribute('aria-disabled')).toBeNull();
+  fireEvent.click(screen.getByTestId('variation-option-Arctic White'));
+  expect(screen.getByTestId('variation-select-Colour').textContent).toBe('Midnight Black');
+  expect(screen.queryByTestId('variation-popover-unavailable')).toBeNull();
+  cleanup();
+
+  // L takes any colour, so Red is only unavailable once the size is S.
+  open([manyShirt]);
+  pick('S');
+  fireEvent.click(screen.getByTestId('variation-combobox-Colour'));
+  expect(screen.getByTestId('variation-option-Red').getAttribute('aria-disabled')).toBe('true');
+  expect(screen.getByTestId('variation-option-White').getAttribute('aria-disabled')).toBeNull();
+  fireEvent.click(screen.getByTestId('variation-option-Red'));
+  expect(screen.getByTestId('variation-combobox-Colour').textContent).toBe('Select an option');
+});
