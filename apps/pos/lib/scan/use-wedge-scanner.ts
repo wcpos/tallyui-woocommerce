@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import { readScanSettings } from './scan-settings';
 import { createWedgeDetector, type WedgeAttempt } from './wedge';
@@ -7,7 +7,9 @@ import { createWedgeDetector, type WedgeAttempt } from './wedge';
 // till (Settings, Orders) takes the scan instead of the till underneath ringing it up as well.
 const owners: symbol[] = [];
 
-export function useWedgeScanner(onScan: (code: string) => void, active: boolean, onAttempt?: (attempt: WedgeAttempt) => void): void {
+/** Returns whether this scanner may take a scan now: it holds no claim (inactive, or not web) or it claimed last. */
+export function useWedgeScanner(onScan: (code: string) => void, active: boolean, onAttempt?: (attempt: WedgeAttempt) => void): () => boolean {
+  const claim = useRef<symbol | null>(null);
   const latestOnScan = useRef(onScan);
   latestOnScan.current = onScan;
   const latestOnAttempt = useRef(onAttempt);
@@ -17,6 +19,7 @@ export function useWedgeScanner(onScan: (code: string) => void, active: boolean,
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
     const token = Symbol('wedge');
     owners.push(token);
+    claim.current = token;
     const detector = createWedgeDetector(code => latestOnScan.current(code), {
       getSettings: readScanSettings,
       onAttempt: attempt => latestOnAttempt.current?.(attempt),
@@ -34,7 +37,9 @@ export function useWedgeScanner(onScan: (code: string) => void, active: boolean,
     return () => {
       document.removeEventListener('keydown', onKeyDown);
       owners.splice(owners.indexOf(token), 1);
+      claim.current = null;
       detector.reset();
     };
   }, [active]);
+  return useCallback(() => claim.current === null || owners[owners.length - 1] === claim.current, []);
 }
