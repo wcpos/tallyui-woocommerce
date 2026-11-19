@@ -261,7 +261,8 @@ export function CatalogueFilterChips({ products, filters, onChange, dimmed = fal
     <CurrencyIcon size={16} className={chipGlyphClassName(onSale)} />
     <Text className={filterChipTextClassName(onSale)}>On Sale</Text>
   </Pressable>;
-  return <View testID="filter-chips" className="flex-row flex-wrap items-center gap-2">
+  // Both callers (the till's catalogue-chip-row, the Products screen's products-chip-row) draw it in v2's horizontal ChipRow.
+  return <View testID="filter-chips" className="flex-row items-center gap-2">
     {!hidden.includes('stock_status') && slot('stock_status', onLongPress => <SelectChip field="stock_status" icon={WarehouseIcon} active={'stock_status' in filters} label={stockLabel ?? 'Stock Status'} extra={0}
       selected={stockLabel === undefined ? undefined : { value: stock!, label: stockLabel }}
       options={(Object.keys(STOCK_LABELS) as QuickFilterStockStatus[]).map(value => ({ value, label: STOCK_LABELS[value], testID: `stock-status-option-${value}` }))}
