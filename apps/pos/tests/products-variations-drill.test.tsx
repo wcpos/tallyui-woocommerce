@@ -151,18 +151,19 @@ test('a search change drops the drill, and clearing the search does not bring it
   expect(crumb()).toBeNull();
 });
 
-test('at phone width the list gets the same links and drill', () => {
+test('at phone width a variable product\'s row is the name, the SKU and "6 variations" alone, and it drills (v2 row.tsx:155-205)', () => {
   setWidth(400);
   renderScreen();
-  expect(text(`product-attributes-${shirt.id}-Size`)).toBe('Size: S, M');
+  expect(screen.queryByTestId(`product-attributes-${shirt.id}-Size`)).toBeNull();
+  expect(screen.queryByTestId(`product-attribute-${shirt.id}-Size-M`)).toBeNull();
   expect(rowIds('products-row-')).toEqual([coldBrew.id, espresso.id, shirt.id]);
+  expect(text(`product-variations-${shirt.id}`)).toBe('6 variations');
   fireEvent.click(screen.getByTestId(`product-variations-${shirt.id}`));
   expect(text('products-breadcrumb-here')).toBe('T-Shirt');
   expect(rowIds('products-row-')).toEqual([104, 105, 106]);
   expect(text('product-variation-name-105')).toBe('S, White');
   fireEvent.click(screen.getByTestId('products-breadcrumb-back'));
-  fireEvent.click(screen.getByTestId(`product-attribute-${shirt.id}-Size-M`));
-  expect(rowIds('products-row-')).toEqual([106]);
+  expect(rowIds('products-row-')).toEqual([coldBrew.id, espresso.id, shirt.id]);
 });
 
 test('drilling in focuses the crumb\'s Products back control, once and without scrolling', () => {
