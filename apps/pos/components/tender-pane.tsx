@@ -7,7 +7,8 @@ import { activePlan, appliedMinor, changeMinor, initTenderState, planLegs, quick
 import type { TenderKey, useSale } from '@tallyui/pos';
 import { useIsOnline } from '../lib/online/online-status';
 import { filterChipClassName, filterChipTextClassName } from './catalogue-filter-chips';
-import { EvenSplitTiles, PlanStrip } from './split-plan';
+import { percentOfMinor } from '../lib/sale/percent-of';
+import { EvenSplitTiles, PercentChips, PlanStrip } from './split-plan';
 import { CardIcon, RegisterIcon } from './icons';
 
 /** The single-payment path's two tiles: the connector maps cash to pos_cash and external to pos_card. */
@@ -47,6 +48,7 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
     initTenderState);
   const [reference, setReference] = useState('');
   const [asking, setAsking] = useState(false);
+  const [percent, setPercent] = useState(false);
   const online = useIsOnline();
   // WCPOS v2: tender-pane.tsx:106. Only a save in flight counts: a failed one already says so through Retry and its error.
   const slow = useElapsed(sale.saving && sale.error === null, SLOW_SAVE_NOTICE_MS);
@@ -73,7 +75,10 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
   const taken = sale.order.payments.map(payment => ({ minor: payment.amountMinor, title: payment.method === 'cash' ? 'Cash' : 'Card' }));
   const on = state.splitView || plan !== null;
   const method = METHODS.find(m => m.id === state.methodId)!;
-  const applied = appliedMinor(state.entryMinor, balance);
+  // WCPOS v2: tender-figures.ts:111-113. In percent entry the reducer's entry is the typed share; the money is that share of the balance.
+  const percentOn = multi && percent;
+  const entry = percentOn ? percentOfMinor(balance, state.entryMinor) : state.entryMinor;
+  const applied = appliedMinor(entry, balance);
   const dp = minorUnitDigits(sale.order.currency);
   const quick = method.givesChange ? quickTenderedAmounts(applied, QUICK_TENDER_STEPS.map(step => step * 10 ** dp)) : [];
   const legs = sale.order.payments.length;
@@ -87,16 +92,18 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
   const shown = before ?? balance;
   // WCPOS v2: tender-pane.tsx:117-118, tender-figures.ts:165. The balance is 0 once the last leg is in, so the entry
   // against it would read as all change: paid in full, the header shows the order's change while it saves.
-  const change = multi && balance === 0 && legs > 0 ? sale.order.changeDueMinor : changeMinor(state.entryMinor, applied, method.givesChange);
-  const noChange = !method.givesChange && state.entryMinor > balance;
+  const change = multi && balance === 0 && legs > 0 ? sale.order.changeDueMinor : changeMinor(entry, applied, method.givesChange);
+  const noChange = !method.givesChange && entry > balance;
   const fmt = (amount: number) => formatMoney({ amount, currency: sale.order.currency }) ?? '';
   // WCPOS v2: tender-figures.ts:134,147 and tender-pane.tsx:285-334. A plan is measured against this payment's planned
   // share, not the balance: keeping the share reads empty, and less than it says where the shortfall goes.
   const shareDue = planned ? planned.thisPaymentMinor : balance;
   const toCome = planned ? planned.legs.filter(leg => leg.state === 'todo').length : 0;
   const short = `Less than planned · ${fmt(shareDue - applied)} moves to`;
+  // WCPOS v2: tender-pane.tsx:302-306, 334.
   const hint = noChange ? `Only ${fmt(balance)} is due — ${method.title} can't give change`
-    : state.entryMinor > 0 && applied < shareDue ? !planned ? `Part payment · ${fmt(balance - applied)} left after this`
+    : percentOn ? `${state.entryMinor} % of ${fmt(balance)} · type another share`
+    : entry > 0 && applied < shareDue ? !planned ? `Part payment · ${fmt(balance - applied)} left after this`
       : toCome === 2 ? `${short} payments ${planned.label.n + 1} and ${planned.label.n + 2}`
         : toCome > 2 ? `${short} the next ${toCome} payments` : `${short} the next payment` : '';
   const suffix = planned ? ` · ${planned.label.n} of ${planned.label.ways}` : !multi ? '' : applied < balance ? ` · ${fmt(balance - applied)} left` : legs > 0 ? ' · pays it off' : '';
@@ -122,13 +129,15 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
       let id: ReturnType<typeof sale.addTender> = null;
       try {
         id = method.method === 'cash'
-          ? sale.addTender({ method: 'cash', amountMinor: state.entryMinor })
+          ? sale.addTender({ method: 'cash', amountMinor: entry })
           : sale.addTender({ method: 'external', amountMinor: applied, ...(reference ? { reference } : {}) });
       } finally {
         if (id === null) taking.current = false;
       }
       if (id === null) return;
       setReference('');
+      // WCPOS v2: tender-state.ts:198-213. A leg taken ends percent entry.
+      setPercent(false);
       if (applied >= balance) { void sale.complete(); return; }
       dispatch({ type: 'tender-recorded', rowsSinceFrom: [...since, { amountMinor: applied, title: method.title }], balanceMinor: balance - applied });
       return;
@@ -145,11 +154,11 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
       <Text testID="checkout-label" className="text-center text-sm text-muted-foreground">
         {planned ? `Payment ${planned.label.n} of ${planned.label.ways} · ${fmt(balance)} left` : held ? `Payment ${held.n} of ${held.ways} · ${fmt(shown)} left`
           : multi && counted > 0 ? `Payment ${counted + 1} · ${fmt(shown)} left`
-          : <>To pay{state.entryMinor !== shown ? <>{' '}<Text testID="checkout-balance" className="tabular-nums">{fmt(shown)}</Text></> : null}</>}
+          : <>To pay{entry !== shown ? <>{' '}<Text testID="checkout-balance" className="tabular-nums">{fmt(shown)}</Text></> : null}</>}
       </Text>
       {multi && balance > 0 && <Pressable accessibilityRole="button" testID="checkout-split-chip" aria-pressed={on}
         className={filterChipClassName(on)} disabled={sale.saving}
-        onPress={() => dispatch(on ? { type: 'clear-plan', balanceMinor: balance } : { type: 'open-split' })}>
+        onPress={() => { setPercent(false); dispatch(on ? { type: 'clear-plan', balanceMinor: balance } : { type: 'open-split' }); }}>
         <Text className={filterChipTextClassName(on)}>Split</Text>
       </Pressable>}
       {/* WCPOS v2: tender-pane.tsx:430-434. */}
@@ -158,10 +167,10 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
     {change > 0 ? <>
       {/* WCPOS v2: tender-pane.tsx:437-449; change is the ok tone, and a later leg names the order total. */}
       <Text testID="checkout-entry-hint" className="text-center text-3xl font-semibold text-success">{`Change ${fmt(change)}`}</Text>
-      <Text testID="checkout-tendered-line" className="text-center text-base text-muted-foreground">Tendered <Text testID="checkout-entry" className="tabular-nums">{fmt(state.entryMinor)}</Text>
+      <Text testID="checkout-tendered-line" className="text-center text-base text-muted-foreground">Tendered <Text testID="checkout-entry" className="tabular-nums">{fmt(entry)}</Text>
         {sale.order.totalMinor !== balance ? ` · Total ${fmt(sale.order.totalMinor)}` : ''}</Text>
     </> : <>
-      <Text testID="checkout-entry" className={`text-center text-4xl font-semibold tabular-nums text-foreground ${state.entryDirty ? '' : 'opacity-70'}`}>{fmt(state.entryMinor)}</Text>
+      <Text testID="checkout-entry" className={`text-center text-4xl font-semibold tabular-nums text-foreground ${state.entryDirty ? '' : 'opacity-70'}`}>{fmt(entry)}</Text>
       <Text testID="checkout-entry-hint" className={`min-h-6 text-center ${noChange ? 'text-warning-text' : 'text-muted-foreground'}`}>{hint}</Text>
     </>}
     {/* WCPOS v2: tender-pane.tsx:475-483 draws the method tiles under the figure and its hint, before the plan strip and the quick amounts. */}
@@ -192,18 +201,21 @@ export function TenderPane({ sale, multi = false }: { sale: ReturnType<typeof us
     {/* WCPOS v2: tender-pane.tsx:721 and 893-918. */}
     <View testID="checkout-helpers" className="w-full flex-row flex-wrap justify-center gap-2">
       {/* WCPOS v2: tender-pane.tsx:732-777. */}
-      {multi && state.splitView && !plan && <EvenSplitTiles restMinor={balance} fmt={fmt} disabled={sale.saving}
+      {multi && state.splitView && !plan && !percentOn && <EvenSplitTiles restMinor={balance} fmt={fmt} disabled={sale.saving}
+        onPercent={() => { setPercent(true); dispatch({ type: 'set-entry', minor: 0 }); }}
         onPick={ways => dispatch({ type: 'set-plan', plan: { kind: 'even', ways, from: sale.order.payments.length }, balanceMinor: balance })} />}
-      {quick.map(minor => <Pressable key={minor} accessibilityRole="button" testID={`checkout-quick-${minor / 10 ** dp}`}
+      {/* WCPOS v2: tender-pane.tsx:790-812, 893, 905: percent entry swaps the quick amounts and Exact for the shares. */}
+      {percentOn && <PercentChips percent={state.entryMinor} disabled={sale.saving} onPick={minor => dispatch({ type: 'set-entry', minor })} />}
+      {!percentOn && quick.map(minor => <Pressable key={minor} accessibilityRole="button" testID={`checkout-quick-${minor / 10 ** dp}`}
         className={filterChipClassName(false)} disabled={sale.saving} onPress={() => dispatch({ type: 'set-entry', minor })}>
         <Text className={filterChipTextClassName(false)}>{fmt(minor)}</Text>
       </Pressable>)}
-      <Pressable accessibilityRole="button" testID={method.givesChange ? 'checkout-quick-exact' : 'checkout-quick-balance'}
+      {!percentOn && <Pressable accessibilityRole="button" testID={method.givesChange ? 'checkout-quick-exact' : 'checkout-quick-balance'}
         className={filterChipClassName(false)} disabled={sale.saving} onPress={() => dispatch({ type: 'set-entry', minor: balance })}>
         <Text className={filterChipTextClassName(false)}>
           {method.givesChange ? `Exact ${fmt(shown)}` : state.entryMinor === shown ? 'Full balance' : `Full balance ${fmt(shown)}`}
         </Text>
-      </Pressable>
+      </Pressable>}
     </View>
     {/* WCPOS v2: tender-pane.tsx:337-352, 485-584. */}
     {planned && <PlanStrip legs={planned.legs} taken={taken} paidMinor={taken.reduce((sum, row) => sum + row.minor, 0)} fmt={fmt} disabled={sale.saving}
