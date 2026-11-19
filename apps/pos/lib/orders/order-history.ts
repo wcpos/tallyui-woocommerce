@@ -7,12 +7,15 @@ export interface OrderHistorySource {
   fields?: readonly OrderFilterField[];
   /** `search` is the platform's own order search; `filters` the bar's fields (orderFiltersQuery). */
   list(page: number, search?: string, filters?: Pick<ListOrdersQuery, OrderFilterField>): Promise<StoreOrderPage>;
+  /** One order by store id, through the connector's getOrders; undefined when the store has no such order. */
+  get?(id: string): Promise<StoreOrder | undefined>;
 }
 
 export function orderHistorySource(connector: TallyConnector, context: () => SyncContext): OrderHistorySource | null {
   if (!connector.listOrders) return null;
   return { fields: connector.orderFilters ?? [],
-    list: (page, search, filters) => connector.listOrders!(context(), { page, perPage: 25, ...(search ? { search } : {}), ...filters }) };
+    list: (page, search, filters) => connector.listOrders!(context(), { page, perPage: 25, ...(search ? { search } : {}), ...filters }),
+    ...(connector.getOrders ? { get: async (id: string) => (await connector.getOrders!(context(), [id])).find(order => order.id === id) } : {}) };
 }
 
 /** WooCommerce's created_via words for the store pill (v2 store-pill.tsx: POS, Online Store, WP Admin). */

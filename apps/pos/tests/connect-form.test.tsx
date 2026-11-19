@@ -83,7 +83,7 @@ test('does not connect while the address is empty', () => {
 
 test.each([
   ['no_wcpos', 'AUTH311'], ['wcpos_outdated', 'AUTH331'], ['invalid_url', 'AUTH411'],
-  ['bot_challenge', 'HOST121'],
+  ['bot_challenge', 'HOST121'], ['rest_restricted', 'AUTH301'],
 ] as const)('links %s to its error code docs', async (code, errorCode) => {
   const startSignIn = vi.fn<StartSignIn>().mockRejectedValue(new SiteError(code, `Message for ${code}`));
   render(<ConnectForm startSignIn={startSignIn} />);
@@ -96,7 +96,7 @@ test.each([
   expect(screen.queryByTestId('connect-progress')).toBeNull();
 });
 
-test.each(['unreachable', 'not_wordpress'] as const)('shows %s without a docs link', async code => {
+test.each(['unreachable', 'timeout', 'not_wordpress'] as const)('shows %s without a docs link', async code => {
   const startSignIn = vi.fn<StartSignIn>().mockRejectedValue(new SiteError(code, `Message for ${code}`));
   render(<ConnectForm startSignIn={startSignIn} />);
   fireEvent.change(screen.getByTestId('store-url-input'), { target: { value: 'shop.example' } });

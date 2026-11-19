@@ -97,11 +97,14 @@ function Chip({ text }: { text: string }) {
 }
 
 /** v2's read-only order modal View tab (orders/edit/view.tsx) for a store order. */
-export function OrderDetailView({ order, onReceipt, onClose }: {
-  order: StoreOrder; onReceipt(): void; onClose(): void;
+export function OrderDetailView({ order, onReceipt, onClose, onSync, syncing }: {
+  order: StoreOrder; onReceipt(): void; onClose(): void; onSync?(): void; syncing?: boolean;
 }) {
   const wide = useIsWide();
   const close = <SheetCloseButton testID="dialog-footer-close" className={wide ? undefined : 'w-full'} onPress={onClose} />;
+  const receipt = <Button testID="order-modal-receipt" variant="outline" className={wide ? 'h-11 border-border' : 'h-11 w-full border-border'} onPress={onReceipt}><Text>Receipt</Text></Button>;
+  // v2 view.tsx:156-162: Sync is the footer's `record` slot, outline (dialog/index.tsx:376); v2 draws no busy state, this disables it.
+  const sync = onSync && <Button testID="order-modal-sync" variant="outline" disabled={syncing} className={wide ? 'h-11 border-border' : 'h-11 w-full border-border'} onPress={onSync}><Text>Sync</Text></Button>;
   const gross = (net: number, tax: number) => order.pricesIncludeTax ? net + tax : net;
   const money = (amount: number) => formatMoney({ amount, currency: order.currency }) ?? String(amount);
   const refunded = order.refunds.reduce((sum, refund) => sum + refund.amountMinor, 0);
@@ -251,22 +254,25 @@ export function OrderDetailView({ order, onReceipt, onClose }: {
           </View>
         </Section>
       </ScrollView>
-      {/* v2 dialog/index.tsx:343,381-411: `secondary` is the `other` slot; a phone stacks it above the dismiss, all w-full. */}
-      <View testID="order-modal-footer" className={wide ? 'flex-row flex-wrap items-center justify-end gap-2 border-t border-border px-4 pt-4' : 'flex-col gap-2 border-t border-border px-4 pt-4'}>
-        {wide && close}
-        <Button testID="order-modal-receipt" variant="outline" className={wide ? 'h-11 border-border' : 'h-11 w-full border-border'} onPress={onReceipt}><Text>Receipt</Text></Button>
-        {!wide && close}
+      {/* v2 dialog/index.tsx:343,381-411: `secondary` is the `other` slot; a phone stacks it above the dismiss, all w-full.
+          The `record` slot (Sync) leads a wide footer apart from the rest, and a phone puts it under the dismiss. */}
+      <View testID="order-modal-footer" className={wide ? `flex-row flex-wrap items-center ${sync ? 'justify-between' : 'justify-end'} gap-2 border-t border-border px-4 pt-4` : 'flex-col gap-2 border-t border-border px-4 pt-4'}>
+        {wide
+          ? sync ? <>{sync}<View className="min-w-0 shrink flex-row flex-wrap gap-2">{close}{receipt}</View></> : <>{close}{receipt}</>
+          : <>{receipt}{close}{sync}</>}
       </View>
     </View>
   );
 }
 
 /** v2's order record dialog (orders/edit/modal.tsx, record-dialog/index.tsx): a right side sheet, View only. */
-export function OrderDetailSheet({ order, onReceipt, onClose }: { order: StoreOrder; onReceipt(): void; onClose(): void }) {
+export function OrderDetailSheet({ order, onReceipt, onClose, onSync, syncing }: {
+  order: StoreOrder; onReceipt(): void; onClose(): void; onSync?(): void; syncing?: boolean;
+}) {
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
       <DialogContent testID="order-modal" accessibilityLabel={`Order #${order.reference}`} className={ORDER_SHEET}>
-        <OrderDetailView order={order} onReceipt={onReceipt} onClose={onClose} />
+        <OrderDetailView order={order} onReceipt={onReceipt} onClose={onClose} onSync={onSync} syncing={syncing} />
       </DialogContent>
     </Dialog>
   );

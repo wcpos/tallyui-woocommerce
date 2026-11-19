@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
 import { Pressable, View } from 'react-native';
-import { IconButton, Text, Tooltip, TooltipContent, TooltipTrigger } from '@tallyui/components';
+import { Button, IconButton, Text, Tooltip, TooltipContent, TooltipTrigger } from '@tallyui/components';
 import type { QuickFilter } from '../lib/catalogue/quick-filters';
 import { DimmedChipTooltip, filterChipClassName, filterChipTextClassName } from './catalogue-filter-chips';
 import { BookmarkIcon } from './icons';
@@ -15,6 +15,11 @@ export function SaveAsButton({ onPress }: { onPress(): void }): JSX.Element {
     </TooltipTrigger>
     <TooltipContent><Text>Save as button</Text></TooltipContent>
   </Tooltip>;
+}
+
+/** v2's Clear all after the chips (filter-bar.tsx:528-537): a link, shown once two filters are on (core.json:1213). */
+export function ClearAllButton({ onPress }: { onPress(): void }): JSX.Element {
+  return <Button testID="filter-bar-clear-all" variant="link" size="sm" onPress={onPress}><Text>Clear all</Text></Button>;
 }
 
 export function QuickFilterBar({ quickFilters, isActive, onPress, dimmed = false }: {

@@ -46,6 +46,9 @@ export const BoxIcon = createSvgIcon('BoxIcon', () => <Path d="m12 3l8 4.5v9L12 
 export const ClockIcon = createSvgIcon('ClockIcon', () => <><Path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0-18 0" /><Path d="M12 7v5l3 3" /></>);
 // v2's lucide `info` glyph (coupon status chip, EmptyState `empty`); @tallyui/components exports none.
 export const InfoIcon = createSvgIcon('InfoIcon', () => <><Circle cx={12} cy={12} r={10} /><Path d="M12 16v-4" /><Path d="M12 8h.01" /></>);
+// v2's tabler `lock` glyph (monorepo packages/components/src/icon/svg/tabler/lock.svg).
+export const LockIcon = createSvgIcon('LockIcon', () => <><Path d="M5 13a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z" />
+  <Path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0-2 0m-3-5V7a4 4 0 1 1 8 0v4" /></>);
 // v2's `support` glyph, tabler's message-question (monorepo packages/components/scripts/icons/maps/tabler.json:108,
 // path from packages/components/src/icon/components/tabler/support.tsx:14).
 export const SupportIcon = createSvgIcon('SupportIcon', () => <Path d="M8 9h8m-8 4h6m0 5h-1l-5 3v-3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4.5M19 22v.01M19 19a2.003 2.003 0 0 0 .914-3.782 1.98 1.98 0 0 0-2.414.483" />);

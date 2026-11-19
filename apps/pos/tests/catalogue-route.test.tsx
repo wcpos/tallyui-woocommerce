@@ -1,7 +1,8 @@
 // The catalogue route's wiring of CatalogueUnavailable: Sign out only on a failed start, never while connecting.
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import Catalogue from '../app/catalogue';
+import Catalogue, { ErrorBoundary } from '../app/catalogue';
+import { RouteErrorScreen } from '../components/route-error-screen';
 
 const mocks = vi.hoisted(() => {
   const calls: string[] = [];
@@ -83,4 +84,9 @@ test('while connecting the notice shows with no Sign out button', () => {
   render(<Catalogue />);
   expect(screen.getByText('Connecting to Store…')).not.toBeNull();
   expect(screen.queryByTestId('catalogue-error-sign-out')).toBeNull();
+});
+
+// v2 (pos)/_layout.tsx:8: the register route's own boundary is the error gate.
+test('the register route exports the error gate as its ErrorBoundary', () => {
+  expect(ErrorBoundary).toBe(RouteErrorScreen);
 });

@@ -8,6 +8,7 @@ import { useThemeChoice } from '../../lib/theme/theme-setting';
 import type { ThemeChoice } from '../../lib/theme/theme-setting';
 import { useScaleChoice } from '../../lib/theme/scale-setting';
 import { Segmented } from '../segmented';
+import { FontsSection } from './fonts-section';
 
 // v2's glyphs for the theme tiles (theme.tsx:444-498), its tabler set at stroke 1.5
 // (packages/components/src/icon/components/tabler/<name>.tsx).
@@ -117,6 +118,8 @@ export function ThemeSettings(): JSX.Element {
         </View>
       </View>
       <ScaleSection />
+      {/* v2 stacks Scale, Icons and Fonts after Appearance (theme.tsx:531-533); Scale and Fonts are built here. */}
+      <FontsSection />
     </View>
   );
 }

@@ -13,14 +13,15 @@ export const LINE_SORTS: readonly { id: LineSort; label: string }[] = [
 // v2's pos-cart.openOrdersPosition (pos/cart/ui-settings-form.tsx): the open-order tab strip above or below the cart.
 export type OpenOrdersPosition = 'top' | 'bottom';
 // quickDiscounts: v2's pos-cart.quickDiscounts, the percent keys on each line's price keypad.
-export interface CartSettings { sortLines: LineSort; openOrdersPosition: OpenOrdersPosition; quickDiscounts: number[] }
+// columns: v2's pos-cart columns, so far the quantity column's Split display (initial-settings.json: quantity.display.split).
+export interface CartSettings { sortLines: LineSort; openOrdersPosition: OpenOrdersPosition; quickDiscounts: number[]; columns: { quantity: { split: boolean } } }
 // Per-device, like the catalogue view. The cart side is not here: it is the catalogue view's `position`.
 export const CART_SETTINGS_KEY = 'tallywoo.cart_settings.v1';
 // v2's price keypad draws three quick keys (QUICK_KEYS, WCPOS components/src/price-keypad).
 export const QUICK_DISCOUNT_SLOTS = 3;
 // v2's pos-cart defaults (initial-settings.json): newest at top, open orders at the bottom,
-// and "quickDiscounts": [5, 10, 15].
-export const CART_SETTINGS_DEFAULTS: CartSettings = { sortLines: 'newest_top', openOrdersPosition: 'bottom', quickDiscounts: [5, 10, 15] };
+// "quickDiscounts": [5, 10, 15] and the quantity column's Split off.
+export const CART_SETTINGS_DEFAULTS: CartSettings = { sortLines: 'newest_top', openOrdersPosition: 'bottom', quickDiscounts: [5, 10, 15], columns: { quantity: { split: false } } };
 
 export function normalizeLineSort(raw: unknown): LineSort {
   return LINE_SORTS.find(sort => sort.id === raw)?.id ?? 'newest_top';
@@ -43,12 +44,13 @@ export function loadCartSettings(storage?: Storage): CartSettings {
     if (raw === null) return CART_SETTINGS_DEFAULTS;
     const parsed = JSON.parse(raw);
     const stored = typeof parsed === 'object' && parsed !== null ? parsed : {};
-    // Settings saved before openOrdersPosition or quickDiscounts existed have no field: they get the default
+    // Settings saved before openOrdersPosition, quickDiscounts or columns existed have no field: they get the default
     // and keep their other fields.
     return {
       sortLines: normalizeLineSort(stored.sortLines),
       openOrdersPosition: stored.openOrdersPosition === 'top' ? 'top' : 'bottom',
       quickDiscounts: normalizeQuickDiscounts(stored.quickDiscounts),
+      columns: { quantity: { split: stored.columns?.quantity?.split === true } },
     };
   } catch { return CART_SETTINGS_DEFAULTS; }
 }

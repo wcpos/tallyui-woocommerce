@@ -3,7 +3,11 @@ import { View } from 'react-native';
 import { Text } from '@tallyui/components';
 import type { RequestMetrics, RequestMetricsBucket } from '@tallyui/database';
 import { deriveUptimeCells, performanceSummary, summarizeLast24h } from '../lib/health/performance';
+import { DocsLink } from './docs-link';
 import { UptimeStrip } from './uptime-strip';
+
+// v2 apps/main/components/health/performance-screen.tsx:38 (DOCS_URL).
+const PERFORMANCE_DOCS_URL = 'https://docs.wcpos.com/support/store-health#performance';
 
 /** v2 packages/components/src/section: a line-separated Store health section, hairline on top unless first. */
 export function HealthSection({ title, sub, first = false, testID, children }: {
@@ -48,6 +52,8 @@ export function PerformanceScreen({ metrics, healthy, now = Date.now, children }
         <UptimeStrip cells={deriveUptimeCells(buckets, nowMs)} />
       </HealthSection>
       {children}
+      {/* v2 performance-screen.tsx:410-413: one link out — everything deeper lives in the docs. */}
+      <DocsLink testID="performance-docs-link" href={PERFORMANCE_DOCS_URL}>Learn more in the docs</DocsLink>
     </View>
   );
 }

@@ -19,6 +19,7 @@ import { railNavigation } from '../lib/layout/rail-routes';
 import { useIsWide } from '../lib/layout/wide';
 import { applyStoredTheme } from '../lib/theme/theme-setting';
 import { ScaleSettingProvider } from '../lib/theme/scale-setting';
+import { FontSettingProvider } from '../lib/theme/font-setting';
 
 // Before the first render: this device's System/Light/Dark choice (Settings > Theme).
 applyStoredTheme();
@@ -40,6 +41,8 @@ export default function RootLayout() {
     <LocalDataResetGate>
       {/* v2 contexts/scale: this device's Scale step (Settings > Theme), round the stack and the toaster. */}
       <ScaleSettingProvider>
+        {/* This device's Fonts choice (Settings > Theme) for every Text: v2's useThemeType round the app (contexts/theme-traits/index.tsx:20-60). */}
+        <FontSettingProvider>
         <StatusBar style="auto" />
         <SessionProvider>
           <SessionOnlineStatusProvider>
@@ -58,6 +61,7 @@ export default function RootLayout() {
           </SessionOnlineStatusProvider>
         </SessionProvider>
         <Toaster />
+        </FontSettingProvider>
       </ScaleSettingProvider>
     </LocalDataResetGate>
   );
