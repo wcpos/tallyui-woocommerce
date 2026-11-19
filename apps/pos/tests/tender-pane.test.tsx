@@ -555,3 +555,77 @@ test('useElapsed resets when active changes, so a second save waits the full del
   advance(100);
   expect(result.current).toBe(true);
 });
+
+// WCPOS v2: tender-pane.tsx:171, 732-812.
+test('multi: the Split strip leads with the Percent tile, and Percent shows the four shares and Type', async () => {
+  await startTender('Cash', 'online-website-available', true, '20.00');
+  fireEvent.click(screen.getByTestId('checkout-split-chip'));
+  const tiles = within(screen.getByTestId('checkout-split-ways')).getAllByRole('button');
+  expect(tiles.map(tile => tile.getAttribute('data-testid'))).toEqual(['checkout-percent', ...[2, 3, 4, 5, 6].map(ways => `checkout-even-${ways}`)]);
+  expect(tiles[0].textContent).toBe('Percenta share');
+  fireEvent.click(screen.getByTestId('checkout-percent'));
+  expect(screen.getByText('Percent of the rest')).not.toBeNull();
+  expect([10, 20, 25, 50].map(value => text(`checkout-percent-${value}`))).toEqual(['10 %', '20 %', '25 %', '50 %']);
+  expect(text('checkout-percent-type')).toBe('Type');
+  expect(screen.getByTestId('checkout-percent-type').getAttribute('aria-pressed')).toBe('true');
+  expect(screen.queryByTestId('checkout-split-ways')).toBeNull();
+  expect(screen.queryAllByTestId(/^checkout-quick-/)).toHaveLength(0);
+  expect(text('checkout-entry')).toBe('$0.00');
+}, 20_000);
+
+// WCPOS v2: tender-state.ts:298-300 and :198-213, tender-figures.ts:111-113 (a share of the balance still due).
+test('multi: 50 % of a 20.00 balance is a 10.00 leg, and 50 % of the rest after it is 5.00', async () => {
+  await startTender('Cash', 'online-website-available', true, '20.00');
+  fireEvent.click(screen.getByTestId('checkout-split-chip'));
+  fireEvent.click(screen.getByTestId('checkout-percent'));
+  fireEvent.click(screen.getByTestId('checkout-percent-50'));
+  expect(screen.getByTestId('checkout-percent-50').getAttribute('aria-pressed')).toBe('true');
+  expect(text('checkout-entry')).toBe('$10.00');
+  expect(text('checkout-entry-hint')).toBe('50 % of $20.00 · type another share');
+  expect(text('checkout-commit')).toBe('Take $10.00 in Cash · $10.00 left');
+  fireEvent.click(screen.getByTestId('checkout-commit'));
+  await waitFor(() => expect(text('checkout-ledger-remaining')).toBe('$10.00'));
+  expect(screen.queryByTestId('checkout-percent-type')).toBeNull();
+  expect(text('checkout-entry')).toBe('$10.00');
+  fireEvent.click(screen.getByTestId('checkout-split-chip'));
+  fireEvent.click(screen.getByTestId('checkout-percent'));
+  fireEvent.click(screen.getByTestId('checkout-percent-50'));
+  expect(text('checkout-entry')).toBe('$5.00');
+  expect(text('checkout-entry-hint')).toBe('50 % of $10.00 · type another share');
+}, 20_000);
+
+// WCPOS v2: tender-pane.tsx:180-183 has no decimal key, so a typed share is a whole percent; percentOfMinor caps it at the balance.
+test('multi: a typed share is a whole percent of the balance, and above 100 % takes the balance', async () => {
+  await startTender('Cash', 'online-website-available', true, '20.00');
+  fireEvent.click(screen.getByTestId('checkout-split-chip'));
+  fireEvent.click(screen.getByTestId('checkout-percent'));
+  fireEvent.click(screen.getByTestId('checkout-percent-25'));
+  fireEvent.click(screen.getByTestId('checkout-percent-type'));
+  expect(text('checkout-entry')).toBe('$0.00');
+  press('1', '2');
+  expect(text('checkout-entry')).toBe('$2.40');
+  expect(text('checkout-entry-hint')).toBe('12 % of $20.00 · type another share');
+  expect(screen.getByTestId('checkout-percent-type').getAttribute('aria-pressed')).toBe('true');
+  press('5');
+  expect(text('checkout-entry')).toBe('$20.00');
+  expect(text('checkout-commit')).toBe('Take $20.00 in Cash');
+}, 20_000);
+
+// WCPOS v2: tender-pane.tsx:790-812, 893, 905. Percent entry hides the quick amounts and Exact; Split again leaves it.
+test('multi: percent entry hides the quick amounts and Exact, and closing then reopening Split leaves it', async () => {
+  await startTender('Cash', 'online-website-available', true, '20.00');
+  fireEvent.click(screen.getByTestId('checkout-split-chip'));
+  fireEvent.click(screen.getByTestId('checkout-percent'));
+  fireEvent.click(screen.getByTestId('checkout-percent-50'));
+  expect(text('checkout-entry')).toBe('$10.00');
+  expect(screen.queryAllByTestId(/^checkout-quick-/)).toHaveLength(0);
+  fireEvent.click(screen.getByTestId('checkout-split-chip'));
+  fireEvent.click(screen.getByTestId('checkout-split-chip'));
+  const tiles = within(screen.getByTestId('checkout-split-ways')).getAllByRole('button');
+  expect(tiles.map(tile => tile.getAttribute('data-testid'))).toEqual(['checkout-percent', ...[2, 3, 4, 5, 6].map(ways => `checkout-even-${ways}`)]);
+  expect(screen.queryByTestId('checkout-percent-50')).toBeNull();
+  expect(text('checkout-entry')).toBe('$20.00');
+  expect(text('checkout-entry-hint')).toBe('');
+  expect(screen.getByTestId('checkout-quick-exact')).not.toBeNull();
+  expect(screen.getAllByTestId(/^checkout-quick-\d/).length).toBeGreaterThan(0);
+}, 20_000);
