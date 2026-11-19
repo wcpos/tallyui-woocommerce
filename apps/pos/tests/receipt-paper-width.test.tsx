@@ -13,7 +13,7 @@ import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import { receiptPageCss, RECEIPT_PAGE_CSS } from '../lib/receipts/print-receipt';
-import { receiptPaperWidth } from '../lib/receipts/store-receipt';
+import { receiptPaperWidth, thermalFitCss } from '../lib/receipts/store-receipt';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeCash } from './tender-helpers';
@@ -146,3 +146,31 @@ test('a frame resized while its document loads does not throw', () => {
   expect(onResize).toBeDefined();
   expect(() => onResize!()).not.toThrow();
 });
+
+// v2 fits a thermal body to its paper frame (printer/src/raster/receipt-rasterizer.dom.tsx:56-77): 302px / 219px paper.
+const srcdoc = () => screen.getByTestId('store-receipt-frame').getAttribute('srcdoc') ?? '';
+
+test('an 80 mm thermal template is fitted to its paper with v2 thermal type', async () => {
+  await sellEspresso([thermal80]);
+  await waitFor(() => expect(srcdoc()).toContain('T80-MARKER'));
+  const css = srcdoc().match(/<style data-thermal-fit>([\s\S]*?)<\/style>/)?.[1] ?? '';
+  for (const rule of ['padding: 4mm 2mm', 'width: 100% !important', 'padding: 0 !important', 'margin: 0 !important',
+    'font-size: 10px !important']) expect(css).toContain(rule);
+  expect(css).not.toContain('10.5px');
+  expect(canvasWidth()).toBe('302px');
+}, 20_000);
+
+test('a 58 mm thermal template takes v2 10.5px type on its 219px paper', async () => {
+  await sellEspresso([thermal58]);
+  await waitFor(() => expect(srcdoc()).toContain('T58-MARKER'));
+  expect(srcdoc()).toContain('font-size: 10.5px !important');
+  expect(srcdoc()).toContain('width: 100% !important');
+  expect(canvasWidth()).toBe('219px');
+}, 20_000);
+
+test('an html template gets none of the thermal fit', async () => {
+  await sellEspresso([html]);
+  await waitFor(() => expect(srcdoc()).toContain('A4-MARKER'));
+  expect(srcdoc()).not.toContain('data-thermal-fit');
+  expect(thermalFitCss('a4')).toBe('');
+}, 20_000);
