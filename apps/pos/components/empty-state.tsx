@@ -8,11 +8,13 @@ const GLYPHS = { empty: ['info', InfoIcon], 'no-results': ['search', SearchIcon]
 /** WCPOS v2's EmptyState (screens/main/components/list-frame): a list's "nothing here" message, with an optional
  *  line under the title and an optional action such as Clear filters. Above the title, unless `inline`, the kind's
  *  glyph at v2's `3xl` (32px) in muted ink (empty-state/index.tsx:62). */
-export function EmptyState({ kind, size = 'surface', title, description, action }: {
+export function EmptyState({ kind, size = 'surface', title, description, action, glyph: icon }: {
   kind: keyof typeof GLYPHS; size?: 'surface' | 'inline';
   title: string; description?: string; action?: { label: string; onPress(): void };
+  /** v2's `icon`: overrides the kind's glyph, as the notifications sheet's bell. */
+  glyph?: { name: string; Icon: typeof InfoIcon };
 }) {
-  const [glyph, Glyph] = GLYPHS[kind];
+  const [glyph, Glyph] = icon ? [icon.name, icon.Icon] : GLYPHS[kind];
   const inline = size === 'inline';
   // v2 empty-state/index.tsx:55-69: inline is a muted row with no glyph and no description.
   return (
