@@ -13,6 +13,7 @@ import { useSession } from '../lib/auth/session-context';
 import { drawerFigureText, drawerVerbs, sheetMoney } from '../lib/cashier/sheet-figures';
 import { signOutQuestion, startCountThen } from '../lib/cashier/sign-out-question';
 import { inCartCounts } from '../lib/catalogue/tile-words';
+import { needsAnyPick } from '../lib/catalogue/variation-match';
 import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
 import { SALE_SPLIT_MIN_WIDTH } from '../lib/layout/wide';
 import { useRegister } from '../lib/register/register-context';
@@ -231,7 +232,10 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         setMessage(`${connector.traits.product.getName(doc)} has no options to sell`);
         return;
       }
-      if (entries.length === 1) onAdd(entries[0]);
+      // v2 variable-actions.tsx:44-57 opens the variations popover for every variable product: a lone variation
+      // that leaves an attribute open ("Any") waits on the cashier's pick; any other lone entry adds at once.
+      const groups = connector.traits.product.getVariantOptions?.(doc) ?? [];
+      if (entries.length === 1 && !needsAnyPick(groups, [entries[0].variant])) onAdd(entries[0]);
       else { setVariants(entries); setMessage(undefined); }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
