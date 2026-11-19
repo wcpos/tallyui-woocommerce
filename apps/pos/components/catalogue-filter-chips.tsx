@@ -3,7 +3,7 @@
 // Category and Tag, in v2's `BUILT_IN_PILL_IDS` order without Featured and Brand, which need
 // connector data this app does not sync yet.
 import { useRef } from 'react';
-import type { ComponentType, JSX, ReactElement } from 'react';
+import type { ComponentType, JSX, ReactElement, ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import { Circle, Path, Rect } from 'react-native-svg';
 import {
@@ -147,9 +147,11 @@ export interface CatalogueFilterChipsProps {
   /** v2's `place.field` (filter-bar.tsx:505, `item.id === place?.field` draws nothing): the field an open browse
    * level's crumb owns. The crumb is the place, so that field's own chip folds away; the other chips stay. */
   placeField?: 'categories' | 'tags';
+  /** Drawn last in the row: the Products screen's Clear all (v2 components/product/filter-bar/index.tsx:61-65). */
+  trailing?: ReactNode;
 }
 
-export function CatalogueFilterChips({ products, filters, onChange, dimmed = false, placeField }: CatalogueFilterChipsProps): JSX.Element {
+export function CatalogueFilterChips({ products, filters, onChange, dimmed = false, placeField, trailing }: CatalogueFilterChipsProps): JSX.Element {
   const stock = filters.stock_status;
   const stockLabel = stock !== undefined && stock in STOCK_LABELS ? STOCK_LABELS[stock] : undefined;
   const onSale = filters.on_sale === true;
@@ -178,5 +180,6 @@ export function CatalogueFilterChips({ products, filters, onChange, dimmed = fal
     {dimmed ? <DimmedChipTooltip>{onSaleChip}</DimmedChipTooltip> : onSaleChip}
     {termChip('categories', 'category', 'Category', 'No category found')}
     {termChip('tags', 'tag', 'Tag', 'No tag found')}
+    {trailing}
   </View>;
 }

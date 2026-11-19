@@ -73,6 +73,18 @@ test('appliedQuickFilterGone restores the baseline and keeps the place', () => {
   });
 });
 
+test('clearAll restores the baseline filters and the search, and keeps the sort and the place', () => {
+  expect(catalogueQuery(state, { type: 'clearAll', baseline })).toEqual({ ...state, term: '', filters: baseline });
+});
+
+test("clearAll keeps the open level's own categories when asked", () => {
+  expect(catalogueQuery(state, { type: 'clearAll', baseline, keep: 'categories' })).toEqual({
+    ...state, term: '', filters: { ...baseline, categories: [3] },
+  });
+  const none = { ...state, filters: { on_sale: true, categories: [] } };
+  expect(catalogueQuery(none, { type: 'clearAll', baseline, keep: 'categories' })).toEqual({ ...none, term: '', filters: baseline });
+});
+
 test('every action returns a new object without mutating the state or its filters', () => {
   const before = { ...state, filters: { ...state.filters } };
   Object.freeze(state.filters);
@@ -87,6 +99,7 @@ test('every action returns a new object without mutating the state or its filter
     { type: 'applyQuickFilter', quickFilter, baseline },
     { type: 'clearQuickFilter', baseline },
     { type: 'appliedQuickFilterGone', baseline },
+    { type: 'clearAll', baseline },
   ];
   for (const action of actions) {
     expect(catalogueQuery(state, action)).not.toBe(state);
