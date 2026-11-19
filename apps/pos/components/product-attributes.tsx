@@ -55,13 +55,15 @@ export function variationName(variation: VariationDoc, fallback: string): string
   return options.length ? options.join(', ') : variation.name ?? fallback;
 }
 
-export function ProductAttributes({ id, attributes, count, onDrill }: {
+// `options` false is v2's phone row (products/row.tsx:178-205 VariableRowContent): the VariationsButton alone, no attribute rows.
+export function ProductAttributes({ id, attributes, count, onDrill, options = true }: {
   id: number;
   attributes: ProductAttribute[] | undefined;
   count: number;
   onDrill(match?: VariationMatch): void;
+  options?: boolean;
 }): JSX.Element {
-  const rows = (attributes ?? []).filter(attribute => attribute.variation);
+  const rows = options ? (attributes ?? []).filter(attribute => attribute.variation) : [];
   return (
     <View className="gap-1">
       {rows.map(attribute => (

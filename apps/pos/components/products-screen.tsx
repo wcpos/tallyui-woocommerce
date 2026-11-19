@@ -191,7 +191,7 @@ function NameCell({ doc, onDrill, numberOfLines, showSku }: { doc: ProductDoc; o
       {showSku && doc.sku ? <Text testID={`products-phone-sku-${doc.id}`} numberOfLines={1} className="text-sm text-muted-foreground">{doc.sku}</Text> : null}
       {doc.type === 'variable' ? (
         <ProductAttributes id={doc.id} attributes={doc.attributes} count={doc.variations?.length ?? 0}
-          onDrill={match => onDrill(doc, match)} />
+          options={!showSku} onDrill={match => onDrill(doc, match)} />
       ) : null}
     </View>
   );
