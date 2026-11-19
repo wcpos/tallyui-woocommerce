@@ -6,6 +6,7 @@ import { PortalHost } from '@tallyui/primitives';
 import { ProductsScreen } from '../components/products-screen';
 import fixtureProducts from './fixtures/products.json';
 import { CARD_CLASSES, textPropsOf } from './classes-of';
+import { COARSE, FINE, stubMatchMedia } from './match-media';
 import { CatalogueContext } from '../lib/catalogue/catalogue-context';
 
 const connector = createWooCommerceConnector();
@@ -557,4 +558,18 @@ test("at 1280 the table sits on v2's card, and the count row sits under it, outs
   const count = screen.getByTestId('data-table-count');
   expect(screen.getByTestId('data-table-caption-inset').contains(count)).toBe(true);
   expect(surface.contains(count)).toBe(false);
+});
+
+// v2 list-frame/index.tsx:158: the row follows the pointer, not the width.
+test("a touch tablet at 1024 gets the touch rows; a mouse at 1024 keeps the table", () => {
+  setWidth(1024);
+  stubMatchMedia({ ...COARSE });
+  renderScreen([product(1, 'Tea')]);
+  expect(screen.getByTestId('products-phone-figures-1')).not.toBeNull();
+  expect(screen.queryByRole('table')).toBeNull();
+  cleanup();
+  stubMatchMedia({ ...FINE });
+  renderScreen([product(1, 'Tea')]);
+  expect(screen.getByRole('table')).not.toBeNull();
+  expect(screen.queryByTestId('products-phone-figures-1')).toBeNull();
 });

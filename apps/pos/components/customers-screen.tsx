@@ -11,6 +11,7 @@ import type { CustomerSource } from '../lib/customers/customer-source';
 import { DEFAULT_CUSTOMER_SORT, billingLines, customerInitials, sortCustomers } from '../lib/customers/customer-table';
 import type { CustomerSort, CustomerSortField } from '../lib/customers/customer-table';
 import { NARROW_WIDTH } from '../lib/layout/wide';
+import { usePointer } from '../lib/layout/pointer';
 import { dayLabel } from '../lib/orders/order-days';
 import { useSearchTerm } from '../lib/search-term';
 import { nextSort } from '../lib/table-sort';
@@ -103,6 +104,9 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
   const [settings, setSettings] = useAreaColumns('customers', CUSTOMERS_COLUMNS);
   const request = useRef(0);
   const { width } = useWindowDimensions();
+  // v2 picks the row by pointer (list-frame/index.tsx:158); the search placeholders follow the row they stand in for.
+  const pointer = usePointer();
+  const touchRows = width < NARROW_WIDTH || pointer === 'coarse';
   // v2's page gutter (ground.ts:46-72): the bar, the table card and this page's notes share 12 in a window, 16 on a phone.
   const gutter = useAreaGutter();
 
@@ -156,7 +160,7 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
     // v2 customers/index.tsx:96 and data-table/skeleton.tsx:31-70,79-120: the header stays over placeholder rows, one
     // line per visible column, in a body that clips; a phone (v2's coarse pointer) has no header.
     <View testID="customers-skeleton" accessibilityLabel="Searching…" aria-busy className="flex-1 overflow-hidden">
-      {width < NARROW_WIDTH ? SKELETON_ROWS.map(i => (
+      {touchRows ? SKELETON_ROWS.map(i => (
         <View key={i} testID={`customers-skeleton-row-${i}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
           <View className="h-12 w-12 rounded-full bg-muted" />
           <View className="flex-1 gap-1"><View className={BAR} /><View className="h-5 w-1/2 rounded-lg bg-muted" /></View>
@@ -173,7 +177,7 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
   ) : (
       // A phone row is v2's ListRow (list-row/index.tsx:31,54-65): min-h-14 px-3 py-2, a min-w-0 body, a one-line regular-weight name over a text-sm email.
       <ScrollView testID="customers-body">
-        {width < NARROW_WIDTH ? shown.map(c => (
+        {touchRows ? shown.map(c => (
           <View key={c.id} testID={`customers-row-${c.id}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
             <Avatar size="lg" fallback={customerInitials(c)} />
             <View className="min-w-0 flex-1">
