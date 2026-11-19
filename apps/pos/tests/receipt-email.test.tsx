@@ -43,7 +43,7 @@ async function openDialog() {
   fireEvent.click(screen.getByRole('button', { name: 'Email Receipt' }));
   return vi.waitFor(() => screen.getByLabelText('Email Address') as HTMLInputElement);
 }
-const saveSwitch = () => screen.getByRole('switch', { name: 'Save email to Billing Address' });
+const saveSwitch = () => screen.getByRole('switch', { name: 'Save email to the customer' });
 const insert = (row: Partial<ReceiptEmailRow>) =>
   collection.insert({ id: 'sale', queuedAt: '2026-11-10T10:00:00.000Z', attempts: 1, ...row } as ReceiptEmailRow);
 const sendLabel = () => screen.getByTestId('receipt-email-send').textContent;
@@ -207,6 +207,15 @@ test('a failed email reopens the dialog with the address it was queued with', as
   show();
   await vi.waitFor(() => screen.getByText(failedRow.error));
   expect((await openDialog()).value).toBe('old@example.invalid');
+});
+
+test('the save switch reads v2\'s "Save email to the customer"', async () => {
+  show();
+  await openDialog();
+  expect(saveSwitch().getAttribute('data-testid')).toBe('receipt-email-save-to-billing');
+  expect(screen.getByText('Save email to the customer')).not.toBeNull();
+  expect(screen.queryByText('Save email to Billing Address')).toBeNull();
+  expect(screen.queryByLabelText('Save email to Billing Address')).toBeNull();
 });
 
 test('switching Save to Billing on stores it on the queued row', async () => {
