@@ -7,7 +7,7 @@ import { PortalHost } from '@tallyui/primitives';
 import { AppRailShown } from '../components/app-rail';
 import { OrdersScreen } from '../components/orders-screen';
 import { ORDERS_COLUMNS, OrdersTable } from '../components/orders-table';
-import { areaColumnsKey, loadAreaColumns, saveAreaColumns } from '../lib/area-columns';
+import { areaColumnRows, areaColumnsKey, loadAreaColumns, saveAreaColumns } from '../lib/area-columns';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider } from '../lib/sale/outbox-context';
@@ -24,7 +24,10 @@ const storeOrder: StoreOrder = {
 };
 const LABELS = ['Status', 'Order Number', 'Customer', 'Date Created', 'Payment Method', 'Total'];
 const IDS = ['status', 'number', 'customer_id', 'date_created_gmt', 'payment_method', 'total'];
-const defaults = ORDERS_COLUMNS.map(({ id, visible }) => ({ id, visible }));
+const defaults = areaColumnRows(ORDERS_COLUMNS);
+// The stored rows with `hidden` off; Total keeps its Payment Method display line, off by default.
+const rows = (hidden: string) => IDS.map(id => id === 'total'
+  ? { id, visible: id !== hidden, display: [{ id: 'payment_method', visible: false }] } : { id, visible: id !== hidden });
 
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1280, height: 800, scale: 1, fontScale: 1 });
@@ -67,14 +70,15 @@ test("the Orders bar draws v2's display options before the bell", async () => {
   expect(screen.getByTestId('orders-bar-display').getAttribute('aria-label')).toBe('Display options');
 });
 
-test("it opens Order Settings with one switch per column in v2's order, all on", async () => {
+test("it opens Order Settings with one switch per column in v2's order, all on, and Total's Payment Method line off", async () => {
   await renderOrders();
   fireEvent.click(screen.getByTestId('orders-bar-display'));
   const panel = screen.getByTestId('orders-display-options');
   expect(within(panel).getByText('Order Settings')).not.toBeNull();
   const switches = Array.from(panel.querySelectorAll('[role="switch"]'));
-  expect(switches.map(node => node.getAttribute('data-testid'))).toEqual(IDS.map(id => `orders-display-column-${id}`));
-  expect(switches.map(node => node.getAttribute('aria-checked'))).toEqual(IDS.map(() => 'true'));
+  expect(switches.map(node => node.getAttribute('data-testid')))
+    .toEqual([...IDS.map(id => `orders-display-column-${id}`), 'orders-display-column-total-payment_method']);
+  expect(switches.map(node => node.getAttribute('aria-checked'))).toEqual([...IDS.map(() => 'true'), 'false']);
   const text = panel.textContent!;
   const positions = [...LABELS, 'Restore Default Settings', 'Close'].map(label => text.indexOf(label));
   expect(positions[0]).toBeGreaterThanOrEqual(0);
@@ -94,7 +98,7 @@ test('switching Payment Method off hides its header and cells, survives a remoun
   expect(row().queryByText('Cash')).toBeNull();
   expect(row().getByText('$6.00')).not.toBeNull();
   expect(JSON.parse(localStorage.getItem(areaColumnsKey('orders'))!))
-    .toEqual(IDS.map(id => ({ id, visible: id !== 'payment_method' })));
+    .toEqual(rows('payment_method'));
 
   cleanup();
   await renderOrders();
@@ -121,14 +125,14 @@ test('a saved choice loads back, and stores only id and visible', () => {
   const storage = memoryStorage();
   saveAreaColumns('orders', ORDERS_COLUMNS.map(column => ({ ...column, visible: column.id !== 'customer_id' })), storage);
   expect(JSON.parse(storage.getItem(areaColumnsKey('orders'))!)[0]).toEqual({ id: 'status', visible: true });
-  expect(loadAreaColumns('orders', ORDERS_COLUMNS, storage)).toEqual(IDS.map(id => ({ id, visible: id !== 'customer_id' })));
+  expect(loadAreaColumns('orders', ORDERS_COLUMNS, storage)).toEqual(rows('customer_id'));
 });
 
 test('an unknown id, a missing id, a malformed row or invalid JSON falls back to the defaults', () => {
   const storage = memoryStorage();
   const key = areaColumnsKey('orders');
   storage.setItem(key, JSON.stringify([{ id: 'billing', visible: false }, { id: 'total', visible: false }, { id: 'status', visible: 'no' }]));
-  expect(loadAreaColumns('orders', ORDERS_COLUMNS, storage)).toEqual(IDS.map(id => ({ id, visible: id !== 'total' })));
+  expect(loadAreaColumns('orders', ORDERS_COLUMNS, storage)).toEqual(rows('total'));
   storage.setItem(key, '{not json');
   expect(loadAreaColumns('orders', ORDERS_COLUMNS, storage)).toEqual(defaults);
   storage.setItem(key, JSON.stringify({ columns: [] }));
