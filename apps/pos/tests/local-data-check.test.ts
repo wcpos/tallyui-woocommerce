@@ -94,7 +94,8 @@ test('a fresh register document alone stays out of localOnly; opened sessions, c
   await seed(b, async store => {
     const db = store.orders.database;
     const session = await openSession(db.register_sessions, { registerId: 'register-1', expectedFloatMinor: null,
-      countedFloatMinor: 0, openedBy: '2', businessDay: { year: 2026, month: 11, day: 17 } });
+      countedFloatMinor: 0, openedBy: '2', businessDay: { year: 2026, month: 11, day: 17 },
+      storeKey: ordersDatabaseName(b) });
     await db.cash_movements.insert({ id: 'm1', session_id: session.id, type: 'paid_in', amountMinor: 500,
       reason: 'Float', created_at_gmt: '2026-11-17T09:00:00.000Z' });
     await db.closures.insert({ id: 'c1', session_id: session.id, register_id: 'register-1', number: 1 });
