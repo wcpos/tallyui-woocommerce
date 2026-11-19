@@ -142,13 +142,14 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
             {CART_COLUMN_SWITCHES.map(({ id, label, nested }) => {
               const column: Record<string, boolean> = settings.columns[id];
               const write = (field: string, next: boolean) => onSettingsChange({ ...settings, columns: { ...settings.columns, [id]: { ...column, [field]: next } } });
-              return <View key={id} className="gap-2">
+              // v2's spacing: a column's row `p-2` (columns-form.tsx:71), its display switches `pt-2 pl-10`, each `p-2` (:129,136).
+              return <View key={id} className="p-2">
                 <SwitchRow label={label} testID={`cart-setting-column-${id}`} accessibilityLabel={`Show ${label} column`}
                   checked={column.show} onCheckedChange={next => write('show', next)} />
-                {nested && column.show && <View className="pl-10">
+                {nested && column.show && <View className="pl-10 pt-2"><View className="p-2">
                   <SwitchRow label={nested.label} testID={`cart-setting-column-${id}-${nested.field}`} accessibilityLabel={`Show ${nested.label} on ${label}`}
                     checked={column[nested.field]} onCheckedChange={next => write(nested.field, next)} />
-                </View>}
+                </View></View>}
               </View>;
             })}
           </View>
