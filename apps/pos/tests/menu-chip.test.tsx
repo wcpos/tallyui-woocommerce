@@ -117,3 +117,15 @@ test('the chip draws no caret after its label, as v2\'s Chip, on or off its defa
   setup('5');
   expect(screen.getByTestId('hero-chip-cashier').textContent).not.toContain('▾');
 });
+
+// v2 MenuChip `ids` (reports/panels/panel.tsx:218-223): one prefix names the chip, its clear, its menu and its rows.
+test('a testID names the chip, its clear, its menu and its rows', async () => {
+  render(<><MenuChip testID="x-chip" name="cashier" value="2" defaultValue="all" choices={choices} onChange={vi.fn()} /><PortalHost /></>);
+  expect(screen.getByTestId('x-chip').textContent).toBe('Paul');
+  expect(screen.getByTestId('x-chip-clear')).not.toBeNull();
+  expect(screen.queryByTestId('hero-chip-cashier')).toBeNull();
+  fireEvent.click(screen.getByTestId('x-chip'));
+  const menu = within(await screen.findByTestId('x-chip-menu'));
+  expect(menu.getByTestId('x-chip-5').textContent).toBe('Ann');
+  expect(screen.queryByTestId('hero-cashier-menu')).toBeNull();
+});

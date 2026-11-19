@@ -106,7 +106,7 @@ test('the choice survives a remount and Restore turns all three off', () => {
   const stored = JSON.parse(localStorage.getItem(areaColumnsKey('products'))!);
   expect(stored.find((row: { id: string }) => row.id === 'name')).toEqual({ id: 'name', visible: true,
     display: [{ id: 'sku', visible: true }, { id: 'barcode', visible: false }, { id: 'attributes', visible: true }] });
-  expect(stored.find((row: { id: string }) => row.id === 'price')).toEqual({ id: 'price', visible: true });
+  expect(stored.find((row: { id: string }) => row.id === 'price')).toEqual({ id: 'price', visible: true, display: [{ id: 'tax', visible: false }] });
 
   cleanup();
   renderProducts();

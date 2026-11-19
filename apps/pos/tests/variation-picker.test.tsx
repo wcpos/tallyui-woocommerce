@@ -129,6 +129,35 @@ test('an Any colour variation carries the picked colour on the cart line', () =>
   expect(screen.getByText('Size: S · Colour: White')).not.toBeNull();
 });
 
+// The dev store's Cap (seed.php MER-CAP): one variation, Size Any, Colour Black.
+const capVariation = (attrs: { name: string; option: string }[]) => ({ ...docs[0], id: 120, name: 'Cap', sku: 'MER-CAP-ANY-BLK',
+  barcode: undefined, global_unique_id: '', attributes: attrs.map(attr => ({ id: 0, slug: attr.name.toLowerCase(), ...attr })) });
+const cap = (attrs: { name: string; option: string }[]) => ({ ...shirt, id: 119, name: 'Cap', sku: 'MER-CAP', variations: [120],
+  variation_docs: [capVariation(attrs)] });
+
+test('a lone variation that leaves Size open opens the picker and adds nothing yet', () => {
+  render(<SaleScreen {...props} products={[cap([{ name: 'Colour', option: 'Black' }])]} />);
+  fireEvent.click(screen.getByText('Cap'));
+  expect(screen.getByTestId('variation-picker')).not.toBeNull();
+  expect(cartTabCount()).toBe('New');
+});
+
+test('picking L for the lone Any variation carries Colour: Black · Size: L on the cart line', () => {
+  render(<SaleScreen {...props} products={[cap([{ name: 'Colour', option: 'Black' }])]} />);
+  fireEvent.click(screen.getByText('Cap'));
+  pick('L');
+  addAndOpenCart();
+  expect(cartTabCount()).toBe('1');
+  expect(screen.getByText('Colour: Black · Size: L')).not.toBeNull();
+});
+
+test('a lone variation that sets every attribute still adds in one tap', () => {
+  render(<SaleScreen {...props} products={[cap([{ name: 'Size', option: 'L' }, { name: 'Colour', option: 'Black' }])]} />);
+  fireEvent.click(screen.getByText('Cap'));
+  expect(screen.queryByTestId('variation-picker')).toBeNull();
+  expect(cartTabCount()).toBe('1');
+});
+
 test('Cancel closes the picker and adds nothing', () => {
   open();
   pick('M');

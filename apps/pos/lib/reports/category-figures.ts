@@ -1,6 +1,6 @@
 import type { DayRange, PosOrder } from '@tallyui/pos';
 import { categoriesOf } from '../catalogue/browse-terms';
-import { lineGrossMinor } from './product-figures';
+import { lineGrossMinor, type ProductFigure } from './product-figures';
 import { rangeBounds } from './sales-room';
 
 export type CategoryFigure = { key: string; label: string; amountMinor: number; quantity: number };
@@ -33,4 +33,27 @@ export function categoryFigures(orders: readonly PosOrder[], products: readonly 
     }
   }
   return { parts: [...rows.values()].sort((a, b) => b.amountMinor - a.amountMinor || a.label.localeCompare(b.label)), unknownLines, totalLines };
+}
+
+const firstCategoryOf = (catalogue: readonly any[]) => {
+  const directory = new Map(catalogue.map(product => [String(product.id), product]));
+  return (row: ProductFigure) => categoriesOf(directory.get(row.productId))[0];
+};
+
+/** v2 panels/line-filters.ts categoryChoices: each sold product's first category, by name. Flat, as the connector
+ * has no category tree (no parent chain). */
+export function productCategoryChoices(products: readonly ProductFigure[], catalogue: readonly any[]) {
+  const categoryOf = firstCategoryOf(catalogue);
+  const choices = new Map<string, string>();
+  for (const row of products) {
+    const category = categoryOf(row);
+    if (category?.id != null) choices.set(String(category.id), category.name || 'Unknown');
+  }
+  return [...choices].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+}
+
+/** v2 line-filters.ts filterLines: a product stays when its first category is the chosen one. */
+export function productsInCategory(products: readonly ProductFigure[], catalogue: readonly any[], categoryId: string) {
+  const categoryOf = firstCategoryOf(catalogue);
+  return products.filter(row => String(categoryOf(row)?.id) === categoryId);
 }
