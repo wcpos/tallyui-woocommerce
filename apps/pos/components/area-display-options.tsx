@@ -30,7 +30,13 @@ export function AreaDisplayOptions<Id extends string>({ area, columns, settings,
   const [open, setOpenState] = useState(false);
   function setOpen(next: boolean) { setOpenState(next); onOpenChange?.(next); }
   const { trigger, title } = TITLES[area];
-  const shown = (id: Id) => settings.find(setting => setting.id === id)?.visible ?? false;
+  const row = (id: Id): AreaColumnSetting<Id> => settings.find(setting => setting.id === id) ?? { id, visible: false };
+  // One column's row changed, the others (their display lines too) kept as they are.
+  const change = (id: Id, next: Partial<AreaColumnSetting<Id>>) =>
+    onChange(columns.map(column => column.id === id ? { ...row(column.id), ...next } : row(column.id)));
+  // A column's display lines with their labels and their current state (a line the row lacks takes its default).
+  const lines = (column: AreaColumn<Id>) => (column.display ?? []).map(line =>
+    ({ ...line, visible: row(column.id).display?.find(set => set.id === line.id)?.visible ?? line.visible }));
   return <>
     <SettingsTrigger testID={`${area}-bar-display`} label={trigger} tooltip={title} onPress={() => setOpen(true)} />
     {open && <Dialog open onOpenChange={next => { if (!next) setOpen(false); }}>
@@ -47,9 +53,17 @@ export function AreaDisplayOptions<Id extends string>({ area, columns, settings,
               reordering is not offered here. */}
           <View testID={`${area}-display-columns`} className="gap-2 px-1 pt-2">
             <Text role="heading" aria-level={2} className="text-sm font-semibold">Columns</Text>
-            {columns.map(({ id, label }) => <SwitchRow key={id} label={label}
-              testID={`${area}-display-column-${id}`} accessibilityLabel={`Show ${label}`} checked={shown(id)}
-              onCheckedChange={next => onChange(columns.map(column => ({ id: column.id, visible: column.id === id ? next : shown(column.id) })))} />)}
+            {columns.map(column => <View key={column.id} className="gap-2">
+              <SwitchRow label={column.label} testID={`${area}-display-column-${column.id}`} accessibilityLabel={`Show ${column.label}`}
+                checked={row(column.id).visible} onCheckedChange={visible => change(column.id, { visible })} />
+              {/* v2's ColumnDisplayOptions (columns-form.tsx:111-143): a shown column's display switches, one gutter in,
+                  here under the column's label (past the 36 px switch and its 12 px gap); hidden with the column. */}
+              {column.display && row(column.id).visible ? <View testID={`${area}-display-column-${column.id}-display`} className="gap-2 pl-12">
+                {lines(column).map(({ id, label, visible }) => <SwitchRow key={id} label={label} testID={`${area}-display-column-${column.id}-${id}`}
+                  accessibilityLabel={`Show ${label}`} checked={visible}
+                  onCheckedChange={next => change(column.id, { display: lines(column).map(line => ({ id: line.id, visible: line.id === id ? next : line.visible })) })} />)}
+              </View> : null}
+            </View>)}
           </View>
         </ScrollView>
         <View className="flex-row justify-between border-t border-border px-4 pt-4">
