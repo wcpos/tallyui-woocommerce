@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Button, OrderFilterBar, Receipt, SearchInput, Text, type OrderHistoryRow } from '@tallyui/components';
-import type { StoreOrder } from '@tallyui/core';
+import { formatMoney, type StoreOrder } from '@tallyui/core';
 import { buildReceiptDataFromPosOrder, buildReceiptDataFromStoreOrder, orderFiltersQuery, type PosOrder, type ReceiptConfig } from '@tallyui/pos';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { useRegister } from '../lib/register/register-context';
@@ -12,7 +12,7 @@ import { useSearchTerm } from '../lib/search-term';
 import { ORDERS_COLUMNS, OrdersTable } from './orders-table';
 import { AreaDisplayOptions } from './area-display-options';
 import { EmptyState } from './empty-state';
-import { OrderDetailSheet } from './order-detail';
+import { OrderDetailSheet, orderPaymentState } from './order-detail';
 import { ReceiptPrintSheet } from './receipt-print-sheet';
 import { ReceiptZoom } from './receipt-zoom';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
@@ -41,7 +41,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(history !== null);
   const [failed, setFailed] = useState(false);
-  const [opened, setOpened] = useState<{ data: ReturnType<typeof buildReceiptDataFromPosOrder>; posOrder?: PosOrder } | null>(null);
+  const [opened, setOpened] = useState<{ data: ReturnType<typeof buildReceiptDataFromPosOrder>; posOrder?: PosOrder; storeOrder?: StoreOrder } | null>(null);
   const [viewing, setViewing] = useState<StoreOrder | null>(null);
   const { term, query: search, type, set } = useSearchTerm();
   const [columns, setColumns] = useAreaColumns('orders', ORDERS_COLUMNS);
@@ -92,9 +92,10 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
     counts.current.set(row.id, n);
     const config: ReceiptConfig = { storeName, cashier: cashierName, register: REGISTER_ID,
       registerName: register?.registerName ?? undefined, fiscal: { reprint_count: n } };
-    setOpened('placedAt' in row
-      ? { data: buildReceiptDataFromStoreOrder(orders.find(order => order.id === row.id)!, config) }
-      : { data: buildReceiptDataFromPosOrder(row, config), posOrder: row });
+    if ('placedAt' in row) {
+      const storeOrder = orders.find(order => order.id === row.id)!;
+      setOpened({ data: buildReceiptDataFromStoreOrder(storeOrder, config), storeOrder });
+    } else setOpened({ data: buildReceiptDataFromPosOrder(row, config), posOrder: row });
   }
 
   const local = outbox.enabled ? outbox.recent.filter(order => matchesOrderSearch(order, search) && matchesOrderFilters(order, value, cashierId, TIMEZONE)) : [];
@@ -132,7 +133,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
       </View>}
       {outbox.enabled
         ? opened
-          ? <View className="min-h-0 flex-1 px-4 pb-4"><ReceiptZoom><ReceiptPrintSheet orderId={opened.posOrder?.id ?? opened.data.header.orderNumber}><Receipt receipt={opened.data} posOrder={opened.posOrder} newSale={() => setOpened(null)} doneLabel="Back" /></ReceiptPrintSheet></ReceiptZoom></View>
+          ? <View className="min-h-0 flex-1 px-4 pb-4">{opened.storeOrder && <NotPaidLine order={opened.storeOrder} />}<ReceiptZoom><ReceiptPrintSheet orderId={opened.posOrder?.id ?? opened.data.header.orderNumber}><Receipt receipt={opened.data} posOrder={opened.posOrder} newSale={() => setOpened(null)} doneLabel="Back" /></ReceiptPrintSheet></ReceiptZoom></View>
           : local.length === 0 && orders.length === 0 && !failed
             ? loading
               ? <View testID="orders-loading" className="flex-1" />
@@ -154,4 +155,14 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
       {outbox.enabled && viewing && !opened && <OrderDetailSheet order={viewing} onReceipt={() => open(toHistoryRow(viewing))} onClose={() => setViewing(null)} />}
     </View>
   );
+}
+
+// v2's receipt mark (receipt/receipt.tsx:75): a live order the store does not count as paid says what is due, in the
+// sheet's description above the receipt, unprinted. The rule is the order view's (orderPaymentState). The till's own
+// sales are paid at tender and never get it: only a store order passes one.
+function NotPaidLine({ order }: { order: StoreOrder }) {
+  const { owing, remainingMinor } = orderPaymentState(order);
+  if (!owing) return null;
+  const money = formatMoney({ amount: remainingMinor, currency: order.currency }) ?? String(remainingMinor);
+  return <Text testID="receipt-not-paid" className="pb-2 text-sm text-warning-text">{`Not paid · ${money} due`}</Text>;
 }
