@@ -6,6 +6,7 @@ import type { StoreOrder } from '@tallyui/core';
 import type { PosOrder } from '@tallyui/pos';
 import type { AreaColumn } from '../lib/area-columns';
 import { NARROW_WIDTH } from '../lib/layout/wide';
+import { usePointer } from '../lib/layout/pointer';
 import { orderRowCells, orderTableItems, type OrderRowCells, type OrderTableItem, type OrderTableRow, type OrderTone } from '../lib/orders/order-days';
 import { useRowKeyboard } from '../lib/orders/use-row-keyboard';
 import { CaptionRowInset, TableCount, TableSurface } from './table-surface';
@@ -175,7 +176,9 @@ export function OrdersTable({ local, store, onOpen, onEndReached, footer, active
     onEndReached();
   }
   const { width } = useWindowDimensions();
-  const narrow = width < NARROW_WIDTH;
+  // v2 picks the row by pointer (list-frame/index.tsx:158): a touch tablet gets the touch rows; a narrow mouse window keeps them too.
+  const pointer = usePointer();
+  const touchRows = width < NARROW_WIDTH || pointer === 'coarse';
   const today = now();
   const items = orderTableItems(local, store, today);
   const rows = items.filter(item => item.type === 'order');
@@ -197,7 +200,7 @@ export function OrdersTable({ local, store, onOpen, onEndReached, footer, active
             nearEnd(contentOffset.y);
           }}>
           <View testID="orders-keyboard" {...webProps as ViewProps}>
-          {narrow ? <View testID="orders-rows">
+          {touchRows ? <View testID="orders-rows">
             {items.map(item => item.type === 'day' ? dayHeadingView(item) : (
               <KeyboardRow key={item.id} index={ids.indexOf(item.id)} keyboard={keyboard} testID={`${item.kind === 'store' ? 'history' : 'order'}-keyrow-${item.order.id}`}>
               <OrderPhoneRow item={item} cells={orderRowCells(item, today)}
