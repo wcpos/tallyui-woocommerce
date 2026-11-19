@@ -283,7 +283,8 @@ export function CatalogueView({
           index.tsx:599): the Categories source's field, for a category and All products alike, and for a product drilled
           inside the level. A product drilled from no level only dims it (filter-bar.tsx:508). */}
       <CatalogueFilterChips products={products} filters={filters} onChange={next => dispatch({ type: 'filter', filters: next })} dimmed={drilled !== undefined}
-        placeField={level === null ? undefined : 'categories'} hidden={hiddenPills} />
+        placeField={level === null ? undefined : 'categories'} hidden={hiddenPills}
+        menu={{ onHide: id => showPill(id, false), onCustomise: chipMenu.onCustomise }} />
       <QuickFilterBar quickFilters={quickFilters} isActive={isActive} onPress={pressQuickFilter} dimmed={drilled !== undefined} menu={chipMenu} />
       {filtersOn >= 2 && <ClearAllButton onPress={() => dispatch({ type: 'clearAll', baseline, keep: level === null ? undefined : 'categories' })} />}
       {filtersOn >= 1 && <SaveAsButton onPress={() => setCaptured(captureQuickFilter(queryState, baseline, viewState.sort))} />}
