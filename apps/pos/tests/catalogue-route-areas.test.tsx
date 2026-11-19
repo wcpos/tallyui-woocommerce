@@ -6,9 +6,10 @@ import type { SaleScreenProps } from '../components/sale-screen';
 const mocks = vi.hoisted(() => ({
   router: { push: vi.fn(), replace: vi.fn(), canGoBack: () => false, back: vi.fn() },
   props: {} as SaleScreenProps,
+  pathname: '/catalogue',
 }));
 
-vi.mock('expo-router', () => ({ useRouter: () => mocks.router, Redirect: () => <span data-testid="redirect" /> }));
+vi.mock('expo-router', () => ({ useRouter: () => mocks.router, usePathname: () => mocks.pathname, Redirect: () => <span data-testid="redirect" /> }));
 vi.mock('../lib/auth/session-context', () => ({
   useSession: () => ({
     session: {
@@ -45,7 +46,16 @@ vi.mock('../components/sale-screen', () => ({
   SaleScreen: (props: SaleScreenProps) => { mocks.props = props; return null; },
 }));
 
-afterEach(() => { cleanup(); });
+afterEach(() => { cleanup(); mocks.pathname = '/catalogue'; });
+
+test("the till's Alt+F is live only while the till is the shown route, not under a pushed screen", () => {
+  render(<Catalogue />);
+  expect(mocks.props.searchChord).toBe(true);
+  cleanup();
+  mocks.pathname = '/orders';
+  render(<Catalogue />);
+  expect(mocks.props.searchChord).toBe(false);
+});
 
 test("the till's drawer opens Products at /products and Coupons at /coupons", () => {
   render(<Catalogue />);
