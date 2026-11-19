@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { Button, Checkbox, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, IconButton, Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow, Text, XIcon } from '@tallyui/components';
 import { useIsWide } from '../lib/layout/wide';
@@ -31,8 +31,10 @@ function PanelCrumb({ title, onBack }: { title: string; onBack(): void }) {
   </View>;
 }
 
-export function SalesTable({ table, scope, ticks, onClose, onExport, onPrint }: {
+export function SalesTable({ table, scope, ticks, filters, onClose, onExport, onPrint }: {
   table: SalesTableData; scope: string; ticks?: TableTicks; onClose: () => void; onExport?: () => void; onPrint?: () => void;
+  /** v2 panel.tsx:207-226 `detail-panel-filters`: the Products panel's chip row under the scope line. */
+  filters?: ReactNode;
 }) {
   const { width } = useWindowDimensions();
   const wide = useIsWide();
@@ -52,6 +54,7 @@ export function SalesTable({ table, scope, ticks, onClose, onExport, onPrint }: 
         <DialogHeader className="pl-4 pr-11">
           {phone ? <PanelCrumb title={table.title} onBack={onClose} /> : <DialogTitle>{table.title}</DialogTitle>}
           <Text testID="sales-table-scope">{scope}</Text>
+          {filters && <View testID="detail-panel-filters" className="flex-row flex-wrap gap-2">{filters}</View>}
         </DialogHeader>
         {wide && <View className="absolute right-1 top-1"><IconButton variant="ghost" className="h-11 w-11" testID="sales-table-x" accessibilityLabel="Close" onPress={onClose}><XIcon size={18} /></IconButton></View>}
         <ScrollView testID="sales-table-body" className="min-h-0 flex-1" contentContainerClassName="px-4">
