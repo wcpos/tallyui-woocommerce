@@ -282,12 +282,12 @@ test('the Cashiers card shows a donut row per cashier with their name, amount, s
   expect(onOpenTable).toHaveBeenCalledWith('cashiers');
 });
 
-test('the Cashiers card names a cashier not on this device #id, and an order with none Unknown', () => {
+test('the Cashiers card names a cashier not on this device "Cashier #id", and an order with none Unknown', () => {
   cards({ period: { ...period, totalMinor: 400, byCashier: [
     { cashierRef: '42', count: 1, totalMinor: 300 },
     { cashierRef: '', count: 1, totalMinor: 100 },
   ] } });
-  expect(within(screen.getByTestId('card-cashiers-donut-row-42')).getByText('#42')).not.toBeNull();
+  expect(within(screen.getByTestId('card-cashiers-donut-row-42')).getByText('Cashier #42')).not.toBeNull();
   const unknown = within(screen.getByTestId('card-cashiers-donut-row-unknown'));
   expect(unknown.getByText('Unknown')).not.toBeNull();
   expect(unknown.getByText('1 order')).not.toBeNull();

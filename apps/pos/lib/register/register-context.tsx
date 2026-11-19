@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { bindRegister, ensureRegister, getBoundRegisterId, useRegisterSession } from '@tallyui/pos';
+import { cashierNameFor, deviceCashiers } from '../auth/cashier-name';
 import { useSession } from '../auth/session-context';
 import { useOutbox } from '../sale/outbox-context';
 import { ordersDatabaseName } from '../sale/order-store';
@@ -18,7 +19,7 @@ type Register = ReturnType<typeof useRegisterSession> & {
 const RegisterContext = createContext<Register | null>(null);
 
 export function RegisterProvider({ children }: { children: ReactNode }) {
-  const { session } = useSession();
+  const { session, cashiers } = useSession();
   const outbox = useOutbox();
   const orders = outbox.enabled ? outbox.orders : null;
   const collections = orders?.database.collections;
@@ -54,7 +55,7 @@ export function RegisterProvider({ children }: { children: ReactNode }) {
     labels: {
       // The closure's `register_name`: v2 stamps the bound register's name.
       registerName: registerName ?? 'This till',
-      resolveCashierName: id => user && id === String(user.id) ? user.displayName : id,
+      resolveCashierName: id => cashierNameFor(deviceCashiers(session, cashiers), id),
     },
     timezone: 'device', softwareVersion: SOFTWARE_VERSION, tenderInProgress,
   });

@@ -809,6 +809,68 @@ test('the Closures cashier chip narrows the list to one closer; All cashiers lis
   await waitFor(() => expect(screen.getAllByTestId(/^closure-title-/)).toHaveLength(2));
 }, 20_000);
 
+test('a closure by a roster cashier names them, and an unknown closer reads Cashier #id, in the list, panel and print', async () => {
+  // v2 hooks/use-cashier-label.ts:57-62: a staff id reads the logged-in user's display_name, else "Cashier #{id}".
+  const me = loadSession()!;
+  saveCashiers({ [me.site.home]: [{ ...me, tokens: { ...me.tokens, user: { id: 5, uuid: 'ann', displayName: 'Ann' } } }] });
+  const app = await setup();
+  await openRegister();
+  await closeRegister('100.00');
+  const paul = app.register.lastClosure!;
+  // Closures written elsewhere carry no stamped names, so the screen resolves the ids itself.
+  const labels = { ...(paul.breakdowns.labels as Record<string, unknown>), opened_by_name: '', closed_by_name: '' };
+  const breakdowns = { ...paul.breakdowns, labels };
+  const later = new Date(Date.parse(paul.closed_at) + 1000).toISOString();
+  await copyClosure(app, 'ghost', { number: 2, closed_by: '7', breakdowns });
+  await copyClosure(app, 'ann', { number: 3, closed_by: '5', breakdowns, closed_at: later });
+  await waitFor(() => expect(app.register.lastClosure?.id).toBe('ann'));
+  // Closed, the strip's line under the register name reads "Closed {time} · {closer}".
+  expect(text('till-since')).toMatch(/^Closed .* · Ann$/);
+  await openRegister(false);
+  const live = await app.orders.database.collections.register_sessions.findOne(app.register.session!.id).exec();
+  await act(async () => { await live!.incrementalPatch({ opened_by: '5' }); });
+  await waitFor(() => expect(text('till-since')).toContain('· Ann'));
+  await enterClosures();
+  await waitFor(() => expect(screen.getAllByTestId(/^closure-title-/)).toHaveLength(3));
+  expect(text(`closure-subline-${paul.id}`)).toContain('· Paul');
+  expect(text('closure-subline-ann')).toContain('· Ann');
+  expect(text('closure-subline-ghost')).toContain('· Cashier #7');
+  expect(text('reports-session-card')).toContain('· Ann ·');
+  fireEvent.click(screen.getByTestId('closure-open-ann'));
+  await screen.findByTestId('closure-panel');
+  expect(text('closure-panel-closer')).toBe('Ann');
+  const printed: (string | null | undefined)[] = [];
+  const print = vi.spyOn(window, 'print').mockImplementation(() => {
+    printed.push(screen.queryByTestId('closure-print-document')?.textContent);
+  });
+  fireEvent.click(screen.getByTestId('closure-reprint'));
+  await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+  expect(printed[0]).toContain('Ann');
+  fireEvent.click(screen.getByTestId('closure-panel-close'));
+  await waitFor(() => expect(screen.queryByTestId('closure-panel')).toBeNull());
+  fireEvent.click(screen.getByTestId('closure-open-ghost'));
+  await screen.findByTestId('closure-panel');
+  expect(text('closure-panel-closer')).toBe('Cashier #7');
+}, 30_000);
+
+test('the register stamps a roster cashier and Cashier #id into the closure as the Reports Cashiers card labels them', async () => {
+  // One resolver serves useRegisterSession's labels and Reports, so a closure and the Cashiers card agree on an id.
+  const me = loadSession()!;
+  saveCashiers({ [me.site.home]: [{ ...me, tokens: { ...me.tokens, user: { id: 5, uuid: 'ann', displayName: 'Ann' } } }] });
+  const app = await setup();
+  await openRegister();
+  await payCash();
+  await payCash();
+  await waitFor(() => expect(app.register.salesCount).toBe(2));
+  const [first, second] = await app.orders.find().exec();
+  await act(async () => { await first.incrementalPatch({ cashierRef: '5' }); await second.incrementalPatch({ cashierRef: '7' }); });
+  expect(within(await screen.findByTestId('card-cashiers-donut-row-5')).getByText('Ann')).not.toBeNull();
+  expect(within(screen.getByTestId('card-cashiers-donut-row-7')).getByText('Cashier #7')).not.toBeNull();
+  await closeRegister('106.00');
+  const stamped = app.register.lastClosure!.breakdowns.cashiers as { id: string; name: string }[];
+  expect([...stamped].sort((a, b) => a.id.localeCompare(b.id))).toEqual([{ id: '5', name: 'Ann' }, { id: '7', name: 'Cashier #7' }]);
+}, 30_000);
+
 test("the open session follows the Closures cashier chip: it counts only for its opener", async () => {
   // Ann is a second cashier on this till, so the chip offers her.
   const me = loadSession()!;
