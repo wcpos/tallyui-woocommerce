@@ -9,6 +9,7 @@ import { SessionOnlineStatusProvider } from '../lib/online/online-status';
 import { OnlineStatusLogger } from '../lib/online/online-status-logger';
 import { CatalogueProvider } from '../lib/catalogue/catalogue-context';
 import { OutboxProvider } from '../lib/sale/outbox-context';
+import { AppScanHub } from '../lib/scan/app-scan-hub';
 import { RegisterProvider } from '../lib/register/register-context';
 import { UnreadLogsProvider } from '../lib/logs/unread-errors';
 import { Toaster } from '../components/toaster';
@@ -42,15 +43,18 @@ export default function RootLayout() {
         <SessionOnlineStatusProvider>
           <OnlineStatusLogger />
           <CatalogueProvider>
-            <OutboxProvider>
-              <RegisterProvider>
-                <UnreadLogsProvider>
-                  {/* v2 (app)/_layout.tsx:306-322: the gate sits below every provider, so it never unmounts the catalogue. */}
-                  <UpdateRequiredGate><RailFrame><Stack screenOptions={{ headerShown: false }} /></RailFrame></UpdateRequiredGate>
-                  <PortalHost />
-                </UnreadLogsProvider>
-              </RegisterProvider>
-            </OutboxProvider>
+            {/* v2 (app)/_layout.tsx: the scan hub sits above navigation, so a direct scanner stays open between screens. */}
+            <AppScanHub>
+              <OutboxProvider>
+                <RegisterProvider>
+                  <UnreadLogsProvider>
+                    {/* v2 (app)/_layout.tsx:306-322: the gate sits below every provider, so it never unmounts the catalogue. */}
+                    <UpdateRequiredGate><RailFrame><Stack screenOptions={{ headerShown: false }} /></RailFrame></UpdateRequiredGate>
+                    <PortalHost />
+                  </UnreadLogsProvider>
+                </RegisterProvider>
+              </OutboxProvider>
+            </AppScanHub>
           </CatalogueProvider>
         </SessionOnlineStatusProvider>
       </SessionProvider>

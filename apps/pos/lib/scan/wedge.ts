@@ -39,12 +39,15 @@ export interface WedgeDetector {
   /** Feeds one KeyboardEvent.key. Returns true only for an Enter/Tab that ended an accepted scan. */
   key(key: string): boolean;
   reset(): void;
+  /** Date.now() at the first key of the burst onScan reports: the physical scan (TallyUI scanTimeOf times a wedge copy from it). */
+  readonly startedAtMs: number;
 }
 
 export function createWedgeDetector(onScan: (code: string) => void, options: WedgeDetectorOptions = {}): WedgeDetector {
   const getSettings = options.getSettings ?? (() => DEFAULT_SCAN_SETTINGS);
   let buffer = '';
   let last = 0;
+  let first = 0;
   let avg: number | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -79,7 +82,7 @@ export function createWedgeDetector(onScan: (code: string) => void, options: Wed
       if (buffer) {
         const gap = t - last;
         avg = avg === undefined ? gap : (avg + gap) / 2;
-      }
+      } else first = t;
       buffer += key;
       last = t;
       clearTimeout(timer);
@@ -87,5 +90,6 @@ export function createWedgeDetector(onScan: (code: string) => void, options: Wed
       return false;
     },
     reset,
+    get startedAtMs() { return first; },
   };
 }
