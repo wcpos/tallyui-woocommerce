@@ -1015,6 +1015,18 @@ test('the Categories card opens a table of categories', async () => {
   await table.close();
 }, 20_000);
 
+test('the Cashiers card opens a table of cashiers', async () => {
+  await setup();
+  await payCash();
+  await payCash();
+  await waitFor(() => expect(text('hero-total')).toBe('$6.00'));
+  const table = await openCardTable('card-cashiers-open');
+  expect(table.hasText('Sales by cashier')).toBe(true);
+  expect(table.rows).toEqual([['sales-table-row-2', 'Paul', '2', '$3.00', '$6.00']]);
+  expect(table.total).toEqual(['Total', '2', '$3.00', '$6.00']);
+  await table.close();
+}, 20_000);
+
 test("the hero's Orders line opens a table of today's orders", async () => {
   const app = await setup();
   await payCash();
@@ -1216,7 +1228,7 @@ test('each Reports table dialog has Print report after Export CSV (v2 detail-pan
   await setup();
   await payCash();
   await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
-  for (const opener of ['card-payments-open', 'card-taxes-open', 'card-where-sold-open', 'sales-room-orders-open', 'card-products-open', 'card-categories-open']) {
+  for (const opener of ['card-payments-open', 'card-taxes-open', 'card-where-sold-open', 'sales-room-orders-open', 'card-products-open', 'card-categories-open', 'card-cashiers-open']) {
     fireEvent.click(screen.getByTestId(opener));
     const dialog = await screen.findByTestId('sales-table');
     const footer = Array.from(dialog.querySelectorAll('[data-testid="sales-table-export"], [data-testid="detail-panel-print"], [data-testid="sales-table-close"]'));

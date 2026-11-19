@@ -128,3 +128,26 @@ export function categoriesTable(period: Period, categories: CategoryFigures, mon
     status: statusOf(period.count, format(period.totalMinor)),
   };
 }
+
+/** A cashier's name on this device, else `#id`, else Unknown for an order with none: the Cashiers card's and table's. */
+export const cashierLabel = (cashiers: readonly { id: string; name: string }[], ref: string) =>
+  cashiers.find(cashier => cashier.id === ref)?.name || (ref ? `#${ref}` : 'Unknown');
+
+/** v2 panels/specs.ts:335-355: each cashier's orders, average order and takings; the total row is the period's. */
+export function cashiersTable(period: Period, cashiers: readonly { id: string; name: string }[],
+  money: (minor: number) => string | undefined): SalesTable {
+  const format = (minor: number) => money(minor) ?? '';
+  return {
+    title: 'Sales by cashier',
+    empty: 'No sales in this period',
+    head: ['Cashier', 'Orders', 'Avg order', 'Amount'],
+    align: ['left', 'right', 'right', 'right'],
+    rows: period.byCashier.map(row => ({
+      key: row.cashierRef || 'unknown',
+      cells: [cashierLabel(cashiers, row.cashierRef), String(row.count),
+        format(row.count ? Math.round(row.totalMinor / row.count) : 0), format(row.totalMinor)],
+    })),
+    total: ['Total', String(period.count), format(period.averageMinor), format(period.totalMinor)],
+    status: statusOf(period.count, format(period.totalMinor)),
+  };
+}

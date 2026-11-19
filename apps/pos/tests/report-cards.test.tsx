@@ -267,7 +267,7 @@ test('the Categories card reads an empty period', () => {
 });
 
 test('the Cashiers card shows a donut row per cashier with their name, amount, share and orders', () => {
-  cards({ cashiers: [{ id: '7', name: 'Alex' }, { id: '9', name: 'Sam' }] });
+  const onOpenTable = cards({ cashiers: [{ id: '7', name: 'Alex' }, { id: '9', name: 'Sam' }] });
   expect(text('card-cashiers-figure')).toBe('2');
   const donut = within(screen.getByTestId('card-cashiers-donut'));
   expect(donut.getAllByTestId(/^card-cashiers-donut-row-\d+$/).map(row => row.getAttribute('data-testid')))
@@ -278,7 +278,8 @@ test('the Cashiers card shows a donut row per cashier with their name, amount, s
   for (const label of ['Sam', '$591.15', '37.5%', '4 orders']) expect(sam.getByText(label)).not.toBeNull();
   expect(text('card-cashiers-donut-figure')).toBe('$1,576');
   expect(donut.getByText('2 cashiers')).not.toBeNull();
-  expect(screen.queryByTestId('card-cashiers-open')).toBeNull();
+  fireEvent.click(screen.getByTestId('card-cashiers-open'));
+  expect(onOpenTable).toHaveBeenCalledWith('cashiers');
 });
 
 test('the Cashiers card names a cashier not on this device #id, and an order with none Unknown', () => {

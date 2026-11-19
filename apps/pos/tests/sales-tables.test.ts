@@ -6,7 +6,7 @@ import { formatMoney } from '@tallyui/core';
 import type { PosOrder } from '@tallyui/pos';
 import { salesRoom, type Period } from '../lib/reports/sales-room';
 import { productFigures } from '../lib/reports/product-figures';
-import { categoriesTable, ordersTable, paymentsTable, productsTable, taxesTable, whereSoldTable } from '../lib/reports/sales-tables';
+import { cashiersTable, categoriesTable, ordersTable, paymentsTable, productsTable, taxesTable, whereSoldTable } from '../lib/reports/sales-tables';
 
 afterAll(() => {
   if (savedTimezone === undefined) delete process.env.TZ;
@@ -197,4 +197,25 @@ test('categories table shares the period total and totals the parts', () => {
   expect(table.total).toEqual(['Total', '3', '$25.96', '']);
   expect(table.status).toBe('4 orders · $29.96');
   expect(categoriesTable({ ...today, totalMinor: 0 }, categories, money).rows[0].cells[3]).toBe('—');
+}, 20_000);
+
+test('cashiers table averages each cashier and totals the period', () => {
+  const period: Period = { ...today, count: 4, totalMinor: 1100, averageMinor: 275, byCashier: [
+    { cashierRef: '7', count: 2, totalMinor: 701 },
+    { cashierRef: '', count: 1, totalMinor: 299 },
+    { cashierRef: '42', count: 1, totalMinor: 100 },
+  ] };
+  const table = cashiersTable(period, [{ id: '7', name: 'Alex' }], money);
+  expect(table.title).toBe('Sales by cashier');
+  expect(table.head).toEqual(['Cashier', 'Orders', 'Avg order', 'Amount']);
+  expect(table.align).toEqual(['left', 'right', 'right', 'right']);
+  // v2 specs.ts:349: a row's average is its amount over its orders, to the minor unit.
+  expect(table.rows.map(row => [row.key, ...row.cells])).toEqual([
+    ['7', 'Alex', '2', '$3.51', '$7.01'],
+    ['unknown', 'Unknown', '1', '$2.99', '$2.99'],
+    ['42', '#42', '1', '$1.00', '$1.00'],
+  ]);
+  expect(table.total).toEqual(['Total', '4', '$2.75', '$11.00']);
+  expect(table.status).toBe('4 orders · $11.00');
+  expect(table.empty).toBe('No sales in this period');
 }, 20_000);

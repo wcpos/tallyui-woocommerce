@@ -5,10 +5,11 @@ import { useCSSVariable } from 'uniwind';
 import { Progress, Text } from '@tallyui/components';
 import type { CategoryFigures } from '../lib/reports/category-figures';
 import type { ProductFigure } from '../lib/reports/product-figures';
+import { cashierLabel } from '../lib/reports/sales-tables';
 import type { Period } from '../lib/reports/sales-room';
 import type { ReportCashier } from './report-chips';
 
-export type ReportTable = 'orders' | 'payments' | 'where-sold' | 'taxes' | 'products' | 'categories';
+export type ReportTable = 'orders' | 'payments' | 'where-sold' | 'taxes' | 'products' | 'categories' | 'cashiers';
 type Money = (minor: number) => string;
 
 /** v2 reports/cards/card.tsx: a named card whose head carries its figure, and opens its table when it can. */
@@ -214,17 +215,19 @@ export function CategoriesCard({ period, money, moneyWhole, categories, onOpen }
 }
 
 /** v2 reports/cards/cashiers.tsx: the period's takings by cashier. */
-export function CashiersCard({ period, money, moneyWhole, cashiers }: CardProps & { cashiers: readonly ReportCashier[] }) {
+export function CashiersCard({ period, money, moneyWhole, cashiers, onOpen }: CardProps & {
+  cashiers: readonly ReportCashier[]; onOpen(): void;
+}) {
   const n = period.byCashier.length;
   return (
-    <ReportCard testID="card-cashiers" name="Cashiers" figure={String(period.byCashier.length)}>
+    <ReportCard testID="card-cashiers" name="Cashiers" figure={String(period.byCashier.length)} onOpen={onOpen}>
       {period.byCashier.length === 0
         ? <Text testID="card-cashiers-empty">No sales in this period</Text>
         : <Donut testID="card-cashiers-donut" total={period.totalMinor} money={money}
           centre={{ figure: moneyWhole(period.totalMinor), label: `${n} ${n === 1 ? 'cashier' : 'cashiers'}` }}
           parts={period.byCashier.map(row => ({
             key: row.cashierRef || 'unknown',
-            label: cashiers.find(c => c.id === row.cashierRef)?.name || (row.cashierRef ? `#${row.cashierRef}` : 'Unknown'),
+            label: cashierLabel(cashiers, row.cashierRef),
             value: row.totalMinor, valueText: money(row.totalMinor),
             shareText: shareText(row.totalMinor, period.totalMinor), note: ordersNote(row.count),
           }))} />}
@@ -282,7 +285,7 @@ export function ReportCards({ period, money, moneyWhole, onOpenTable, cashiers =
     <WhereSoldCard key="where-sold" period={period} money={money} moneyWhole={moneyWhole} onOpen={() => onOpenTable('where-sold')} />,
     <TopProductsCard key="products" period={period} money={money} products={products} onOpen={() => onOpenTable('products')} />,
     <CategoriesCard key="categories" period={period} money={money} moneyWhole={moneyWhole} categories={categories} onOpen={() => onOpenTable('categories')} />,
-    <CashiersCard key="cashiers" period={period} money={money} moneyWhole={moneyWhole} cashiers={cashiers} />,
+    <CashiersCard key="cashiers" period={period} money={money} moneyWhole={moneyWhole} cashiers={cashiers} onOpen={() => onOpenTable('cashiers')} />,
     <TaxesCard key="taxes" period={period} money={money} onOpen={() => onOpenTable('taxes')} />,
   ];
   return (

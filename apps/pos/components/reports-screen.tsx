@@ -17,7 +17,7 @@ import { productFigures } from '../lib/reports/product-figures';
 import { closuresScope, periodNow, salesPeriod } from '../lib/reports/report-scope';
 import { rangeBounds, salesRoom, type Compare } from '../lib/reports/sales-room';
 import { salesTableCsv } from '../lib/reports/sales-table-csv';
-import { categoriesTable, ordersTable, paymentsTable, productsTable, taxesTable, whereSoldTable } from '../lib/reports/sales-tables';
+import { cashiersTable, categoriesTable, ordersTable, paymentsTable, productsTable, taxesTable, whereSoldTable } from '../lib/reports/sales-tables';
 import { useMinuteClock } from '../lib/reports/use-minute-clock';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { ordersDatabaseName } from '../lib/sale/order-store';
@@ -121,6 +121,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const table = openTable === 'payments' ? paymentsTable(room.today, money)
     : openTable === 'products' ? productsTable(room.today, products, money)
     : openTable === 'categories' ? categoriesTable(room.today, categories, money)
+    : openTable === 'cashiers' ? cashiersTable(room.today, reportCashierRows, money)
     : openTable === 'taxes' ? taxesTable(room.today, money)
     : openTable === 'where-sold' ? whereSoldTable(room.today, money)
     : openTable === 'orders' ? ordersTable(shown, { range, currency, money }) : null;
