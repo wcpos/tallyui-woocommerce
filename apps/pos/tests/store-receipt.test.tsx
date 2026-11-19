@@ -165,6 +165,18 @@ test("the store receipt's one print button reads Print again after a print, and 
   expect(screen.getAllByRole('button', { name: /Print/ })).toHaveLength(1);
 }, 20_000);
 
+// The sale screen counts the sheet's afterprint for the order and hands it to the store receipt as printed.
+test("an auto print relabels the store receipt's button Print again without a press", async () => {
+  saveReceiptSettings({ autoPrint: true, autoShow: true });
+  const print = vi.spyOn(window, 'print').mockImplementation(() => { window.dispatchEvent(new Event('afterprint')); });
+  await sellEspresso(async () => [marked]);
+  const frame = await screen.findByTestId('store-receipt-frame');
+  expect(screen.getByTestId('store-receipt-print').textContent).toBe('Print receipt');
+  fireEvent.load(frame);
+  await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(screen.getByTestId('store-receipt-print').textContent).toBe('Print again'));
+}, 20_000);
+
 const storeReceipt = (printed?: boolean) => render(
   <StoreReceipt html="<p>Receipt</p>" doneLabel="New sale" onDone={() => {}} onLoad={() => {}} printed={printed} />);
 
