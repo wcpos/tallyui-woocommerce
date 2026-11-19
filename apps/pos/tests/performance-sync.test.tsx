@@ -1,4 +1,7 @@
 // Store health › Performance › Sync: the presets, the two dials and the math line (v2 performance-screen.tsx).
+// performance-sync.tsx imports HealthSection from performance-screen.tsx, which now draws trend lines; Uniwind's
+// runtime does not load under Vitest, so they read fixed colours (as performance-screen.test).
+vi.mock('uniwind', () => ({ useCSSVariable: (names: string[]) => names.map(() => '#000000') }));
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { BehaviorSubject } from 'rxjs';
