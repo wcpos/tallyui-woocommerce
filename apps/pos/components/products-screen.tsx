@@ -14,10 +14,10 @@
 // search: an option's match shows as one chip that clears it.
 import { useCallback, useMemo, useState } from 'react';
 import type { JSX, ReactNode } from 'react';
-import { ScrollView, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { ConnectorProvider, formatMoney, moneyFromDecimalString } from '@tallyui/core';
-import type { TallyConnector } from '@tallyui/core';
-import { Button, ProductImage, ProductTable, SearchInput, Table, TableBody, TableCell, TableRow, Text } from '@tallyui/components';
+import type { ProductTraits, TallyConnector } from '@tallyui/core';
+import { Button, ProductImage, ProductTable, SearchInput, Table, TableBody, TableCell, TableRow, Text, Tooltip, TooltipContent, TooltipTrigger } from '@tallyui/components';
 import type { ProductTableColumn } from '@tallyui/components';
 import { searchProducts, sortProducts } from '@tallyui/pos';
 import type { ProductSort } from '@tallyui/pos';
@@ -25,6 +25,8 @@ import { resolveStock, STOCK_LABEL } from '../lib/products/resolve-stock';
 import type { StockState } from '../lib/products/resolve-stock';
 import { matchesCatalogueFilters } from '../lib/catalogue/quick-filters';
 import type { CatalogueFilters } from '../lib/catalogue/quick-filters';
+import { tileTaxLine } from '../lib/catalogue/tile-words';
+import type { TileTax } from '../lib/catalogue/tile-words';
 import { areaDisplayShown, useAreaColumns, visibleAreaColumns } from '../lib/area-columns';
 import type { AreaColumn } from '../lib/area-columns';
 import { NARROW_WIDTH } from '../lib/layout/wide';
@@ -77,7 +79,8 @@ export const PRODUCTS_COLUMNS: readonly AreaColumn<ProductsColumnId>[] = [
   { id: 'stock_status', label: 'Stock Status', visible: true },
   { id: 'categories', label: 'Categories', visible: true },
   { id: 'tags', label: 'Tags', visible: false },
-  { id: 'price', label: 'Price', visible: true },
+  // v2's price `display` (initial-settings.json:322-332): the tax line, off.
+  { id: 'price', label: 'Price', visible: true, display: [{ id: 'tax', label: 'Tax', visible: false }] },
   { id: 'regular_price', label: 'Regular Price', visible: true },
   { id: 'sale_price', label: 'Sale Price', visible: true },
   { id: 'date_modified_gmt', label: 'Date Modified', visible: false },
@@ -117,6 +120,9 @@ export interface ProductsScreenProps {
   locale?: string;
   /** The caption row's start, v2's TableFooter children (products.tsx:270-276): the Tax based on trigger. */
   captionStart?: ReactNode;
+  /** The till's tax settings for the Price cell's tax line (v2 PriceWithTax); none while taxes are off or the store
+   *  settings are not in. */
+  tax?: TileTax;
   onBack(): void;
 }
 
@@ -227,12 +233,33 @@ function termNames(terms: { name?: string }[] | undefined): string {
   return (terms ?? []).map(term => term.name).filter(Boolean).join(', ') || '—';
 }
 
+/** v2's PriceWithTax (components/product/price-with-tax.tsx:54-95, cells/price.tsx:24): a taxable price's "excl. / incl.
+ *  {amount} tax" line under it while Price's Tax line is on (v2's `key` text), else as the price's tooltip. */
+function PriceCell({ id, text, line, showTax }: { id: number; text: string; line: string | null; showTax: boolean }): JSX.Element {
+  const price = <Text testID={`product-price-${id}`}>{text}</Text>;
+  if (line === null) return price;
+  if (showTax) return <View className="items-end gap-1">{price}<Text testID={`product-price-tax-${id}`} className="text-sm text-muted-foreground">{line}</Text></View>;
+  // The hover wrapper is customers-screen.tsx's: a Text takes no hover, so a role-less Pressable does.
+  return <Tooltip><TooltipTrigger asChild><Pressable testID={`product-price-trigger-${id}`} role="none" focusable={false}>{price}</Pressable></TooltipTrigger>
+    <TooltipContent><Text>{line}</Text></TooltipContent></Tooltip>;
+}
+
+/** The Price cell's tax: the till's settings, the product traits, and whether Price's Tax line is on. */
+interface PriceTax { tax?: TileTax; traits: ProductTraits; showTax: boolean }
+
 /** Every column of PRODUCTS_COLUMNS, in its order; the screen hands ProductTable the ones left on. */
-function productColumns(currency: string, locale: string | undefined, onDrill: OnDrill, lines: NameLines): (ProductTableColumn<ProductDoc> & { id: ProductsColumnId })[] {
+function productColumns(currency: string, locale: string | undefined, onDrill: OnDrill, lines: NameLines, { tax, traits, showTax }: PriceTax): (ProductTableColumn<ProductDoc> & { id: ProductsColumnId })[] {
+  // The tile's tax words for one price (tile-words.ts tileTaxLine); a variable product's range carries none yet.
+  const taxLine = (doc: ProductDoc): string | null => {
+    const money = tax && doc.type !== 'variable' ? moneyFromDecimalString(doc.price ?? '', currency) : undefined;
+    return money && tax ? tileTaxLine(money, traits.getTaxStatus?.(doc), traits.getTaxClass?.(doc), tax) : null;
+  };
   // v2 sorts Price only; Regular and Sale Price are `disableSort` (initial-settings.json:323-349), all three `right`.
   const priceColumn = (id: PriceField) => ({
     id, header: LABEL[id], flex: 1, align: 'right' as const,
-    render: (doc: ProductDoc) => <Text testID={`product-${id}-${doc.id}`}>{priceText(doc, id, currency, locale)}</Text>,
+    render: (doc: ProductDoc) => id === 'price'
+      ? <PriceCell id={doc.id} text={priceText(doc, id, currency, locale)} line={taxLine(doc)} showTax={showTax} />
+      : <Text testID={`product-${id}-${doc.id}`}>{priceText(doc, id, currency, locale)}</Text>,
     sortValue: id !== 'price' ? undefined : (doc: ProductDoc) => doc.type === 'variable' && (doc.variation_docs?.length ?? 0) > 0
       ? priceValue(variationRange(doc, id)?.min) : priceValue(doc[id]),
   });
@@ -314,7 +341,7 @@ function variationColumns(columns: (ProductTableColumn<ProductDoc> & { id: Produ
   }));
 }
 
-export function ProductsScreen({ products, connector, currency, locale: storeLocale, captionStart, onBack }: ProductsScreenProps): JSX.Element {
+export function ProductsScreen({ products, connector, currency, locale: storeLocale, captionStart, tax, onBack }: ProductsScreenProps): JSX.Element {
   const { term, query, type, set } = useSearchTerm();
   // v2's page gutter (ground.ts:46-72): the crumb and chip rows sit on the bar's 12 in a window, 16 on a phone.
   const gutter = useAreaGutter();
@@ -353,8 +380,9 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   useWedgeScanner(scan, true);
 
   const [sku, barcode, attributes] = (['sku', 'barcode', 'attributes'] as const).map(key => areaDisplayShown(settings, 'name', key));
-  const columns = useMemo(() => productColumns(currency, locale, drillTo, { sku, barcode, attributes }),
-    [currency, locale, drillTo, sku, barcode, attributes]);
+  const showTax = areaDisplayShown(settings, 'price', 'tax');
+  const columns = useMemo(() => productColumns(currency, locale, drillTo, { sku, barcode, attributes }, { tax, traits: connector.traits.product, showTax }),
+    [currency, locale, drillTo, sku, barcode, attributes, tax, connector.traits.product, showTax]);
   // The columns the display options leave on, in the area's order; the narrow list keeps sorting on every column.
   const tableColumns = useMemo(() => visibleAreaColumns(columns, settings), [columns, settings]);
   const searched = useMemo(() => query ? searchProducts(products, query, connector.traits.product) : products,
