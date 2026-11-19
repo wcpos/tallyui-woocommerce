@@ -366,7 +366,7 @@ export function CatalogueView({
         <View testID="register-products" className={`flex-1${locked === 'counting' ? ' opacity-40' : ''}`}>
         {/* v2's drill-in.tsx in the table: the variations as rows under the crumb. */}
         {levelBack(drilled && viewState.view === 'table' ? <ScrollView testID="catalogue-variations-table" className="flex-1">
-          {drillEntries.map(entry => <VariationRow key={entry.variant.id} entry={entry} onPress={() => onAddEntry?.(entry)} />)}
+          {drillEntries.map(entry => <VariationRow key={entry.variant.id} entry={entry} parentName={traits.getName(drilled)} onPress={() => onAddEntry?.(entry)} />)}
         </ScrollView>
         : drilled ? <ProductGrid
           className={gridGutter}
