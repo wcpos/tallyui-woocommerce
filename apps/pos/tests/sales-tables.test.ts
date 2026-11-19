@@ -156,7 +156,7 @@ test("orders table names each order's cashier as the Cashiers table does", () =>
   const named = orders.map(order => order.id === 'T4' ? { ...order, cashierRef: '2' } : order.id === 'T3' ? { ...order, cashierRef: '9' } : order);
   const table = ordersTable(named, { range: day.range, currency: 'USD', money, cashiers });
   const cashier = table.head.indexOf('Cashier');
-  expect(table.rows.map(row => [row.key, row.cells[cashier]])).toEqual([['T4', 'Paul'], ['T3', '#9'], ['T2', 'Unknown'], ['T1', 'Unknown']]);
+  expect(table.rows.map(row => [row.key, row.cells[cashier]])).toEqual([['T4', 'Paul'], ['T3', 'Cashier #9'], ['T2', 'Unknown'], ['T1', 'Unknown']]);
   for (const row of table.rows) {
     expect(row.cells[cashier]).toBe(cashierLabel(cashiers, named.find(order => order.id === row.key)?.cashierRef ?? ''));
   }
@@ -250,7 +250,7 @@ test('cashiers table averages each cashier and totals the period', () => {
   expect(table.rows.map(row => [row.key, ...row.cells])).toEqual([
     ['7', 'Alex', '2', '$3.51', '$7.01'],
     ['unknown', 'Unknown', '1', '$2.99', '$2.99'],
-    ['42', '#42', '1', '$1.00', '$1.00'],
+    ['42', 'Cashier #42', '1', '$1.00', '$1.00'],
   ]);
   expect(table.total).toEqual(['Total', '4', '$2.75', '$11.00']);
   expect(table.status).toBe('4 orders · $11.00');

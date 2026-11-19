@@ -8,6 +8,7 @@ import {
   formatClosureDate, presetRange, type Closure, type DatePreset, type DayRange, type PosOrder,
 } from '@tallyui/pos';
 import { Portal } from '@tallyui/primitives';
+import { cashierNameFor, deviceCashiers } from '../lib/auth/cashier-name';
 import { useSession } from '../lib/auth/session-context';
 import { useCatalogue } from '../lib/catalogue/catalogue-context';
 import { useRegister } from '../lib/register/register-context';
@@ -58,7 +59,6 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const { session, cashiers } = useSession();
   const { products: catalogueProducts } = useCatalogue();
   const user = session?.tokens.user;
-  const resolveCashierName = (id: string) => user && id === String(user.id) ? user.displayName : id;
   const register = useRegister();
   // The presets are read from the day the screen opened, as today's range was.
   const [opened] = useState(() => new Date());
@@ -103,6 +103,8 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const printSummary = () => { setReprint('summary'); setPrintRequest(value => value + 1); };
   const printTable = () => { setReprint('table'); setPrintRequest(value => value + 1); };
   const reportCashierRows = reportCashiers([...(user ? [user] : []), ...cashiers.map(entry => entry.tokens.user)]);
+  // The register's resolver too (register-context.tsx), so a closure's names match the ones it was stamped with.
+  const resolveCashierName = (id: string) => cashierNameFor(deviceCashiers(session, cashiers), id);
   const cashierName = cashierId === null ? 'Everyone' : reportCashierRows.find(row => row.id === cashierId)?.name ?? cashierId;
   // v2 scope.tsx `registerLabel` names the register on every print scope; Tally's reports are this device's sales, so "This till" with none.
   const registerName = register.registerName ?? 'This till';

@@ -1,5 +1,6 @@
 import { orderReference } from '@tallyui/components';
 import type { DayRange, PosOrder } from '@tallyui/pos';
+import { cashierNameFor } from '../auth/cashier-name';
 import type { CategoryFigures } from './category-figures';
 import type { ProductFigure } from './product-figures';
 import { rangeBounds, type Period } from './sales-room';
@@ -137,9 +138,10 @@ export function categoriesTable(period: Period, categories: CategoryFigures, mon
   };
 }
 
-/** A cashier's name on this device, else `#id`, else Unknown for an order with none: the Cashiers card's and table's. */
+/** A cashier's name on this device, else "Cashier #id" (`cashierNameFor`), else Unknown for an order with none: the
+ *  Cashiers card's and table's. */
 export const cashierLabel = (cashiers: readonly { id: string; name: string }[], ref: string) =>
-  cashiers.find(cashier => cashier.id === ref)?.name || (ref ? `#${ref}` : 'Unknown');
+  ref ? cashierNameFor(cashiers, ref) : 'Unknown';
 
 /** v2 panels/specs.ts:335-355: each cashier's orders, average order and takings; the total row is the period's. */
 export function cashiersTable(period: Period, cashiers: readonly { id: string; name: string }[],

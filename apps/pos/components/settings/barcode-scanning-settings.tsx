@@ -7,7 +7,7 @@ import {
 import { removeScannerProfile, scannerProfiles$, useDeviceScanControls, type ScannerProfile } from '@tallyui/pos';
 import { useCatalogue } from '../../lib/catalogue/catalogue-context';
 import { useScanSettings } from '../../lib/scan/scan-settings';
-import { scanSuggestions } from '../../lib/scan/scan-suggestions';
+import { SCANNER_FAST_CEILING_MS, scanSuggestions } from '../../lib/scan/scan-suggestions';
 import {
   MAX_SCAN_SOUND_VOLUME, MIN_SCAN_SOUND_VOLUME, normalizeScanSoundTheme, playScanTone, SCAN_SOUND_THEMES, useScanSoundSettings,
   type ScanSoundTheme,
@@ -16,7 +16,7 @@ import { useWedgeScanner } from '../../lib/scan/use-wedge-scanner';
 import type { ScanSettings, WedgeAttempt, WedgeResult } from '../../lib/scan/wedge';
 import { SavedFieldProvider, SavedMark, savedKeys, SettingsField, SettingsSection, SETTINGS_HELP_CLASS, SETTINGS_KEY_CLASS, useMarkSaved } from './settings-form';
 import { CheckIcon, MoreIcon } from '../icons';
-import { DocsLink, SCANNER_DOCS_URL } from '../docs-link';
+import { DocsLink, SCAN_TEST_DOCS_URL, SCANNER_DOCS_URL } from '../docs-link';
 import { RIGHT_SHEET, SHEET_TITLE, SheetCloseButton } from '../sheet';
 
 // v2 settings.barcode_test_result_*; badge tones follow v2's History (ok, warning, muted).
@@ -25,12 +25,26 @@ const RESULT_VARIANTS = { scan: 'success', too_short: 'warning', typing: 'second
 // v2 use-scan-trace-capture.ts:11,34: the panel keeps the last five attempts, newest first.
 const MAX_ATTEMPTS = 5;
 
+// v2 analyze-trace.ts:55 nearMiss: typing, yet fast enough to be a scanner over the threshold.
+const nearMiss = (attempt: WedgeAttempt) => attempt.result === 'typing' && attempt.avgGapMs !== undefined && attempt.avgGapMs < SCANNER_FAST_CEILING_MS;
+
 // v2 test-panel.tsx headlines (settings.barcode_test_*).
-function verdict(attempt: WedgeAttempt): string {
+function verdict(attempt: WedgeAttempt, threshold: number): string {
   // v2 analyze-trace.ts:54: a too-short code is a detected scan; its fix is the suggestion notice below.
   if (attempt.result === 'scan' || attempt.result === 'too_short') return `Detected as a scan → ${attempt.code}`;
   if (attempt.avgGapMs === undefined) return 'Treated as typing — only one key pressed, so there are no gaps to measure';
+  if (nearMiss(attempt)) return `Treated as typing — average gap ${Math.round(attempt.avgGapMs)}ms is above your ${threshold}ms threshold`;
   return `Treated as typing (average gap ${Math.round(attempt.avgGapMs)}ms) — correctly ignored`;
+}
+
+// v2's Notice tone="warning" band (notice/index.tsx, lib/tone.ts:26), drawn as health-screen's: TallyUI has no Notice.
+function WarningNotice({ testID, title, description, className = '' }: { testID: string; title: string; description?: string; className?: string }): JSX.Element {
+  return (
+    <View testID={testID} role="status" className={`rounded-lg border border-warning/45 bg-warning/15 px-3 py-2.5 ${className}`}>
+      <Text testID={`${testID}-title`} className="font-medium text-foreground">{title}</Text>
+      {description && <Text testID={`${testID}-description`} className="text-muted-foreground">{description}</Text>}
+    </View>
+  );
 }
 
 function CountField({ testID, label, value, onChange }: { testID: string; label: string; value: number; onChange(next: number): void }) {
@@ -117,7 +131,9 @@ function ScanTestPanel({ settings, update }: { settings: ScanSettings; update(pa
         <Badge testID="barcode-test-result" variant={RESULT_VARIANTS[attempt.result]} label={RESULT_WORDS[attempt.result]} />
         {/* v2 test-panel.tsx:226-240: a scan is the success check and a subheading, then its timing as help. */}
         {detected && <CheckIcon testID="barcode-test-scan-check" size={16} className="text-success" />}
-        <Text testID="barcode-test-verdict" className={`flex-1 ${detected ? 'text-base font-medium text-foreground' : 'text-sm text-muted-foreground'}`}>{verdict(attempt)}</Text>
+        {/* v2 test-panel.tsx:241-242: a near miss is a warning Notice in place of the plain line. */}
+        {nearMiss(attempt) ? <WarningNotice testID="barcode-test-near-miss" className="flex-1" title={verdict(attempt, settings.threshold)} />
+          : <Text testID="barcode-test-verdict" className={`flex-1 ${detected ? 'text-base font-medium text-foreground' : 'text-sm text-muted-foreground'}`}>{verdict(attempt, settings.threshold)}</Text>}
       </View>}
       {detected && <Text testID="barcode-test-scan-detail" className={SETTINGS_HELP_CLASS}>
         {`Average keystroke gap ${Math.round(attempt?.avgGapMs ?? 0)}ms, under the ${settings.threshold}ms threshold`}</Text>}
@@ -129,7 +145,13 @@ function ScanTestPanel({ settings, update }: { settings: ScanSettings; update(pa
             onPress={() => update(s.patch)}><Text>Apply</Text></Button></View>
         </View>
       ))}
+      {/* v2 test-panel.tsx:257-268, analyze-trace.ts:57-60: Shift sent as separate keys, then a trailing Enter. */}
+      {attempt && attempt.shiftKeys >= 2 && <WarningNotice testID="barcode-test-shift-mangled" title="Scanner is sending Shift as separate keys"
+        description="Reconfigure it to a US-keyboard / no-modifier mode." />}
+      {attempt?.trailingEnter && <Text testID="barcode-test-trailing-enter" className={SETTINGS_HELP_CLASS}>Trailing Enter detected and ignored — no suffix needed</Text>}
       {attempts.length > 0 && <RecentAttempts attempts={attempts} />}
+      {/* v2 test-panel.tsx:185-187: the troubleshooting link closes the panel, before any attempt too. */}
+      <DocsLink testID="barcode-test-docs-link" href={SCAN_TEST_DOCS_URL}>Troubleshooting guide</DocsLink>
     </View>
   );
 }
