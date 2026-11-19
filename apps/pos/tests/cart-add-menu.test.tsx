@@ -164,13 +164,28 @@ test('Quick discount applies an order discount and closes the dialog', async () 
   const dialog = within(screen.getByTestId('add-discount-dialog'));
   // v2's pos_cart.add_discount, the same words as the menu item.
   expect(dialog.getByText('Add Discount', { exact: true })).not.toBeNull();
-  expect(dialog.getByTestId('add-discount-kind-quick').getAttribute('aria-pressed')).toBe('true');
+  expect(dialog.getByTestId('add-discount-kind-quick').getAttribute('aria-checked')).toBe('true');
+  expect(dialog.getByTestId('add-discount-kind-coupon').getAttribute('aria-checked')).toBe('false');
   const form = within(dialog.getByRole('group', { name: 'Order discount' }));
   fireEvent.change(form.getByLabelText('Discount value'), { target: { value: '10' } });
   fireEvent.click(form.getByRole('button', { name: 'Apply' }));
   await waitFor(() => expect(screen.queryByTestId('add-discount-dialog')).toBeNull());
   expect(screen.getByRole('button', { name: /^Remove discount Order discount 10%/ })).not.toBeNull();
   expect(total().getByText('$2.70')).not.toBeNull();
+}, 20_000);
+
+test('the Add Discount kind switch is v2\'s segmented control', async () => {
+  await renderTill();
+  await addEspresso();
+  openAddMenuItem('discount');
+  const dialog = within(screen.getByTestId('add-discount-dialog'));
+  // v2 pos/cart/add-discount-sheet.tsx:22-34: a SegmentedControl `add-discount-kind`, its segments radios.
+  expect(dialog.getByRole('radiogroup').getAttribute('data-testid')).toBe('add-discount-kind');
+  fireEvent.click(dialog.getByTestId('add-discount-kind-coupon'));
+  const coupon = dialog.getByTestId('add-discount-kind-coupon');
+  expect(coupon.getAttribute('aria-checked')).toBe('true');
+  expect(classesOf('add-discount-kind-coupon')).toContain('bg-selected');
+  expect(dialog.getByTestId('add-discount-kind-quick').getAttribute('aria-checked')).toBe('false');
 }, 20_000);
 
 test('Coupon applies a coupon, and a refusal shows inline', async () => {

@@ -6,11 +6,12 @@ import { View } from 'react-native';
 import { Path } from 'react-native-svg';
 import type { RxCollection } from 'rxdb';
 import { Cart, ChargeForm, createSvgIcon, Dialog, DialogContent, DialogHeader, DialogTitle, DiscountForm, DropdownMenu, DropdownMenuContent,
-  DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, IconButton, Text, ToggleGroup, ToggleGroupItem } from '@tallyui/components';
+  DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, IconButton, Text } from '@tallyui/components';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { AddCustomerDialog } from './add-customer-dialog';
 import { CouponPicker } from './coupon-entry';
 import { BoxIcon } from './icons';
+import { Segmented } from './segmented';
 
 const PlusIcon = createSvgIcon('PlusIcon', () => <><Path d="M5 12h14" /><Path d="M12 5v14" /></>);
 // v2's tabler addCustomer, invoice, tag and shipping glyphs, drawn at stroke 1.5 (monorepo components/src/icon/components/tabler/<name>.tsx).
@@ -93,14 +94,11 @@ export function CartAddMenu({ sale, taxClasses, coupons, couponsOffered, custome
     {dialog === 'discount' && <Dialog open onOpenChange={onOpenChange}>
       <DialogContent testID="add-discount-dialog" className="w-full max-w-lg">
         <DialogHeader><DialogTitle>Add Discount</DialogTitle></DialogHeader>
-        {couponCollection && <ToggleGroup type="single" value={kind} variant="outline"
-          onValueChange={value => { if (value === 'quick' || value === 'coupon') setKind(value); }}>
-          {/* Toggle's own pressed style, which ToggleGroupItem leaves out. */}
-          <ToggleGroupItem value="quick" testID="add-discount-kind-quick" className={kind === 'quick' ? 'bg-accent' : undefined}>
-            <Text>Quick discount</Text></ToggleGroupItem>
-          <ToggleGroupItem value="coupon" testID="add-discount-kind-coupon" className={kind === 'coupon' ? 'bg-accent' : undefined}>
-            <Text>Coupon</Text></ToggleGroupItem>
-        </ToggleGroup>}
+        {/* v2's SegmentedControl under the header (pos/cart/add-discount-sheet.tsx:22-34). */}
+        {couponCollection && <Segmented testID="add-discount-kind" label="Discount kind" value={kind}
+          onChange={value => { if (value === 'quick' || value === 'coupon') setKind(value); }}
+          segments={[{ value: 'quick', label: 'Quick discount', testID: 'add-discount-kind-quick' },
+            { value: 'coupon', label: 'Coupon', testID: 'add-discount-kind-coupon' }]} />}
         {couponCollection && kind === 'coupon'
           ? <CouponPicker sale={sale} coupons={couponCollection} currency={sale.order.currency} onClose={close} />
           : <DiscountForm title="Order discount" currency={sale.order.currency} onClose={close}
