@@ -1,8 +1,9 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import type { StoreOrder } from '@tallyui/core';
+import type { PosOrder } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
 import { OrdersScreen } from '../components/orders-screen';
 import { SessionProvider } from '../lib/auth/session-context';
@@ -26,8 +27,10 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
+let localOrders: { insert(order: PosOrder): Promise<unknown> } | undefined;
 function OrderStoreReady() {
   const outbox = useOutbox();
+  if (outbox.enabled) localOrders = outbox.orders ?? undefined;
   return outbox.enabled && outbox.orders ? <span>Order store ready</span> : null;
 }
 const order: StoreOrder = {
@@ -114,6 +117,9 @@ test("a row's status filters the list to it and does not open the order", async 
   await vi.waitFor(() => expect(list).toHaveBeenLastCalledWith(1, undefined, { ...scope, status: 'processing' }));
   expect(screen.getByTestId('order-filter-status').textContent).toContain('Processing');
   expect(screen.queryByTestId('order-modal')).toBeNull();
+  // The chevron opens the order sheet, so the check above looks for what an open would show.
+  fireEvent.click(await screen.findByTestId('history-open-901'));
+  expect(await screen.findByTestId('order-modal')).not.toBeNull();
 });
 
 test("a row's customer chip filters to that customer and names them in the Customer chip", async () => {
@@ -135,4 +141,16 @@ test('without filter fields the status cell is not a button', async () => {
   await setup([]);
   expect(screen.queryByTestId('history-901-status-filter')).toBeNull();
   expect(screen.getByTestId('history-901-customer-chip').getAttribute('role')).toBeNull();
+});
+
+// A till sale's status is its sync state, not a Woo status, so only store rows filter by status.
+test('only store rows offer the status filter', async () => {
+  await setup();
+  const now = new Date().toISOString();
+  await act(async () => { await localOrders!.insert({ id: 'local-1', createdAt: now, updatedAt: now, currency: 'USD',
+    pricesIncludeTax: false, lines: [], subtotalMinor: 0, discountMinor: 0, taxMinor: 0, totalMinor: 0, customer: null,
+    payments: [], syncStatus: 'applied', cashierRef: '2', commandId: 'command', taxRounding: { granularity: 'per_line_items', mode: 'half_up' } }); });
+  await screen.findByTestId('order-row-local-1');
+  expect(screen.getByTestId('history-901-status-filter')).not.toBeNull();
+  expect(screen.queryByTestId('order-local-1-status-filter')).toBeNull();
 });
