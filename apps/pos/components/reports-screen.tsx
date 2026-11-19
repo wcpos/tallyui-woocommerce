@@ -17,7 +17,7 @@ import { productFigures } from '../lib/reports/product-figures';
 import { closuresScope, periodNow, salesPeriod } from '../lib/reports/report-scope';
 import { rangeBounds, salesRoom, type Compare } from '../lib/reports/sales-room';
 import { salesTableCsv } from '../lib/reports/sales-table-csv';
-import { ordersTable, paymentsTable, productsTable, taxesTable, whereSoldTable } from '../lib/reports/sales-tables';
+import { categoriesTable, ordersTable, paymentsTable, productsTable, taxesTable, whereSoldTable } from '../lib/reports/sales-tables';
 import { useMinuteClock } from '../lib/reports/use-minute-clock';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { ordersDatabaseName } from '../lib/sale/order-store';
@@ -117,8 +117,10 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   }).format(Math.round(minor / 10 ** exponent));
   // One set of figures feeds each card and its table, so the two never disagree.
   const products = productFigures(shown, { currency, range });
+  const categories = categoryFigures(shown, catalogueProducts, { currency, range });
   const table = openTable === 'payments' ? paymentsTable(room.today, money)
     : openTable === 'products' ? productsTable(room.today, products, money)
+    : openTable === 'categories' ? categoriesTable(room.today, categories, money)
     : openTable === 'taxes' ? taxesTable(room.today, money)
     : openTable === 'where-sold' ? whereSoldTable(room.today, money)
     : openTable === 'orders' ? ordersTable(shown, { range, currency, money }) : null;
@@ -230,7 +232,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
           {room.today.count === 0 && <Text>{preset === 'today' ? 'No sales yet today.' : 'No sales in this period.'}</Text>}
         </ReportsHero>
         <ReportCards period={room.today} money={minor => money(minor) ?? ''} moneyWhole={moneyWhole} onOpenTable={setOpenTable} cashiers={reportCashierRows} products={products}
-          categories={categoryFigures(shown, catalogueProducts, { currency, range })} />
+          categories={categories} />
         {openTable && table && <SalesTable table={table} scope={tableScope} onClose={() => setOpenTable(null)} onPrint={printTable}
           onExport={() => downloadCsv(salesTableCsv(table), `sales-${openTable}-${range.from}-${range.to}.csv`)} />}
       </ScrollView>}

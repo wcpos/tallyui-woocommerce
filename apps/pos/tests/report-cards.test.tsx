@@ -232,7 +232,7 @@ test('the Top products card reads an empty period', () => {
 });
 
 test('the Categories card shows a donut row per category with amount, share and units sold', () => {
-  cards({ categories });
+  const onOpenTable = cards({ categories });
   expect(text('card-categories-figure')).toBe(money(period.totalMinor));
   expect(text('card-categories-donut-figure')).toBe(moneyWhole(period.totalMinor));
   const donut = within(screen.getByTestId('card-categories-donut'));
@@ -250,8 +250,8 @@ test('the Categories card shows a donut row per category with amount, share and 
   }
   expect(text('card-categories-unknown')).toBe('1 of 5 lines have no local product');
   expect(classesOf('card-categories-unknown')).toEqual(expect.arrayContaining(['text-sm', 'text-muted-foreground']));
-  expect(screen.queryByTestId('card-categories-open')).toBeNull();
-  expect(within(screen.getByTestId('card-categories')).queryByText('›')).toBeNull();
+  fireEvent.click(screen.getByTestId('card-categories-open'));
+  expect(onOpenTable).toHaveBeenCalledWith('categories');
 });
 
 test('one real category reads 1 category, leaving out Uncategorised and Unknown product', () => {

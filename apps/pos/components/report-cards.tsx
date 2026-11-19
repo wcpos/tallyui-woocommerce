@@ -8,7 +8,7 @@ import type { ProductFigure } from '../lib/reports/product-figures';
 import type { Period } from '../lib/reports/sales-room';
 import type { ReportCashier } from './report-chips';
 
-export type ReportTable = 'orders' | 'payments' | 'where-sold' | 'taxes' | 'products';
+export type ReportTable = 'orders' | 'payments' | 'where-sold' | 'taxes' | 'products' | 'categories';
 type Money = (minor: number) => string;
 
 /** v2 reports/cards/card.tsx: a named card whose head carries its figure, and opens its table when it can. */
@@ -192,10 +192,12 @@ export function TopProductsCard({ period, money, products, onOpen }: {
 }
 
 /** v2 reports/cards/categories.tsx: the period's gross by category, with units sold and missing local products. */
-export function CategoriesCard({ period, money, moneyWhole, categories }: CardProps & { categories: CategoryFigures }) {
+export function CategoriesCard({ period, money, moneyWhole, categories, onOpen }: CardProps & {
+  categories: CategoryFigures; onOpen(): void;
+}) {
   const n = categories.parts.filter(row => row.key !== 'unknown' && row.key !== 'uncategorised').length;
   return (
-    <ReportCard testID="card-categories" name="Categories" figure={money(period.totalMinor)}>
+    <ReportCard testID="card-categories" name="Categories" figure={money(period.totalMinor)} onOpen={onOpen}>
       {categories.parts.length === 0
         ? <Text testID="card-categories-empty">No sales in this period</Text>
         : <Donut testID="card-categories-donut" total={period.totalMinor} money={money}
@@ -279,7 +281,7 @@ export function ReportCards({ period, money, moneyWhole, onOpenTable, cashiers =
     <PaymentsCard key="payments" period={period} money={money} moneyWhole={moneyWhole} onOpen={() => onOpenTable('payments')} />,
     <WhereSoldCard key="where-sold" period={period} money={money} moneyWhole={moneyWhole} onOpen={() => onOpenTable('where-sold')} />,
     <TopProductsCard key="products" period={period} money={money} products={products} onOpen={() => onOpenTable('products')} />,
-    <CategoriesCard key="categories" period={period} money={money} moneyWhole={moneyWhole} categories={categories} />,
+    <CategoriesCard key="categories" period={period} money={money} moneyWhole={moneyWhole} categories={categories} onOpen={() => onOpenTable('categories')} />,
     <CashiersCard key="cashiers" period={period} money={money} moneyWhole={moneyWhole} cashiers={cashiers} />,
     <TaxesCard key="taxes" period={period} money={money} onOpen={() => onOpenTable('taxes')} />,
   ];

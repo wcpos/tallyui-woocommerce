@@ -6,7 +6,7 @@ import { formatMoney } from '@tallyui/core';
 import type { PosOrder } from '@tallyui/pos';
 import { salesRoom, type Period } from '../lib/reports/sales-room';
 import { productFigures } from '../lib/reports/product-figures';
-import { ordersTable, paymentsTable, productsTable, taxesTable, whereSoldTable } from '../lib/reports/sales-tables';
+import { categoriesTable, ordersTable, paymentsTable, productsTable, taxesTable, whereSoldTable } from '../lib/reports/sales-tables';
 
 afterAll(() => {
   if (savedTimezone === undefined) delete process.env.TZ;
@@ -179,4 +179,22 @@ test('products table lists every product with its units and an All products tota
   expect(table.total).toEqual(['All products', '2', '$25.96']);
   expect(table.status).toBe('4 orders · $29.96');
   expect(table.empty).toBe('No sales in this period');
+}, 20_000);
+
+test('categories table shares the period total and totals the parts', () => {
+  const categories = { unknownLines: 1, totalLines: 3, parts: [
+    { key: '25', label: 'Coffee', amountMinor: 1738, quantity: 2 },
+    { key: 'unknown', label: 'Unknown product', amountMinor: 858, quantity: 1 },
+  ] };
+  const table = categoriesTable(today, categories, money);
+  expect(table.title).toBe('Sales by category');
+  expect(table.head).toEqual(['Category', 'Qty', 'Amount', 'Share']);
+  expect(table.align).toEqual(['left', 'right', 'right', 'right']);
+  // v2 cards/aggregate.ts categories: a part's share is of the period's total ($29.96), as on the card's donut.
+  expect(table.rows.map(row => [row.key, ...row.cells])).toEqual([
+    ['25', 'Coffee', '2', '$17.38', '58.0%'], ['unknown', 'Unknown product', '1', '$8.58', '28.6%'],
+  ]);
+  expect(table.total).toEqual(['Total', '3', '$25.96', '']);
+  expect(table.status).toBe('4 orders · $29.96');
+  expect(categoriesTable({ ...today, totalMinor: 0 }, categories, money).rows[0].cells[3]).toBe('—');
 }, 20_000);

@@ -1003,6 +1003,18 @@ test('the Top products card opens a table of products', async () => {
   await table.close();
 }, 20_000);
 
+test('the Categories card opens a table of categories', async () => {
+  // The fixture's Espresso (id 80) is in Coffee (id 25).
+  await setup({ synced: products });
+  await payCash();
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+  const table = await openCardTable('card-categories-open');
+  expect(table.hasText('Sales by category')).toBe(true);
+  expect(table.rows).toEqual([['sales-table-row-25', 'Coffee', '1', '$3.00', '100.0%']]);
+  expect(table.total).toEqual(['Total', '1', '$3.00']);
+  await table.close();
+}, 20_000);
+
 test("the hero's Orders line opens a table of today's orders", async () => {
   const app = await setup();
   await payCash();
@@ -1204,7 +1216,7 @@ test('each Reports table dialog has Print report after Export CSV (v2 detail-pan
   await setup();
   await payCash();
   await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
-  for (const opener of ['card-payments-open', 'card-taxes-open', 'card-where-sold-open', 'sales-room-orders-open', 'card-products-open']) {
+  for (const opener of ['card-payments-open', 'card-taxes-open', 'card-where-sold-open', 'sales-room-orders-open', 'card-products-open', 'card-categories-open']) {
     fireEvent.click(screen.getByTestId(opener));
     const dialog = await screen.findByTestId('sales-table');
     const footer = Array.from(dialog.querySelectorAll('[data-testid="sales-table-export"], [data-testid="detail-panel-print"], [data-testid="sales-table-close"]'));

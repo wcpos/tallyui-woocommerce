@@ -1,5 +1,6 @@
 import { orderReference } from '@tallyui/components';
 import type { DayRange, PosOrder } from '@tallyui/pos';
+import type { CategoryFigures } from './category-figures';
 import type { ProductFigure } from './product-figures';
 import { rangeBounds, type Period } from './sales-room';
 
@@ -106,6 +107,24 @@ export function productsTable(period: Period, products: readonly ProductFigure[]
     rows: products.map(row => ({ key: row.key, cells: [row.name || 'Unknown', String(row.quantity), format(row.amountMinor)] })),
     total: ['All products', String(products.reduce((sum, row) => sum + row.quantity, 0)),
       format(products.reduce((sum, row) => sum + row.amountMinor, 0))],
+    status: statusOf(period.count, format(period.totalMinor)),
+  };
+}
+
+/** v2 panels/specs.ts:257-291: the card's category parts, each sharing the period total as the card's donut does. */
+export function categoriesTable(period: Period, categories: CategoryFigures, money: (minor: number) => string | undefined): SalesTable {
+  const format = (minor: number) => money(minor) ?? '';
+  const { parts } = categories;
+  return {
+    title: 'Sales by category',
+    empty: 'No sales in this period',
+    head: ['Category', 'Qty', 'Amount', 'Share'],
+    align: ['left', 'right', 'right', 'right'],
+    rows: parts.map(row => ({
+      key: row.key, cells: [row.label, String(row.quantity), format(row.amountMinor), percentOf(row.amountMinor, period.totalMinor)],
+    })),
+    total: ['Total', String(parts.reduce((sum, row) => sum + row.quantity, 0)),
+      format(parts.reduce((sum, row) => sum + row.amountMinor, 0)), ''],
     status: statusOf(period.count, format(period.totalMinor)),
   };
 }
