@@ -3,6 +3,9 @@ import type { JSX } from 'react';
 import { Button, Text } from '@tallyui/components';
 
 export const RIGHT_SHEET = 'left-auto right-0 top-0 h-full w-full max-w-lg translate-x-0 translate-y-0 gap-4 rounded-none border-0 border-l border-border bg-card p-0 py-4';
+// v2's `xl` right sheet (dialog/index.tsx:75 `xl: 'w-160'`, 560 px in apps/main/global.css:53), the Reports panels'
+// (report-panel.tsx:29, panels/panel.tsx:277 and :305). Only the width differs from RIGHT_SHEET.
+export const RIGHT_SHEET_XL = RIGHT_SHEET.replace('max-w-lg', 'max-w-[560px]');
 // v2 report-panel.tsx:21-26 uses a full page on a phone.
 export const PHONE_PAGE = 'left-0 right-0 top-0 h-full w-full max-w-full translate-x-0 translate-y-0 gap-4 rounded-none border-0 bg-card p-0 py-4';
 export const LEFT_SHEET = 'left-0 right-auto top-0 h-full w-full max-w-lg translate-x-0 translate-y-0 gap-4 rounded-none border-0 border-r border-border bg-card p-0 py-4';
