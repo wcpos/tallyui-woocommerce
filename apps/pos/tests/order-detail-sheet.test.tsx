@@ -222,12 +222,13 @@ test('opening a store order draws the sheet over the list, which stays behind', 
   expect(send).not.toHaveBeenCalled();
 });
 
-test('Receipt hands the sheet over to the reprint', async () => {
+test('Receipt hands the sheet over to the receipt', async () => {
   const send = await screenWith(make());
   fireEvent.click(screen.getByTestId('history-open-901'));
   fireEvent.click(screen.getByTestId('order-modal-receipt'));
   expect(screen.queryByTestId('order-modal')).toBeNull();
-  expect(screen.getByTestId('receipt-reprint').textContent).toBe('Reprint 1');
+  expect(screen.queryByTestId('receipt-reprint')).toBeNull();
+  expect(screen.getByTestId('receipt-order').textContent).toBe('Order 901');
   expect(send).not.toHaveBeenCalled();
 });
 
