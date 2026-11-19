@@ -7,7 +7,7 @@ import { useOutbox } from '../lib/sale/outbox-context';
 import { useRegister } from '../lib/register/register-context';
 import { REGISTER_ID } from '../lib/register/register-id';
 import { initialOrderFilters, matchesOrderFilters, matchesOrderSearch, toHistoryRow, WOO_CREATED_VIA_OPTIONS, WOO_STATUS_LABELS, type OrderHistorySource } from '../lib/orders/order-history';
-import { useAreaColumns } from '../lib/area-columns';
+import { areaDisplayShown, useAreaColumns } from '../lib/area-columns';
 import { useSearchTerm } from '../lib/search-term';
 import { ORDERS_COLUMNS, OrdersTable } from './orders-table';
 import { AreaDisplayOptions } from './area-display-options';
@@ -165,6 +165,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
               // v2's guard (useGuardedExtendLimit): none while a page loads, when exhausted, or after a failure until Try again.
               onEndReached={() => { if (hasMore && !loading && !failed) void loadPage(page + 1, search); }}
               visible={columns.filter(column => column.visible).map(column => column.id)}
+              showPayment={areaDisplayShown(columns, 'total', 'payment_method')}
               onSync={history ? () => { void loadPage(1, search); } : undefined}
               // v2's cell taps (status-filter-cell.tsx:29, order/customer.tsx:39) set the bar's filter, so only where it shows.
               onFilterStatus={fields.length > 0 ? status => setValue(v => ({ ...v, status })) : undefined}
