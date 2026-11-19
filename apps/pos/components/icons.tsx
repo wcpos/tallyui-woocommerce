@@ -60,3 +60,6 @@ export const WarehouseIcon = createSvgIcon('WarehouseIcon', () => <><Path d="M3 
 // v2's tabler `tag` glyph (monorepo packages/components/src/icon/svg/tabler/tag.svg).
 export const TagIcon = createSvgIcon('TagIcon', () => <><Path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0-2 0" />
   <Path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592-5.592a2.41 2.41 0 0 0 0-3.408l-7.71-7.71A2 2 0 0 0 11.172 3H6a3 3 0 0 0-3 3" /></>);
+// v2's `bookmark` and `arrowDown` glyphs, tabler (monorepo packages/components/src/icon/svg/tabler/{bookmark,arrow-down}.svg).
+export const BookmarkIcon = createSvgIcon('BookmarkIcon', () => <Path d="M18 7v14l-6-4l-6 4V7a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4" />);
+export const ArrowDownIcon = createSvgIcon('ArrowDownIcon', () => <Path d="M12 5v14m6-6l-6 6m-6-6l6 6" />);

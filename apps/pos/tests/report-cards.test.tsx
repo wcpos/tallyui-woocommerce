@@ -198,7 +198,7 @@ test('Where sold reads an empty period', () => {
 });
 
 test('the Top products card lists the four best sellers with amount, share bar and units sold', () => {
-  cards({ products });
+  const onOpenTable = cards({ products });
   expect(text('card-products-figure')).toBe('23');
   expect(screen.getAllByTestId(/^card-products-row-\d$/).map(row => row.getAttribute('data-testid'))).toEqual([
     'card-products-row-0', 'card-products-row-1', 'card-products-row-2', 'card-products-row-3',
@@ -213,7 +213,9 @@ test('the Top products card lists the four best sellers with amount, share bar a
   expect(fourth.getByText('$157.64')).not.toBeNull();
   expect(fourth.getByText('10% · 2 sold')).not.toBeNull();
   expect((screen.getByTestId('card-products-row-0-bar').firstElementChild as HTMLElement).style.transform).toBe('translateX(-62.5%)');
-  expect(screen.queryByTestId('card-products-open')).toBeNull();
+  // v2 panels/specs.ts products: the card opens its table.
+  fireEvent.click(screen.getByTestId('card-products-open'));
+  expect(onOpenTable).toHaveBeenCalledWith('products');
 });
 
 test('a product with no name reads Unknown, and a tiny share still draws a sliver', () => {
@@ -230,7 +232,7 @@ test('the Top products card reads an empty period', () => {
 });
 
 test('the Categories card shows a donut row per category with amount, share and units sold', () => {
-  cards({ categories });
+  const onOpenTable = cards({ categories });
   expect(text('card-categories-figure')).toBe(money(period.totalMinor));
   expect(text('card-categories-donut-figure')).toBe(moneyWhole(period.totalMinor));
   const donut = within(screen.getByTestId('card-categories-donut'));
@@ -248,8 +250,8 @@ test('the Categories card shows a donut row per category with amount, share and 
   }
   expect(text('card-categories-unknown')).toBe('1 of 5 lines have no local product');
   expect(classesOf('card-categories-unknown')).toEqual(expect.arrayContaining(['text-sm', 'text-muted-foreground']));
-  expect(screen.queryByTestId('card-categories-open')).toBeNull();
-  expect(within(screen.getByTestId('card-categories')).queryByText('›')).toBeNull();
+  fireEvent.click(screen.getByTestId('card-categories-open'));
+  expect(onOpenTable).toHaveBeenCalledWith('categories');
 });
 
 test('one real category reads 1 category, leaving out Uncategorised and Unknown product', () => {
@@ -265,7 +267,7 @@ test('the Categories card reads an empty period', () => {
 });
 
 test('the Cashiers card shows a donut row per cashier with their name, amount, share and orders', () => {
-  cards({ cashiers: [{ id: '7', name: 'Alex' }, { id: '9', name: 'Sam' }] });
+  const onOpenTable = cards({ cashiers: [{ id: '7', name: 'Alex' }, { id: '9', name: 'Sam' }] });
   expect(text('card-cashiers-figure')).toBe('2');
   const donut = within(screen.getByTestId('card-cashiers-donut'));
   expect(donut.getAllByTestId(/^card-cashiers-donut-row-\d+$/).map(row => row.getAttribute('data-testid')))
@@ -276,7 +278,8 @@ test('the Cashiers card shows a donut row per cashier with their name, amount, s
   for (const label of ['Sam', '$591.15', '37.5%', '4 orders']) expect(sam.getByText(label)).not.toBeNull();
   expect(text('card-cashiers-donut-figure')).toBe('$1,576');
   expect(donut.getByText('2 cashiers')).not.toBeNull();
-  expect(screen.queryByTestId('card-cashiers-open')).toBeNull();
+  fireEvent.click(screen.getByTestId('card-cashiers-open'));
+  expect(onOpenTable).toHaveBeenCalledWith('cashiers');
 });
 
 test('the Cashiers card names a cashier not on this device #id, and an order with none Unknown', () => {
