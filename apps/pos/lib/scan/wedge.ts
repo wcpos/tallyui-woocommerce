@@ -17,6 +17,8 @@ export interface WedgeAttempt {
   code: string;
   /** The folded average key gap in ms; undefined for a single key. */
   avgGapMs: number | undefined;
+  /** Each gap in ms between consecutive keys, in order (v2 analyze-trace.ts:44-45, without its leading 0). */
+  gapsMs: number[];
   result: WedgeResult;
 }
 
@@ -49,6 +51,7 @@ export function createWedgeDetector(onScan: (code: string) => void, options: Wed
   let last = 0;
   let first = 0;
   let avg: number | undefined;
+  let gaps: number[] = [];
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   function reset() {
@@ -57,11 +60,13 @@ export function createWedgeDetector(onScan: (code: string) => void, options: Wed
     buffer = '';
     last = 0;
     avg = undefined;
+    gaps = [];
   }
 
   function finish(): boolean {
     const raw = buffer;
     const gap = avg;
+    const gapsMs = gaps;
     reset();
     if (!raw) return false;
     const settings = getSettings();
@@ -69,7 +74,7 @@ export function createWedgeDetector(onScan: (code: string) => void, options: Wed
     // v2 checks the minimum length after the prefix and suffix come off; an empty code is never a scan.
     const result: WedgeResult = gap === undefined || gap >= settings.threshold ? 'typing'
       : code.length < Math.max(1, settings.minChars) ? 'too_short' : 'scan';
-    options.onAttempt?.({ raw, code, avgGapMs: gap, result });
+    options.onAttempt?.({ raw, code, avgGapMs: gap, gapsMs, result });
     if (result === 'scan') onScan(code);
     return result === 'scan';
   }
@@ -81,6 +86,7 @@ export function createWedgeDetector(onScan: (code: string) => void, options: Wed
       const t = Date.now();
       if (buffer) {
         const gap = t - last;
+        gaps.push(gap);
         avg = avg === undefined ? gap : (avg + gap) / 2;
       } else first = t;
       buffer += key;

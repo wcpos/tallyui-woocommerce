@@ -161,11 +161,19 @@ test('onAttempt reports scan, too short and typing', () => {
   detector.key('7');
   vi.advanceTimersByTime(150);
   expect(onAttempt.mock.calls.map(([attempt]) => attempt)).toEqual([
-    { raw: code, code, avgGapMs: 5, result: 'scan' },
-    { raw: '123', code: '123', avgGapMs: 5, result: 'too_short' },
-    { raw: '123', code: '123', avgGapMs: 100, result: 'typing' },
-    { raw: '7', code: '7', avgGapMs: undefined, result: 'typing' },
+    { raw: code, code, avgGapMs: 5, gapsMs: Array(code.length - 1).fill(5), result: 'scan' },
+    { raw: '123', code: '123', avgGapMs: 5, gapsMs: [5, 5], result: 'too_short' },
+    { raw: '123', code: '123', avgGapMs: 100, gapsMs: [100, 100], result: 'typing' },
+    { raw: '7', code: '7', avgGapMs: undefined, gapsMs: [], result: 'typing' },
   ]);
+});
+
+test('an attempt records each gap between its keys in order', () => {
+  const onAttempt = vi.fn();
+  const detector = createWedgeDetector(vi.fn(), { onAttempt });
+  [5, 30, 12, 0].forEach((gap, i) => { detector.key(String(i + 1)); vi.advanceTimersByTime(gap); });
+  detector.key('Enter');
+  expect(onAttempt.mock.calls[0][0]).toMatchObject({ raw: '1234', gapsMs: [5, 30, 12] });
 });
 
 test('the scanner claimed last owns the wedge until it is released', () => {
