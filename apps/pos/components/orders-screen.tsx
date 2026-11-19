@@ -18,9 +18,12 @@ import { ReceiptZoom } from './receipt-zoom';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { AreaToolbar, useAreaGutter } from './area-header';
 import { RefusedOrdersNotice } from './refused-orders-notice';
+import { toast } from '../lib/toast/toast';
 
 // The app has no store timezone yet (lib/orders/order-days.ts)
 const TIMEZONE = 'device';
+// v2's orders.refresh_failed (core.json:975), toasted as a warning by order-actions.tsx:57-79.
+export const ORDER_REFRESH_FAILED = "Couldn't refresh this order. The copy on this device is unchanged — check your connection and try again.";
 
 export function OrdersScreen({ onBack, history, storeName, cashierName, cashierId, onCustomerSearch, onReview }: {
   onBack(): void; history: OrderHistorySource | null; storeName: string; cashierName: string;
@@ -43,6 +46,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
   const [failed, setFailed] = useState(false);
   const [opened, setOpened] = useState<{ data: ReturnType<typeof buildReceiptDataFromPosOrder>; posOrder?: PosOrder; storeOrder?: StoreOrder } | null>(null);
   const [viewing, setViewing] = useState<StoreOrder | null>(null);
+  const [syncing, setSyncing] = useState(false);
   const { term, query: search, type, set } = useSearchTerm();
   const [columns, setColumns] = useAreaColumns('orders', ORDERS_COLUMNS);
   // v2's page gutter (ground.ts:46-72): the bar, the table card (OrdersTable) and this page's notes; the receipt keeps 16.
@@ -86,6 +90,18 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
   useWedgeScanner(scan, true);
 
   function clear() { set(''); setValue(initial); }
+
+  // v2's Sync (order-actions.tsx:57-79): re-read this one order and redraw the sheet and its row; a failure keeps both.
+  async function sync(id: string) {
+    setSyncing(true);
+    try {
+      const fresh = await history!.get!(id);
+      if (!fresh) throw new Error('The store has no such order');
+      setOrders(current => current.map(order => order.id === id ? fresh : order));
+      setViewing(current => current?.id === id ? fresh : current);
+    } catch { toast({ type: 'warning', title: ORDER_REFRESH_FAILED }); }
+    finally { setSyncing(false); }
+  }
 
   function open(row: PosOrder | OrderHistoryRow) {
     const n = (counts.current.get(row.id) ?? 0) + 1;
@@ -154,7 +170,8 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
               } : undefined}
               onOpen={row => { if (row.kind === 'store') setViewing(row.order); else open(row.order); }} />
         : <View testID="orders-unavailable" className={`py-4 ${gutter}`}><Text>Orders show once the store is connected.</Text></View>}
-      {outbox.enabled && viewing && !opened && <OrderDetailSheet order={viewing} onReceipt={() => open(toHistoryRow(viewing))} onClose={() => setViewing(null)} />}
+      {outbox.enabled && viewing && !opened && <OrderDetailSheet order={viewing} onReceipt={() => open(toHistoryRow(viewing))} onClose={() => setViewing(null)}
+        onSync={history?.get ? () => { void sync(viewing.id); } : undefined} syncing={syncing} />}
     </View>
   );
 }
