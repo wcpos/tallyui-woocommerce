@@ -8,6 +8,7 @@ import type { OrderCreateEnvelope, ReceiptTemplate } from '@tallyui/core';
 import type { CommandTransport } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
 import { SaleScreen, type SaleScreenProps } from '../components/sale-screen';
+import { StoreReceipt } from '../components/store-receipt';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
@@ -136,3 +137,12 @@ test('an html template previews and prints on A4, as v2', async () => {
   expect(document.head.querySelector('style[data-receipt-page]')?.textContent).toBe('@page { size: A4; margin: 0; }');
   act(() => { window.dispatchEvent(new Event('afterprint')); });
 }, 20_000);
+
+test('a frame resized while its document loads does not throw', () => {
+  let onResize: (() => void) | undefined;
+  vi.stubGlobal('ResizeObserver', class { constructor(cb: () => void) { onResize = cb; } observe() {} unobserve() {} disconnect() {} });
+  render(<StoreReceipt html="<p>Receipt</p>" doneLabel="New sale" onDone={() => {}} onLoad={() => {}} />);
+  Object.defineProperty(screen.getByTestId('store-receipt-frame'), 'contentDocument', { value: { documentElement: null } });
+  expect(onResize).toBeDefined();
+  expect(() => onResize!()).not.toThrow();
+});
