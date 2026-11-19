@@ -43,8 +43,9 @@ export function appliesCount(n: number, country: string): string {
 }
 
 // v2 rate-table.tsx:35,96-99 BLEED and components lib/current-row.ts:10-13 currentRowMark(true): a 2 px primary bar on
-// bg-muted, bled to the sheet's edge. TallyUI's TableRow has no `selected`, so the mark is classes.
-const MARKED_ROW = '-mx-4 border-l-2 border-l-primary bg-muted pl-3.5 pr-4';
+// bg-muted, bled to the sheet's edge. TallyUI's TableRow has no `selected`, so the mark is classes; the bar's width is
+// important because TableBody's `[&>*:last-child]:border-0` would strip it from the last row.
+const MARKED_ROW = '-mx-4 border-l-2! border-l-primary bg-muted pl-3.5 pr-4';
 
 // v2 tax-rates/rate-rows.ts:23-30: the name's second line, only when the booleans say something.
 export function rateTags(rate: Pick<StoreTaxRate, 'compound' | 'shipping'>): string {
