@@ -14,7 +14,7 @@ import { CATALOGUE_VIEW_DEFAULTS } from '../lib/catalogue/catalogue-view-state';
 import { RestoreDefaultsButton, SHEET_TITLE, SheetCloseButton } from './sheet';
 import type { PanelPosition } from '../lib/catalogue/catalogue-view-state';
 import { CART_SETTINGS_DEFAULTS, isQuickDiscount, LINE_SORTS, normalizeLineSort, QUICK_DISCOUNT_SLOTS, sortCartLines, useCartSettings } from '../lib/sale/cart-settings';
-import type { CartSettings } from '../lib/sale/cart-settings';
+import type { CartColumns, CartSettings } from '../lib/sale/cart-settings';
 import { AutoPrintReceiptSetting } from './auto-print-setting';
 import { RECEIPT_SETTINGS_DEFAULTS, saveReceiptSettings } from '../lib/receipts/receipt-settings';
 import { withRemovedToasts } from '../lib/toast/removed-from-cart-toast';
@@ -36,6 +36,13 @@ export const sideSheet = (width: string): Record<PanelPosition, (railShown: bool
   right: () => `left-auto right-0 border-l ${sheet(width)}`,
 });
 export const CART_SHEET = sideSheet('w-[512px]');
+
+// v2's pos-cart columns in its order (initial-settings.json), labelled as use-ui-label.ts:52-61.
+const CART_COLUMN_SWITCHES: { id: keyof CartColumns; label: string; nested?: { field: string; label: string } }[] = [
+  { id: 'quantity', label: 'Qty', nested: { field: 'split', label: 'Split' } }, { id: 'image', label: 'Image' },
+  { id: 'name', label: 'Name', nested: { field: 'sku', label: 'SKU' } }, { id: 'sku', label: 'SKU' },
+  { id: 'price', label: 'Price' }, { id: 'total', label: 'Total' },
+];
 
 /** A full-width two-cell segmented control, as v2's FormSegmentedControl draws it; the chosen cell is tinted. */
 function SegmentedRow({ title, testID, cells }: {
@@ -126,17 +133,25 @@ export function CartSettingsDialog({ position, onPositionChange, settings, onSet
           <QuickDiscountsSetting key={settings.quickDiscounts.join(',')} keys={settings.quickDiscounts}
             onChange={next => onSettingsChange({ ...settings, quickDiscounts: next })} />
           <AutoPrintReceiptSetting />
-          {/* v2's UISettingsColumnsForm, the form's last v2 section (ui-settings-form.tsx:172): "Columns", then the Qty
-              column with its Split display switch nested under it, `pl-10` (columns-form.tsx). Off by default
-              (initial-settings.json pos-cart quantity.display.split). The other columns' switches are not offered yet. */}
+          {/* v2's UISettingsColumnsForm, the form's last v2 section (ui-settings-form.tsx:172): "Columns", a switch per
+              column (columns-form.tsx:79), and a shown column's display switches nested under it, `pl-10` (:115-143).
+              Defaults and the copy are v2's (initial-settings.json pos-cart columns, use-ui-label.ts). Not offered, as
+              TallyUI's Cart has none: Regular price, Subtotal, Actions, the on_sale and tax displays, drag reorder. */}
           <View testID="cart-setting-columns" className="gap-2 px-1 pt-2">
             <Text role="heading" aria-level={2} className="text-sm font-semibold">Columns</Text>
-            <FieldLabel>Qty</FieldLabel>
-            <View className="pl-10">
-              <SwitchRow label="Split" testID="cart-setting-column-quantity-split" accessibilityLabel="Show Split on Qty"
-                checked={settings.columns.quantity.split}
-                onCheckedChange={next => onSettingsChange({ ...settings, columns: { quantity: { split: next } } })} />
-            </View>
+            {CART_COLUMN_SWITCHES.map(({ id, label, nested }) => {
+              const column: Record<string, boolean> = settings.columns[id];
+              const write = (field: string, next: boolean) => onSettingsChange({ ...settings, columns: { ...settings.columns, [id]: { ...column, [field]: next } } });
+              // v2's spacing: a column's row `p-2` (columns-form.tsx:71), its display switches `pt-2 pl-10`, each `p-2` (:129,136).
+              return <View key={id} className="p-2">
+                <SwitchRow label={label} testID={`cart-setting-column-${id}`} accessibilityLabel={`Show ${label} column`}
+                  checked={column.show} onCheckedChange={next => write('show', next)} />
+                {nested && column.show && <View className="pl-10 pt-2"><View className="p-2">
+                  <SwitchRow label={nested.label} testID={`cart-setting-column-${id}-${nested.field}`} accessibilityLabel={`Show ${nested.label} on ${label}`}
+                    checked={column[nested.field]} onCheckedChange={next => write(nested.field, next)} />
+                </View></View>}
+              </View>;
+            })}
           </View>
           {/* The register sessions switch, once under the cart and only with a register. v2 has no such row; it is
               drawn as v2's FormSwitch with a description (form/switch.tsx, as ui-settings-form.tsx's autoPrintReceipt):

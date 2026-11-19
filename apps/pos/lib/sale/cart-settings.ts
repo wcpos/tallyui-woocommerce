@@ -13,15 +13,42 @@ export const LINE_SORTS: readonly { id: LineSort; label: string }[] = [
 // v2's pos-cart.openOrdersPosition (pos/cart/ui-settings-form.tsx): the open-order tab strip above or below the cart.
 export type OpenOrdersPosition = 'top' | 'bottom';
 // quickDiscounts: v2's pos-cart.quickDiscounts, the percent keys on each line's price keypad.
-// columns: v2's pos-cart columns, so far the quantity column's Split display (initial-settings.json: quantity.display.split).
-export interface CartSettings { sortLines: LineSort; openOrdersPosition: OpenOrdersPosition; quickDiscounts: number[]; columns: { quantity: { split: boolean } } }
+// columns: v2's pos-cart columns (initial-settings.json), each shown or not, with Qty's Split and Name's SKU displays.
+// Regular price, Subtotal, Actions, Price's and Total's on_sale and tax displays and drag reorder are not offered:
+// TallyUI 3.20.1's Cart has none of them (CartColumnSettings).
+export interface CartColumns {
+  quantity: { show: boolean; split: boolean }; image: { show: boolean }; name: { show: boolean; sku: boolean };
+  sku: { show: boolean }; price: { show: boolean }; total: { show: boolean };
+}
+export interface CartSettings { sortLines: LineSort; openOrdersPosition: OpenOrdersPosition; quickDiscounts: number[]; columns: CartColumns }
 // Per-device, like the catalogue view. The cart side is not here: it is the catalogue view's `position`.
 export const CART_SETTINGS_KEY = 'tallywoo.cart_settings.v1';
 // v2's price keypad draws three quick keys (QUICK_KEYS, WCPOS components/src/price-keypad).
 export const QUICK_DISCOUNT_SLOTS = 3;
 // v2's pos-cart defaults (initial-settings.json): newest at top, open orders at the bottom,
-// "quickDiscounts": [5, 10, 15] and the quantity column's Split off.
-export const CART_SETTINGS_DEFAULTS: CartSettings = { sortLines: 'newest_top', openOrdersPosition: 'bottom', quickDiscounts: [5, 10, 15], columns: { quantity: { split: false } } };
+// "quickDiscounts": [5, 10, 15] and the columns: Qty (Split off), Name (SKU off), Price and Total on; Image and SKU off.
+export const CART_SETTINGS_DEFAULTS: CartSettings = { sortLines: 'newest_top', openOrdersPosition: 'bottom', quickDiscounts: [5, 10, 15], columns: {
+  quantity: { show: true, split: false }, image: { show: false }, name: { show: true, sku: false },
+  sku: { show: false }, price: { show: true }, total: { show: true },
+} };
+
+/** Each column field on its own: a stored boolean stays, anything else gets that field's default. */
+export function normalizeCartColumns(raw: unknown): CartColumns {
+  const stored = (typeof raw === 'object' && raw !== null ? raw : {}) as { [id: string]: { [field: string]: unknown } | null | undefined };
+  const flag = (id: keyof CartColumns, field: string, fallback: boolean) => {
+    const value = stored[id]?.[field];
+    return typeof value === 'boolean' ? value : fallback;
+  };
+  const d = CART_SETTINGS_DEFAULTS.columns;
+  return {
+    quantity: { show: flag('quantity', 'show', d.quantity.show), split: flag('quantity', 'split', d.quantity.split) },
+    image: { show: flag('image', 'show', d.image.show) },
+    name: { show: flag('name', 'show', d.name.show), sku: flag('name', 'sku', d.name.sku) },
+    sku: { show: flag('sku', 'show', d.sku.show) },
+    price: { show: flag('price', 'show', d.price.show) },
+    total: { show: flag('total', 'show', d.total.show) },
+  };
+}
 
 export function normalizeLineSort(raw: unknown): LineSort {
   return LINE_SORTS.find(sort => sort.id === raw)?.id ?? 'newest_top';
@@ -50,7 +77,7 @@ export function loadCartSettings(storage?: Storage): CartSettings {
       sortLines: normalizeLineSort(stored.sortLines),
       openOrdersPosition: stored.openOrdersPosition === 'top' ? 'top' : 'bottom',
       quickDiscounts: normalizeQuickDiscounts(stored.quickDiscounts),
-      columns: { quantity: { split: stored.columns?.quantity?.split === true } },
+      columns: normalizeCartColumns(stored.columns),
     };
   } catch { return CART_SETTINGS_DEFAULTS; }
 }
