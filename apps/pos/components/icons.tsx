@@ -49,3 +49,14 @@ export const InfoIcon = createSvgIcon('InfoIcon', () => <><Circle cx={12} cy={12
 // v2's `support` glyph, tabler's message-question (monorepo packages/components/scripts/icons/maps/tabler.json:108,
 // path from packages/components/src/icon/components/tabler/support.tsx:14).
 export const SupportIcon = createSvgIcon('SupportIcon', () => <Path d="M8 9h8m-8 4h6m0 5h-1l-5 3v-3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4.5M19 22v.01M19 19a2.003 2.003 0 0 0 .914-3.782 1.98 1.98 0 0 0-2.414.483" />);
+// v2's tabler `category` glyph (monorepo packages/components/src/icon/svg/tabler/category.svg).
+export const CategoryIcon = createSvgIcon('CategoryIcon', () => <Path d="M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2" />);
+// v2's tabler `currency` glyph (monorepo packages/components/src/icon/svg/tabler/currency.svg).
+export const CurrencyIcon = createSvgIcon('CurrencyIcon', () => <><Path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0" />
+  <Path d="M14.8 9A2 2 0 0 0 13 8h-2a2 2 0 1 0 0 4h2a2 2 0 1 1 0 4h-2a2 2 0 0 1-1.8-1M12 7v10" /></>);
+// v2's tabler `warehouse` glyph (monorepo packages/components/src/icon/svg/tabler/warehouse.svg).
+export const WarehouseIcon = createSvgIcon('WarehouseIcon', () => <><Path d="M3 21V8l9-4l9 4v13" />
+  <Path d="M13 13h4v8H7v-6h6" /><Path d="M13 21v-9a1 1 0 0 0-1-1h-2a1 1 0 0 0-1 1v3" /></>);
+// v2's tabler `tag` glyph (monorepo packages/components/src/icon/svg/tabler/tag.svg).
+export const TagIcon = createSvgIcon('TagIcon', () => <><Path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0-2 0" />
+  <Path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592-5.592a2.41 2.41 0 0 0 0-3.408l-7.71-7.71A2 2 0 0 0 11.172 3H6a3 3 0 0 0-3 3" /></>);
