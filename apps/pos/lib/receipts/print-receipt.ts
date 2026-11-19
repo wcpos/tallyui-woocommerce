@@ -1,8 +1,6 @@
-export type ReceiptPaperWidth = '58mm' | '80mm';
-
-// v2 takes the width from the selected receipt template's paper_width (58mm, 80mm or a4;
-// packages/printer/src/print-html.ts). This app has no templates or printer settings yet,
-// so every receipt prints at 80 mm, the common thermal roll. A device setting replaces this.
+// v2's paper widths (packages/printer/src/print-html.ts): the store template's paper chooses one
+// (lib/receipts/store-receipt.ts receiptPaperWidth). The built-in receipt prints at 80 mm, the common thermal roll.
+export type ReceiptPaperWidth = '58mm' | '80mm' | 'a4';
 export const RECEIPT_PAPER_WIDTH: ReceiptPaperWidth = '80mm';
 
 // The NO_CLOSURE prefix lets a mounted closure document print instead.
@@ -16,14 +14,19 @@ function refresh() { active.forEach((style, index) => { style.media = index === 
 // size: auto uses the printer's thermal roll; 80mm auto is invalid and 80mm alone is an 80 mm square.
 // jsdom cannot compute styles while any @page rule is mounted, so it is installed only between beforeprint and afterprint.
 export const RECEIPT_PAGE_CSS = '@page { size: auto; margin: 0; }';
+// v2 prints an A4 template on an A4 page, its content 210 mm wide (print-html.ts:27-28).
+export function receiptPageCss(paperWidth: ReceiptPaperWidth): string {
+  return paperWidth === 'a4' ? '@page { size: A4; margin: 0; }' : RECEIPT_PAGE_CSS;
+}
 
 export function receiptPrintCss(paperWidth: ReceiptPaperWidth, area: string): string {
   const AREA = `[data-receipt="${area}"]`;
+  const width = paperWidth === 'a4' ? '210mm' : paperWidth;
   return `
 @media print {
   ${NO_CLOSURE}:has(${AREA}), ${NO_CLOSURE} :has(${AREA}) { display: block !important; position: static !important; width: auto !important; min-width: 0 !important; max-width: none !important; height: auto !important; min-height: 0 !important; max-height: none !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; border: 0 !important; transform: none !important; background: #fff !important; }
   ${NO_CLOSURE} :has(${AREA}) > :not(:has(${AREA})):not(${AREA}), ${NO_CLOSURE} ${AREA} [data-print="hide"] { display: none !important; }
-  ${NO_CLOSURE} ${AREA} { display: block !important; width: ${paperWidth} !important; max-width: ${paperWidth} !important; margin: 0 auto !important; background: #fff !important; }
+  ${NO_CLOSURE} ${AREA} { display: block !important; width: ${width} !important; max-width: ${width} !important; margin: 0 auto !important; background: #fff !important; }
   ${NO_CLOSURE} ${AREA} * { color: #000 !important; background-color: transparent !important; border-color: #000 !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }
 `;
@@ -38,7 +41,7 @@ export function installReceiptPrintStyle(area: string, paperWidth: ReceiptPaperW
   active.push(style); refresh();
   const page = document.createElement('style');
   page.setAttribute('data-receipt-page', '');
-  page.textContent = RECEIPT_PAGE_CSS;
+  page.textContent = receiptPageCss(paperWidth);
   // A mounted closure document prints with its own margins, as the receipt CSS already steps aside for it.
   const beforeprint = () => {
     if (active[active.length - 1] === style && !page.isConnected && !document.querySelector('[data-print="closure"]')) document.head.appendChild(page);
