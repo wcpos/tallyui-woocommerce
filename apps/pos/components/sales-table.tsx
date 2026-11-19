@@ -1,16 +1,40 @@
-import { ScrollView, View, useWindowDimensions } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { Button, Checkbox, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow, Text } from '@tallyui/components';
+import { useIsWide } from '../lib/layout/wide';
 import type { SalesTable as SalesTableData } from '../lib/reports/sales-tables';
+import { ChevronLeftIcon } from './icons';
 
 /** The Orders table's tick boxes (v2 reports/panels/orders-panel.tsx): unticked rows are left out of every figure. */
 export type TableTicks = { leftOut: ReadonlySet<string>; onInclude(keys: string[], included: boolean): void };
 /** TallyUI's table cells are flex-1; the tick column keeps only the box's width so the order reference does not wrap. */
 const TICK_COLUMN = 'w-12 flex-none pr-0';
 
+/** v2 reports/panels/panel.tsx:196-203 on a phone: Breadcrumb "Sales > {title}", whose Sales (reports.sales) closes the
+ *  panel. Drawn as v2's phone Breadcrumb (components/src/breadcrumb/index.tsx): the parent as a back control with
+ *  chevronLeft, then the place in semibold; the back control takes focus once, on mount, without scrolling. */
+function PanelCrumb({ title, onBack }: { title: string; onBack(): void }) {
+  const backRef = useRef<View>(null);
+  useEffect(() => {
+    if (Platform.OS === 'web') (backRef.current as unknown as HTMLElement | null)?.focus({ preventScroll: true });
+  }, []);
+  return <View testID="detail-panel-crumb" className="min-h-11 flex-row flex-wrap items-center gap-1 pr-2">
+    <Pressable ref={backRef} role="button" testID="detail-panel-back" accessibilityLabel="Sales" onPress={onBack}
+      className="min-h-11 max-w-full justify-center">
+      <View className="flex-row items-center gap-1 rounded-md px-2 py-1 web:hover:bg-muted active:bg-muted">
+        <ChevronLeftIcon size={16} className="text-foreground" />
+        <Text className="shrink font-medium text-foreground">Sales</Text>
+      </View>
+    </Pressable>
+    <DialogTitle testID="detail-panel-crumb-here" className="shrink px-1 text-base leading-normal font-semibold text-foreground">{title}</DialogTitle>
+  </View>;
+}
+
 export function SalesTable({ table, scope, ticks, onClose, onExport, onPrint }: {
   table: SalesTableData; scope: string; ticks?: TableTicks; onClose: () => void; onExport?: () => void; onPrint?: () => void;
 }) {
   const { width } = useWindowDimensions();
+  const phone = !useIsWide();
   // v2's checklist paints no Counted column: the tick box says it. Print and CSV keep the column.
   const paint = (cells: string[]) => ticks ? cells.slice(0, -1) : cells;
   const leftOut = ticks ? table.rows.filter(row => ticks.leftOut.has(row.key)).length : 0;
@@ -22,7 +46,7 @@ export function SalesTable({ table, scope, ticks, onClose, onExport, onPrint }: 
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
       <DialogContent testID="sales-table" className="max-h-[80%] overflow-hidden">
         <DialogHeader>
-          <DialogTitle>{table.title}</DialogTitle>
+          {phone ? <PanelCrumb title={table.title} onBack={onClose} /> : <DialogTitle>{table.title}</DialogTitle>}
           <Text testID="sales-table-scope">{scope}</Text>
         </DialogHeader>
         <ScrollView>

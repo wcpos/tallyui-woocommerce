@@ -20,7 +20,8 @@ export function StoreReceipt({ html, doneLabel, onDone, onLoad, printed = false 
   };
   const fit = () => {
     const doc = frame.current?.contentDocument;
-    if (frame.current && doc) frame.current.style.height = `${doc.documentElement.scrollHeight}px`;
+    // A resize can land while a new srcDoc loads (a template switch changes the paper), before it has a root.
+    if (frame.current && doc?.documentElement) frame.current.style.height = `${doc.documentElement.scrollHeight}px`;
   };
   useEffect(() => {
     window.addEventListener('beforeprint', fit);

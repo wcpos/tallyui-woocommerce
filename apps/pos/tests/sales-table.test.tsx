@@ -74,3 +74,32 @@ test('Print report shows only with onPrint and calls it', () => {
   fireEvent.click(button);
   expect(onPrint).toHaveBeenCalledTimes(1);
 });
+
+// v2 reports/panels/panel.tsx:196-203: on a phone (width < 768 or height < 480) the header is the crumb
+// "Sales > {title}", whose Sales (reports.sales) closes the panel; wider, the bare DialogTitle.
+test('phone header is the crumb Sales then the panel title, and Sales closes the panel', () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  const onClose = vi.fn();
+  render(<><SalesTable table={table} scope="Today · This till" onClose={onClose} /><PortalHost /></>);
+  const crumb = screen.getByTestId('detail-panel-crumb');
+  const back = within(crumb).getByTestId('detail-panel-back');
+  expect(back.textContent).toBe('Sales');
+  expect(back.getAttribute('role')).toBe('button');
+  expect(within(crumb).getByTestId('detail-panel-crumb-here').textContent).toBe('Orders');
+  // The place is the dialog's title, so on a phone the dialog keeps its accessible name.
+  const dialog = screen.getByRole('dialog', { name: 'Orders' });
+  expect(document.getElementById(dialog.getAttribute('aria-labelledby') ?? '')).toBe(within(crumb).getByTestId('detail-panel-crumb-here'));
+  const headings = screen.getAllByRole('heading', { name: 'Orders' });
+  expect(headings).toHaveLength(1);
+  expect(crumb.contains(headings[0])).toBe(true);
+  fireEvent.click(back);
+  expect(onClose).toHaveBeenCalledTimes(1);
+});
+
+test.each([768, 1280])('at %i wide the header keeps the bare title and no crumb', width => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width, height: 800, scale: 1, fontScale: 1 });
+  render(<><SalesTable table={table} scope="Today · This till" onClose={vi.fn()} /><PortalHost /></>);
+  expect(screen.queryByTestId('detail-panel-crumb')).toBeNull();
+  expect(screen.queryByTestId('detail-panel-back')).toBeNull();
+  expect(screen.getByRole('heading', { name: 'Orders' })).not.toBeNull();
+});

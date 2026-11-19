@@ -19,7 +19,7 @@ import { useRegister } from '../lib/register/register-context';
 import { REGISTER_ID } from '../lib/register/register-id';
 import { buildReceiptIdentity } from '../lib/receipts/receipt-identity';
 import { useReceiptPrintCount } from '../lib/receipts/use-receipt-print-count';
-import { pickReceiptTemplate, receiptTemplateIdFor, renderedStoreReceipt } from '../lib/receipts/store-receipt';
+import { pickReceiptTemplate, receiptPaperWidth, receiptTemplateIdFor, renderedStoreReceipt } from '../lib/receipts/store-receipt';
 import { useStoreTemplates } from '../lib/receipts/use-store-templates';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { useCartRestore } from '../lib/sale/use-cart-restore';
@@ -358,14 +358,16 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           pricesIncludeTax: props.storeSettings.pricesIncludeTax,
         }, templateId) : null;
         const shownTemplate = storeTemplates.status === 'ready' ? pickReceiptTemplate(storeTemplates.templates, templateId) : null;
+        // v2 previews and prints at the shown template's paper (use-receipt-document.ts:214-220); the built-in receipt at 80 mm.
+        const paperWidth = receiptPaperWidth(storeHtml !== null ? shownTemplate : null);
         return (
         <>
           <ReceiptPaidMoment posOrder={receiptOrder} locale={props.locale} onClose={sale.newSale} />
           {/* v2's Template row sits above the paper, outside the zoom and the print (receipt-body.tsx:84-98). */}
           {storeHtml !== null && storeTemplates.status === 'ready' && shownTemplate ? <ReceiptTemplateRow
             templates={storeTemplates.templates} selectedId={shownTemplate.id} onSelect={id => setTemplatePick({ orderId, id })} /> : null}
-          <ReceiptZoom>
-          <ReceiptPrintSheet orderId={orderId} autoPrint={receiptSettings.autoPrint} printAgain={storeHtml === null}
+          <ReceiptZoom paperWidth={paperWidth}>
+          <ReceiptPrintSheet orderId={orderId} paperWidth={paperWidth} autoPrint={receiptSettings.autoPrint} printAgain={storeHtml === null}
             ready={storeTemplates.status !== 'loading' && (storeHtml === null || frameLoaded === orderId)}
             onAutoPrinted={receiptSettings.autoShow ? undefined : sale.newSale}>
           <ReceiptStoreLine posOrder={receiptOrder} />

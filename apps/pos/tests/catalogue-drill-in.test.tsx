@@ -2,14 +2,17 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
+import { ConnectorProvider } from '@tallyui/core';
+import { catalogueEntries } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
 import { CatalogueView } from '../components/catalogue-view';
 import type { CatalogueViewProps } from '../components/catalogue-view';
 import { SaleScreen } from '../components/sale-screen';
+import { VariationRow } from '../components/variation-tile';
 import { CATALOGUE_VIEW_DEFAULTS, CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import type { CatalogueTileFields } from '../lib/catalogue/catalogue-view-state';
 import { QUICK_FILTERS_KEY } from '../lib/catalogue/quick-filters';
-import { classesOf } from './classes-of';
+import { classesOf, textPropsOf } from './classes-of';
 import { noTaxSettings } from './fixtures/store-settings';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
@@ -163,6 +166,35 @@ test('in the table a click on a variable product drills into its variations as r
   expectTableDrill(onSelect);
   expect(screen.getByTestId('variation-chip-106-Size').textContent).toBe('M');
   expect(screen.getByTestId('variation-price-106').textContent).toBe('$25.00');
+});
+
+// v2 cells/variation-name.tsx:48-53: the drilled-in pane's rows carry the parent's name as `help` text above the chips.
+test('in the table each drilled-in variation row shows the parent name, small and muted, above its option chips', () => {
+  view({ browseBy: 'all', view: 'table' });
+  renderView();
+  fireEvent.click(screen.getByText('T-Shirt'));
+  for (const id of ['104', '105', '106']) {
+    const row = screen.getByTestId(`variation-row-${id}`);
+    const names = within(row).getAllByTestId('variation-parent-name');
+    expect(names.map(node => node.textContent)).toEqual(['T-Shirt']);
+    const chip = within(row).getByTestId(`variation-chip-${id}-Size`);
+    expect(names[0].compareDocumentPosition(chip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const { classes, numberOfLines } = textPropsOf(names[0]);
+    expect(classes).toEqual(expect.arrayContaining(['text-xs', 'text-muted-foreground']));
+    expect(numberOfLines).toBe(1);
+  }
+});
+
+// v2 variation-name.tsx:13-21: only the pane provides the name; a row anywhere else has none.
+test('a variation row outside the drill-in has no parent name', () => {
+  const connector = createWooCommerceConnector();
+  const entry = catalogueEntries([shirt], connector.traits.product, { currency: stores[0].currency })[0];
+  render(<ConnectorProvider connector={connector} traitContext={{ currency: stores[0].currency }}>
+    <VariationRow entry={entry} onPress={() => {}} />
+  </ConnectorProvider>);
+  const row = screen.getByTestId(`variation-row-${entry.variant.id}`);
+  expect(within(row).queryByTestId('variation-parent-name')).toBeNull();
+  expect(within(row).getByTestId(`variation-chip-${entry.variant.id}-Size`).textContent).toBe('S');
 });
 
 test('in the table a variation row adds that entry, and the drill-in stays', () => {
@@ -473,6 +505,6 @@ test('the variation row is unchanged by the tile fields', () => {
   renderView([sale]);
   fireEvent.click(screen.getByText('T-Shirt'));
   const row = screen.getByTestId('variation-row-104');
-  expect(row.textContent).toBe('SBlack$20.00');
+  expect(row.textContent).toBe('T-ShirtSBlack$20.00');
   expect(within(row).queryAllByTestId(/^variation-(was|tile-stock)-/)).toEqual([]);
 });

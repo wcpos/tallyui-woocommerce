@@ -83,7 +83,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const wide = useWindowDimensions().width >= 600;
   const gutter = useAreaGutter();
   locale = locale.replaceAll('_', '-');
-  const { range, multiDay, comparison, bounds, since, weekday, comparisonName } = useMemo(
+  const { range, multiDay, comparison, bounds, since, weekday, comparisonName, chartName } = useMemo(
     () => salesPeriod(period, compare, opened, locale), [period, compare, opened, locale]);
   const shown = cashierId === null ? sales : sales.filter(order => order.cashierRef === cashierId);
   const { label, dates } = periodLabel(range, preset ?? 'custom', locale);
@@ -234,7 +234,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
               segments={[{ value: 'hour', label: multiDay ? 'By day' : 'By hour' }, { value: 'run', label: 'Running total' }]}
               onChange={value => setChartView(value as typeof chartView)} />
           </View>}
-          chart={<HourlyBars hours={room.hours} money={minor => money(minor) ?? ''} comparisonName={comparisonName}
+          chart={<HourlyBars hours={room.hours} money={minor => money(minor) ?? ''} comparisonName={chartName}
             nowKey={nowKey} live={live} view={chartView} />}>
           {room.today.pending > 0 && <Text>{`Waiting to sync: ${room.today.pending}`}</Text>}
           {room.today.rejected > 0 && <Text>{`Not accepted by the store: ${room.today.rejected}`}</Text>}
