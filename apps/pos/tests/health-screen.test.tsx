@@ -1,3 +1,4 @@
+import * as ReactNative from 'react-native';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { createRxDatabase, type RxCollection, type RxDatabase } from 'rxdb';
@@ -280,4 +281,29 @@ test('a second press while it runs does nothing', async () => {
   await act(async () => { resolve(); await pending; });
   expect(products).toHaveBeenCalledTimes(1);
   expect(coupons).toHaveBeenCalledTimes(1);
+});
+
+// v2 database.tsx:557-572 (HowSyncingWorksLink) and core.json:1974 "How syncing works".
+test('How syncing works links out to v2\'s sync docs', () => {
+  const open = vi.spyOn(ReactNative.Linking, 'openURL').mockResolvedValue(true);
+  render(<HealthScreen receiptEmails={receiptEmails} collections={collections} />);
+  const link = screen.getByTestId('db-how-syncing-works');
+  expect(link.textContent).toBe('How syncing works');
+  fireEvent.click(link);
+  expect(open).toHaveBeenCalledExactlyOnceWith('https://docs.wcpos.com/products/sync');
+  open.mockRestore();
+});
+
+// v2 database.tsx:826-850: the link closes the status column (VStack gap-0.5), and Check everything now follows it.
+test('How syncing works sits under the freshness line, beside Check everything now', () => {
+  render(<HealthScreen receiptEmails={receiptEmails} collections={collections}
+    runner={{ nextDueAtMs$: new BehaviorSubject<number | undefined>(undefined) }} />);
+  const lines = screen.getByTestId('db-freshness-lines');
+  const label = screen.getByTestId('db-freshness-label'), link = screen.getByTestId('db-how-syncing-works');
+  expect(lines.contains(label) && lines.contains(link)).toBe(true);
+  expect(label.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  const check = screen.getByTestId('db-check-everything');
+  expect(lines.contains(check)).toBe(false);
+  expect(lines.nextElementSibling).toBe(check);
+  expect(classesOf('db-how-syncing-works')).toContain('ml-3');
 });
