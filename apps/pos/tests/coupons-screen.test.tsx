@@ -170,22 +170,21 @@ test('the screen never writes to the replicated coupons collection', async () =>
   writes.forEach(spy => spy.mockClear());
   typeSearch('five');
   await waitFor(() => expect(rowCodes()).toEqual(['coupons-row-5dollars']));
-  fireEvent.click(screen.getByTestId('coupons-back'));
   for (const spy of writes) expect(spy).not.toHaveBeenCalled();
 });
 
-test('the narrow list shows each code with its badge, amount and type, and Back calls onBack', async () => {
+test('the narrow list shows each code with its badge, amount and type, under a bar with Menu and no Back', async () => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 400, height: 800, scale: 1, fontScale: 1 });
   await db.coupons.bulkInsert(couponDocs);
-  const { onBack } = renderScreen();
+  renderScreen();
   await screen.findByTestId('coupons-row-10off');
   expect(screen.queryAllByTestId(/^coupons-header-/)).toHaveLength(0);
   expect(row('10off').getByText('10off')).not.toBeNull();
   expect(row('10off').getByText('Active')).not.toBeNull();
   expect(row('10off').getByText('Percentage · 10%')).not.toBeNull();
   expect(row('old').getByText('Inactive')).not.toBeNull();
-  fireEvent.click(screen.getByTestId('coupons-back'));
-  expect(onBack).toHaveBeenCalledOnce();
+  expect(screen.getByTestId('coupons-menu')).not.toBeNull();
+  expect(screen.queryByTestId('coupons-back')).toBeNull();
 });
 
 test("a phone row shows the description, then type · amount · Expires day, in v2's order", async () => {

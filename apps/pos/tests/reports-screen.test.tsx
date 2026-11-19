@@ -285,8 +285,7 @@ test('Today starts empty and observes an Espresso cash sale', async () => {
   expect(screen.queryByText(/^Split tenders/)).toBeNull();
   expect(today.queryByText('No sales yet today.')).toBeNull();
   expect(text('card-taxes-figure')).toBe('$0.00');
-  fireEvent.click(screen.getByTestId('reports-back'));
-  expect(app.onBack).toHaveBeenCalledOnce();
+  expect(screen.queryByTestId('reports-back')).toBeNull();
 }, 20_000);
 
 test('the Top products card lists the product the sale rang up', async () => {
@@ -734,15 +733,14 @@ test.each([true, false])('under the bar each room starts one gutter down and one
   room('reports-closures-room');
 }, 20_000);
 
-test('with no rail the bar keeps the Reports title and Back, with the scope title on a row of its own', async () => {
+test('with no rail the bar keeps the menu and the Reports title, with the scope title on a row of its own', async () => {
   const app = await setup();
   const bar = await screen.findByTestId('reports-bar');
   expect(within(bar).getByText('Reports')).not.toBeNull();
-  expect(bar.contains(screen.getByTestId('reports-back'))).toBe(true);
+  expect(bar.contains(screen.getByTestId('reports-menu'))).toBe(true);
+  expect(screen.queryByTestId('reports-back')).toBeNull();
   expect(bar.contains(screen.getByTestId('reports-bar-bell'))).toBe(true);
   expect(text('reports-title')).toBe(`${stores[0].name} · ${app.register.registerName}`);
-  fireEvent.click(screen.getByTestId('reports-back'));
-  expect(app.onBack).toHaveBeenCalledOnce();
 }, 20_000);
 
 test('the Closures date menu scopes the list: Today shows only today, a wider period the earlier day too', async () => {

@@ -107,12 +107,13 @@ test("the Customers cluster runs as v2's: add customer, then the bell, then the 
   expect(screen.getByTestId('customers-bar-avatar').textContent).toContain('P');
 });
 
-test("on a phone the title row carries the cluster and Back, and the search takes its own row, as v2's phone bar", async () => {
+test("on a phone the title row carries the menu and the cluster, and the search takes its own row, as v2's phone bar", async () => {
   renderArea(areas[3][1](), false);
   const search = await screen.findByTestId('search-coupons');
   expect(screen.getByTestId('coupons-bar-controls').contains(search)).toBe(false);
   expect(screen.getByTestId('coupons-bar-bell')).not.toBeNull();
-  expect(screen.getByTestId('coupons-back')).not.toBeNull();
+  expect(screen.getByTestId('coupons-menu')).not.toBeNull();
+  expect(screen.queryByTestId('coupons-back')).toBeNull();
   expect(classesOf('coupons-bar-search')).not.toContain('max-w-160');
 });
 
@@ -121,10 +122,11 @@ test.each([true, false])("a title slot is drawn before the controls (rail shown:
   const slot = screen.getByTestId('scoped-bar-title-slot');
   expect(slot.contains(screen.getByTestId('scoped-title'))).toBe(true);
   expect(screen.getByTestId('scoped-bar').contains(slot)).toBe(true);
-  // With the rail the slot opens the row; with none the title row (title, controls, Back) comes first.
+  // With the rail the slot opens the row; with none the title row (menu, title, controls) comes first.
   const controls = screen.getByTestId('scoped-bar-controls');
   expect(slot.compareDocumentPosition(controls) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(rail ? Node.DOCUMENT_POSITION_FOLLOWING : 0);
-  expect(screen.queryByTestId('scoped-back') === null).toBe(rail);
+  expect(screen.queryByTestId('scoped-back')).toBeNull();
+  expect(screen.queryByTestId('scoped-menu') === null).toBe(rail);
 });
 
 test("seven coupons with five matching the search read v2's Showing 5 of 7, beside the sync button", async () => {

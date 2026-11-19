@@ -44,6 +44,8 @@ export const RAIL_GLYPH: Record<RailKey, typeof RegisterIcon> = {
 export const AppRailShown = createContext(false);
 /** The rail area of the current route (null outside AppFrame or off the rail's routes); a sheet closes when it changes. */
 export const AppRailArea = createContext<RailKey | null>(null);
+/** AppFrame's onNavigate from the current area (null off the areas): the phone area bars' front drawer goes through it. */
+export const AppRailNavigate = createContext<((to: RailKey) => void) | null>(null);
 
 // The rail's width (v2's 64), and the left edge of a sheet that opens beside it. One literal class each, as
 // uniwind needs them, kept side by side: change both together.
@@ -88,12 +90,13 @@ export function AppFrame({ wide, pathname, onNavigate, children }: {
 }): JSX.Element {
   const key = railKeyForPath(pathname);
   const shown = wide && key !== null;
+  const navigate = key === null ? null : (to: RailKey) => onNavigate(key, to);
   return (
-    <AppRailShown.Provider value={shown}><AppRailArea.Provider value={key}>
+    <AppRailShown.Provider value={shown}><AppRailArea.Provider value={key}><AppRailNavigate.Provider value={navigate}>
       <View className="flex-1 flex-row bg-background">
         {shown && <AppRail active={key} onNavigate={to => onNavigate(key, to)} />}
         <View className="flex-1">{children}</View>
       </View>
-    </AppRailArea.Provider></AppRailShown.Provider>
+    </AppRailNavigate.Provider></AppRailArea.Provider></AppRailShown.Provider>
   );
 }

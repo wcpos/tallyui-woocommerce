@@ -402,8 +402,7 @@ test('narrow window: a list row per product with name, price and stock badge; Ba
   expect(tea.getByText('Tea')).not.toBeNull();
   expect(tea.getByText('$3.00')).not.toBeNull();
   expect(tea.getByText('In Stock')).not.toBeNull();
-  fireEvent.click(screen.getByTestId('products-back'));
-  expect(onBack).toHaveBeenCalledOnce();
+  expect(screen.queryByTestId('products-back')).toBeNull();
 });
 
 test('a phone row shows the SKU under the name and the managed quantity in its stock badge', () => {

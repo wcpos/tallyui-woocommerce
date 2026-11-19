@@ -36,22 +36,25 @@ export interface DrawerAreaHandlers {
   onOpenSupport?(): void;
 }
 
+/** Beside an area (area-header.tsx) the drawer selects that area, and the others, POS too, open through `onNavigate`. */
+interface DrawerPlace { active?: RailKey; onNavigate?(to: RailKey): void }
+
 /** The drawer's body: one item per area, the top group and the bottom group, then the version. */
-export function DrawerContent(props: DrawerAreaHandlers & { onClose(): void; unreadErrors?: number }): JSX.Element {
-  const { onClose, unreadErrors } = props;
-  const handlers: Record<Exclude<RailKey, 'pos'>, (() => void) | undefined> = {
-    products: props.onOpenProducts, orders: props.onOpenOrders, coupons: props.onOpenCoupons, customers: props.onOpenCustomers,
+export function DrawerContent(props: DrawerAreaHandlers & DrawerPlace & { onClose(): void; unreadErrors?: number }): JSX.Element {
+  const { onClose, unreadErrors, active = 'pos', onNavigate } = props;
+  const handlers: Record<RailKey, (() => void) | undefined> = {
+    pos: undefined, products: props.onOpenProducts, orders: props.onOpenOrders, coupons: props.onOpenCoupons, customers: props.onOpenCustomers,
     reports: props.onOpenReports, health: props.onOpenHealth, settings: props.onOpenSettings, support: props.onOpenSupport,
   };
   const item = (key: RailKey) => {
     const Glyph = RAIL_GLYPH[key];
-    const open = key === 'pos' ? onClose : handlers[key];
+    const open = key === active ? onClose : handlers[key] ?? (onNavigate && (() => onNavigate(key)));
     return open && (
       <Button key={key} variant="ghost" testID={`drawer-item-${key}`}
-        className={`${ITEM} ${key === 'pos' ? SELECTED : UNSELECTED}`}
-        accessibilityState={key === 'pos' ? { selected: true } : undefined} onPress={() => { if (key !== 'pos') onClose(); open(); }}>
+        className={`${ITEM} ${key === active ? SELECTED : UNSELECTED}`}
+        accessibilityState={key === active ? { selected: true } : undefined} onPress={() => { if (key !== active) onClose(); open(); }}>
         <Glyph size={24} data-testid={`drawer-glyph-${key}`} />
-        <Text testID={`drawer-label-${key}`} className={key === 'pos' ? 'text-rail-selected-foreground' : 'text-rail-foreground'}>{RAIL_LABEL[key]}</Text>
+        <Text testID={`drawer-label-${key}`} className={key === active ? 'text-rail-selected-foreground' : 'text-rail-foreground'}>{RAIL_LABEL[key]}</Text>
         {/* v2 drawer-content/index.tsx:76-87 draws icon then label; the badge trails the label here (O3). */}
         {key === 'health' && <UnreadBadge count={unreadErrors ?? 0} testID="drawer-badge-health" />}
       </Button>
@@ -70,7 +73,7 @@ export function DrawerContent(props: DrawerAreaHandlers & { onClose(): void; unr
 }
 
 /** The front drawer: a left side sheet holding DrawerContent. Renders nothing while closed. */
-export function DrawerSheet({ open, onOpenChange, ...handlers }: DrawerAreaHandlers & { open: boolean; onOpenChange(open: boolean): void }): JSX.Element | null {
+export function DrawerSheet({ open, onOpenChange, ...handlers }: DrawerAreaHandlers & DrawerPlace & { open: boolean; onOpenChange(open: boolean): void }): JSX.Element | null {
   const unreadErrors = useUnreadLogsCount();
   if (!open) return null;
   return (

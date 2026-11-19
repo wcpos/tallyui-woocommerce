@@ -43,7 +43,7 @@ test('beside the rail the header draws only a top gap, and nothing with gap={fal
   expect(view.container.textContent).toBe('');
 });
 
-test('the Coupons screen beside the rail has no title or Back but keeps its search; without the rail Back is there', async () => {
+test('the Coupons screen beside the rail has no title or Back but keeps its search; without the rail the menu is there', async () => {
   const view = render(<AppRailShown.Provider value={true}><CouponsScreen coupons={db.coupons} currency="USD" locale="en_US" onBack={vi.fn()} /></AppRailShown.Provider>);
   expect(await screen.findByTestId('search-coupons')).not.toBeNull();
   expect(screen.queryByTestId('coupons-back')).toBeNull();
@@ -52,6 +52,7 @@ test('the Coupons screen beside the rail has no title or Back but keeps its sear
   expect(classesOf('coupons-bar')).toContain('pt-4');
   view.unmount();
   render(<CouponsScreen coupons={db.coupons} currency="USD" locale="en_US" onBack={vi.fn()} />);
-  expect(await screen.findByTestId('coupons-back')).not.toBeNull();
+  expect(await screen.findByTestId('coupons-menu')).not.toBeNull();
+  expect(screen.queryByTestId('coupons-back')).toBeNull();
   expect(screen.getByRole('heading', { name: 'Coupons' })).not.toBeNull();
 });

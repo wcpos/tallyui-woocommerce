@@ -1,37 +1,42 @@
 // An area screen's top row. On a wide window v2's area screens (Orders, Customers, Reports, Products,
 // Coupons) have no title row and no Back button: the permanent rail is the navigation, and the screen's first
-// row is its own toolbar, 16px below the top. A narrow window has no rail, so the title and Back stay.
-import { useContext } from 'react';
+// row is its own toolbar, 16px below the top. A narrow window has no rail: AreaToolbar's row opens with v2's menu
+// button and the title; a bare AreaHeader keeps its Back.
+import { useContext, useState } from 'react';
 import type { JSX, ReactNode } from 'react';
 import { View } from 'react-native';
-import { Button, Text } from '@tallyui/components';
+import { Button, IconButton, Text } from '@tallyui/components';
 import { useSession } from '../lib/auth/session-context';
 import { useIsWide } from '../lib/layout/wide';
 import { useIsOnline } from '../lib/online/online-status';
 import { runBeforeLeave } from '../lib/sale/before-leave';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { toast } from '../lib/toast/toast';
-import { AppRailShown } from './app-rail';
+import { AppRailArea, AppRailNavigate, AppRailShown } from './app-rail';
 import { CashierSheet } from './cashier-sheet';
+import { DrawerSheet } from './drawer-content';
 import { NotificationBell } from './notification-bell';
-import { BarStatusPill } from './register-bar-shell';
+import { BarStatusPill, MenuIcon } from './register-bar-shell';
 
-export function AreaHeader({ title, backTestID, onBack, gap = true, controls }: {
+export function AreaHeader({ title, backTestID, onBack, gap = true, controls, menu }: {
   title: string;
   backTestID: string;
   onBack(): void;
   /** False when the screen's body already pads its top. */
   gap?: boolean;
-  /** The bar's trailing cluster, beside Back when there is no rail (AreaToolbar's). */
+  /** The bar's trailing cluster when there is no rail (AreaToolbar's). */
   controls?: ReactNode;
+  /** The row's leading menu button (AreaToolbar's); with it the row draws no Back. */
+  menu?: ReactNode;
 }): JSX.Element | null {
   const railShown = useContext(AppRailShown);
   if (railShown) return gap ? <View testID="area-header-gap" className="h-4" /> : null;
   return (
     <View className="flex-row items-center justify-between gap-2 p-4">
-      <Text accessibilityRole="header" className="min-w-0 flex-1" numberOfLines={1}>{title}</Text>
+      {menu}
+      <Text accessibilityRole="header" className="min-w-0 flex-1 font-semibold" numberOfLines={1}>{title}</Text>
       {controls}
-      <Button testID={backTestID} onPress={onBack}><Text>Back</Text></Button>
+      {!menu && <Button testID={backTestID} onPress={onBack}><Text>Back</Text></Button>}
     </View>
   );
 }
@@ -70,12 +75,12 @@ export function useAreaGutter(): 'px-3' | 'px-4' {
  *  row carries the cluster and the search takes a row of its own, as v2's phone bar does. An area passes its
  *  display options (v2's `DisplayOptions` settings icon, area-display-options.tsx) as a child, so they sit before the bell. */
 export function AreaToolbar({ area, title, onBack, titleSlot, search, children }: {
-  /** The testID stem: `<area>-bar`, `<area>-back`, `<area>-bar-offline`, `<area>-bar-bell`, `<area>-bar-avatar`. */
+  /** The testID stem: `<area>-bar`, `<area>-menu`, `<area>-bar-offline`, `<area>-bar-bell`, `<area>-bar-avatar`. */
   area: string;
   title: string;
   onBack(): void;
   /** A scoped room's title (v2 `PageBar` `titleSlot`, Reports): at the row's start beside the rail; with no rail,
-   *  a row of its own under the title row, which keeps `title` and Back. */
+   *  a row of its own under the title row, which keeps the menu and `title`. */
   titleSlot?: ReactNode;
   search?: ReactNode;
   /** The area's own actions, drawn before the bell. */
@@ -83,6 +88,9 @@ export function AreaToolbar({ area, title, onBack, titleSlot, search, children }
 }): JSX.Element {
   const online = useIsOnline();
   const railShown = useContext(AppRailShown);
+  const railArea = useContext(AppRailArea);
+  const navigate = useContext(AppRailNavigate);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const px = useAreaGutter();
   const controls = <View testID={`${area}-bar-controls`} className="flex-row items-center gap-1">
     {children}
@@ -93,10 +101,16 @@ export function AreaToolbar({ area, title, onBack, titleSlot, search, children }
   const searchBox = search ? <View testID={`${area}-bar-search`} className={railShown ? 'min-w-0 max-w-160 flex-1' : 'min-w-0 flex-1'}>{search}</View> : null;
   const slot = titleSlot != null
     ? <View testID={`${area}-bar-title-slot`} className="min-w-0 shrink flex-row items-center">{titleSlot}</View> : null;
+  // v2's phone PageBar (page-bar/index.tsx:94-112): the menu button, labelled "Menu" (bar-controls/index.tsx:22-31,
+  // common.menu), opens the front drawer, then the title in semibold; no Back.
+  const menu = <IconButton testID={`${area}-menu`} accessibilityLabel="Menu" className="-ml-2" onPress={() => setDrawerOpen(true)}>
+    <MenuIcon size={20} />
+  </IconButton>;
   if (!railShown) return <View testID={`${area}-bar`}>
-    <AreaHeader title={title} backTestID={`${area}-back`} onBack={onBack} controls={controls} />
+    <AreaHeader title={title} backTestID={`${area}-back`} onBack={onBack} controls={controls} menu={menu} />
     {slot && <View testID={`${area}-bar-slot-row`} className={`flex-row pb-2 ${px}`}>{slot}</View>}
     {searchBox && <View testID={`${area}-bar-search-row`} className={`flex-row pb-2 ${px}`}>{searchBox}</View>}
+    <DrawerSheet open={drawerOpen} onOpenChange={setDrawerOpen} active={railArea ?? undefined} onNavigate={navigate ?? undefined} />
   </View>;
   return (
     <View testID={`${area}-bar`} className={`flex-row items-center gap-4 pb-2 pt-4 ${px}`}>
