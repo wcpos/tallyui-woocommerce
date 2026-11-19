@@ -1,5 +1,5 @@
 import { useMemo, useReducer, useState } from 'react';
-import type { JSX, ReactNode } from 'react';
+import type { ComponentProps, JSX, ReactNode } from 'react';
 import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { Path } from 'react-native-svg';
 import { ConnectorProvider } from '@tallyui/core';
@@ -34,6 +34,7 @@ import { InCartBadge } from './in-cart-badge';
 import { LevelBack } from './level-back';
 import { ProductTile } from './product-tile';
 import { ClearAllButton, QuickFilterBar, SaveAsButton } from './quick-filter-bar';
+import type { QuickFilterMenu } from './quick-filter-bar';
 import { RegisterBarShell } from './register-bar-shell';
 import { ParentTile, VariationRow, VariationTile } from './variation-tile';
 import { ViewModeToggle } from './view-mode-toggle';
@@ -113,6 +114,13 @@ export function CatalogueView({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [filterBarOpen, setFilterBarOpen] = useState(false);
   const [captured, setCaptured] = useState<CapturedQuickFilter | null>(null);
+  const [barStart, setBarStart] = useState<ComponentProps<typeof FilterBarDialog>['start']>(null);
+  // v2's chip menu (filter-bar.tsx:205-249): Edit and Customise open the filter bar, Remove only asks to confirm.
+  const chipMenu: QuickFilterMenu = {
+    onEdit: quickFilter => { setBarStart({ mode: 'edit', quickFilter }); setFilterBarOpen(true); },
+    onCustomise: () => setFilterBarOpen(true),
+    onRemove: quickFilter => setBarStart({ mode: 'delete', quickFilter }),
+  };
   function scan(code: string) {
     const result = onScan?.(code);
     if (result === 'clear') dispatch({ type: 'search', term: '' });
@@ -264,7 +272,7 @@ export function CatalogueView({
           inside the level. A product drilled from no level only dims it (filter-bar.tsx:508). */}
       <CatalogueFilterChips products={products} filters={filters} onChange={next => dispatch({ type: 'filter', filters: next })} dimmed={drilled !== undefined}
         placeField={level === null ? undefined : 'categories'} />
-      <QuickFilterBar quickFilters={quickFilters} isActive={isActive} onPress={pressQuickFilter} dimmed={drilled !== undefined} />
+      <QuickFilterBar quickFilters={quickFilters} isActive={isActive} onPress={pressQuickFilter} dimmed={drilled !== undefined} menu={chipMenu} />
       {filtersOn >= 2 && <ClearAllButton onPress={() => dispatch({ type: 'clearAll', baseline, keep: level === null ? undefined : 'categories' })} />}
       {filtersOn >= 1 && <SaveAsButton onPress={() => setCaptured(captureQuickFilter(queryState, baseline, viewState.sort))} />}
     </ScrollView>
@@ -273,9 +281,9 @@ export function CatalogueView({
       onOpen={camera.onOpen} scanCount={camera.scanCount} /> : null}
     {/* v2 index.tsx:615: the locked notice is the column's last row, after the scanner panel. */}
     <LockedNotice lock={locked} />
-    <FilterBarDialog open={filterBarOpen || captured !== null} onOpenChange={open => { setFilterBarOpen(open); if (!open) setCaptured(null); }}
+    <FilterBarDialog open={filterBarOpen || captured !== null} onOpenChange={open => { setFilterBarOpen(open); if (!open) { setCaptured(null); setBarStart(null); } }}
       quickFilters={quickFilters} onChange={changeQuickFilters} products={products} connector={connector} currency={currency}
-      baselineSort={viewState.sort} captured={captured} />
+      baselineSort={viewState.sort} captured={captured} start={barStart} />
   </View>;
   // v2's conditionsBeyond (browse/level-place.ts:53): what Clear filters can clear. The open level is the place, not a condition.
   const conditionsOn = searching || !filtersAtBaseline(filters, baseline) || quickFilters.some(isActive);

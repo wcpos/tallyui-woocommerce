@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import { ScrollView, View, useWindowDimensions } from 'react-native';
 import { formatMoney, moneyFromMajor } from '@tallyui/core';
@@ -13,7 +13,7 @@ import { QuickFilterEditor } from './quick-filter-editor';
 type Editing = { mode: 'new' } | { mode: 'edit'; quickFilter: QuickFilter } | null;
 
 /** Controlled: v2 opens it from Product settings › Customise filter bar (ui-settings-form.tsx), not from the chip row. */
-export function FilterBarDialog({ open, onOpenChange, quickFilters, onChange, products, connector, currency, baselineSort, captured = null }: {
+export function FilterBarDialog({ open, onOpenChange, quickFilters, onChange, products, connector, currency, baselineSort, captured = null, start = null }: {
   open: boolean;
   onOpenChange(open: boolean): void;
   quickFilters: QuickFilter[];
@@ -24,10 +24,16 @@ export function FilterBarDialog({ open, onOpenChange, quickFilters, onChange, pr
   baselineSort: ProductSort | null;
   /** v2's capture mode (modal.tsx:40,114): the bar's Save as button opens the dialog on what is on screen now. */
   captured?: CapturedQuickFilter | null;
+  /** A chip menu's Edit or Remove from bar (v2 filter-bar.tsx:205-249, modal.tsx:51-66): each new object seeds the editor or the confirm. */
+  start?: { mode: 'edit' | 'delete'; quickFilter: QuickFilter } | null;
 }): JSX.Element {
   const [editing, setEditing] = useState<Editing>(null);
   const [captureDraft, setCaptureDraft] = useState<QuickFilter | null>(null);
   const [deleting, setDeleting] = useState<QuickFilter | null>(null);
+  useEffect(() => {
+    if (start?.mode === 'edit') setEditing({ mode: 'edit', quickFilter: start.quickFilter });
+    else if (start?.mode === 'delete') setDeleting(start.quickFilter);
+  }, [start]);
   const { height } = useWindowDimensions();
   const formatPrice = (value: number) => {
     const money = moneyFromMajor(value, currency);

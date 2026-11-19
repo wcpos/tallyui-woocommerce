@@ -66,3 +66,7 @@ export const TagIcon = createSvgIcon('TagIcon', () => <><Path d="M6.5 7.5a1 1 0 
 // v2's `bookmark` and `arrowDown` glyphs, tabler (monorepo packages/components/src/icon/svg/tabler/{bookmark,arrow-down}.svg).
 export const BookmarkIcon = createSvgIcon('BookmarkIcon', () => <Path d="M18 7v14l-6-4l-6 4V7a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4" />);
 export const ArrowDownIcon = createSvgIcon('ArrowDownIcon', () => <Path d="M12 5v14m6-6l-6 6m-6-6l6 6" />);
+// v2's `edit` and `filters` glyphs, tabler (monorepo packages/components/src/icon/components/tabler/{edit,filters}.tsx).
+export const EditIcon = createSvgIcon('EditIcon', () => <><Path d="M7 7H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-1" />
+  <Path d="M20.385 6.585a2.1 2.1 0 0 0-2.97-2.97L9 12v3h3zM16 5l3 3" /></>);
+export const FiltersIcon = createSvgIcon('FiltersIcon', () => <Path d="M12 6a2 2 0 1 0 4 0 2 2 0 1 0-4 0M4 6h8m4 0h4M6 12a2 2 0 1 0 4 0 2 2 0 1 0-4 0m-2 0h2m4 0h10m-5 6a2 2 0 1 0 4 0 2 2 0 1 0-4 0M4 18h11m4 0h1" />);

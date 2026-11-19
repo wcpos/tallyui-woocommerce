@@ -1,9 +1,11 @@
+import { useRef } from 'react';
 import type { JSX } from 'react';
 import { Pressable, View } from 'react-native';
-import { Button, IconButton, Text, Tooltip, TooltipContent, TooltipTrigger } from '@tallyui/components';
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, IconButton, Text, Tooltip,
+  TooltipContent, TooltipTrigger } from '@tallyui/components';
 import type { QuickFilter } from '../lib/catalogue/quick-filters';
 import { DimmedChipTooltip, filterChipClassName, filterChipTextClassName } from './catalogue-filter-chips';
-import { BookmarkIcon } from './icons';
+import { BookmarkIcon, EditIcon, FiltersIcon, TrashIcon } from './icons';
 
 /** v2's bare bookmark after the chips (filter-bar.tsx:538-553), shown while a filter is on. */
 export function SaveAsButton({ onPress }: { onPress(): void }): JSX.Element {
@@ -22,22 +24,50 @@ export function ClearAllButton({ onPress }: { onPress(): void }): JSX.Element {
   return <Button testID="filter-bar-clear-all" variant="link" size="sm" onPress={onPress}><Text>Clear all</Text></Button>;
 }
 
-export function QuickFilterBar({ quickFilters, isActive, onPress, dimmed = false }: {
+export type QuickFilterMenu = { onEdit(quickFilter: QuickFilter): void; onCustomise(): void; onRemove(quickFilter: QuickFilter): void };
+const ICON = { size: 18, strokeWidth: 1.5 } as const;
+
+/** v2's BarSlot (filter-bar.tsx:125-252): a long press opens the chip's menu from a hidden trigger laid over the chip. */
+function ChipMenu({ quickFilter, menu, chip }: { quickFilter: QuickFilter; menu: QuickFilterMenu; chip(onLongPress: () => void): JSX.Element }): JSX.Element {
+  const trigger = useRef<View & { open?(): void }>(null);
+  const id = quickFilter.id;
+  return <View className="relative">
+    <DropdownMenu>
+      {chip(() => trigger.current?.open?.())}
+      <DropdownMenuTrigger ref={trigger} className="absolute inset-0" pointerEvents="none" tabIndex={-1} aria-hidden />
+      <DropdownMenuContent>
+        <DropdownMenuItem testID={`filter-bar-menu-edit-${id}`} className="gap-2" onPress={() => menu.onEdit(quickFilter)}>
+          <EditIcon {...ICON} className="text-foreground" /><Text>{`Edit “${quickFilter.label}”`}</Text></DropdownMenuItem>
+        <DropdownMenuItem testID={`filter-bar-menu-customize-${id}`} className="gap-2" onPress={menu.onCustomise}>
+          <FiltersIcon {...ICON} className="text-foreground" /><Text>Customise filter bar</Text></DropdownMenuItem>
+        <DropdownMenuSeparator />
+        {/* TallyUI's DropdownMenuItem has no destructive variant (v2 `variant="destructive"`): the row is coloured instead. */}
+        <DropdownMenuItem testID={`filter-bar-menu-remove-${id}`} className="gap-2" onPress={() => menu.onRemove(quickFilter)}>
+          <TrashIcon {...ICON} className="text-destructive" /><Text className="text-destructive">Remove from bar</Text></DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  </View>;
+}
+
+export function QuickFilterBar({ quickFilters, isActive, onPress, dimmed = false, menu }: {
   quickFilters: QuickFilter[];
   isActive(quickFilter: QuickFilter): boolean;
   onPress(quickFilter: QuickFilter): void;
   /** v2 dims quick filters too while a product is drilled into (filter-bar.tsx DimmedChip), each with its tooltip. */
   dimmed?: boolean;
+  /** The long-press menu; a dimmed chip opens nothing (v2 filter-bar.tsx:148). */
+  menu?: QuickFilterMenu;
 }): JSX.Element | null {
   if (quickFilters.length === 0) return null;
   return <View testID="quick-filter-bar" className="flex-row flex-wrap items-center gap-2">
     {quickFilters.map(quickFilter => {
       const active = isActive(quickFilter);
-      const chip = <Pressable key={quickFilter.id} testID={`quick-filter-${quickFilter.id}`} role="button"
-        disabled={dimmed} aria-pressed={active} className={filterChipClassName(active, dimmed)} onPress={() => onPress(quickFilter)}>
+      const chip = (onLongPress?: () => void) => <Pressable key={quickFilter.id} testID={`quick-filter-${quickFilter.id}`} role="button"
+        disabled={dimmed} aria-pressed={active} className={filterChipClassName(active, dimmed)} onPress={() => onPress(quickFilter)} onLongPress={onLongPress}>
         <Text className={filterChipTextClassName(active)}>{quickFilter.label}</Text>
       </Pressable>;
-      return dimmed ? <DimmedChipTooltip key={quickFilter.id}>{chip}</DimmedChipTooltip> : chip;
+      if (dimmed) return <DimmedChipTooltip key={quickFilter.id}>{chip()}</DimmedChipTooltip>;
+      return menu ? <ChipMenu key={quickFilter.id} quickFilter={quickFilter} menu={menu} chip={chip} /> : chip();
     })}
   </View>;
 }
