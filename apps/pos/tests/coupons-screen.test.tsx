@@ -538,3 +538,20 @@ test('first sync on a touch tablet: 5 placeholder rows of two bars, no table bar
   }
   expect(screen.queryAllByTestId(/^coupons-syncing-bar-/)).toHaveLength(0);
 });
+
+// The coupons pull is its own replication (start-catalogue.ts:101): the products sync settling does not end it.
+test('rows while the coupons\' first pull runs, with the products sync done, then "No coupons yet"', async () => {
+  let settle: () => void = () => {};
+  const pull = new Promise<void>(resolve => { settle = resolve; });
+  const catalogue = { couponReplication: { awaitInitialReplication: () => pull } } as never;
+  render(<>
+    <CatalogueContext.Provider value={{ catalogue, products: [], status: 'ready' }}>
+      <CouponsScreen coupons={db.coupons} currency="USD" locale="en_US" onBack={() => {}} />
+    </CatalogueContext.Provider>
+    <PortalHost />
+  </>);
+  expect(syncingRows()).toHaveLength(5);
+  settle();
+  await screen.findByText('No coupons yet');
+  expect(screen.queryByTestId('coupons-syncing-rows')).toBeNull();
+});
