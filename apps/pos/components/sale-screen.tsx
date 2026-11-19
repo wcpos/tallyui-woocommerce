@@ -240,7 +240,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   }
 
   const { onScan, onTenderScan } = saleScanHandlers({
-    products: props.products, traits: connector.traits.product, currency, add: addEntry, choose: onSelect,
+    products: props.products, traits: connector.traits.product, currency, add: addEntry,
   });
 
   const drawerFigure = drawerFigureText(register, minor => sheetMoney(minor, currency, props.locale));
