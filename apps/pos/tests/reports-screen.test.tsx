@@ -1159,6 +1159,73 @@ test('the scope strip holds the cashier chip and Print summary; the compare chip
 }, 20_000);
 
 /** Presses Print summary and returns what the mounted summary held when `window.print` ran. */
+/** Presses the open table's Print report and returns what the print area held when `window.print` ran. */
+async function printTable() {
+  const printed: { text: string | null; dataPrint: string | null | undefined; heroHidden: boolean; rows: string[] }[] = [];
+  const print = vi.spyOn(window, 'print').mockImplementation(() => {
+    const area = screen.queryByTestId('sales-table-print');
+    printed.push({ text: area?.textContent ?? null, dataPrint: area?.getAttribute('data-print'),
+      heroHidden: screen.getByTestId('reports-hero').closest('[data-print="hide"]') !== null,
+      rows: area ? within(area).queryAllByTestId(/^sales-table-print-row-/).map(row => row.textContent ?? '') : [] });
+  });
+  fireEvent.click(within(screen.getByTestId('sales-table')).getByTestId('detail-panel-print'));
+  await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+  return printed[0];
+}
+
+test('each Reports table dialog has Print report after Export CSV (v2 detail-panel-print)', async () => {
+  await setup();
+  await payCash();
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+  for (const opener of ['card-payments-open', 'card-taxes-open', 'card-where-sold-open', 'sales-room-orders-open']) {
+    fireEvent.click(screen.getByTestId(opener));
+    const dialog = await screen.findByTestId('sales-table');
+    const footer = Array.from(dialog.querySelectorAll('[data-testid="sales-table-export"], [data-testid="detail-panel-print"], [data-testid="sales-table-close"]'));
+    expect(footer.map(button => button.textContent), opener).toEqual(['Export CSV', 'Print report', 'Close']);
+    fireEvent.click(within(dialog).getByTestId('sales-table-close'));
+    await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
+  }
+}, 20_000);
+
+test('Print report prints the open table: title, scope, every row and the total', async () => {
+  const app = await setup({ multiplePayments: true });
+  fireEvent.click(screen.getByText('Espresso'));
+  setLineQuantity('Espresso', 2);
+  fireEvent.click(screen.getByTestId('cart-checkout'));
+  takeLeg(200);
+  takeLeg(400, 'pos_card');
+  expect(await screen.findByTestId('receipt-order')).not.toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'New sale' }));
+  await screen.findByText(EMPTY_CART_TEXT);
+  await waitFor(() => expect(text('hero-total')).toBe('$6.00'));
+  fireEvent.click(screen.getByTestId('card-payments-open'));
+  await screen.findByTestId('sales-table');
+  const printed = await printTable();
+  expect(printed.dataPrint).toBe('table');
+  expect(printed.heroHidden).toBe(true);
+  expect(printed.text).toContain('Sales by payment method');
+  expect(printed.text).toContain(stores[0].name);
+  expect(text('sales-table-print-scope')).toBe(`Today · ${app.register.registerName}`);
+  expect(text('sales-table-print-head')).toBe('Method — Orders — Amount — Share');
+  expect(printed.rows).toEqual(['Card terminal — 1 — $4.00 — 66.7%', 'Cash — 1 — $2.00 — 33.3%']);
+  expect(text('sales-table-print-total')).toBe('Total — 1 — $6.00');
+  expect(printed.text).toMatch(/Printed: .+/);
+  expect(screen.queryByTestId('sales-table-print-empty')).toBeNull();
+  expect(screen.getByTestId('sales-table')).not.toBeNull();
+}, 20_000);
+
+test('Print report stays enabled on an empty table and prints its empty line', async () => {
+  await setup();
+  fireEvent.click(screen.getByTestId('card-payments-open'));
+  const dialog = within(await screen.findByTestId('sales-table'));
+  expect(dialog.getByText('No payments in this period')).not.toBeNull();
+  expect(dialog.getByTestId('detail-panel-print').getAttribute('aria-disabled')).toBeNull();
+  const printed = await printTable();
+  expect(printed.dataPrint).toBe('table');
+  expect(printed.text).toContain('No payments in this period');
+  expect(printed.rows).toEqual([]);
+}, 20_000);
+
 async function printSummary() {
   const printed: { text: string | null; dataPrint: string | null | undefined; todayHidden: boolean }[] = [];
   const print = vi.spyOn(window, 'print').mockImplementation(() => {

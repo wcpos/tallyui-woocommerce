@@ -32,6 +32,7 @@ import { ReportsHero } from './reports-hero';
 import { periodLabel, ReportsPeriod } from './reports-period';
 import { SalesSummaryPrint } from './sales-summary-print';
 import { SalesTable } from './sales-table';
+import { SalesTablePrint } from './sales-table-print';
 import { Segmented } from './segmented';
 import { SessionCard } from './session-card';
 import { TillStrip } from './till-strip';
@@ -65,7 +66,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const now = useMinuteClock();
   const [sales, setSales] = useState<PosOrder[]>([]);
   const [rows, setRows] = useState<Closure[]>([]);
-  const [reprint, setReprint] = useState<Closure | 'x' | 'summary' | null>(null);
+  const [reprint, setReprint] = useState<Closure | 'x' | 'summary' | 'table' | null>(null);
   const [openClosureId, setOpenClosureId] = useState<string | null>(null);
   const [openTable, setOpenTable] = useState<'payments' | 'taxes' | 'orders' | 'where-sold' | null>(null);
   const [printRequest, setPrintRequest] = useState(0);
@@ -95,11 +96,14 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const reprintClosure = (closure: Closure) => { setReprint(closure); setPrintRequest(value => value + 1); };
   const printXReport = () => { setReprint('x'); setPrintRequest(value => value + 1); };
   const printSummary = () => { setReprint('summary'); setPrintRequest(value => value + 1); };
+  const printTable = () => { setReprint('table'); setPrintRequest(value => value + 1); };
   const reportCashierRows = reportCashiers([...(user ? [user] : []), ...cashiers.map(entry => entry.tokens.user)]);
   const cashierName = cashierId === null ? 'Everyone' : reportCashierRows.find(row => row.id === cashierId)?.name ?? cashierId;
   // v2 scope.tsx `registerLabel` names the register on every print scope; Tally's reports are this device's sales, so "This till" with none.
   const registerName = register.registerName ?? 'This till';
   const scopeTitle = `${storeName} · ${registerName}`;
+  // v2 `reports.panel_scope`: "{period} · {register}", on the table dialog and its printed report.
+  const tableScope = `${periodName} · ${registerName}`;
   const room = salesRoom(shown, { now, currency, range, preset, comparison });
   const periodButton = <ReportsPeriod preset={preset ?? 'custom'} range={range} locale={locale} now={opened} onPreset={setPeriod} onCustom={setPeriod} />;
   const chips = <ReportChips cashiers={reportCashierRows} cashierId={cashierId} onCashier={setCashierId} />;
@@ -224,12 +228,14 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
         </ReportsHero>
         <ReportCards period={room.today} money={minor => money(minor) ?? ''} moneyWhole={moneyWhole} onOpenTable={setOpenTable} cashiers={reportCashierRows} products={productFigures(shown, { currency, range })}
           categories={categoryFigures(shown, catalogueProducts, { currency, range })} />
-        {openTable && table && <SalesTable table={table} scope={`${periodName} · ${registerName}`} onClose={() => setOpenTable(null)}
+        {openTable && table && <SalesTable table={table} scope={tableScope} onClose={() => setOpenTable(null)} onPrint={printTable}
           onExport={() => downloadCsv(salesTableCsv(table), `sales-${openTable}-${range.from}-${range.to}.csv`)} />}
       </ScrollView>}
       {openClosure && <ClosurePanel closure={openClosure} storeName={storeName} currency={currency} locale={locale} blind={register.blind} resolveCashierName={resolveCashierName} onReprint={reprintClosure} onClose={() => setOpenClosureId(null)} />}
       {reprint && <Portal name="closure-reprint">
-        {reprint === 'summary'
+        {reprint === 'table'
+          ? table && <SalesTablePrint table={table} storeName={storeName} scope={tableScope} locale={locale} />
+          : reprint === 'summary'
           ? <SalesSummaryPrint storeName={storeName} scope={`${periodName} · ${registerName} · ${cashierName}`} period={room.today}
               date={range.from === range.to ? printDate(range.from) : `${printDate(range.from)} – ${printDate(range.to)}`} money={minor => money(minor) ?? ''} locale={locale} />
           : reprint === 'x'
