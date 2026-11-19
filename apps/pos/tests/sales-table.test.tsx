@@ -86,7 +86,12 @@ test('phone header is the crumb Sales then the panel title, and Sales closes the
   expect(back.textContent).toBe('Sales');
   expect(back.getAttribute('role')).toBe('button');
   expect(within(crumb).getByTestId('detail-panel-crumb-here').textContent).toBe('Orders');
-  expect(screen.queryByRole('heading', { name: 'Orders' })).toBeNull();
+  // The place is the dialog's title, so on a phone the dialog keeps its accessible name.
+  const dialog = screen.getByRole('dialog', { name: 'Orders' });
+  expect(document.getElementById(dialog.getAttribute('aria-labelledby') ?? '')).toBe(within(crumb).getByTestId('detail-panel-crumb-here'));
+  const headings = screen.getAllByRole('heading', { name: 'Orders' });
+  expect(headings).toHaveLength(1);
+  expect(crumb.contains(headings[0])).toBe(true);
   fireEvent.click(back);
   expect(onClose).toHaveBeenCalledTimes(1);
 });

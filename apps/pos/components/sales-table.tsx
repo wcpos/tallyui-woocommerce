@@ -26,7 +26,7 @@ function PanelCrumb({ title, onBack }: { title: string; onBack(): void }) {
         <Text className="shrink font-medium text-foreground">Sales</Text>
       </View>
     </Pressable>
-    <Text testID="detail-panel-crumb-here" className="shrink px-1 font-semibold text-foreground">{title}</Text>
+    <DialogTitle testID="detail-panel-crumb-here" className="shrink px-1 text-base leading-normal font-semibold text-foreground">{title}</DialogTitle>
   </View>;
 }
 
