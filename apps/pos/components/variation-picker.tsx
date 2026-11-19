@@ -6,8 +6,9 @@ import { variantPriceLabel } from '@tallyui/pos';
 import type { CatalogueEntry } from '@tallyui/pos';
 import type { ProductTraits, VariantOptionGroup } from '@tallyui/core';
 import { anyPicks, pickerState, variationStockText } from '../lib/catalogue/variation-match';
+import { VariationSelect } from './variation-select';
 
-/** WCPOS v2's variation picker: one row of values per attribute, then stock and Add once one variation matches. */
+/** WCPOS v2's variation picker: per attribute a row of values, or a select when they run long, then stock and Add once one variation matches. */
 export function VariationPicker({ entries, groups, currency, traits, onSelect, onClose }: {
   entries: CatalogueEntry<any>[]; groups: VariantOptionGroup[]; currency: string; traits: ProductTraits<any>;
   onSelect(entry: CatalogueEntry<any>): void; onClose(): void;
@@ -18,6 +19,11 @@ export function VariationPicker({ entries, groups, currency, traits, onSelect, o
   const stockText = match ? variationStockText(match.variant.stock) : null;
   const price = match ? variantPriceLabel(match.variant, currency) : undefined;
 
+  function choose(name: string, value: string | undefined) {
+    // Only the cashier's own press becomes a choice; auto-selected values stay display only.
+    if (value !== undefined && value !== state.selection[name]) setChosen(current => ({ ...current, [name]: value }));
+  }
+
   function add() {
     if (!match) return;
     const picks = anyPicks(groups, match.variant, state.selection);
@@ -27,14 +33,18 @@ export function VariationPicker({ entries, groups, currency, traits, onSelect, o
   return (
     <ScrollView className="flex-1 bg-background p-4" testID="variation-picker">
       <Text className="text-lg font-semibold">{traits.getName(entries[0].product)}</Text>
-      <ProductVariantPicker testID="variation-popover-options" className="mt-3"
-        options={groups.map(group => ({ name: group.name, values: group.values }))}
-        selected={state.selection}
-        onSelect={next => {
-          // Only the cashier's own press becomes a choice; auto-selected values stay display only.
-          const key = Object.keys(next).find(name => next[name] !== state.selection[name]);
-          if (key !== undefined) setChosen(current => ({ ...current, [key]: next[key] }));
-        }} />
+      <View testID="variation-popover-options" className="mt-3 gap-3">
+        {state.groups.map(group => group.values.join('').length < 15 ? (
+          // v2's characterCount rule (utils.ts:118, variations.tsx:165): short values are buttons, long ones a select.
+          <ProductVariantPicker key={group.name} options={[{ name: group.name, values: group.values }]}
+            selected={state.selection} onSelect={next => choose(group.name, next[group.name])} />
+        ) : (
+          <View key={group.name} className="gap-1.5">
+            <Text className="text-xs font-semibold text-muted-foreground">{group.name}</Text>
+            <VariationSelect group={group} selected={state.selection[group.name]} onSelect={value => choose(group.name, value)} />
+          </View>
+        ))}
+      </View>
       {match ? (
         <View className="mt-4 gap-2">
           {stockText !== null && (
