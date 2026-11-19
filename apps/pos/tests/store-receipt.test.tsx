@@ -1,5 +1,5 @@
 import { noTaxSettings } from './fixtures/store-settings';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
@@ -10,6 +10,8 @@ import { PortalHost } from '@tallyui/primitives';
 import { Text } from '@tallyui/components';
 import { SaleScreen, type SaleScreenProps } from '../components/sale-screen';
 import { ReceiptPrintSheet } from '../components/receipt-print-sheet';
+import { StoreReceipt } from '../components/store-receipt';
+import { classesOf } from './classes-of';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
@@ -147,4 +149,41 @@ test('ReceiptPrintSheet holds the auto print until it is ready, then prints once
   expect(print).not.toHaveBeenCalled();
   rerender(<ReceiptPrintSheet orderId={orderId} autoPrint ready><Text>Receipt</Text></ReceiptPrintSheet>);
   expect(print).toHaveBeenCalledTimes(1);
+});
+
+// v2 relabels its one print choice once printed and keeps it outline (receipt-stage.tsx:184-189, :308-310).
+test("the store receipt's one print button reads Print again after a print, and the sheet adds none", async () => {
+  await sellEspresso(async () => [marked]);
+  await screen.findByTestId('store-receipt-frame');
+  const print = vi.spyOn(window, 'print').mockImplementation(() => {});
+  expect(screen.getByTestId('store-receipt-print').textContent).toBe('Print receipt');
+  fireEvent.click(screen.getByTestId('store-receipt-print'));
+  expect(print).toHaveBeenCalledTimes(1);
+  expect(screen.getByTestId('store-receipt-print').textContent).toBe('Print again');
+  act(() => { window.dispatchEvent(new Event('afterprint')); });
+  expect(screen.queryByTestId('receipt-print-again')).toBeNull();
+  expect(screen.getAllByRole('button', { name: /Print/ })).toHaveLength(1);
+}, 20_000);
+
+const storeReceipt = (printed?: boolean) => render(
+  <StoreReceipt html="<p>Receipt</p>" doneLabel="New sale" onDone={() => {}} onLoad={() => {}} printed={printed} />);
+
+test('a failed store-receipt print keeps Print receipt and says why', () => {
+  vi.spyOn(window, 'print').mockImplementation(() => { throw new Error('blocked'); });
+  storeReceipt();
+  fireEvent.click(screen.getByTestId('store-receipt-print'));
+  expect(screen.getByTestId('store-receipt-print').textContent).toBe('Print receipt');
+  expect(screen.getByTestId('store-receipt-error').textContent).toBe('The receipt did not print: blocked');
+});
+
+test('the store receipt reads Print again when the order has printed already', () => {
+  storeReceipt(true);
+  expect(screen.getByTestId('store-receipt-print').textContent).toBe('Print again');
+});
+
+test("the print sheet's Print again is an outline button", () => {
+  render(<ReceiptPrintSheet orderId={`outline-${crypto.randomUUID()}`}><Text>Receipt</Text></ReceiptPrintSheet>);
+  act(() => { window.dispatchEvent(new Event('afterprint')); });
+  expect(classesOf('receipt-print-again')).toEqual(expect.arrayContaining(['border', 'bg-card']));
+  expect(classesOf('receipt-print-again')).not.toContain('bg-primary');
 });
