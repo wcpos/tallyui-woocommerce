@@ -71,13 +71,16 @@ test('taxes off: no trigger', () => {
   expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 1 of 1');
 });
 
-test('View all tax rates opens the Tax Rates dialog', async () => {
+test('View all tax rates opens the Tax Rates dialog with the shop address: its rate marked and counted', async () => {
   renderScreen(true);
   openPanel();
   fireEvent.click(screen.getByTestId('tax-based-on-view-all'));
   await waitFor(() => expect(screen.getByTestId('tax-rates-dialog')).not.toBeNull());
   expect(screen.getByTestId('tax-rates-title').textContent).toBe('Tax Rates');
   expect(screen.getByTestId('tax-rates-dialog').textContent).toContain('CA Tax');
+  // v2 display-current-tax-rates.tsx:92-106: the panel's address travels with View all.
+  expect(screen.getByTestId('tax-rates-row-1').getAttribute('aria-selected')).toBe('true');
+  expect(screen.getByTestId('tax-rates-count').textContent).toBe('1 tax rate · 1 applies to this address (US)');
 });
 
 test('Change in Settings › Tax goes to the Tax page', () => {

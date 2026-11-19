@@ -1,7 +1,9 @@
+import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import { Circle, Path, Rect } from 'react-native-svg';
-import { Button, createSvgIcon, IconButton, Text } from '@tallyui/components';
+import { Button, createSvgIcon, IconButton, ShoppingCartIcon, Text } from '@tallyui/components';
 import type { Compare } from '../lib/reports/sales-room';
+import { chipInkClassName } from './catalogue-filter-chips';
 import { chipFaceClassName, MenuChip } from './menu-chip';
 
 // lucide `user-star`, v2's `cashier` icon (a person with a star) on the Everyone / All cashiers chip.
@@ -41,9 +43,9 @@ export function reportCashiers(users: readonly { id: number | string; displayNam
 }
 
 /** The scope chips (v2 `SalesScopeChips`); Closures' cashier chip (v2 `ClosuresCashierChip`) reads "All cashiers". */
-export function ReportChips({ cashiers, cashierId, onCashier, allLabel = 'Everyone', testID = 'hero-chips' }: {
+export function ReportChips({ cashiers, cashierId, onCashier, allLabel = 'Everyone', testID = 'hero-chips', children }: {
   cashiers: readonly ReportCashier[]; cashierId: string | null; onCashier(next: string | null): void;
-  allLabel?: string; testID?: string;
+  allLabel?: string; testID?: string; children?: ReactNode;
 }) {
   // No status chip (v2 "Completed & processing"): a local sale has no Woo order status and is always completed.
   return (
@@ -56,6 +58,24 @@ export function ReportChips({ cashiers, cashierId, onCashier, allLabel = 'Everyo
         choices={[{ value: 'all', label: allLabel }, ...cashiers.map(row => ({ value: row.id, label: row.name }))]}
         onChange={next => onCashier(next === 'all' ? null : next)}
       />
+      {children}
+    </View>
+  );
+}
+
+/** v2 hero/index.tsx:296-314 `LeftOutChip`: on, the cart icon, "{n} orders left out"; it opens the Orders table, and
+ *  its clear, "Put them back", ticks every order again. */
+export function LeftOutChip({ count, onOpen, onClear }: { count: number; onOpen(): void; onClear(): void }) {
+  const ink = chipInkClassName(true);
+  return (
+    <View testID="hero-chip-left-out-face" className={chipFaceClassName(true)}>
+      <Pressable testID="hero-chip-left-out" accessibilityRole="button" onPress={onOpen} className="h-full flex-row items-center gap-1.5 px-3">
+        <ShoppingCartIcon size={18} className={ink} />
+        <Text className={`text-base font-normal ${ink}`}>{`${count} ${count === 1 ? 'order' : 'orders'} left out`}</Text>
+      </Pressable>
+      <Pressable testID="hero-chip-left-out-clear" accessibilityRole="button" accessibilityLabel="Put them back" onPress={onClear} className="h-full justify-center pr-3">
+        <Text className={`text-sm ${ink}`}>✕</Text>
+      </Pressable>
     </View>
   );
 }

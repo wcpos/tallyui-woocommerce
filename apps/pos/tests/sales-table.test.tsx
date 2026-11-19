@@ -28,6 +28,21 @@ test('phone rows stack labels and values without table headings', () => {
   expect(screen.queryAllByRole('columnheader')).toHaveLength(0);
 });
 
+// v2 orders-panel.tsx: each row's tick box, "Include order {number}"; the Counted column is not painted on screen.
+test('with ticks a phone row starts with its tick box, paints no Counted line, and unticking asks to leave it out', () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 800, scale: 1, fontScale: 1 });
+  const onInclude = vi.fn();
+  const counted = { ...table, head: [...table.head, 'Counted'], rows: [{ key: 'a', cells: ['#228', '13:05', 'Card terminal', '$3.33', 'Yes'] }],
+    total: ['Counted', '', '', '$3.33', ''] };
+  render(<><SalesTable table={counted} scope="Today · This till" ticks={{ leftOut: new Set(), onInclude }} onClose={vi.fn()} /><PortalHost /></>);
+  const row = screen.getByTestId('sales-table-row-a');
+  const tick = within(row).getByTestId('orders-panel-tick-a');
+  expect(tick.getAttribute('aria-label')).toBe('Include order 228');
+  expect(within(row).queryByText('Counted')).toBeNull();
+  fireEvent.click(tick);
+  expect(onInclude).toHaveBeenCalledWith(['a'], false);
+});
+
 test('wide rows retain columns', () => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1024, height: 800, scale: 1, fontScale: 1 });
   render(<><SalesTable table={table} scope="Today · This till" onClose={vi.fn()} /><PortalHost /></>);

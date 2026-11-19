@@ -4,19 +4,20 @@ import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { Path } from 'react-native-svg';
 import { ConnectorProvider } from '@tallyui/core';
 import type { TallyConnector } from '@tallyui/core';
-import { Button, createSvgIcon, defaultProductColumns, IconButton, ProductGrid, ProductTable, SearchInput, Text } from '@tallyui/components';
+import { Button, CameraScanButton, CameraScannerPanel, createSvgIcon, defaultProductColumns, IconButton, ProductGrid, ProductTable, SearchInput, Text } from '@tallyui/components';
 import type { ProductTableColumn } from '@tallyui/components';
 import { catalogueEntries, productSortValue, resolveGridColumns, searchProducts, sortProducts } from '@tallyui/pos';
 import type { CatalogueEntry } from '@tallyui/pos';
 import { catalogueQuery, initialCatalogueQuery } from '../lib/catalogue/catalogue-query';
 import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
 import type { AppCatalogueViewState } from '../lib/catalogue/catalogue-view-state';
-import { catalogueFilterBaseline, isQuickFilterActive, matchesCatalogueFilters, useQuickFilters } from '../lib/catalogue/quick-filters';
-import type { QuickFilter } from '../lib/catalogue/quick-filters';
+import { captureQuickFilter, catalogueFilterBaseline, isQuickFilterActive, matchesCatalogueFilters, useQuickFilters } from '../lib/catalogue/quick-filters';
+import type { CapturedQuickFilter, QuickFilter } from '../lib/catalogue/quick-filters';
 import { optionsLabel } from '../lib/catalogue/tile-words';
 import type { TileTax } from '../lib/catalogue/tile-words';
 import { needsAnyPick, variantMatchesStock } from '../lib/catalogue/variation-match';
 import { useIsWide } from '../lib/layout/wide';
+import { useCameraScan } from '../lib/scan/use-camera-scan';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { useSearchChord } from '../lib/sale/use-search-chord';
 import { categoriesLabel, categoryTerms, filtersAtBaseline, productsInCategory, productsLabel } from '../lib/catalogue/browse-terms';
@@ -30,7 +31,7 @@ import { ChevronRightIcon } from './icons';
 import { InCartBadge } from './in-cart-badge';
 import { LevelBack } from './level-back';
 import { ProductTile } from './product-tile';
-import { QuickFilterBar } from './quick-filter-bar';
+import { QuickFilterBar, SaveAsButton } from './quick-filter-bar';
 import { RegisterBarShell } from './register-bar-shell';
 import { ParentTile, VariationRow, VariationTile } from './variation-tile';
 import { ViewModeToggle } from './view-mode-toggle';
@@ -107,12 +108,16 @@ export function CatalogueView({
   const [quickFilters, setQuickFilters] = useQuickFilters();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [filterBarOpen, setFilterBarOpen] = useState(false);
+  const [captured, setCaptured] = useState<CapturedQuickFilter | null>(null);
   function scan(code: string) {
     const result = onScan?.(code);
     if (result === 'clear') dispatch({ type: 'search', term: '' });
     else if (result === 'search') dispatch({ type: 'search', term: code });
   }
-  useWedgeScanner(scan, Boolean(onScan));
+  const ownsScan = useWedgeScanner(scan, Boolean(onScan));
+  // v2 pos/products/index.tsx:331: the inline camera scanner; its decodes take the wedge's scan path.
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const camera = useCameraScan(scan, ownsScan);
   // v2 products/index.tsx:203-216: a hidden phone pane is shown first, and the input focuses once it is. TallyUI's
   // SearchInput types no ref, so the web-only chord finds its input by testID.
   useSearchChord(() => {
@@ -213,6 +218,9 @@ export function CatalogueView({
     return visible;
   })();
   const queryState = { filters, search: term, sort };
+  // v2's `active` (filter-bar.tsx:495-503): set filters that differ from the baseline; an open level's place is not one.
+  const filtersOn = Object.entries(filters).filter(([key, value]) => !(level !== null && key === 'categories') && (Array.isArray(value)
+    ? value.length > 0 : value !== undefined && value !== null) && JSON.stringify(value) !== JSON.stringify(baseline[key as keyof typeof baseline])).length;
   const isActive = (qf: QuickFilter) => isQuickFilterActive(qf, queryState, viewState.sort, baseline);
   // Like v2, a press replaces the whole filter state, and pressing the active button restores the baseline.
   function pressQuickFilter(qf: QuickFilter) {
@@ -239,6 +247,8 @@ export function CatalogueView({
       {/* h-11: v2's control height `h-ctl`, 44 px (monorepo apps/main/global.css:40), over TallyUI's 40. */}
       <SearchInput testID="catalogue-search" className="h-11 flex-1" value={term} onChangeText={text => dispatch({ type: 'search', term: text })} placeholder="Search products"
         onSubmitEditing={() => { const code = term.trim(); if (code && onScan) scan(code); }} />
+      {/* v2 index.tsx:578-581: the camera button sits after the search, before the view toggle. */}
+      {onScan ? <CameraScanButton open={scannerOpen} onPress={() => setScannerOpen(open => !open)} /> : null}
       <ViewModeToggle view={viewState.view} onChange={view => setViewState({ ...viewState, view })} />
       <CatalogueSettingsButton onPress={() => setSettingsOpen(true)} />
     </View>
@@ -251,9 +261,14 @@ export function CatalogueView({
       <CatalogueFilterChips products={products} filters={filters} onChange={next => dispatch({ type: 'filter', filters: next })} dimmed={drilled !== undefined}
         placeField={level === null ? undefined : 'categories'} />
       <QuickFilterBar quickFilters={quickFilters} isActive={isActive} onPress={pressQuickFilter} dimmed={drilled !== undefined} />
+      {filtersOn >= 1 && <SaveAsButton onPress={() => setCaptured(captureQuickFilter(queryState, baseline, viewState.sort))} />}
     </ScrollView>
-    <FilterBarDialog open={filterBarOpen} onOpenChange={setFilterBarOpen} quickFilters={quickFilters} onChange={changeQuickFilters}
-      products={products} connector={connector} currency={currency} baselineSort={viewState.sort} />
+    {/* v2 index.tsx:607-610: the panel mounts under the chips, above the products, and keeps scanning after a decode. */}
+    {scannerOpen && onScan ? <CameraScannerPanel onClose={() => setScannerOpen(false)} onDetected={camera.onDetected}
+      onOpen={camera.onOpen} scanCount={camera.scanCount} /> : null}
+    <FilterBarDialog open={filterBarOpen || captured !== null} onOpenChange={open => { setFilterBarOpen(open); if (!open) setCaptured(null); }}
+      quickFilters={quickFilters} onChange={changeQuickFilters} products={products} connector={connector} currency={currency}
+      baselineSort={viewState.sort} captured={captured} />
   </View>;
   // v2's conditionsBeyond (browse/level-place.ts:53): what Clear filters can clear. The open level is the place, not a condition.
   const conditionsOn = searching || !filtersAtBaseline(filters, baseline) || quickFilters.some(isActive);

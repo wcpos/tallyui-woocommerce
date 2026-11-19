@@ -14,6 +14,7 @@ import { useRegister } from '../lib/register/register-context';
 import { closuresCsv } from '../lib/reports/closures-csv';
 import { categoryFigures } from '../lib/reports/category-figures';
 import { productFigures } from '../lib/reports/product-figures';
+import { useLeftOut } from '../lib/reports/left-out';
 import { closuresScope, periodNow, salesPeriod } from '../lib/reports/report-scope';
 import { rangeBounds, salesRoom, type Compare } from '../lib/reports/sales-room';
 import { salesTableCsv } from '../lib/reports/sales-table-csv';
@@ -27,7 +28,7 @@ import { ClosurePrint } from './closure-print';
 import { ClosureStats } from './closure-stats';
 import { HourlyBars } from './hourly-bars';
 import { ReportCards, type ReportTable } from './report-cards';
-import { CompareChip, PrintSummaryButton, ReportChips, reportCashiers } from './report-chips';
+import { CompareChip, LeftOutChip, PrintSummaryButton, ReportChips, reportCashiers } from './report-chips';
 import { ReportsHero } from './reports-hero';
 import { periodLabel, ReportsPeriod } from './reports-period';
 import { SalesSummaryPrint } from './sales-summary-print';
@@ -63,6 +64,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const preset = typeof period === 'string' ? period : undefined;
   const [compare, setCompare] = useState<Compare>('yesterday');
   const [cashierId, setCashierId] = useState<string | null>(null);
+  const { leftOut, include: includeOrders, clear: clearLeftOut } = useLeftOut();
   const now = useMinuteClock();
   const [sales, setSales] = useState<PosOrder[]>([]);
   const [rows, setRows] = useState<Closure[]>([]);
@@ -104,27 +106,33 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const scopeTitle = `${storeName} · ${registerName}`;
   // v2 `reports.panel_scope`: "{period} · {register}", on the table dialog and its printed report.
   const tableScope = `${periodName} · ${registerName}`;
-  const room = salesRoom(shown, { now, currency, range, preset, comparison });
-  const periodButton = <ReportsPeriod preset={preset ?? 'custom'} range={range} locale={locale} now={opened} onPreset={setPeriod} onCustom={setPeriod} />;
-  const chips = <ReportChips cashiers={reportCashierRows} cashierId={cashierId} onCashier={setCashierId} />;
-  const printButton = <PrintSummaryButton wide={wide} onPress={printSummary} />;
   const printDate = (day: string) => formatClosureDate(rangeBounds({ from: day, to: day }).startIso, { timezone: 'device', locale }).date;
   const money = (amount: number) => formatMoney({ amount, currency }, locale);
+  // v2 reports/context.tsx:264-288: unticked orders in the period drop out of every figure; the comparison is untouched.
+  const ordersView = ordersTable(shown, { range, currency, money, leftOut });
+  const leftOutNow = new Set(ordersView.rows.filter(row => leftOut.has(row.key)).map(row => row.key));
+  const counted = leftOutNow.size === 0 ? shown : shown.filter(order => !leftOutNow.has(order.id));
+  const room = salesRoom(counted, { now, currency, range, preset, comparison });
+  const periodButton = <ReportsPeriod preset={preset ?? 'custom'} range={range} locale={locale} now={opened} onPreset={setPeriod} onCustom={setPeriod} />;
+  const chips = <ReportChips cashiers={reportCashierRows} cashierId={cashierId} onCashier={setCashierId}>
+    {leftOutNow.size > 0 && <LeftOutChip count={leftOutNow.size} onOpen={() => setOpenTable('orders')} onClear={clearLeftOut} />}
+  </ReportChips>;
+  const printButton = <PrintSummaryButton wide={wide} onPress={printSummary} />;
   // The donut centres read whole currency units: the amount rounded to whole units, shown with no decimals.
   const exponent = new Intl.NumberFormat(locale, { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2;
   const moneyWhole = (minor: number) => new Intl.NumberFormat(locale, {
     style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 0,
   }).format(Math.round(minor / 10 ** exponent));
   // One set of figures feeds each card and its table, so the two never disagree.
-  const products = productFigures(shown, { currency, range });
-  const categories = categoryFigures(shown, catalogueProducts, { currency, range });
+  const products = productFigures(counted, { currency, range });
+  const categories = categoryFigures(counted, catalogueProducts, { currency, range });
   const table = openTable === 'payments' ? paymentsTable(room.today, money)
     : openTable === 'products' ? productsTable(room.today, products, money)
     : openTable === 'categories' ? categoriesTable(room.today, categories, money)
     : openTable === 'cashiers' ? cashiersTable(room.today, reportCashierRows, money)
     : openTable === 'taxes' ? taxesTable(room.today, money)
     : openTable === 'where-sold' ? whereSoldTable(room.today, money)
-    : openTable === 'orders' ? ordersTable(shown, { range, currency, money }) : null;
+    : openTable === 'orders' ? ordersView : null;
   const downloadCsv = (csv: string, filename: string) => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -233,8 +241,9 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
           {room.today.count === 0 && <Text>{preset === 'today' ? 'No sales yet today.' : 'No sales in this period.'}</Text>}
         </ReportsHero>
         <ReportCards period={room.today} money={minor => money(minor) ?? ''} moneyWhole={moneyWhole} onOpenTable={setOpenTable} cashiers={reportCashierRows} products={products}
-          categories={categories} />
+          categories={categories} allLeftOut={ordersView.rows.length > 0 && leftOutNow.size === ordersView.rows.length} />
         {openTable && table && <SalesTable table={table} scope={tableScope} onClose={() => setOpenTable(null)} onPrint={printTable}
+          ticks={openTable === 'orders' ? { leftOut, onInclude: includeOrders } : undefined}
           onExport={() => downloadCsv(salesTableCsv(table), `sales-${openTable}-${range.from}-${range.to}.csv`)} />}
       </ScrollView>}
       {openClosure && <ClosurePanel closure={openClosure} storeName={storeName} currency={currency} locale={locale} blind={register.blind} resolveCashierName={resolveCashierName} onReprint={reprintClosure} onClose={() => setOpenClosureId(null)} />}
