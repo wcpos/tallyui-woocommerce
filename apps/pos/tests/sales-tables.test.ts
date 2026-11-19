@@ -5,7 +5,8 @@ import { afterAll, expect, test } from 'vitest';
 import { formatMoney } from '@tallyui/core';
 import type { PosOrder } from '@tallyui/pos';
 import { salesRoom, type Period } from '../lib/reports/sales-room';
-import { ordersTable, paymentsTable, taxesTable, whereSoldTable } from '../lib/reports/sales-tables';
+import { productFigures } from '../lib/reports/product-figures';
+import { cashiersTable, categoriesTable, ordersTable, paymentsTable, productsTable, taxesTable, whereSoldTable } from '../lib/reports/sales-tables';
 import { salesTableCsv } from '../lib/reports/sales-table-csv';
 
 afterAll(() => {
@@ -174,4 +175,57 @@ test('orders table with no orders today', () => {
   expect(table.rows).toEqual([]);
   expect(table.total).toEqual(['Counted', '', '', '$0.00', '']);
   expect(table.status).toBe('0 of 0 counted');
+}, 20_000);
+
+test('products table lists every product with its units and an All products total', () => {
+  const table = productsTable(today, productFigures(orders, { currency: 'USD', range: day.range }), money);
+  expect(table.title).toBe('Top products');
+  expect(table.head).toEqual(['Product', 'Qty', 'Amount']);
+  expect(table.align).toEqual(['left', 'right', 'right']);
+  expect(table.rows.map(row => [row.key, ...row.cells])).toEqual([
+    ['product3', 'Item 3', '1', '$17.38'], ['product2', 'Item 2', '1', '$8.58'],
+  ]);
+  // v2 specs.ts:244: the rows carry line totals, so the total is theirs, not the orders'.
+  expect(table.total).toEqual(['All products', '2', '$25.96']);
+  expect(table.status).toBe('4 orders · $29.96');
+  expect(table.empty).toBe('No sales in this period');
+}, 20_000);
+
+test('categories table shares the period total and totals the parts', () => {
+  const categories = { unknownLines: 1, totalLines: 3, parts: [
+    { key: '25', label: 'Coffee', amountMinor: 1738, quantity: 2 },
+    { key: 'unknown', label: 'Unknown product', amountMinor: 858, quantity: 1 },
+  ] };
+  const table = categoriesTable(today, categories, money);
+  expect(table.title).toBe('Sales by category');
+  expect(table.head).toEqual(['Category', 'Qty', 'Amount', 'Share']);
+  expect(table.align).toEqual(['left', 'right', 'right', 'right']);
+  // v2 cards/aggregate.ts categories: a part's share is of the period's total ($29.96), as on the card's donut.
+  expect(table.rows.map(row => [row.key, ...row.cells])).toEqual([
+    ['25', 'Coffee', '2', '$17.38', '58.0%'], ['unknown', 'Unknown product', '1', '$8.58', '28.6%'],
+  ]);
+  expect(table.total).toEqual(['Total', '3', '$25.96', '']);
+  expect(table.status).toBe('4 orders · $29.96');
+  expect(categoriesTable({ ...today, totalMinor: 0 }, categories, money).rows[0].cells[3]).toBe('—');
+}, 20_000);
+
+test('cashiers table averages each cashier and totals the period', () => {
+  const period: Period = { ...today, count: 4, totalMinor: 1100, averageMinor: 275, byCashier: [
+    { cashierRef: '7', count: 2, totalMinor: 701 },
+    { cashierRef: '', count: 1, totalMinor: 299 },
+    { cashierRef: '42', count: 1, totalMinor: 100 },
+  ] };
+  const table = cashiersTable(period, [{ id: '7', name: 'Alex' }], money);
+  expect(table.title).toBe('Sales by cashier');
+  expect(table.head).toEqual(['Cashier', 'Orders', 'Avg order', 'Amount']);
+  expect(table.align).toEqual(['left', 'right', 'right', 'right']);
+  // v2 specs.ts:349: a row's average is its amount over its orders, to the minor unit.
+  expect(table.rows.map(row => [row.key, ...row.cells])).toEqual([
+    ['7', 'Alex', '2', '$3.51', '$7.01'],
+    ['unknown', 'Unknown', '1', '$2.99', '$2.99'],
+    ['42', '#42', '1', '$1.00', '$1.00'],
+  ]);
+  expect(table.total).toEqual(['Total', '4', '$2.75', '$11.00']);
+  expect(table.status).toBe('4 orders · $11.00');
+  expect(table.empty).toBe('No sales in this period');
 }, 20_000);

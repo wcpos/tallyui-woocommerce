@@ -24,6 +24,7 @@ import type { SvgIconProps } from '@tallyui/components';
 import { useAreaColumns, visibleAreaColumns } from '../lib/area-columns';
 import type { AreaColumn } from '../lib/area-columns';
 import { NARROW_WIDTH } from '../lib/layout/wide';
+import { usePointer } from '../lib/layout/pointer';
 import { dayLabel } from '../lib/orders/order-days';
 import { useSearchTerm } from '../lib/search-term';
 import { nextSort } from '../lib/table-sort';
@@ -288,6 +289,9 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
   const [sort, setSort] = useState<CouponSort>(DEFAULT_COUPON_SORT);
   const [settings, setSettings] = useAreaColumns('coupons', COUPONS_COLUMNS);
   const { width } = useWindowDimensions();
+  // v2 picks the row by pointer (list-frame/index.tsx:158): a touch tablet gets the touch rows.
+  const pointer = usePointer();
+  const touchRows = width < NARROW_WIDTH || pointer === 'coarse';
   const sync = useCatalogueSync();
   const locale = storeLocale?.replaceAll('_', '-');
 
@@ -325,7 +329,7 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
   ) : (
       // A phone row is v2's ListRow (list-row/index.tsx:31,54-65): min-h-14 px-3 py-2.
       <ScrollView testID="coupons-body">
-        {width < NARROW_WIDTH ? shown.map(c => (
+        {touchRows ? shown.map(c => (
           <View key={c.uuid} testID={`coupons-row-${c.code}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
             <View className="flex-1 gap-1">
               <Text testID={`coupon-row-code-${c.code}`} numberOfLines={1} className="font-semibold text-foreground">{c.code}</Text>

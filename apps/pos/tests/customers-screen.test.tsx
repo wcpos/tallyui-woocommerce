@@ -15,6 +15,7 @@ import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { CARD_CLASSES, classesOf, textPropsOf } from './classes-of';
 import { memoryStorage } from './memory-storage';
+import { COARSE, FINE, stubMatchMedia } from './match-media';
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
@@ -570,4 +571,18 @@ test('a page without a total keeps Showing N', async () => {
   render(<CustomersScreen source={{ search: vi.fn(), searchPage, create: vi.fn() }} onBack={vi.fn()} createBlockedReason={undefined} />);
   expect(await screen.findByTestId('customers-row-7')).not.toBeNull();
   expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 2');
+});
+
+// v2 list-frame/index.tsx:158: the row follows the pointer, not the width.
+test("a touch tablet at 1024 gets the touch rows; a mouse at 1024 keeps the table", async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1024, height: 768, scale: 1, fontScale: 1 });
+  stubMatchMedia({ ...COARSE });
+  await findRows(vi.fn<CustomerSource['search']>().mockResolvedValue([gee]));
+  expect(screen.getByTestId('customers-row-chevron-7')).not.toBeNull();
+  expect(screen.queryByTestId('customer-open-button')).toBeNull();
+  cleanup();
+  stubMatchMedia({ ...FINE });
+  await findRows(vi.fn<CustomerSource['search']>().mockResolvedValue([gee]));
+  expect(screen.getByTestId('customer-open-button')).not.toBeNull();
+  expect(screen.queryByTestId('customers-row-chevron-7')).toBeNull();
 });

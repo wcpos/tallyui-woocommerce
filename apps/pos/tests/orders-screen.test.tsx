@@ -166,7 +166,37 @@ test('a till sale opens as a reprint', async () => {
   fireEvent.click(screen.getByTestId(/^order-open-/));
   expect(screen.getByTestId('receipt-reprint').textContent).toBe('Reprint 1');
   expect(screen.getByTestId('receipt-order').textContent).toBe(`Order ${reference} · #305`);
+  // The till's own sales are paid at tender: their receipt never says Not paid.
+  expect(screen.queryByTestId('receipt-not-paid')).toBeNull();
 }, 20_000);
+
+// v2's receipt mark (receipt/receipt.tsx:75-94): a live store order the store does not count as paid says what is due.
+async function openStoreReceipt(status: string) {
+  const order: StoreOrder = { ...storeOrder, status, payments: [] };
+  const list = vi.fn<OrderHistorySource['list']>(async () => ({ orders: [order], hasMore: false }));
+  await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list }, false);
+  fireEvent.click(await screen.findByTestId(`history-open-${order.id}`));
+  fireEvent.click(screen.getByTestId('order-modal-receipt'));
+  expect(screen.getByTestId('receipt-order').textContent).toBe('Order 901');
+}
+
+test.each(['pending', 'pos-open'])('a %s store order with nothing paid shows Not paid · $6.00 due above the receipt', async status => {
+  await openStoreReceipt(status);
+  const mark = screen.getByTestId('receipt-not-paid');
+  expect(mark.textContent).toBe('Not paid · $6.00 due');
+  // v2 does not print it: it sits outside the print area.
+  expect(screen.getByTestId('receipt-print-area').contains(mark)).toBe(false);
+});
+
+test.each(['completed', 'processing', 'on-hold'])("a %s store order's receipt carries no Not paid mark", async status => {
+  await openStoreReceipt(status);
+  expect(screen.queryByTestId('receipt-not-paid')).toBeNull();
+});
+
+test.each(['cancelled', 'failed', 'refunded', 'trash'])("a dead %s store order's receipt carries no Not paid mark", async status => {
+  await openStoreReceipt(status);
+  expect(screen.queryByTestId('receipt-not-paid')).toBeNull();
+});
 
 test("the store's total reaches the footer: Showing 1 of 40", async () => {
   const list = vi.fn<OrderHistorySource['list']>(async () => ({ orders: [storeOrder], hasMore: true, total: 40 }));
