@@ -2,7 +2,9 @@ import { ScrollView, View, useWindowDimensions } from 'react-native';
 import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow, Text } from '@tallyui/components';
 import type { SalesTable as SalesTableData } from '../lib/reports/sales-tables';
 
-export function SalesTable({ table, scope, onClose, onExport }: { table: SalesTableData; scope: string; onClose: () => void; onExport?: () => void }) {
+export function SalesTable({ table, scope, onClose, onExport, onPrint }: {
+  table: SalesTableData; scope: string; onClose: () => void; onExport?: () => void; onPrint?: () => void;
+}) {
   const { width } = useWindowDimensions();
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
@@ -58,6 +60,9 @@ export function SalesTable({ table, scope, onClose, onExport }: { table: SalesTa
         <Text testID="sales-table-status">{table.status}</Text>
         <DialogFooter>
           {onExport && <Button testID="sales-table-export" variant="outline" onPress={onExport}><Text>Export CSV</Text></Button>}
+          {/* v2 reports/panels/panel.tsx:321: Print report beside Export CSV. v2 holds Print only while the store,
+              data or templates load, never for an empty table, so it is never disabled here. */}
+          {onPrint && <Button testID="detail-panel-print" variant="outline" onPress={onPrint}><Text>Print report</Text></Button>}
           <Button testID="sales-table-close" onPress={onClose}><Text>Close</Text></Button>
         </DialogFooter>
       </DialogContent>

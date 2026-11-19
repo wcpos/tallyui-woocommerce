@@ -22,13 +22,97 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function renderEditor(initial: QuickFilter | null = null) {
+function renderEditor(initial: QuickFilter | null = null, { starters = false } = {}) {
   const onSave = vi.fn();
   const onCancel = vi.fn();
   render(<><QuickFilterEditor initial={initial} products={products} connector={createWooCommerceConnector()}
     currency={stores[0].currency} baselineSort={{ field: 'name', dir: 'asc' }} onSave={onSave} onCancel={onCancel} /><PortalHost /></>);
+  // A new quick filter opens on the starter list; the form tests start from scratch.
+  if (initial === null && !starters) fireEvent.click(screen.getByTestId('quick-filter-start-scratch'));
   return { onSave, onCancel };
 }
+
+const KEPT_STARTERS = [
+  ['category', 'A category', 'One tap straight to a category'],
+  ['sale_in_category', 'On sale in a category', 'Sale wines, sale shoes…'],
+  ['under_price', 'Under a price', 'Gifts under a price, stocking fillers'],
+  ['low_stock', 'Low stock', 'Fewest left first'],
+  ['tag', 'A tag', 'Gluten free, Local, Gift…'],
+];
+
+function nameValue(): string { return (screen.getByTestId('quick-filter-name') as HTMLInputElement).value; }
+
+test("a new quick filter opens on v2's starter list", () => {
+  renderEditor(null, { starters: true });
+  expect(screen.getByText('Start from one of these, then change what you like.')).not.toBeNull();
+  for (const [id, title, line] of KEPT_STARTERS) {
+    const row = screen.getByTestId(`quick-filter-starter-${id}`);
+    expect(row.textContent).toContain(title);
+    expect(row.textContent).toContain(line);
+  }
+  expect(screen.getAllByTestId(/^quick-filter-starter-/).map(row => row.getAttribute('data-testid')))
+    .toEqual(KEPT_STARTERS.map(([id]) => `quick-filter-starter-${id}`));
+  expect(screen.queryByTestId('quick-filter-starter-best_sellers')).toBeNull();
+  expect(screen.queryByTestId('quick-filter-starter-new_arrivals')).toBeNull();
+  expect(screen.getByTestId('quick-filter-start-scratch').textContent).toBe('Start from scratch');
+  expect(screen.queryByTestId('quick-filter-name')).toBeNull();
+});
+
+test('a sort starter fills the name and the order', () => {
+  const { onSave } = renderEditor(null, { starters: true });
+  fireEvent.click(screen.getByTestId('quick-filter-starter-low_stock'));
+  expect(nameValue()).toBe('Low stock');
+  expect(screen.getByTestId('quick-filter-sort-field').textContent).toBe('Stock Quantity');
+  expect(screen.getByTestId('quick-filter-sort-direction-asc').getAttribute('aria-pressed')).toBe('true');
+  expect(screen.queryAllByTestId(/^quick-filter-starter-/)).toHaveLength(0);
+  const save = screen.getByTestId('quick-filter-save');
+  expect(save.getAttribute('aria-disabled')).not.toBe('true');
+  fireEvent.click(save);
+  expect(onSave).toHaveBeenCalledExactlyOnceWith({
+    id: expect.any(String), type: 'quick', label: 'Low stock', conditions: [], sort: { field: 'stock', dir: 'asc' },
+  });
+  expect(isQuickFilterValid(onSave.mock.calls[0][0])).toBe(true);
+});
+
+test('a condition starter fills its conditions and leaves the name empty', () => {
+  const { onSave } = renderEditor(null, { starters: true });
+  fireEvent.click(screen.getByTestId('quick-filter-starter-sale_in_category'));
+  expect(nameValue()).toBe('');
+  expect(screen.getByTestId('quick-filter-condition-field-0').textContent).toBe('Category');
+  expect(screen.getByTestId('quick-filter-condition-field-1').textContent).toBe('On Sale');
+  expect(screen.getByTestId('quick-filter-toggle-on_sale-yes').getAttribute('aria-pressed')).toBe('true');
+  expect(screen.getByTestId('quick-filter-sort-field').textContent).toBe("The grid's usual order");
+  expect(screen.getByTestId('quick-filter-save').getAttribute('aria-disabled')).toBe('true');
+  fireEvent.change(screen.getByTestId('quick-filter-name'), { target: { value: 'Sale' } });
+  fireEvent.click(screen.getByTestId('quick-filter-term-categories-25'));
+  fireEvent.click(screen.getByTestId('quick-filter-save'));
+  expect(onSave).toHaveBeenCalledExactlyOnceWith({
+    id: expect.any(String), type: 'quick', label: 'Sale',
+    conditions: [{ field: 'categories', value: [25] }, { field: 'on_sale', value: true }],
+  });
+  expect(onSave.mock.calls[0][0]).not.toHaveProperty('sort');
+});
+
+test('start from scratch shows the empty form; an existing filter never shows starters', () => {
+  renderEditor(null, { starters: true });
+  fireEvent.click(screen.getByTestId('quick-filter-start-scratch'));
+  expect(nameValue()).toBe('');
+  expect(screen.queryByTestId('quick-filter-condition-field-0')).toBeNull();
+  expect(screen.queryAllByTestId(/^quick-filter-starter-/)).toHaveLength(0);
+  expect(screen.getByTestId('quick-filter-sort-field').textContent).toBe("The grid's usual order");
+  cleanup();
+  renderEditor({ id: 'sale', type: 'quick', label: 'Sale', conditions: [{ field: 'on_sale', value: true }] });
+  expect(screen.queryAllByTestId(/^quick-filter-starter-/)).toHaveLength(0);
+  expect(screen.queryByTestId('quick-filter-start-scratch')).toBeNull();
+  expect(nameValue()).toBe('Sale');
+});
+
+test('cancel works from the starter list', () => {
+  const { onSave, onCancel } = renderEditor(null, { starters: true });
+  fireEvent.click(screen.getByTestId('quick-filter-cancel'));
+  expect(onCancel).toHaveBeenCalledOnce();
+  expect(onSave).not.toHaveBeenCalled();
+});
 
 test('a new quick filter cannot be saved until it has a name and a complete condition', () => {
   const { onSave } = renderEditor();

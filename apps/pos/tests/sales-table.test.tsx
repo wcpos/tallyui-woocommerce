@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { PortalHost } from '@tallyui/primitives';
@@ -45,4 +45,17 @@ test('phone empty state keeps only populated total values', () => {
   expect(within(screen.getByTestId('sales-table-total')).getAllByText(/./).map(cell => cell.textContent)).toEqual([
     'Total', 'Total', '$0.00',
   ]);
+});
+
+test('Print report shows only with onPrint and calls it', () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1024, height: 800, scale: 1, fontScale: 1 });
+  const view = render(<><SalesTable table={table} scope="Today · This till" onClose={vi.fn()} /><PortalHost /></>);
+  expect(screen.queryByTestId('detail-panel-print')).toBeNull();
+  view.unmount();
+  const onPrint = vi.fn();
+  render(<><SalesTable table={table} scope="Today · This till" onClose={vi.fn()} onPrint={onPrint} /><PortalHost /></>);
+  const button = screen.getByTestId('detail-panel-print');
+  expect(button.textContent).toBe('Print report');
+  fireEvent.click(button);
+  expect(onPrint).toHaveBeenCalledTimes(1);
 });

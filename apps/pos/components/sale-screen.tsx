@@ -182,9 +182,11 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     actions: [{ label: 'Order details', onPress: () => setDetailsOpen(true) }],
   };
 
-  // v2's `onTill` (extensions/commands/commands.ts:12-37): the chords only on the till with the cart shown, never at
-  // checkout or on the receipt. Alt+F fires in fields; the cart chords never do (front desk, 19 Nov 2026).
+  // v2's `onTill` (extensions/commands/commands.ts:13-18): the chords only on the till, never at checkout or on the
+  // receipt. v2's `inCart` also needs the cart shown (`hasSurface('cart')`): on a phone, the Cart tab selected.
   const chords = props.searchChord !== false && sale.stage.kind === 'cart';
+  const phoneLayout = width < SALE_SPLIT_MIN_WIDTH;
+  const cartChords = chords && (!phoneLayout || cartOpen);
   const hasLines = sale.order.lineItems.length > 0;
   const stripIds = stripCartIds(parked, sale.order, currentOpenedAt);
   // v2 hotkeys.web.tsx: a chord whose previous run has not settled is dropped.
@@ -202,10 +204,10 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     const target = stripIds[at < 0 ? (step > 0 ? 0 : stripIds.length - 1) : (at + step + stripIds.length) % stripIds.length];
     if (target !== sale.order.id) runChord(() => resume(target));
   };
-  useChord('KeyN', () => runChord(park), { enabled: chords && hasLines, inFields: false });
-  useChord('ArrowLeft', () => stepCart(-1), { enabled: chords && stripIds.length > 1, inFields: false });
-  useChord('ArrowRight', () => stepCart(1), { enabled: chords && stripIds.length > 1, inFields: false });
-  useChord('KeyP', checkout.onCheckout, { enabled: chords && hasLines, inFields: false });
+  useChord('KeyN', () => runChord(park), cartChords && hasLines);
+  useChord('ArrowLeft', () => stepCart(-1), cartChords && stripIds.length > 1);
+  useChord('ArrowRight', () => stepCart(1), cartChords && stripIds.length > 1);
+  useChord('KeyP', checkout.onCheckout, cartChords && hasLines);
 
   function onSelect(doc: any) {
     try {
@@ -240,7 +242,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   }
 
   const { onScan, onTenderScan } = saleScanHandlers({
-    products: props.products, traits: connector.traits.product, currency, add: addEntry, choose: onSelect,
+    products: props.products, traits: connector.traits.product, currency, add: addEntry,
   });
 
   const drawerFigure = drawerFigureText(register, minor => sheetMoney(minor, currency, props.locale));
@@ -261,7 +263,6 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       onOpenDrawer={register?.enabled ? () => { setCartOpen(true); setRegisterPanelOpen(true); } : undefined}
       adminUrl={props.adminUrl}
     /> : props.cashierControl;
-  const phoneLayout = width < SALE_SPLIT_MIN_WIDTH;
   // v2 draws its RegisterBar as the cart column's first row (cart/index.tsx), so the catalogue starts with its search row.
   const bar = <PosBar {...props} cashierControl={cashierControl} />;
   const browse = variants ? (
@@ -289,7 +290,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             // B5/B6: v2's cart head row starts with the customer chip; Add new customer is in the + menu.
             customer={props.customers ? <CustomerPicker source={props.customers} customer={sale.order.customer ?? null} onChange={sale.setCustomer} /> : null}
             customers={props.customers ?? null} createCustomersBlockedReason={createCustomersBlockedReason(effective, props.siteHome)}
-            checkout={checkout} chords={chords}
+            checkout={checkout} chords={cartChords}
             position={viewState.position} onPositionChange={position => setViewState({ ...viewState, position })}
             openOrders={<OpenOrderTabs parked={parked} current={sale.order} currentOpenedAt={currentOpenedAt} currency={currency} locale={props.locale} onSelect={resume} onNew={park} onError={setMessage}
               onOpenList={() => setParkedOpen(true)} listOpen={parkedOpen} compact={phoneLayout} />} />
@@ -339,10 +340,10 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         <>
           <ReceiptPaidMoment posOrder={receiptOrder} locale={props.locale} onClose={sale.newSale} />
           <ReceiptZoom>
-          <ReceiptPrintSheet orderId={orderId} autoPrint={receiptSettings.autoPrint}
+          <ReceiptPrintSheet orderId={orderId} autoPrint={receiptSettings.autoPrint} printAgain={storeHtml === null}
             ready={storeTemplates.status !== 'loading' && (storeHtml === null || frameLoaded === orderId)}
             onAutoPrinted={receiptSettings.autoShow ? undefined : sale.newSale}>
-          {storeHtml !== null ? <StoreReceipt html={storeHtml} doneLabel={doneLabel} onDone={sale.newSale}
+          {storeHtml !== null ? <StoreReceipt html={storeHtml} doneLabel={doneLabel} onDone={sale.newSale} printed={printCount > 0}
             onLoad={() => setFrameLoaded(orderId)} /> : <>
           <Receipt order={sale.stage.order} posOrder={receiptOrder} store={{ name: props.storeName }}
             cashier={props.cashierName} registerId={REGISTER_ID} newSale={sale.newSale}
