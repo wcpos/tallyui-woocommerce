@@ -59,7 +59,7 @@ test('pressing remove-coupon-{code} removes the coupon and toasts Coupon removed
 
 test("the coupon row's amount is the negative discount", () => {
   render(<CouponRows sale={sale} />);
-  expect(within(screen.getByTestId('coupon-chip-save10')).getByText('-$0.30')).not.toBeNull();
+  expect(within(screen.getByTestId('coupon-chip-save10')).getByText('−$0.30')).not.toBeNull();
 });
 
 test('a refused coupon removal toasts the refusal as a warning, not an inline alert', () => {

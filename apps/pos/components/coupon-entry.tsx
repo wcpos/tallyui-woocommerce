@@ -27,7 +27,7 @@ function couponAmount(coupon: CouponDoc, currency: string): string {
 export function CouponRows({ sale }: { sale: ReturnType<typeof useSale> }): JSX.Element | null {
   const applied = sale.order.display.coupons ?? [];
   if (!applied.length) return null;
-  const minus = (amountMinor: number) => `-${formatMoney({ amount: amountMinor, currency: sale.order.currency }) ?? amountMinor}`;
+  const minus = (amountMinor: number) => `−${formatMoney({ amount: amountMinor, currency: sale.order.currency }) ?? amountMinor}`;
   return (
     <>
       {applied.map(coupon => (

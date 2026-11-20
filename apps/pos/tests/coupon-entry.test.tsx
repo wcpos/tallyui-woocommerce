@@ -241,7 +241,7 @@ test('an applied coupon shows a chip; removing it restores the total', async () 
   await waitFor(() => expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull());
   const chip = within(screen.getByTestId('coupon-chip-save10'));
   expect(chip.getByText('save10')).not.toBeNull();
-  expect(chip.getByText('-$0.30')).not.toBeNull();
+  expect(chip.getByText('−$0.30')).not.toBeNull();
   expect(total().getByText('$2.70')).not.toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Remove coupon save10' }));
   await waitFor(() => expect(screen.queryByTestId('coupon-chip-save10')).toBeNull());
@@ -259,6 +259,58 @@ test('an applied coupon is a row under Subtotal, inside the cart footer', async 
   const totalEl = within(footerEl).getByText('Total');
   expect(subtotalEl.compareDocumentPosition(rowEl) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(rowEl.compareDocumentPosition(totalEl) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+}, 20_000);
+
+test('an applied coupon is counted once: no Discount row repeats it', async () => {
+  await renderTill();
+  await addEspresso();
+  await applyCoupon('save10');
+  await screen.findByTestId('coupon-chip-save10');
+  const footer = within(screen.getByTestId('cart-footer'));
+  expect(footer.queryByText('Discount', { exact: true })).toBeNull();
+  expect(footer.getAllByText('−$0.30')).toHaveLength(1);
+  expect(total().getByText('$2.70')).not.toBeNull();
+}, 20_000);
+
+test('with two coupons, no Discount row repeats either', async () => {
+  await renderTill();
+  await addEspresso();
+  fireEvent.click(screen.getAllByText('Espresso').find(el => !screen.getByTestId('cart-pane').contains(el))!);
+  await waitFor(() => expect(screen.getByLabelText('Edit quantity of Espresso').textContent).toBe('2'));
+  fireEvent.click(screen.getAllByText('Espresso').find(el => !screen.getByTestId('cart-pane').contains(el))!);
+  await waitFor(() => expect(screen.getByLabelText('Edit quantity of Espresso').textContent).toBe('3'));
+  await applyCoupon('save10');
+  await screen.findByTestId('coupon-chip-save10');
+  await applyCoupon('fiveoff');
+  await screen.findByTestId('coupon-chip-fiveoff');
+  const footer = within(screen.getByTestId('cart-footer'));
+  expect(footer.queryByText('Discount', { exact: true })).toBeNull();
+  // Observed from TallyUI totals for three espressos with save10 and fiveoff.
+  expect(within(screen.getByTestId('coupon-chip-save10')).getByText('−$0.90')).not.toBeNull();
+  expect(within(screen.getByTestId('coupon-chip-fiveoff')).getByText('−$5.00')).not.toBeNull();
+  expect(footer.getAllByText('−$0.90')).toHaveLength(1);
+  expect(footer.getAllByText('−$5.00')).toHaveLength(1);
+  expect(total().getByText('$3.10')).not.toBeNull();
+}, 20_000);
+
+test('with an order discount and a coupon, the Discount row shows the order discount only', async () => {
+  await renderTill();
+  await addEspresso();
+  openAddMenuItem('discount');
+  const dialog = within(screen.getByTestId('add-discount-dialog'));
+  const form = within(dialog.getByRole('group', { name: 'Order discount' }));
+  fireEvent.change(form.getByLabelText('Discount value'), { target: { value: '10' } });
+  fireEvent.click(form.getByRole('button', { name: 'Apply' }));
+  await waitFor(() => expect(screen.queryByTestId('add-discount-dialog')).toBeNull());
+  await applyCoupon('save10');
+  const chip = within(await screen.findByTestId('coupon-chip-save10'));
+  expect(screen.getByRole('button', { name: /^Remove discount Order discount 10%/ })).not.toBeNull();
+  const footer = within(screen.getByTestId('cart-footer'));
+  // Observed from TallyUI's totals: $0.30 order discount, $0.27 coupon, $0.57 combined, $2.43 total.
+  expect(within(footer.getByText('Discount', { exact: true }).parentElement!).getByText('−$0.30')).not.toBeNull();
+  expect(chip.getByText('−$0.27')).not.toBeNull();
+  expect(footer.getAllByText('−$0.27')).toHaveLength(1);
+  expect(total().getByText('$2.43')).not.toBeNull();
 }, 20_000);
 
 test('the receipt lists each coupon with its amount', async () => {
@@ -292,7 +344,7 @@ test('a parked sale keeps its coupon', async () => {
     await waitFor(() => expect(screen.queryByTestId('coupon-chip-save10')).toBeNull());
     await resumeFromList();
     const chip = within(await screen.findByTestId('coupon-chip-save10'));
-    expect(chip.getByText('-$0.30')).not.toBeNull();
+    expect(chip.getByText('−$0.30')).not.toBeNull();
     await waitFor(() => expect(total().getByText('$2.70')).not.toBeNull());
 
     await (await db.coupons.findOne('c-1').exec())!.remove();
