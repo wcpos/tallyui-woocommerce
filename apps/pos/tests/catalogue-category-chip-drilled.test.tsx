@@ -97,3 +97,16 @@ test('the Products area still shows its Category chip', () => {
   expect(chip('categories')).not.toBeNull();
   expect(chip('categories')?.textContent).toBe('Category');
 });
+
+test('a variable product drilled inside a tag shows Tags in the crumb, and Tags returns to the tag tiles', () => {
+  const taggedShirt = { ...shirt, tags: [{ id: 7, name: 'Hot', slug: 'hot' }] };
+  data.set(CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'tags' }));
+  render(<><CatalogueView connector={createWooCommerceConnector()} currency={stores[0].currency} products={[products[0], taggedShirt]}
+    storeName={stores[0].name} cashierName="Paul" status="ready" onSignOut={() => {}} onSelect={vi.fn()} onAddEntry={vi.fn()} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('browse-term-7'));
+  fireEvent.click(screen.getByTestId('product-tile-102'));
+  expect(screen.getByTestId('products-breadcrumb').textContent).toBe(`TagsHot${shirt.name}`);
+  fireEvent.click(screen.getByRole('button', { name: 'Tags' }));
+  expect(screen.getByTestId('browse-term-7')).not.toBeNull();
+  expect(screen.queryByTestId('products-breadcrumb')).toBeNull();
+});

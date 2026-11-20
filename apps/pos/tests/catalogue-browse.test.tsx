@@ -26,6 +26,8 @@ afterEach(() => {
 const decaf = { ...products[0], id: 90, name: 'Decaf', sku: 'COF-DEC', stock_status: 'outofstock', stock_quantity: 0 };
 const oldMug = { ...products[0], id: 91, name: 'Old Mug', sku: 'MUG-OLD', stock_status: 'outofstock', stock_quantity: 0, categories: [{ id: 40, name: 'Clearance' }] };
 const catalogue = [...products, decaf, oldMug];
+const taggedCatalogue = catalogue.map(doc => ({ ...doc, tags: doc.id === 80 ? [{ id: 7, name: 'Hot', slug: 'hot' }]
+  : doc.id === 84 ? [{ id: 8, name: 'Iced', slug: 'iced' }] : [] }));
 
 const props: CatalogueViewProps = {
   connector: createWooCommerceConnector(), currency: stores[0].currency, products: catalogue,
@@ -168,8 +170,8 @@ test('browseBy all shows the flat product grid as before', () => {
   expect(footer()).toBe('Showing 3 of 5');
 });
 
-test('Browse by in Product settings switches the root between the flat grid and the tiles; Tags stays disabled', () => {
-  render(<><CatalogueView {...props} /><PortalHost /></>);
+test('Browse by in Product settings switches between All, Categories and Tags; Brands stays disabled', () => {
+  render(<><CatalogueView {...props} products={taggedCatalogue} /><PortalHost /></>);
   fireEvent.click(screen.getByTestId('browse-term-25'));
   fireEvent.click(screen.getByTestId('catalogue-settings-button'));
   const row = (value: string) => screen.getByTestId(`ui-settings-browse-by-${value}`);
@@ -186,10 +188,66 @@ test('Browse by in Product settings switches the root between the flat grid and 
   // The level opened before the switch dropped with it: the root shows the tiles.
   expect(termIds()).toEqual(['browse-all-products', 'browse-term-25', 'browse-term-27']);
   expect(productTiles()).toEqual([]);
-  expect(row('tags').getAttribute('aria-disabled')).toBe('true');
   fireEvent.click(row('tags'));
-  expect(row('tags').getAttribute('aria-checked')).toBe('false');
-  expect(row('categories').getAttribute('aria-checked')).toBe('true');
+  expect(row('tags').getAttribute('aria-checked')).toBe('true');
+  expect(row('categories').getAttribute('aria-checked')).toBe('false');
+  expect(row('brands').getAttribute('aria-disabled')).toBe('true');
+  fireEvent.click(row('brands'));
+  expect(row('brands').getAttribute('aria-checked')).toBe('false');
+  expect(row('tags').getAttribute('aria-checked')).toBe('true');
+});
+
+test('Browse by disables empty Tags and leaves Categories checked when pressed', () => {
+  render(<><CatalogueView {...props} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
+  const tags = screen.getByTestId('ui-settings-browse-by-tags');
+  expect(tags.getAttribute('aria-disabled')).toBe('true');
+  expect(tags.textContent).toContain('No tags yet');
+  fireEvent.click(tags);
+  expect(screen.getByTestId('ui-settings-browse-by-categories').getAttribute('aria-checked')).toBe('true');
+});
+
+test('stored Tags opens on All products then tag tiles by name, with the tag and product tally', () => {
+  localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ ...CATALOGUE_VIEW_DEFAULTS, browseBy: 'tags' }));
+  render(<CatalogueView {...props} products={taggedCatalogue} />);
+  expect(termIds()).toEqual(['browse-all-products', 'browse-term-7', 'browse-term-8']);
+  expect(screen.getByTestId('browse-term-7').textContent).toBe('Hot1 product');
+  expect(screen.getByTestId('browse-term-8').textContent).toBe('Iced1 product');
+  expect(productTiles()).toEqual([]);
+  expect(footer()).toBe('2 tags · 3 products');
+});
+
+test('pressing a tag opens only its products under Tags, and Tags returns to the tiles', () => {
+  localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ ...CATALOGUE_VIEW_DEFAULTS, browseBy: 'tags' }));
+  render(<CatalogueView {...props} products={taggedCatalogue} />);
+  fireEvent.click(screen.getByTestId('browse-term-7'));
+  expect(productTiles()).toEqual(['product-tile-80']);
+  const crumb = screen.getByTestId('products-breadcrumb');
+  expect(crumb.textContent).toBe('TagsHot');
+  fireEvent.click(within(crumb).getByRole('button', { name: 'Tags' }));
+  expect(termIds()).toEqual(['browse-all-products', 'browse-term-7', 'browse-term-8']);
+  expect(productTiles()).toEqual([]);
+  expect(screen.queryByTestId('products-breadcrumb')).toBeNull();
+});
+
+test.each([['tags', 7, 'categories'], ['categories', 25, 'tags']] as const)('inside %s its chip is hidden and the other source stays visible', (browseBy, id, other) => {
+  localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ ...CATALOGUE_VIEW_DEFAULTS, browseBy }));
+  render(<CatalogueView {...props} products={taggedCatalogue} />);
+  fireEvent.click(screen.getByTestId(`browse-term-${id}`));
+  expect(screen.queryByTestId(`filter-pill-${browseBy}`)).toBeNull();
+  expect(screen.getByTestId(`filter-pill-${other}`)).toBeTruthy();
+});
+
+test('switching from Categories to Tags in Product settings drops the category level and shows tag tiles', () => {
+  render(<><CatalogueView {...props} products={taggedCatalogue} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('browse-term-25'));
+  expect(screen.getByTestId('products-breadcrumb').textContent).toBe('CategoriesCoffee');
+  fireEvent.click(screen.getByTestId('catalogue-settings-button'));
+  fireEvent.click(screen.getByTestId('ui-settings-browse-by-tags'));
+  expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!).browseBy).toBe('tags');
+  expect(screen.queryByTestId('products-breadcrumb')).toBeNull();
+  expect(termIds()).toEqual(['browse-all-products', 'browse-term-7', 'browse-term-8']);
+  expect(productTiles()).toEqual([]);
 });
 
 test('a quick filter applies inside a level, and pressing it again restores the baseline and drops the level', () => {
@@ -219,4 +277,31 @@ test('pressing a product inside a level calls onSelect with that doc', () => {
   fireEvent.click(screen.getByText('Espresso'));
   expect(onSelect).toHaveBeenCalledOnce();
   expect(onSelect).toHaveBeenCalledWith(products[0]);
+});
+
+test('inside a tag level the place field does not count toward Clear all or name an empty condition', () => {
+  localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ ...CATALOGUE_VIEW_DEFAULTS, browseBy: 'tags' }));
+  localStorage.setItem(QUICK_FILTERS_KEY, JSON.stringify([{ id: 'sale-picks', type: 'quick', label: 'Sale picks',
+    conditions: [{ field: 'tags', value: [8] }, { field: 'on_sale', value: true }] }]));
+  render(<CatalogueView {...props} products={taggedCatalogue} />);
+  fireEvent.click(screen.getByTestId('browse-term-7'));
+  fireEvent.click(screen.getByTestId('quick-filter-sale-picks'));
+  expect(within(screen.getByTestId('catalogue-chip-row')).queryByTestId('filter-bar-clear-all')).toBeNull();
+  const title = screen.getByTestId('no-data-message-title').textContent;
+  expect(title).toBe('None of the 1 products in Hot match In Stock, On Sale, Sale picks');
+  expect(title).not.toMatch(/Iced|Tag/);
+});
+
+test('Clear all inside a tag level keeps the place field and the crumb', () => {
+  localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ ...CATALOGUE_VIEW_DEFAULTS, browseBy: 'tags' }));
+  localStorage.setItem(QUICK_FILTERS_KEY, JSON.stringify([{ id: 'simple-sale', type: 'quick', label: 'Simple sale',
+    conditions: [{ field: 'tags', value: [8] }, { field: 'on_sale', value: true }, { field: 'type', value: 'simple' }] }]));
+  render(<CatalogueView {...props} products={taggedCatalogue} />);
+  fireEvent.click(screen.getByTestId('browse-term-7'));
+  fireEvent.click(screen.getByTestId('quick-filter-simple-sale'));
+  const clear = within(screen.getByTestId('catalogue-chip-row')).queryByTestId('filter-bar-clear-all');
+  expect(clear).not.toBeNull();
+  fireEvent.click(clear!);
+  expect(screen.queryByTestId('product-tile-80')).toBeNull();
+  expect(screen.getByTestId('products-breadcrumb').textContent).toBe('TagsHot');
 });

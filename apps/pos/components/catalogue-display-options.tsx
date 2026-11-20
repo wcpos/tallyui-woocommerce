@@ -69,12 +69,12 @@ export function CatalogueDisplayOptions({ state, onChange, products, quickFilter
   const tileSize = typeof state.gridColumns === 'number' ? state.gridColumns : 4;
   const categoryCount = termOptions(products, 'categories', 'category').length;
   const tagCount = termOptions(products, 'tags', 'tag').length;
-  const browseRows: { value: string; label: string; help?: string }[] = [
+  const browseRows: { value: string; label: string; help?: string; count?: number }[] = [
     { value: 'all', label: 'All products' },
-    { value: 'categories', label: 'Categories', help: categoryCount === 0 ? 'No categories yet' : countLabel(categoryCount, 'category', 'categories') },
-    { value: 'tags', label: 'Tags', help: tagCount === 0 ? 'No tags yet' : countLabel(tagCount, 'tag', 'tags') },
+    { value: 'categories', label: 'Categories', count: categoryCount, help: categoryCount === 0 ? 'No categories yet' : countLabel(categoryCount, 'category', 'categories') },
+    { value: 'tags', label: 'Tags', count: tagCount, help: tagCount === 0 ? 'No tags yet' : countLabel(tagCount, 'tag', 'tags') },
     { value: 'brands', label: 'Brands' },
-    { value: 'shortcuts', label: 'Shortcuts', help: quickFilterCount === 0 ? 'No shortcuts yet' : countLabel(quickFilterCount, 'quick filter', 'quick filters') },
+    { value: 'shortcuts', label: 'Shortcuts', count: quickFilterCount, help: quickFilterCount === 0 ? 'No shortcuts yet' : countLabel(quickFilterCount, 'quick filter', 'quick filters') },
   ];
   const sortField = QUICK_FILTER_SORT_FIELDS.find(field => field === state.sort?.field);
   return <>
@@ -108,15 +108,15 @@ export function CatalogueDisplayOptions({ state, onChange, products, quickFilter
           </View>}
           <View className="gap-1.5">
             <FieldLabel>Browse by</FieldLabel>
-            {/* v2's BrowseByField. All products and Categories work (the browse stage in catalogue-view.tsx);
-                Tags, Brands and Shortcuts wait for their own slices. */}
+            {/* v2's BrowseByField. All products, Categories and Tags work (the browse stage in catalogue-view.tsx);
+                Brands and Shortcuts wait for their own slices. */}
             <View role="radiogroup" aria-label="Browse by" className="overflow-hidden rounded-lg border border-border">
               {browseRows.map((row, index) => {
                 const live = BROWSE_BY.find(value => value === row.value);
-                const disabled = live === undefined;
+                const disabled = live === undefined || row.count === 0; // v2's ui-settings-form.tsx disables sources once their count is zero.
                 const checked = row.value === state.browseBy;
                 return <Pressable key={row.value} role="radio" aria-checked={checked} aria-disabled={disabled} disabled={disabled} testID={`ui-settings-browse-by-${row.value}`}
-                  onPress={() => { if (live !== undefined && !checked) onChange({ ...state, browseBy: live }); }}
+                  onPress={() => { if (!disabled && !checked) onChange({ ...state, browseBy: live }); }}
                   className={'min-h-11 flex-row items-center gap-2 px-3 py-2' + (index < browseRows.length - 1 ? ' border-b border-border' : '') + (disabled ? ' opacity-45' : ' web:hover:bg-accent active:opacity-70')
                     + (checked ? ' bg-muted' : '')}>
                   {/* v2's ListRow `selected` current-row mark: `bg-muted` and a 2 px `border-l-primary` bar (components

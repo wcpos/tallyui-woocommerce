@@ -122,7 +122,7 @@ export function termOptions(products: any[], field: 'categories' | 'tags', prefi
 /** v2's useActiveConditionLabels (filter-bar.tsx:63-123): the lit, shown pills and the active quick filters, in bar order, the place's own field left out. */
 export function activeConditionLabels({ products, filters, order, hidden, placeField, quickFilters, isActive }: {
   products: any[]; filters: CatalogueFilters; order: readonly string[]; hidden: readonly string[];
-  placeField?: 'categories'; quickFilters: readonly QuickFilter[]; isActive(qf: QuickFilter): boolean;
+  placeField?: 'categories' | 'tags'; quickFilters: readonly QuickFilter[]; isActive(qf: QuickFilter): boolean;
 }): string[] {
   return order.flatMap(id => {
     if (!BUILT_IN_PILL_IDS.includes(id as BuiltInPillId)) {

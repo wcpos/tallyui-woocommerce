@@ -152,6 +152,15 @@ test('Browse by draws v2\'s sources with All products and Categories available',
   expect(tiles()).toEqual(before);
 });
 
+test('Browse by enables Tags when products carry a tag', () => {
+  openSheet({ products: products.map((doc, index) => index === 0 ? { ...doc, tags: [{ id: 7, name: 'Hot', slug: 'hot' }] } : doc) });
+  const tags = screen.getByTestId('ui-settings-browse-by-tags');
+  expect(tags.getAttribute('aria-disabled')).not.toBe('true');
+  expect(tags.textContent).toContain('1 tag');
+  fireEvent.click(tags);
+  expect(tags.getAttribute('aria-checked')).toBe('true');
+});
+
 test('Browse by counts saved quick filters as shortcuts', () => {
   localStorage.setItem(QUICK_FILTERS_KEY, JSON.stringify([sale]));
   openSheet();
