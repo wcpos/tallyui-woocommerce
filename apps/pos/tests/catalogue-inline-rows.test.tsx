@@ -4,7 +4,7 @@ import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { PortalHost } from '@tallyui/primitives';
 import { CatalogueView } from '../components/catalogue-view';
 import type { CatalogueViewProps } from '../components/catalogue-view';
-import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { CATALOGUE_COLUMNS, CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import variations from './fixtures/variations.json';
@@ -95,6 +95,42 @@ test('a variation row shows its option chips and price, and a tap adds that vari
   expect(onSelect).not.toHaveBeenCalled();
   expect(variationRows()).toHaveLength(3);
   expect(toggle().getAttribute('aria-expanded')).toBe('true');
+});
+
+test('expanded variation rows show their own SKU and barcode when the columns are on', () => {
+  view({ browseBy: 'all', variationsStyle: 'inline', view: 'table',
+    columns: CATALOGUE_COLUMNS.map(({ id, visible }) => ({ id, visible: visible || id === 'sku' || id === 'barcode' })) });
+  renderView();
+  fireEvent.click(screen.getByTestId('product-row-102'));
+  expect(screen.getByTestId('variation-row-sku-105').textContent).toBe('MER-TEE-S-WHT');
+  expect(screen.getByTestId('variation-row-barcode-105').textContent).toBe('2000000000145');
+  expect(screen.getByTestId('variation-row-sku-104').textContent).toBe('MER-TEE-S-BLK');
+});
+
+test('expanded variation rows show a stock count pill with the default columns', () => {
+  renderView();
+  fireEvent.click(screen.getByTestId('product-row-102'));
+  expect(screen.getByTestId('variation-row-stock-104').getAttribute('aria-label')).toBe('10 left');
+});
+
+test('expanded variation rows show Backorder or no stock pill when stock is unmanaged', () => {
+  view({ browseBy: 'all', variationsStyle: 'inline', view: 'table', showOutOfStock: true });
+  renderView([{ ...shirt, variation_docs: [
+    { ...docs[0], stock_quantity: 0, stock_status: 'onbackorder' },
+    { ...docs[1], manage_stock: false, stock_quantity: null, stock_status: 'instock' },
+  ] }]);
+  fireEvent.click(screen.getByTestId('product-row-102'));
+  expect(screen.getByTestId('variation-row-stock-104').getAttribute('aria-label')).toBe('Backorder');
+  expect(screen.getByTestId('product-row-variation-105')).not.toBeNull();
+  expect(screen.queryByTestId('variation-row-stock-105')).toBeNull();
+});
+
+test('an expanded variation without a barcode shows an empty barcode cell', () => {
+  view({ browseBy: 'all', variationsStyle: 'inline', view: 'table',
+    columns: CATALOGUE_COLUMNS.map(({ id, visible }) => ({ id, visible: visible || id === 'barcode' })) });
+  renderView([{ ...shirt, variation_docs: [{ ...docs[0], global_unique_id: '', barcode: '' }, docs[1], docs[2]] }]);
+  fireEvent.click(screen.getByTestId('product-row-102'));
+  expect(screen.getByTestId('variation-row-barcode-104').textContent).toBe('');
 });
 
 test("the in-cart column shows a variation row's own count", () => {

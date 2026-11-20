@@ -15,7 +15,7 @@ import type { CapturedQuickFilter, QuickFilter } from '../lib/catalogue/quick-fi
 import { normalizeFilterBarOrder, useFilterBarOrder } from '../lib/catalogue/filter-bar-order';
 import { useHiddenPills } from '../lib/catalogue/filter-bar-pills';
 import type { BuiltInPillId } from '../lib/catalogue/filter-bar-pills';
-import { optionsLabel } from '../lib/catalogue/tile-words';
+import { optionsLabel, tileStockMark } from '../lib/catalogue/tile-words';
 import type { TileTax } from '../lib/catalogue/tile-words';
 import { needsAnyPick, variantMatchesStock } from '../lib/catalogue/variation-match';
 import { useIsWide } from '../lib/layout/wide';
@@ -43,6 +43,7 @@ import { ProductTile } from './product-tile';
 import { ClearAllButton, QuickFilterChip, SaveAsButton } from './quick-filter-bar';
 import type { QuickFilterMenu } from './quick-filter-bar';
 import { RegisterBarShell } from './register-bar-shell';
+import { StockPill } from './stock-pill';
 import { StorageOutageBanner } from './storage-outage-banner';
 import { SyncButton } from './table-surface';
 import { ParentTile, VariationChips, VariationMoney, VariationRow, VariationTile } from './variation-tile';
@@ -280,6 +281,14 @@ export function CatalogueView({
       if (!isVariationRow(item)) return column.render(item);
       if (column.id === 'name') return <View className="pl-6"><VariationChips entry={item.entry} /></View>;
       if (column.id === 'price') return <VariationMoney entry={item.entry} />;
+      // v2's variationRenderCell (index.tsx:494) reuses simple-product cells, including cells/stock-quantity.tsx.
+      const id = item.entry.variant.id;
+      if (column.id === 'sku') return <Text className="text-xs text-muted-foreground" testID={`variation-row-sku-${id}`}>{item.entry.variant.sku ?? ''}</Text>;
+      if (column.id === 'barcode') return <Text testID={`variation-row-barcode-${id}`}>{item.entry.variant.barcode ?? ''}</Text>;
+      if (column.id === 'stock') {
+        const mark = tileStockMark(item.entry.variant.stock, false);
+        return mark ? <StockPill mark={mark} testID={`variation-row-stock-${id}`} /> : null;
+      }
       if (column.id === 'in_cart') return <InCartAdd count={inCartCounts!.get(item.entry.variant.id) ?? 0}
         testID={`in-cart-variation-row-${item.entry.variant.id}`} pressTestID={`in-cart-press-variation-row-${item.entry.variant.id}`}
         addTestID={`add-to-cart-variation-row-${item.entry.variant.id}`} onAdd={() => onAddEntry?.(item.entry)} />;
