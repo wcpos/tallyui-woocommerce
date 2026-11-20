@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import { normalizeCatalogueViewState } from '@tallyui/pos';
 import type { CatalogueViewState } from '@tallyui/pos';
 
@@ -139,11 +139,28 @@ export function saveCatalogueView(state: AppCatalogueViewState, storage?: Storag
   } catch {}
 }
 
+// Like v2's shared pos-products doc, keep the till (which stays mounted) in sync with other screens.
+let cache: { storage: unknown; raw: string | null; state: AppCatalogueViewState } | null = null;
+const listeners = new Set<() => void>();
+function currentStorage(): unknown { try { return globalThis.localStorage; } catch { return undefined; } }
+function readRaw(): string | null {
+  try { return globalThis.localStorage.getItem(CATALOGUE_VIEW_KEY); } catch { return null; }
+}
+function getSnapshot(): AppCatalogueViewState {
+  const storage = currentStorage();
+  const raw = readRaw();
+  if (!cache || cache.storage !== storage || cache.raw !== raw) cache = { storage, raw, state: loadCatalogueView() };
+  return cache.state;
+}
+function update(next: AppCatalogueViewState): void {
+  saveCatalogueView(next);
+  cache = { storage: currentStorage(), raw: readRaw(), state: next };
+  for (const listener of listeners) listener();
+}
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
 export function useCatalogueView(): [AppCatalogueViewState, (next: AppCatalogueViewState) => void] {
-  const [state, setState] = useState(() => loadCatalogueView());
-  const update = useCallback((next: AppCatalogueViewState) => {
-    saveCatalogueView(next);
-    setState(next);
-  }, []);
-  return [state, update];
+  return [useSyncExternalStore(subscribe, getSnapshot, getSnapshot), update];
 }
