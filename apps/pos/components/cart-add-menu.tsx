@@ -1,5 +1,5 @@
 // v2's cart "+" menu (WCPOS monorepo `packages/core/src/screens/main/pos/cart/add-cart-items-menu.tsx`) lists
-// Add Miscellaneous Product, Add Fee, Add Discount and Add Shipping, each opening its own dialog.
+// Add custom item (v2 a1c1d3340 / core.json:1074), Add Fee, Add Discount and Add Shipping, each opening its own dialog.
 import { useState } from 'react';
 import type { ComponentProps, JSX } from 'react';
 import { View } from 'react-native';
@@ -74,7 +74,7 @@ export function CartAddMenu({ sale, taxClasses, coupons, couponsOffered, custome
         </>}
         {/* v2 pos/cart/add-cart-items-menu.tsx order: miscellaneous product, fee, discount, shipping. */}
         {chargesOffered && <DropdownMenuItem testID="cart-add-menu-misc-product" onPress={() => setDialog('misc-product')} className="gap-2">
-          <BoxIcon testID="cart-add-menu-misc-product-icon" {...ICON} /><Text>Add Miscellaneous Product</Text></DropdownMenuItem>}
+          <BoxIcon testID="cart-add-menu-misc-product-icon" {...ICON} /><Text>Add custom item</Text></DropdownMenuItem>}
         {chargesOffered && <DropdownMenuItem testID="cart-add-menu-fee" onPress={() => setDialog('fee')} className="gap-2">
           <InvoiceIcon testID="cart-add-menu-fee-icon" {...ICON} /><Text>Add Fee</Text></DropdownMenuItem>}
         <DropdownMenuItem testID="cart-add-menu-discount" onPress={() => { setKind('quick'); setDialog('discount'); }} className="gap-2">

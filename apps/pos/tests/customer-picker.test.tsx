@@ -297,12 +297,12 @@ test('a customer chip shows initials and the name under the customer accessible 
   expect(within(chip).getByText('Gee Four')).not.toBeNull();
 });
 
-// v2 cart-header.tsx:128-144: while the search is open the chip reads Select Customer with the customer icon.
-test.each(Object.keys(dismissals) as (keyof typeof dismissals)[])('while the panel is open the chip reads Select Customer with the person glyph, and closing with %s shows the name again', how => {
+// v2 a1c1d3340 / core.json:797: while the search is open the chip reads Select customer with the customer icon.
+test.each(Object.keys(dismissals) as (keyof typeof dismissals)[])('while the panel is open the chip reads Select customer with the person glyph, and closing with %s shows the name again', how => {
   openPicker(gee);
   const chip = screen.getByTestId('cart-customer-name');
-  expect(screen.getByTestId('cart-customer-select-label').textContent).toBe('Select Customer');
-  expect(chip.getAttribute('aria-label')).toBe('Select Customer');
+  expect(screen.getByTestId('cart-customer-select-label').textContent).toBe('Select customer');
+  expect(chip.getAttribute('aria-label')).toBe('Select customer');
   expect(within(chip).getByTestId('customer-guest-icon')).not.toBeNull();
   expect(within(chip).queryByText('Gee Four')).toBeNull();
   dismissals[how]();
