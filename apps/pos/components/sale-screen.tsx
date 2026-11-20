@@ -315,6 +315,9 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           {/* B7: quantity and price open keypad popovers, as v2's cart/cells/quantity-keypad.tsx and cart/cells/price.tsx do. */}
           <CartWithSettings sale={{ ...sale, startTender: startTender }} canEditPrice lineEditor="popover" taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)}
             afterSubtotal={couponsOffered && props.couponCollections ? <CouponRows sale={sale} /> : undefined}
+            // Avoid counting itemised coupons twice, matching v2 cart/totals.tsx:121-148.
+            couponDiscountMinor={couponsOffered && props.couponCollections
+              ? (sale.order.display.coupons ?? []).reduce((sum, coupon) => sum + coupon.amountMinor, 0) : undefined}
             // v2's cart "+" menu hosts the order discount, charges and coupons (the Coupon side of Add discount).
             orderActions={false} coupons={props.couponCollections?.coupons ?? null} couponsOffered={couponsOffered}
             // B5/B6: v2's cart head row starts with the customer chip; Add new customer is in the + menu.
