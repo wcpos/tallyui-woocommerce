@@ -160,14 +160,18 @@ test('Browse by counts saved quick filters as shortcuts', () => {
   expect(shortcuts).not.toContain('filters');
 });
 
-test('Variations offers Open in place and shows the inline style as unavailable', () => {
+test("Variations offers Open in place and Popover; table view's Expanded rows is unavailable", () => {
   openSheet();
   expect(screen.getByTestId('products-variations-style-segment-drill').getAttribute('aria-checked')).toBe('true');
   const inline = () => screen.getByTestId('products-variations-style-segment-inline');
-  expect(inline().getAttribute('aria-disabled')).toBe('true');
+  expect(inline().getAttribute('aria-disabled')).not.toBe('true');
   expect(inline().textContent).toBe('Popover');
+  fireEvent.click(inline());
+  expect(inline().getAttribute('aria-checked')).toBe('true');
+  expect(stored().variationsStyle).toBe('inline');
   fireEvent.click(screen.getByTestId('view-mode-segment-table'));
   expect(inline().textContent).toBe('Expanded rows');
+  expect(inline().getAttribute('aria-disabled')).toBe('true');
 });
 
 test('the close icon and Close both close the sheet', () => {

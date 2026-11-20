@@ -19,7 +19,8 @@ export const BROWSE_BY = ['all', 'categories'] as const;
 export type BrowseBy = (typeof BROWSE_BY)[number];
 // v2's DEFAULT_BROWSE_BY: a till opens on its categories until the cashier chooses.
 export const DEFAULT_BROWSE_BY: BrowseBy = 'categories';
-export interface AppCatalogueViewState extends CatalogueViewState { columns: CatalogueColumnSetting[]; tileFields: CatalogueTileFields; position: PanelPosition; width: number; showOutOfStock: boolean; browseBy: BrowseBy }
+export type VariationsStyle = 'drill' | 'inline';
+export interface AppCatalogueViewState extends CatalogueViewState { columns: CatalogueColumnSetting[]; tileFields: CatalogueTileFields; position: PanelPosition; width: number; showOutOfStock: boolean; browseBy: BrowseBy; variationsStyle: VariationsStyle }
 // Stock and categories are columns here because ProductTable has no name sub-fields. Labels are v2's pos-products
 // labels (use-ui-label.ts): `name` is "Product Name", `category` is "Categories", in columns and tile fields alike.
 export const CATALOGUE_COLUMNS: { id: CatalogueColumnId; label: string; visible: boolean }[] = [
@@ -55,11 +56,17 @@ export const CATALOGUE_VIEW_DEFAULTS: AppCatalogueViewState = {
   showOutOfStock: false,
   // v2's pos-products.browseBy.
   browseBy: DEFAULT_BROWSE_BY,
+  // v2's pos-products.variationsStyle (initial-settings.json:40).
+  variationsStyle: 'drill',
 };
 
 /** v2's readBrowseBy: a missing value, or one the app does not know (a newer build wrote it), reads as the default. */
 export function readBrowseBy(raw: unknown): BrowseBy {
   return (BROWSE_BY as readonly unknown[]).includes(raw) ? raw as BrowseBy : DEFAULT_BROWSE_BY;
+}
+
+export function readVariationsStyle(raw: unknown): VariationsStyle {
+  return raw === 'inline' ? 'inline' : 'drill';
 }
 
 export function normalizePanelPosition(raw: unknown): PanelPosition {
@@ -121,6 +128,7 @@ export function loadCatalogueView(storage?: Storage): AppCatalogueViewState {
       width: normalizeProductsWidth(typeof parsed === 'object' && parsed !== null ? parsed.width : undefined),
       showOutOfStock: typeof parsed === 'object' && parsed !== null && parsed.showOutOfStock === true,
       browseBy: readBrowseBy(typeof parsed === 'object' && parsed !== null ? parsed.browseBy : undefined),
+      variationsStyle: readVariationsStyle(typeof parsed === 'object' && parsed !== null ? parsed.variationsStyle : undefined),
     };
   } catch { return CATALOGUE_VIEW_DEFAULTS; }
 }

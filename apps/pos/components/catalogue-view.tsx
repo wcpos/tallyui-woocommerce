@@ -36,6 +36,7 @@ import { EmptyState } from './empty-state';
 import { FilterBarDialog } from './filter-bar-dialog';
 import { ChevronRightIcon } from './icons';
 import { InCartBadge } from './in-cart-badge';
+import { InlineVariableTile } from './inline-variable-tile';
 import { LevelBack } from './level-back';
 import { ProductTile } from './product-tile';
 import { ClearAllButton, QuickFilterBar, SaveAsButton } from './quick-filter-bar';
@@ -202,6 +203,15 @@ export function CatalogueView({
       return entries.length > 1 && !needsAnyPick(traits.getVariantOptions?.(doc) ?? [], entries.map(entry => entry.variant));
     } catch { return false; /* onSelect reports what it cannot sell */ }
   }
+  // v2's `variationsStyle: 'inline'` in grid view: the tile opens a popover picker, "Any" variants included, since
+  // the picker carries their picks. The entries pass the same stock filter as drillEntries.
+  function inlineEntries(doc: any): CatalogueEntry<any>[] {
+    try {
+      if (!onAddEntry || viewState.variationsStyle !== 'inline' || viewState.view !== 'grid' || !traits.hasVariants(doc)) return [];
+      if ((traits.getVariantOptions?.(doc) ?? []).length < 1) return [];
+      return catalogueEntries([doc], traits, { currency }).filter(entry => variantMatchesStock(entry.variant, filters.stock_status));
+    } catch { return []; /* onSelect reports what it cannot sell */ }
+  }
   function tap(doc: any) {
     if (drillable(doc)) setDrill({ id: traits.getId(doc), from: drillFrom });
     else onSelect?.(doc);
@@ -362,8 +372,15 @@ export function CatalogueView({
   // 12, the tiles right under it. The grid's own 8 over its tiles is the last 8 of v2's 12, so the row starts 8 sooner
   // and `pt-4` keeps its words at v2's height.
   const windowHead = <View testID="catalogue-window-head" className="px-3 pt-2">{searchSlot}{crumbOf('min-h-11 pt-4 pr-2')}</View>;
-  const productTile = (doc: any) => <ProductTile doc={doc} fields={viewState.tileFields} tax={tax}
-    inCart={inCartCounts?.get(traits.getId(doc)) ?? 0} onPress={onSelect || onAddEntry ? () => tap(doc) : undefined} />;
+  const productTile = (doc: any) => {
+    const inCart = inCartCounts?.get(traits.getId(doc)) ?? 0;
+    const entries = inlineEntries(doc);
+    if (entries.length > 0) return <InlineVariableTile doc={doc} entries={entries} groups={traits.getVariantOptions?.(doc) ?? []}
+      currency={currency} traits={traits} tile={<ProductTile doc={doc} fields={viewState.tileFields} tax={tax} inCart={inCart} />}
+      onAdd={entry => onAddEntry?.(entry)} />;
+    return <ProductTile doc={doc} fields={viewState.tileFields} tax={tax}
+      inCart={inCart} onPress={onSelect || onAddEntry ? () => tap(doc) : undefined} />;
+  };
   // As ProductGrid counts it: a level is empty when nothing in it is sellable.
   const levelEmpty = !items.some(doc => traits.isSellable(doc));
   const [syncPending, setSyncPending] = useState(false);
