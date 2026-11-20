@@ -20,6 +20,8 @@ import type { TileTax } from '../lib/catalogue/tile-words';
 import { needsAnyPick, variantMatchesStock } from '../lib/catalogue/variation-match';
 import { useIsWide } from '../lib/layout/wide';
 import { useOnlineStatus } from '../lib/online/online-status';
+import { useCatalogue } from '../lib/catalogue/catalogue-context';
+import { useStorageDegraded } from '../lib/storage-health';
 import { useCameraScan } from '../lib/scan/use-camera-scan';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { useSearchChord } from '../lib/sale/use-search-chord';
@@ -271,9 +273,11 @@ export function CatalogueView({
   // adds 4 to each. A phone keeps its own spacing (the phone head below).
   const wide = useIsWide();
   const online = useOnlineStatus().status;
-  // v2 camera-scanner-panel.tsx:165-173 readinessMessage (core.json camera_scan_offline / _engine_not_ready): offline
-  // outranks a catalogue still starting or syncing. v2's storage-loss note has no app signal yet.
-  const readiness = online === 'offline' ? 'Offline — only products already on this device will scan.'
+  const storageDegraded = useStorageDegraded(useCatalogue().catalogue?.db);
+  // v2 camera-scanner-panel.tsx:165-173 readinessMessage (core.json camera_scan_storage_unavailable / camera_scan_offline /
+  // _engine_not_ready): storage loss outranks the rest, as in v2; offline outranks a catalogue still starting or syncing.
+  const readiness = storageDegraded ? 'Local database unavailable — reload the app to restore scanning.'
+    : online === 'offline' ? 'Offline — only products already on this device will scan.'
     : status === 'starting' || status === 'syncing' ? 'Sync is still starting — some products may not be found yet.' : undefined;
   const searchSlot = <View testID="catalogue-search-slot" className={wide ? 'gap-3 pt-1 pb-1' : 'gap-2'}>
     <View className="flex-row items-center gap-2">
