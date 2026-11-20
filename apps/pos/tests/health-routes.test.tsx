@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   router: { push: vi.fn(), replace: vi.fn(), back: vi.fn(), dismissTo: vi.fn(), canGoBack: vi.fn(() => false) },
 }));
 
+vi.mock('../components/session-hold-banner', () => ({ SessionHoldBanner: () => null }));
 vi.mock('expo-router', () => ({
   Redirect: ({ href }: { href: string }) => <span data-testid="redirect" data-href={href} />,
   Slot: () => <span data-testid="slot" />,
