@@ -136,6 +136,46 @@ test('pressing a phone row opens its detail, indented as v2 does on a phone, and
   expect(screen.queryByTestId(`logs-detail-${id}`)).toBeNull();
 });
 
+test('an open error detail on a phone has a destructive tone bar at the left edge', async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  render(<LogsScreen {...props} collection={collection} />);
+  const id = rows[0].id;
+  fireEvent.click(await screen.findByTestId(`logs-row-sm-${id}`));
+  expect(screen.getByTestId(`logs-detail-${id}-tone`)).not.toBeNull();
+  expect(classesOf(`logs-detail-${id}-tone`)).toEqual(expect.arrayContaining([
+    'absolute', 'w-[3px]', 'rounded-full', 'left-0', 'bg-destructive',
+  ]));
+  expect(classesOf(`logs-detail-${id}-tone`)).not.toContain('-left-4');
+  expect(classesOf(`logs-detail-${id}`)).toContain('relative');
+});
+
+test('an open warn detail on a phone has a warning tone bar', async () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  render(<LogsScreen {...props} collection={collection} />);
+  const id = rows[1].id;
+  fireEvent.click(await screen.findByTestId(`logs-row-sm-${id}`));
+  expect(classesOf(`logs-detail-${id}-tone`)).toContain('bg-warning');
+  expect(classesOf(`logs-detail-${id}-tone`)).not.toContain('bg-destructive');
+});
+
+test('an open error detail on a wide screen has its tone bar offset to the left', async () => {
+  render(<LogsScreen {...props} collection={collection} />);
+  const id = rows[0].id;
+  await screen.findByTestId(`logs-row-${id}`);
+  fireEvent.click(screen.getByTestId(`logs-toggle-${id}`));
+  expect(classesOf(`logs-detail-${id}-tone`)).toContain('-left-4');
+  expect(classesOf(`logs-detail-${id}-tone`)).not.toContain('left-0');
+});
+
+test('an open info detail has no tone bar', async () => {
+  render(<LogsScreen {...props} collection={collection} />);
+  const id = rows[2].id;
+  await screen.findByTestId(`logs-row-${id}`);
+  fireEvent.click(screen.getByTestId(`logs-toggle-${id}`));
+  expect(screen.getByTestId(`logs-detail-${id}`)).not.toBeNull();
+  expect(screen.queryByTestId(`logs-detail-${id}-tone`)).toBeNull();
+});
+
 test('off a phone the table head and the table row stay, with no phone row', async () => {
   render(<LogsScreen {...props} collection={collection} />);
   const id = rows[1].id;

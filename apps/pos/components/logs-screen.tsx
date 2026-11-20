@@ -97,6 +97,7 @@ function StatusCell({ row, expanded, onToggle, className }: {
 // v2's RowDetail (logs/row-detail.tsx:225): the row's facts as label and value, inline under the row.
 function RowDetail({ row, phone, copyText }: { row: LogRecord; phone: boolean; copyText: ((text: string) => Promise<void>) | null }): JSX.Element {
   const { actor, syncRecord } = row;
+  const kind = displayKind(row);
   const facts: [string, string | undefined][] = [
     ['Code', row.code], ['Outcome', row.outcome], ['Duration', formatDurationMs(row.durationMs) ?? undefined],
     ['Actor', actor && [actor.name, actor.role, actor.id && `id ${actor.id}`].filter(Boolean).join(', ')],
@@ -104,7 +105,10 @@ function RowDetail({ row, phone, copyText }: { row: LogRecord; phone: boolean; c
     ['Reason', syncRecord?.reason], ['Details', row.detail], ['Log id', row.id],
   ];
   // v2 logs/row-detail.tsx:100-136: copy the whole entry from the first fact line.
-  return <View testID={`logs-detail-${row.id}`} className={`${phone ? 'pl-4' : 'ml-42'} gap-1 py-2`}>
+  return <View testID={`logs-detail-${row.id}`} className={`relative ${phone ? 'pl-4' : 'ml-42'} gap-1 py-2`}>
+    {/* v2 logs/row-detail.tsx:389-397: a tone bar beside an open problem row's detail. */}
+    {kind === 'error' || kind === 'warn' ? <View testID={`logs-detail-${row.id}-tone`}
+      className={`absolute top-2 bottom-2 w-[3px] rounded-full ${phone ? 'left-0' : '-left-4'} ${kind === 'error' ? 'bg-destructive' : 'bg-warning'}`} /> : null}
     {/* v2 logs/row-detail.tsx:148-155, :413: "Help — CODE" to the code's docs page, above the facts. */}
     {row.code ? <DocsLink testID={`logs-help-${row.code}`} href={errorCodeDocUrl(row.code)}>{`Help — ${row.code}`}</DocsLink> : null}
     {facts.filter(([, value]) => value).map(([label, value], index) => <View key={label} className="flex-row items-baseline gap-3">
