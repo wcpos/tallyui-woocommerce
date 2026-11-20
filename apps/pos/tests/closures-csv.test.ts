@@ -49,3 +49,32 @@ test('the Closer column names a roster cashier, reads Cashier #id for an unknown
   const closers = Object.fromEntries(data.map(row => [row[header.indexOf('Closure')], row[header.indexOf('Closer')]]));
   expect(closers).toEqual({ 1: 'Ann', 2: 'Cashier #7', 3: 'Paul', 4: 'Pat', 5: 'Unknown cashier' });
 });
+
+// The closures list title's register part (components/closure-list.tsx:152).
+const listRegister = (row: Closure) => typeof row.breakdowns.register_name === 'string' ? row.breakdowns.register_name : 'This till';
+const atRegister = (number: number, register_id: string, register_name?: string): Closure => ({
+  id: `session-${number}`, session_id: `session-${number}`, register_id, store_key: 'store', business_day: '2026-10-01',
+  number, opened_at: '2026-10-01T09:00:00Z', closed_at: '2026-10-01T17:00:00Z', closed_by: null,
+  till_expected: {}, expected: {}, counted: {}, variance: {}, period_sales_total_minor: 0,
+  period_refunds_total_minor: 0, perpetual_sales_total_minor: 0, perpetual_refunds_total_minor: 0,
+  unsynced_count: 0, unsynced_total_minor: 0, software_version: '0.1.0', print_count: 0,
+  breakdowns: register_name === undefined ? {} : { register_name }, order_ids: [], movement_ids: [],
+});
+const registerCells = (closures: Closure[]) => {
+  const [header, ...data] = closuresCsv(closures, 'USD', [], 'Test store').split('\r\n').map(line => line.split(',').map(cell => cell.slice(1, -1)));
+  return Object.fromEntries(data.map(row => [row[header.indexOf('Closure')], row[header.indexOf('Register')]]));
+};
+
+test("the Register cell names a closure's register as the closures list title does", () => {
+  const cells = registerCells([atRegister(1, 'aaaaaaaa-1111-4111-8111-111111111111', 'Front counter'), atRegister(2, 'bbbbbbbb-2222-4222-8222-222222222222')]);
+  expect(cells).toEqual({ 1: 'Front counter', 2: 'This till' });
+  expect(Object.values(cells)).not.toContain('bbbbbbbb');
+});
+
+test('the Register cell and the closures list title agree for a named and an unnamed closure of the same register', () => {
+  const register = 'cccccccc-3333-4333-8333-333333333333';
+  const closures = [atRegister(1, register), atRegister(2, register, 'Front counter')];
+  const cells = registerCells(closures);
+  expect(cells).toEqual({ 1: 'This till', 2: 'Front counter' });
+  for (const row of closures) expect(cells[row.number]).toBe(listRegister(row));
+});
