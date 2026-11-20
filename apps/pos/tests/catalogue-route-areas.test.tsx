@@ -71,3 +71,10 @@ test('Store health in the rail and drawer opens the area index at /health', () =
   mocks.props.onOpenHealth!();
   expect(mocks.router.push.mock.calls).toEqual([['/health']]);
 });
+
+test("the storage-outage notice's View status opens /health/database", () => {
+  render(<Catalogue />);
+  mocks.router.push.mockClear();
+  mocks.props.onOpenDatabaseHealth!();
+  expect(mocks.router.push.mock.calls).toEqual([['/health/database']]);
+});
