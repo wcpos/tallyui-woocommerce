@@ -5,6 +5,7 @@ import * as ReactNative from 'react-native';
 import HealthLayoutRoute from '../app/health/_layout';
 import HealthIndex from '../app/health/index';
 import LogsRedirect from '../app/logs';
+import { UnreadLogsCount } from '../lib/logs/unread-errors';
 
 const mocks = vi.hoisted(() => ({
   pathname: '/health/database',
@@ -28,6 +29,29 @@ beforeEach(() => {
   setWidth(900);
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+
+test('the Logs row shows the unread error count on the wide sub-rail, after its label', () => {
+  render(<UnreadLogsCount.Provider value={3}><HealthLayoutRoute /></UnreadLogsCount.Provider>);
+  expect(within(screen.getByTestId('health-nav-logs')).getByTestId('health-nav-logs-badge').textContent).toBe('3');
+  for (const id of ['health-nav-database', 'health-nav-performance']) {
+    const container = screen.getByTestId(id);
+    expect(container.querySelector('[data-testid$="-badge"]')).toBeNull();
+  }
+  expect(screen.getByTestId('health-nav-logs').textContent).toBe('Logs3');
+});
+
+test('on a phone the Logs row shows the badge before its chevron, and none at zero', () => {
+  setWidth(400);
+  mocks.pathname = '/health';
+  render(<UnreadLogsCount.Provider value={120}><HealthLayoutRoute /><HealthIndex /></UnreadLogsCount.Provider>);
+  const badge = screen.getByTestId('health-nav-logs-badge');
+  const chevron = screen.getByTestId('health-nav-logs-chevron');
+  expect(badge.textContent).toBe('99+');
+  expect(badge.compareDocumentPosition(chevron) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  cleanup();
+  render(<UnreadLogsCount.Provider value={0}><HealthLayoutRoute /><HealthIndex /></UnreadLogsCount.Provider>);
+  expect(screen.queryByTestId('health-nav-logs-badge')).toBeNull();
+});
 
 test('/health opens on Database when wide', () => {
   render(<HealthIndex />);

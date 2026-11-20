@@ -15,6 +15,18 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 const store = { id: 1, name: 'Corner Café', currency: 'AUD', locale: 'en_AU' };
 const siteHome = 'https://shop.example/';
 
+test('a nav item with a badge draws it in its row', () => {
+  const items = [
+    { href: '/first', label: 'First', testID: 'nav-first' },
+    { href: '/second', label: 'Second', testID: 'nav-second', badge: <Text testID="b">5</Text> },
+  ];
+  render(
+    <SettingsArea wide items={items} currentHref="/first" onNavigate={vi.fn()} onBack={vi.fn()} onIndex={vi.fn()}><Text>body</Text></SettingsArea>
+  );
+  expect(within(screen.getByTestId('nav-second')).getByTestId('b').textContent).toBe('5');
+  expect(within(screen.getByTestId('nav-first')).queryByTestId('b')).toBeNull();
+});
+
 test('the nav lists General, Tax, Printing, Card readers, Barcode Scanning then Theme, with the v2 test ids and hrefs', () => {
   expect(SETTINGS_NAV_ITEMS).toEqual([{ href: '/settings/general', label: 'General', testID: 'settings-nav-general' }, { href: '/settings/tax', label: 'Tax', testID: 'settings-nav-tax' }, { href: '/settings/printing', label: 'Printing', testID: 'settings-nav-printing' }, { href: '/settings/card-readers', label: 'Card readers', testID: 'settings-nav-card-readers' }, { href: '/settings/barcode-scanning', label: 'Barcode Scanning', testID: 'settings-nav-barcode-scanning' }, { href: '/settings/theme', label: 'Theme', testID: 'settings-nav-theme' }]);
   expect(SETTINGS_DEFAULT_HREF).toBe('/settings/general');
