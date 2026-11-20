@@ -197,7 +197,7 @@ export function TenderPane({ sale, multi = false, onRecordedOffline }: {
           <Text className="text-base font-semibold text-foreground">{m.title}</Text>
           {/* WCPOS v2: tender-pane.tsx MethodStatus (ADR 0040 rule 1): a tile taken offline says it is sent later, and the risk. */}
           {!online && <View testID={`checkout-method-sent-later-${m.id}`}>
-            <Text className="text-center text-xs text-warning-text">Sent later</Text>
+            <Text className="text-center text-xs text-warning-text">Sent when back online</Text>
             <Text className="text-center text-xs text-warning-text">Store may refuse</Text>
           </View>}
         </Pressable>;

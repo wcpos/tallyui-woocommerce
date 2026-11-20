@@ -74,6 +74,7 @@ test('Back with a cash leg asks before cancelling, and Keep taking payment retur
   takeLeg(200);
   fireEvent.click(screen.getByRole('button', { name: 'Back' }));
   expect(screen.getByText('Cancel this payment?')).not.toBeNull();
+  expect(screen.getByTestId('checkout-cancel-confirm').textContent).toBe('Cancel payments');
   expect(screen.getByText('Money already taken has to go back to the customer:')).not.toBeNull();
   expect(screen.queryAllByTestId(/^checkout-cancel-leg-/).map(element => element.textContent)).toEqual(['Return $2.00 cash to the customer']);
   expect(screen.queryByTestId('checkout-tender')).toBeNull();
@@ -82,7 +83,7 @@ test('Back with a cash leg asks before cancelling, and Keep taking payment retur
   expect(screen.queryAllByTestId(/^checkout-leg-/)).toHaveLength(1);
 }, 20_000);
 
-test('Cancel and void lists cash and card legs, then returns to the cart with nothing paid', async () => {
+test('Cancel payments lists cash and card legs, then returns to the cart with nothing paid', async () => {
   takeLeg(200);
   fireEvent.click(screen.getByTestId('checkout-method-pos_card'));
   fireEvent.change(screen.getByLabelText('Terminal reference'), { target: { value: 'T-1' } });

@@ -242,10 +242,10 @@ test('cash quick amounts follow the applied entry', async () => {
   expect(screen.getAllByTestId(/^checkout-quick-\d/).map(chip => chip.textContent)).toEqual(['$2.00', '$5.00', '$10.00', '$50.00']);
 }, 20_000);
 
-test('offline, both tiles say the payment is sent later and the store may refuse', async () => {
+test('offline, both tiles say the payment is sent when back online and the store may refuse', async () => {
   await startTender('Cash', 'offline');
-  expect(screen.getByTestId('checkout-method-sent-later-pos_cash').textContent).toBe('Sent laterStore may refuse');
-  expect(screen.getByTestId('checkout-method-sent-later-pos_card').textContent).toBe('Sent laterStore may refuse');
+  expect(screen.getByTestId('checkout-method-sent-later-pos_cash').textContent).toBe('Sent when back onlineStore may refuse');
+  expect(screen.getByTestId('checkout-method-sent-later-pos_card').textContent).toBe('Sent when back onlineStore may refuse');
   expect(disabled()).not.toBe('true');
 }, 20_000);
 
