@@ -3,12 +3,13 @@ import { afterEach, assert, beforeEach, expect, test, vi } from 'vitest';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import type { OrderCreateEnvelope } from '@tallyui/core';
 import type { CommandTransport, PosOrder } from '@tallyui/pos';
-import { SessionHoldBanner, sessionHoldCopy } from '../components/session-hold-banner';
+import { SessionHoldBanner, sessionHoldCopy, resetSessionHoldToast } from '../components/session-hold-banner';
 import { loadSession, PENDING_KEY, saveSession, SessionExpiredError } from '../lib/auth/session';
 import type { Session } from '../lib/auth/session';
 import { SessionProvider, useSession } from '../lib/auth/session-context';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import { setBeforeLeave } from '../lib/sale/before-leave';
+import { dismissToast, getToasts } from '../lib/toast/toast';
 import { memoryStorage } from './memory-storage';
 
 let session: Session;
@@ -18,6 +19,7 @@ let send: ReturnType<typeof vi.fn<CommandTransport<OrderCreateEnvelope>['send']>
 let answer!: (response: Response) => void;
 
 beforeEach(() => {
+  resetSessionHoldToast();
   vi.stubGlobal('localStorage', memoryStorage());
   vi.stubGlobal('sessionStorage', memoryStorage());
   const home = `https://shop.example/${crypto.randomUUID()}`;
@@ -34,7 +36,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  act(() => dismissToast());
   cleanup();
+  vi.useRealTimers();
   setBeforeLeave(null);
   vi.unstubAllGlobals();
 });
@@ -145,6 +149,86 @@ test('Log in signs in again for the held site and the new session ends the hold,
   expect(loadSession()?.tokens.accessToken).toBe('renewed');
   assert(outboxApi.enabled);
   expect((await outboxApi.orders!.findOne('sale-1').exec())?.syncStatus).toBe('pending');
+}, 20_000);
+
+test('a hold toasts Please log in to continue once, with a Log in action', async () => {
+  const { rerender } = render(
+    <SessionProvider>
+      <OutboxProvider transportFor={() => ({ send })} storage={getRxStorageMemory()}>
+        <Probe />
+        <SessionHoldBanner />
+        <SessionHoldBanner />
+      </OutboxProvider>
+    </SessionProvider>,
+  );
+  await screen.findByText('Order store ready');
+  await act(async () => { answer(new Response(null, { status: 401 })); });
+  await waitFor(() => expect(screen.getAllByTestId('session-hold-banner-title')[0].textContent).toBe('Session expired'));
+  const toasts = getToasts().filter(t => t.title === 'Please log in to continue');
+  expect(toasts).toHaveLength(1);
+  expect(toasts[0].type).toBe('warning');
+  expect(toasts[0].action?.label).toBe('Log in');
+  act(() => dismissToast());
+  expect(getToasts().filter(t => t.title === 'Please log in to continue')).toHaveLength(0);
+  rerender(
+    <SessionProvider>
+      <OutboxProvider transportFor={() => ({ send })} storage={getRxStorageMemory()}>
+        <Probe />
+        <SessionHoldBanner />
+        <SessionHoldBanner />
+        <SessionHoldBanner />
+      </OutboxProvider>
+    </SessionProvider>,
+  );
+  expect(screen.getAllByTestId('session-hold-banner-title')).toHaveLength(3);
+  // A banner mounted later in the same hold (another route) does not toast again (v2's holdToastShown).
+  expect(getToasts().filter(t => t.title === 'Please log in to continue')).toHaveLength(0);
+}, 20_000);
+
+test("the toast's Log in starts the same re-auth as the banner", async () => {
+  renderTill();
+  await screen.findByText('Order store ready');
+  await act(async () => {
+    assert(outboxApi.enabled);
+    await outboxApi.orders!.insert(pendingOrder);
+  });
+  await screen.findByText('pending 1');
+  expect(screen.queryByTestId('session-hold-banner')).toBeNull();
+  await act(async () => { answer(new Response(null, { status: 401 })); });
+  await waitFor(() => expect(screen.getByTestId('session-hold-banner-title').textContent).toBe('1 sale waiting to sync'));
+  await act(async () => { getToasts().find(t => t.title === 'Please log in to continue')!.action!.onPress(); });
+  const pending = JSON.parse(sessionStorage.getItem(PENDING_KEY)!);
+  expect(pending.mode).toBe('reauth');
+  expect(pending.site).toEqual(session.site);
+}, 20_000);
+
+test('a hold that ends and starts again toasts again', async () => {
+  vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
+  renderTill();
+  await screen.findByText('Order store ready');
+  await act(async () => {
+    assert(outboxApi.enabled);
+    await outboxApi.orders!.insert(pendingOrder);
+  });
+  await screen.findByText('pending 1');
+  expect(screen.queryByTestId('session-hold-banner')).toBeNull();
+  await act(async () => { answer(new Response(null, { status: 401 })); });
+  await waitFor(() => expect(screen.getByTestId('session-hold-banner-title').textContent).toBe('1 sale waiting to sync'));
+  expect(getToasts().filter(t => t.title === 'Please log in to continue')).toHaveLength(1);
+  await act(async () => { fireEvent.click(screen.getByTestId('session-hold-login')); });
+  const pending = JSON.parse(sessionStorage.getItem(PENDING_KEY)!);
+  act(() => {
+    sessionApi.completeSignIn(`?state=${pending.state}&access_token=renewed&refresh_token=refresh-2&expires_at=${session.tokens.expiresAt + 86400}&id=2&uuid=${session.tokens.user.uuid}&display_name=Cashier`);
+  });
+  await waitFor(() => expect(screen.queryByTestId('session-hold-banner')).toBeNull());
+  act(() => dismissToast());
+  expect(getToasts().filter(t => t.title === 'Please log in to continue')).toHaveLength(0);
+  vi.setSystemTime((session.tokens.expiresAt + 86400) * 1000);
+  await act(async () => { await vi.advanceTimersByTimeAsync(5 * 60 * 1000); });
+  expect(fetch).toHaveBeenCalledTimes(2);
+  await act(async () => { answer(new Response(null, { status: 401 })); });
+  await waitFor(() => expect(screen.getByTestId('session-hold-banner-title').textContent).toBe('1 sale waiting to sync'));
+  expect(getToasts().filter(t => t.title === 'Please log in to continue')).toHaveLength(1);
 }, 20_000);
 
 test('Log in is refused with the reason and does not redirect when leaving is refused', async () => {
