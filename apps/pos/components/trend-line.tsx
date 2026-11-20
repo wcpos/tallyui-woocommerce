@@ -1,9 +1,10 @@
+import { useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Polygon, Polyline } from 'react-native-svg';
 import { useCSSVariable } from 'uniwind';
 import { Text } from '@tallyui/components';
 import { MIN_TREND_POINTS, type TrendPoint } from '../lib/health/performance';
-import { niceCeil, xTickValues, yTickValues } from '../lib/health/trend-scale';
+import { nearestIndex, niceCeil, xTickValues, yTickValues } from '../lib/health/trend-scale';
 
 const coordinate = (value: number) => String(Number(value.toFixed(2)));
 const clock = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -13,7 +14,9 @@ const clock = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numer
  * fixed-height plot, drawn from the first render. Under two samples the plot says "not enough data yet" instead of a
  * line; otherwise a 2px line over a faint area wash on a zero-based scale, the latest point marked. v2's axes are ported
  * (trend-scale.ts): a nice 1/2/5 × 10ⁿ top, y labels and gridlines at 0, the midpoint and the top, and up to four
- * clock labels on real hour buckets, ends included. v2's pointer readout is not ported yet.
+ * clock labels on real hour buckets, ends included. v2's pointer readout is ported too: a mouse hovering the plot, or a
+ * touch-and-drag, marks the nearest bucket with a hairline crosshair, and the header and the dot report that bucket until
+ * the pointer leaves or the touch ends, when they return to the latest sample.
  */
 export function TrendLine({ testID, label, points, tone, formatValue }: {
   testID: string; label: string; points: TrendPoint[]; tone: 'accent' | 'neutral'; formatValue(value: number): string;
@@ -31,13 +34,25 @@ export function TrendLine({ testID, label, points, tone, formatValue }: {
   const xTicks = xTickValues(points);
   const line = xy.map(([x, y]) => `${x},${y}`).join(' ');
   const [xLast, yLast] = xy.at(-1) ?? ['0', '0'];
+  const [active, setActive] = useState(-1);
+  const plotWidth = useRef(0);
+  // A shrinking series can leave the index past the end; then nothing is marked.
+  const marked: TrendPoint | undefined = active >= 0 ? points[active] : undefined;
+  const shown = marked ?? last;
+  const [xDot, yDot] = marked ? xy[active]! : [xLast, yLast];
+  // locationX on native and in RNW's responder events; web pointer events carry offsetX instead.
+  const pointAt = ({ nativeEvent }: { nativeEvent: { locationX?: number; offsetX?: number } }) => {
+    const x = nativeEvent.locationX ?? nativeEvent.offsetX;
+    if (plotWidth.current > 0 && x !== undefined) setActive(nearestIndex(points, x / plotWidth.current));
+  };
+  const clear = () => setActive(-1);
   return (
     <View testID={testID} className="gap-2">
       <View className="flex-row items-baseline justify-between">
         <Text testID={`${testID}-label`} className="text-base">{label}</Text>
         <View className="flex-row items-baseline gap-1.5">
-          <Text testID={`${testID}-time`} className="text-xs text-muted-foreground tabular-nums">{last ? clock(last.x) : ''}</Text>
-          <Text testID={`${testID}-latest`} className="text-sm font-semibold tabular-nums">{last ? formatValue(last.y) : '—'}</Text>
+          <Text testID={`${testID}-time`} className="text-xs text-muted-foreground tabular-nums">{shown ? clock(shown.x) : ''}</Text>
+          <Text testID={`${testID}-latest`} className="text-sm font-semibold tabular-nums">{shown ? formatValue(shown.y) : '—'}</Text>
         </View>
       </View>
       <View className="h-40">
@@ -63,19 +78,27 @@ export function TrendLine({ testID, label, points, tone, formatValue }: {
                   );
                 })}
               </View>
-              <View className="relative flex-1">
+              {/* The plot's children take no pointer events, so offsetX and locationX are always measured from the plot. */}
+              <View className="relative flex-1" onLayout={event => { plotWidth.current = event.nativeEvent.layout.width; }}
+                onPointerMove={pointAt} onPointerLeave={clear} onStartShouldSetResponder={() => true}
+                onResponderGrant={pointAt} onResponderMove={pointAt} onResponderRelease={clear} onResponderTerminate={clear}>
                 {yTickValues(top).map((value, i) => (
                   <View key={i} testID={`${testID}-grid-${i}`} className="absolute left-0 right-0 border-t border-border"
                     style={{ top: `${yAt(value)}%` }} />
                 ))}
-                <Svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={StyleSheet.absoluteFill}>
+                <Svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" pointerEvents="none"
+                  style={StyleSheet.absoluteFill}>
                   <Polygon testID={`${testID}-area`} points={`${xy[0]![0]},100 ${line} ${xLast},100`} fill={color} fillOpacity={0.1} />
                   <Polyline testID={`${testID}-line`} points={line} fill="none" stroke={color} strokeWidth={2} vectorEffect="non-scaling-stroke" />
                 </Svg>
-                {/* A circle would stretch under preserveAspectRatio="none", so the latest point is a View. */}
+                {marked ? (
+                  <View testID={`${testID}-crosshair`} className="pointer-events-none absolute bottom-0 top-0 w-px bg-border"
+                    style={{ left: `${xAt(marked.x)}%` }} />
+                ) : null}
+                {/* A circle would stretch under preserveAspectRatio="none", so the marked point is a View. */}
                 <View testID={`${testID}-dot`}
-                  className={`absolute h-3 w-3 rounded-full border-2 border-background ${tone === 'accent' ? 'bg-primary' : 'bg-muted-foreground'}`}
-                  style={{ left: `${Number(xLast)}%`, top: `${Number(yLast)}%`, marginLeft: -6, marginTop: -6 }} />
+                  className={`pointer-events-none absolute h-3 w-3 rounded-full border-2 border-background ${tone === 'accent' ? 'bg-primary' : 'bg-muted-foreground'}`}
+                  style={{ left: `${Number(xDot)}%`, top: `${Number(yDot)}%`, marginLeft: -6, marginTop: -6 }} />
               </View>
             </View>
             {/* The end labels align to the plot's edges so neither spills out of the card; inner ones centre on their hour. */}
