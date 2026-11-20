@@ -33,6 +33,22 @@ export function CaptionRowInset({ children }: { children: ReactNode }) {
 const SyncIcon = createSvgIcon('SyncIcon', () => <><Path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><Path d="M21 3v5h-5" />
   <Path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><Path d="M8 16H3v5" /></>);
 
+/** v2's SyncButton (screens/main/components/sync-button.tsx:23-55): never disabled for activity; the glyph turns while `active`. */
+export function SyncButton({ active, onSync, testID = 'data-table-sync', size = 14 }: { active: boolean; onSync?(): void; testID?: string; size?: number }) {
+  return (
+    <>
+      {/* v2 sync-button.tsx:39-53 never disables it: the turning glyph is the motion, at full strength. A press while
+          it turns does nothing, so one re-sync runs at a time. */}
+      {/* v2 sync-button.tsx:33-58 wraps the button in a Tooltip that reads common.sync, "Sync". */}
+      <Tooltip><TooltipTrigger asChild>
+        <IconButton testID={testID} accessibilityLabel="Sync" variant="ghost" size="sm" disabled={!onSync} onPress={active ? undefined : onSync}>
+          <View testID={active ? `${testID}-active` : undefined} className={active ? 'animate-spin' : undefined}><SyncIcon size={size} /></View>
+        </IconButton>
+      </TooltipTrigger><TooltipContent><Text>Sync</Text></TooltipContent></Tooltip>
+    </>
+  );
+}
+
 /** v2's DataTableFooter (components/data-table/footer.tsx) and SyncButton (components/sync-button.tsx): "Showing N of M"
  *  when something vouches for the total, else "Showing N", then the sync button, which turns while `active`. */
 export function TableCount({ shown, total, active, onSync }: { shown: number; total: number | null; active: boolean; onSync?(): void }) {
@@ -40,14 +56,7 @@ export function TableCount({ shown, total, active, onSync }: { shown: number; to
   return (
     <View testID="data-table-caption-row" className="flex-row items-center justify-end gap-1">
       <Text testID="data-table-count" className="text-sm text-muted-foreground">{count}</Text>
-      {/* v2 sync-button.tsx:39-53 never disables it: the turning glyph is the motion, at full strength. A press while
-          it turns does nothing, so one re-sync runs at a time. */}
-      {/* v2 sync-button.tsx:33-58 wraps the button in a Tooltip that reads common.sync, "Sync". */}
-      <Tooltip><TooltipTrigger asChild>
-        <IconButton testID="data-table-sync" accessibilityLabel="Sync" variant="ghost" size="sm" disabled={!onSync} onPress={active ? undefined : onSync}>
-          <View testID={active ? 'data-table-sync-active' : undefined} className={active ? 'animate-spin' : undefined}><SyncIcon size={14} /></View>
-        </IconButton>
-      </TooltipTrigger><TooltipContent><Text>Sync</Text></TooltipContent></Tooltip>
+      <SyncButton active={active} onSync={onSync} />
     </View>
   );
 }
