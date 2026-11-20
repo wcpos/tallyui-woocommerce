@@ -155,10 +155,10 @@ export function CatalogueDisplayOptions({ state, onChange, products, quickFilter
           </View>
           <View className="gap-1.5">
             <FieldLabel>Variations</FieldLabel>
-            {/* v2's variationsStyle. Table view's Expanded rows is a later slice, so inline works in grid view only. */}
+            {/* In table view, inline is v2's Expanded rows. */}
             <Segmented testID="products-variations-style" label="Variations" value={state.variationsStyle}
               onChange={next => onChange({ ...state, variationsStyle: next as VariationsStyle })}
-              segments={[{ value: 'drill', label: 'Open in place' }, { value: 'inline', label: state.view === 'grid' ? 'Popover' : 'Expanded rows', disabled: state.view === 'table' }]} />
+              segments={[{ value: 'drill', label: 'Open in place' }, { value: 'inline', label: state.view === 'grid' ? 'Popover' : 'Expanded rows' }]} />
           </View>
           {/* v2: a `gap-2 px-1 pt-2` View, its SectionHeading, then one FormSwitch per field. */}
           {state.view === 'grid' ? <View testID="tile-fields" className="gap-2 px-1 pt-2">

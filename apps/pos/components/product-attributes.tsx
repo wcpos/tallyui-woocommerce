@@ -2,12 +2,12 @@
 // `packages/core/src/screens/main/components/product/attributes.tsx`), read-only, in the drill style the Products
 // page opens with (`variationsStyle` 'drill'): one row per attribute with `variation: true`, `Name: ` in help text
 // then each option as a primary-tone link (a press drills in with that option as the match), then a ghost button
-// "N variations" with a chevron after it (a press drills in). Strings are core.json's `products.n_variations`.
+// "N variations" with a trailing chevron, or a leading expand chevron in inline style. Strings are core.json's `products.n_variations`.
 import type { JSX } from 'react';
 import { Fragment } from 'react';
 import { View } from 'react-native';
 import { Button, Text } from '@tallyui/components';
-import { ChevronRightIcon } from './icons';
+import { ChevronDownIcon, ChevronRightIcon } from './icons';
 
 export interface ProductAttribute {
   id?: number;
@@ -87,12 +87,13 @@ export function PlainAttributes({ id, attributes }: { id: number; attributes: Pr
 }
 
 // `options` false is v2's phone row (products/row.tsx:178-205 VariableRowContent): the VariationsButton alone, no attribute rows.
-export function ProductAttributes({ id, attributes, count, onDrill, options = true }: {
+export function ProductAttributes({ id, attributes, count, onDrill, options = true, expanded }: {
   id: number;
   attributes: ProductAttribute[] | undefined;
   count: number;
   onDrill(match?: VariationMatch): void;
   options?: boolean;
+  expanded?: boolean;
 }): JSX.Element {
   const rows = options ? (attributes ?? []).filter(attribute => attribute.variation) : [];
   return (
@@ -100,9 +101,13 @@ export function ProductAttributes({ id, attributes, count, onDrill, options = tr
       {rows.map(attribute => <AttributeRow key={attribute.name} id={id} testID={`product-attributes-${id}-${attribute.name}`}
         attribute={attribute} onOption={onDrill} />)}
       <Button testID="variable-product-expand" variant="ghost" size="sm" className="max-w-full flex-row self-start px-0"
+        {...(expanded === undefined ? {} : { 'aria-expanded': expanded, accessibilityState: { expanded } })}
         onPress={() => onDrill()}>
+        {expanded !== undefined && <View testID={`product-variations-chevron-${id}`}>
+          {expanded ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />}
+        </View>}
         <Text testID={`product-variations-${id}`}>{variationsLabel(count)}</Text>
-        <View testID={`product-variations-chevron-${id}`}><ChevronRightIcon size={14} /></View>
+        {expanded === undefined && <View testID={`product-variations-chevron-${id}`}><ChevronRightIcon size={14} /></View>}
       </Button>
     </View>
   );
