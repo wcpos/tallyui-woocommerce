@@ -22,6 +22,7 @@ import { takeCash } from './tender-helpers';
 
 // v2 receipt-actions.tsx:24-38 and hooks/use-sync-order.ts; copy core.json:34, :38 (order_synced) and :657 (failed_to_save_order).
 const NOT_SAVED = 'Not saved to the store · no order number';
+const AWAITING = 'Awaiting store · not yet confirmed';
 const BUTTON = 'receipt-sync-order-button';
 
 const props: ComponentProps<typeof SaleScreen> = {
@@ -167,6 +168,22 @@ test('the Orders receipt of a refused sale offers Save to store, and resending i
     expect(screen.queryByTestId('receipt-store-line')).toBeNull();
   });
   expect(screen.getByTestId('receipt-order')).not.toBeNull();
+}, 20_000);
+
+test('while the resent sale awaits the store, the button is gone and the line says Awaiting store', async () => {
+  let calls = 0;
+  const send = vi.fn<Send>(async batch => {
+    if (calls++ > 0) return new Promise<never>(() => {});
+    return { kind: 'results', results: batch.map(envelope => rejected(envelope)) };
+  });
+  await sellEspresso(send);
+  await vi.waitFor(() => expect(screen.getByTestId(BUTTON)).not.toBeNull());
+  fireEvent.click(screen.getByTestId(BUTTON));
+  await vi.waitFor(() => {
+    expect(screen.getByTestId('receipt-store-line').textContent).toBe(AWAITING);
+    expect(screen.queryByTestId(BUTTON)).toBeNull();
+  });
+  expect(send).toHaveBeenCalledTimes(2);
 }, 20_000);
 
 test('no Save to store while the sale awaits the store, once it is saved, or when the refusal cannot be requeued', async () => {

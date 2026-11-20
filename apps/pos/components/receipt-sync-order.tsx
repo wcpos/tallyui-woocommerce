@@ -50,7 +50,8 @@ export function ReceiptSyncOrder({ posOrder, onRequeue }: {
     setBusy(false);
   }
 
-  if (!busy && !canSyncOrder(posOrder)) return null;
+  // v2 use-receipt-document.ts:100-102: hidden while the order awaits the store; shown only for the call in flight.
+  if (!canSyncOrder(posOrder) && !(busy && watching === null)) return null;
   return (
     <Button testID="receipt-sync-order-button" disabled={busy} onPress={() => { void press(); }}>
       <Text>Save to store</Text>
