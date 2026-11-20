@@ -3,10 +3,11 @@ import { Platform, View } from 'react-native';
 import { Text } from '@tallyui/components';
 import { formatClosureDate } from '@tallyui/pos';
 import type { Period } from '../lib/reports/sales-room';
+import { salesSummary } from '../lib/reports/sales-summary';
 
 /** The Reports screen's printed sales summary (v2 `HeroPrint`), printed the way the closure reprint is. */
-export function SalesSummaryPrint({ storeName, scope, date, period, money, locale = 'en-US' }: {
-  storeName: string; scope: string; date: string; period: Period; money(minor: number): string; locale?: string;
+export function SalesSummaryPrint({ storeName, scope, date, period, money, cashierName, locale = 'en-US' }: {
+  storeName: string; scope: string; date: string; period: Period; money(minor: number): string; cashierName(ref: string): string; locale?: string;
 }) {
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
@@ -17,30 +18,25 @@ export function SalesSummaryPrint({ storeName, scope, date, period, money, local
     return () => style.remove();
   }, []);
   const printed = formatClosureDate(new Date().toISOString(), { timezone: 'device', locale: locale.replaceAll('_', '-') }).datetime;
+  const number = (n: number) => new Intl.NumberFormat(locale.replaceAll('_', '-')).format(n);
+  const summary = salesSummary(period, { money, number, cashierName });
   return (
     <View testID="sales-summary-print" dataSet={{ print: 'summary' }} style={{ display: 'none' }} className="gap-2 p-4">
       <Text accessibilityRole="header">Sales summary</Text>
       <Text>{storeName}</Text>
       <Text testID="sales-summary-scope">{scope}</Text>
       <Text>{date}</Text>
-      <Text testID="sales-summary-total">{`Total sales: ${money(period.totalMinor)}`}</Text>
-      <Text testID="sales-summary-orders">{`Orders: ${period.count}`}</Text>
-      <Text>{`Average order: ${money(period.averageMinor)}`}</Text>
-      <Text>{`Items: ${period.items}`}</Text>
-      <Text>{`Discounts: ${money(period.discountMinor)}`}</Text>
-      <Text>{`Tax: ${money(period.taxMinor)}`}</Text>
-      <View testID="sales-summary-payments">
-        <Text>Payments</Text>
-        {period.byMethod.map(row => (
-          <Text key={row.method} testID={`sales-summary-payment-${row.method}`}>{`${row.label} — ${row.count} — ${money(row.totalMinor)}`}</Text>
-        ))}
-      </View>
-      {period.taxMinor !== 0 && <View testID="sales-summary-taxes">
-        <Text>Taxes</Text>
-        {period.taxRates.map(row => (
-          <Text key={row.ratePpm}>{`${row.label} — Net ${money(row.netMinor)} — Tax ${money(row.taxMinor)} — Gross ${money(row.grossMinor)}`}</Text>
-        ))}
-      </View>}
+      <Text testID="sales-summary-head">{summary.head.join(' — ')}</Text>
+      {summary.groups.map(group => (
+        <View key={group.key} testID={`sales-summary-group-${group.key}`}>
+          <Text testID={`sales-summary-group-${group.key}-label`}>{group.label}</Text>
+          {group.rows.map(row => (
+            <Text key={row.key} testID={`sales-summary-${group.key}-row-${row.key}`}>{row.cells.filter(cell => cell !== '').join(' — ')}</Text>
+          ))}
+          {group.subtotal && <Text testID={`sales-summary-${group.key}-subtotal`}>{group.subtotal.cells.filter(cell => cell !== '').join(' — ')}</Text>}
+        </View>
+      ))}
+      <Text testID="sales-summary-total">{summary.total.cells.filter(cell => cell !== '').join(' — ')}</Text>
       <Text>{`Printed: ${printed}`}</Text>
     </View>
   );
