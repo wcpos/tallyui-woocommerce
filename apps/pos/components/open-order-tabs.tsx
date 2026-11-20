@@ -228,7 +228,8 @@ export function OpenOrderTabs({ parked, current, currentOpenedAt, currency, loca
           : tab(current.id, true, who(current.customer?.name), current.totalMinor, undefined, currentOpenedAt))}
       </ScrollView>
       <Pressable testID="new-order-tab" role="tab" aria-selected={fresh} accessibilityLabel="New order" disabled={busy} ref={focusOpen(fresh)}
-        onPress={() => { if (!fresh) void run(onNew); }}
+        // v2 cart/tabs.tsx:438-445: + always closes the list; on the blank cart there is nothing to park.
+        onPress={() => { if (fresh) { if (listOpen) onOpenList?.(); } else void run(onNew); }}
         className={`h-full flex-row items-center justify-center gap-1.5 px-3 web:hover:bg-accent active:bg-accent ${fresh ? 'border-b-2 border-primary' : ''}`}>
         <Text className={`text-lg ${fresh ? 'text-primary' : ''}`}>+</Text>
         {fresh ? <Text testID="new-order-tab-label" className="font-semibold">New</Text> : null}

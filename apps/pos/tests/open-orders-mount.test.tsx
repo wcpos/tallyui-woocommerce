@@ -190,3 +190,15 @@ test('a refused resume shows its message on the screen\'s message line, and the 
     await db.remove();
   }
 }, 20_000);
+
+test('+ on the blank cart closes the list', async () => {
+  render(<SaleScreen {...props} />);
+  fireEvent.click(screen.getByText('Espresso'));
+  await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
+  openParkedList();
+  expect(covered()).toBe(true);
+  await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
+  expect(uncovered()).toBe(true);
+  await listGone();
+  expect(parkedTabs()).toHaveLength(1);
+}, 20_000);

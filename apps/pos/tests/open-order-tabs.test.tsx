@@ -316,6 +316,22 @@ test('when the list closes, focus goes back to the current cart\'s tab, or + on 
   away.remove();
 });
 
+test('+ on the blank cart closes an open list, and parks nothing', () => {
+  const { onSelect, onNew, onError } = handlers();
+  const onOpenList = vi.fn();
+  const parked = [cart('a', new Date(NOW - MINUTE).toISOString(), ['Espresso'], 300)];
+  const strip = (listOpen: boolean) => <OpenOrderTabs currency={currency} onSelect={onSelect} onNew={onNew} onError={onError}
+    onOpenList={onOpenList} now={() => NOW} parked={parked} current={order([], 0)} listOpen={listOpen} />;
+  const view = render(strip(true));
+  fireEvent.click(screen.getByTestId('new-order-tab'));
+  expect(onOpenList).toHaveBeenCalledTimes(1);
+  expect(onNew).not.toHaveBeenCalled();
+  view.rerender(strip(false));
+  fireEvent.click(screen.getByTestId('new-order-tab'));
+  expect(onOpenList).toHaveBeenCalledTimes(1);
+  expect(onNew).not.toHaveBeenCalled();
+});
+
 test('(a) a cart parked 5 h ago reads its amount, then its age', () => {
   const { onSelect, onNew, onError } = handlers();
   render(<OpenOrderTabs currency={currency} onSelect={onSelect} onNew={onNew} onError={onError} now={() => NOW}
