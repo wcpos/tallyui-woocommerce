@@ -5,6 +5,12 @@ import type { JSX } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useSession } from '../lib/auth/session-context';
 import { useOutbox } from '../lib/sale/outbox-context';
+import { toast } from '../lib/toast/toast';
+
+// v2 session-hold-banner/index.tsx:18-23: one latch for every mounted banner, so a hold toasts once.
+let holdToastShown = false;
+/** Test-only reset of the shared hold-toast latch (v2 resetSessionHoldBannerState). */
+export function resetSessionHoldToast(): void { holdToastShown = false; }
 
 export function sessionHoldCopy(hold: { held: boolean; authRequired: boolean; salesWaiting: number }):
   { title: string; description: string } | null {
@@ -31,6 +37,16 @@ export function SessionHoldBanner(): JSX.Element | null {
   const copy = sessionHoldCopy({ held, authRequired: outbox.enabled && outbox.state.authRequired === true,
     salesWaiting: outbox.enabled ? outbox.state.pending : 0 });
   useEffect(() => { if (!copy) setRefusal(null); }, [copy]);
+  const showing = copy !== null;
+  // v2 session-hold-banner/index.tsx:79-95: the toast marks the moment a hold starts, once per hold.
+  useEffect(() => {
+    if (showing && !holdToastShown) {
+      holdToastShown = true;
+      toast({ id: 'session-hold', type: 'warning', title: 'Please log in to continue',
+        action: { label: 'Log in', onPress: () => { void logIn(); } } });
+    }
+    if (!showing) holdToastShown = false;
+  }, [showing]);
   if (!copy) return null;
   return (
     <View className="bg-background px-3 pt-3" dataSet={{ print: 'hide' }}>
