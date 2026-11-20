@@ -49,7 +49,7 @@ const searchBox = () => screen.getByPlaceholderText('Search Customers');
 // v2's EmptyState kind and glyph (empty-state/index.tsx:23-27): `empty` → info, `no-results` → search.
 const emptyKind = () => [screen.getByTestId('no-data-message').getAttribute('data-kind'), screen.getByTestId('no-data-message-glyph').getAttribute('data-glyph')];
 
-test('Date Created follows Billing Address and reads Today, a short date or —', async () => {
+test('Date Created follows Billing Address and reads Today, a short date or empty text', async () => {
   await findRows(vi.fn<CustomerSource['search']>().mockResolvedValue([
     { ...gee, createdAt: new Date().toISOString() },
     { ...ada, createdAt: '2023-08-21T12:00:00Z' },
@@ -59,7 +59,7 @@ test('Date Created follows Billing Address and reads Today, a short date or —'
     .toEqual(['First Name', 'Last Name', 'Email', 'Billing Address', 'Date Created']);
   expect(within(screen.getByTestId('customers-row-7')).getByText('Today')).not.toBeNull();
   expect(within(screen.getByTestId('customers-row-9')).getByText('Mon 21 Aug')).not.toBeNull();
-  expect(within(screen.getByTestId('customers-row-11')).getByText('—')).not.toBeNull();
+  expect(within(screen.getByTestId('customers-row-11')).getAllByRole('cell')[5].textContent).toBe('');
   for (const row of screen.getAllByTestId(/^customers-row-/)) {
     expect(row.textContent).not.toContain('2023-08-21T12:00:00Z');
   }
@@ -445,7 +445,7 @@ test('Add new customer opens Add Customer, requires an email and saves', async (
   expect(classesOf('add-customer-dialog')).not.toContain('-translate-x-1/2');
   expect(classesOf('add-customer-dialog')).not.toContain('max-w-lg');
   expect(screen.queryByPlaceholderText('Street address')).toBeNull();
-  const submit = () => fireEvent.click(within(screen.getByTestId('customer-form')).getByText('Add Customer'));
+  const submit = () => fireEvent.click(screen.getByTestId('customer-form-add'));
   fireEvent.change(screen.getByPlaceholderText('email@example.com'), { target: { value: '   ' } });
   submit();
   // v2 customer-form.tsx:39: zod's email() rejects "" with its one copy, printed under the raw path.
@@ -466,7 +466,7 @@ test('a failed save toasts Failed to save customer and keeps the form', async ()
   renderScreen(undefined, undefined, { create });
   fireEvent.click(screen.getByRole('button', { name: 'Add new customer' }));
   fireEvent.change(screen.getByPlaceholderText('email@example.com'), { target: { value: 'gee@example.invalid' } });
-  fireEvent.click(within(screen.getByTestId('customer-form')).getByText('Add Customer'));
+  fireEvent.click(screen.getByTestId('customer-form-add'));
   const t = await screen.findByTestId('error-toast');
   expect(within(t).getByText('Failed to save customer')).not.toBeNull();
   expect(within(t).getByText('The store refused: An account is already registered with your email address.')).not.toBeNull();

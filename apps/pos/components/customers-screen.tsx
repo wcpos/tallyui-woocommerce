@@ -70,7 +70,8 @@ function customerCell(id: CustomersColumnId, c: Customer, now: Date): JSX.Elemen
     case 'last_name': return <TableCell key={id} className={className}><Text>{c.lastName ?? ''}</Text></TableCell>;
     case 'email': return <TableCell key={id} className={className}><Text testID={c.email ? `customer-email-${c.email}` : undefined}>{c.email ?? ''}</Text></TableCell>;
     case 'billing': return <TableCell key={id} className={cell(id, 'gap-0.5')}>{billingLines(c).map(line => <Text key={line}>{line}</Text>)}</TableCell>;
-    case 'date_created_gmt': return <TableCell key={id} className={className}><Text>{(c.createdAt && dayLabel(c.createdAt, now)) || '—'}</Text></TableCell>;
+    // v2 customers/cells/date.tsx:18 leaves a missing date empty.
+    case 'date_created_gmt': return <TableCell key={id} className={className}><Text>{(c.createdAt && dayLabel(c.createdAt, now)) || ''}</Text></TableCell>;
   }
 }
 
