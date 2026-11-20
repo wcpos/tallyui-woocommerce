@@ -143,13 +143,13 @@ export function CustomerPicker({ source, customer, onChange, face = 'chip', labe
           </Pressable>
           ) : (
           <Pressable accessibilityRole="button" testID="cart-customer-name"
-            // v2 cart-header.tsx:128-144: while the search is open the chip reads Select Customer with the customer icon.
-            accessibilityLabel={open ? 'Select Customer' : `Customer: ${name}`}
+            // v2 a1c1d3340 / core.json:797: while the search is open the chip reads Select customer with the customer icon.
+            accessibilityLabel={open ? 'Select customer' : `Customer: ${name}`}
             // h-11: v2's default Chip, `h-ctl px-3`, 44 px (monorepo packages/components/src/chip/index.tsx:158).
             className="rounded-full border border-border bg-card px-3 h-11 flex-row items-center gap-2">
             {open || !customer ? <GuestMark testID="cart-customer-initials" />
               : <Initials testID="cart-customer-initials" text={customerInitials(customer)} />}
-            <Text testID="cart-customer-select-label" numberOfLines={1}>{open ? 'Select Customer' : name}</Text>
+            <Text testID="cart-customer-select-label" numberOfLines={1}>{open ? 'Select customer' : name}</Text>
           </Pressable>
           )}
         </PopoverTrigger>

@@ -121,7 +121,7 @@ test('the cart head has the + menu and the settings icon; the menu lists v2\'s a
   expect(head.getByRole('button', { name: 'Cart settings' }).getAttribute('data-testid')).toBe('cart-settings-button');
   fireEvent.click(screen.getByTestId('cart-add-menu'));
   const menu = within(screen.getByRole('menu'));
-  expect(menu.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Add Miscellaneous Product', 'Add Fee', 'Add Discount', 'Add Shipping']);
+  expect(menu.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Add custom item', 'Add Fee', 'Add Discount', 'Add Shipping']);
 }, 20_000);
 
 test.each([4, 3])('the charge items are hidden when orderCreate is %s', async orderCreate => {
@@ -132,7 +132,7 @@ test.each([4, 3])('the charge items are hidden when orderCreate is %s', async or
   for (const item of ['misc-product', 'fee', 'shipping']) expect(screen.queryByTestId(`cart-add-menu-${item}`)).toBeNull();
 }, 20_000);
 
-test('Add Fee, Add Shipping and Add Miscellaneous Product each open a form fixed to their kind and reach the order', async () => {
+test('Add Fee, Add Shipping and Add custom item each open a form fixed to their kind and reach the order', async () => {
   await renderTill();
   await addEspresso();
   openAddMenuItem('misc-product');
@@ -286,7 +286,7 @@ test('with customers, Add new customer is first, then a separator, then the add 
   await renderTill(COUPONS, { customers: customerSource(), cashier: CAN_CREATE });
   fireEvent.click(screen.getByTestId('cart-add-menu'));
   const menu = within(screen.getByRole('menu'));
-  expect(menu.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Add new customer', 'Add Miscellaneous Product', 'Add Fee', 'Add Discount', 'Add Shipping']);
+  expect(menu.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Add new customer', 'Add custom item', 'Add Fee', 'Add Discount', 'Add Shipping']);
   const item = menu.getByTestId('cart-add-menu-customer');
   expect(item.getAttribute('aria-disabled')).toBeNull();
   const separator = menu.getByRole('separator');
@@ -308,7 +308,7 @@ test('each + menu item leads with v2\'s icon: addCustomer, product, invoice, tag
   await renderTill(COUPONS, { customers: customerSource(), cashier: CAN_CREATE });
   fireEvent.click(screen.getByTestId('cart-add-menu'));
   const menu = within(screen.getByRole('menu'));
-  expect(menu.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Add new customer', 'Add Miscellaneous Product', 'Add Fee', 'Add Discount', 'Add Shipping']);
+  expect(menu.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Add new customer', 'Add custom item', 'Add Fee', 'Add Discount', 'Add Shipping']);
   for (const [item, d] of Object.entries(GLYPHS)) {
     const row = menu.getByTestId(`cart-add-menu-${item}`);
     const icon = within(row).getByTestId(`cart-add-menu-${item}-icon`);
