@@ -38,11 +38,12 @@ import { ChevronRightIcon } from './icons';
 import { InCartBadge } from './in-cart-badge';
 import { InlineVariableTile } from './inline-variable-tile';
 import { LevelBack } from './level-back';
+import { ProductAttributes } from './product-attributes';
 import { ProductTile } from './product-tile';
 import { ClearAllButton, QuickFilterBar, SaveAsButton } from './quick-filter-bar';
 import type { QuickFilterMenu } from './quick-filter-bar';
 import { RegisterBarShell } from './register-bar-shell';
-import { ParentTile, VariationRow, VariationTile } from './variation-tile';
+import { ParentTile, VariationChips, VariationMoney, VariationRow, VariationTile } from './variation-tile';
 import { ViewModeToggle } from './view-mode-toggle';
 
 const SyncIcon = createSvgIcon('SyncIcon', () => <><Path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><Path d="M21 3v5h-5" />
@@ -50,6 +51,9 @@ const SyncIcon = createSvgIcon('SyncIcon', () => <><Path d="M3 12a9 9 0 0 1 9-9 
 
 // Slot 0 of a level's grid, the opened place's own tile: an id no product carries, for the grid's key.
 const PARENT_SLOT_ID = 'browse-parent';
+
+type VariationRowItem = { id: string; variationOf: string; entry: CatalogueEntry<any> };
+const isVariationRow = (item: any): item is VariationRowItem => typeof item?.variationOf === 'string';
 
 export interface CatalogueViewProps {
   connector: TallyConnector;
@@ -148,6 +152,8 @@ export function CatalogueView({
   }, searchChord !== false);
   const [ownViewState, setOwnViewState] = useCatalogueView();
   const viewState = controlledViewState ?? ownViewState;
+  const expandRows = viewState.variationsStyle === 'inline' && viewState.view === 'table';
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const setViewState = onViewStateChange ?? setOwnViewState;
   const [query, dispatch] = useReducer(catalogueQuery, viewState.showOutOfStock,
     showOutOfStock => initialCatalogueQuery(catalogueFilterBaseline(showOutOfStock)));
@@ -213,14 +219,27 @@ export function CatalogueView({
     } catch { return []; /* onSelect reports what it cannot sell */ }
   }
   function tap(doc: any) {
-    if (drillable(doc)) setDrill({ id: traits.getId(doc), from: drillFrom });
+    if (expandable(doc)) toggleRow(traits.getId(doc));
+    else if (drillable(doc)) setDrill({ id: traits.getId(doc), from: drillFrom });
     else onSelect?.(doc);
   }
+  const expandable = (doc: any) => expandRows && drillable(doc);
+  function toggleRow(id: string, open?: boolean) {
+    const next = new Set(expanded);
+    if (open ?? !expanded.has(id)) next.add(id); else next.delete(id);
+    setExpanded(next);
+  }
+  const tableItems = !expandRows ? items : items.flatMap(doc => {
+    const id = traits.getId(doc);
+    return expanded.has(id) && expandable(doc) ? [doc, ...catalogueEntries([doc], traits, { currency })
+      .filter(entry => variantMatchesStock(entry.variant, filters.stock_status))
+      .map(entry => ({ id: `variation-${entry.variant.id}`, variationOf: id, entry }))] : [doc];
+  });
   function optionCount(doc: any): number {
     try { return traits.hasVariants(doc) ? catalogueEntries([doc], traits, { currency }).length : 0; } catch { return 0; }
   }
   // v2's variable-product-row.tsx: a trailing chevron drills in, as the row press does.
-  const drillChevron = (doc: any) => drillable(doc) ? <Pressable testID={`variable-product-drill-${traits.getId(doc)}`} accessibilityRole="button"
+  const drillChevron = (doc: any) => !expandable(doc) && drillable(doc) ? <Pressable testID={`variable-product-drill-${traits.getId(doc)}`} accessibilityRole="button"
     accessibilityLabel={traits.getName(doc)} className="min-h-11 min-w-11 items-center justify-center" onPress={() => tap(doc)}>
     <ChevronRightIcon size={20} className="text-muted-foreground" />
   </Pressable> : null;
@@ -232,6 +251,9 @@ export function CatalogueView({
       if (column?.id !== 'name') return column ? [column] : [];
       // v2's name cell (cells/name.tsx): a variable product's option count, muted, under its name.
       return [{ ...column, render: (doc: any) => {
+        const id = traits.getId(doc);
+        if (expandable(doc)) return <View>{column.render(doc)}<ProductAttributes id={doc.id} attributes={doc.attributes} count={optionCount(doc)}
+          expanded={expanded.has(id)} onDrill={match => toggleRow(id, match ? true : undefined)} /></View>;
         const n = optionCount(doc);
         return n < 1 ? column.render(doc) : <View>{column.render(doc)}
           <Text testID={`product-options-${traits.getId(doc)}`} className="text-sm text-muted-foreground">{optionsLabel(n)}</Text>
@@ -246,7 +268,14 @@ export function CatalogueView({
     } });
     // Without onAddEntry nothing drills, so the column would stay empty.
     else if (onAddEntry) visible.push({ id: 'drill', header: '', flex: 0.4, render: drillChevron });
-    return visible;
+    return visible.map(column => ({ ...column, render: (item: any) => {
+      if (!isVariationRow(item)) return column.render(item);
+      if (column.id === 'name') return <View className="pl-6"><VariationChips entry={item.entry} /></View>;
+      if (column.id === 'price') return <VariationMoney entry={item.entry} />;
+      if (column.id === 'in_cart') return <InCartBadge count={inCartCounts!.get(item.entry.variant.id) ?? 0}
+        testID={`in-cart-variation-row-${item.entry.variant.id}`} />;
+      return null;
+    } }));
   })();
   const queryState = { filters, search: term, sort };
   // v2's `active` (filter-bar.tsx:495-503): set filters that differ from the baseline; an open level's place is not one.
@@ -444,12 +473,12 @@ export function CatalogueView({
           />
           {levelEmpty && <View testID="browse-level-empty" className="items-center justify-center p-4">{emptyState}</View>}
         </View> : <ProductTable
-          items={items}
+          items={tableItems}
           sortItems={false}
           columns={columns}
           sort={sort}
           onSortChange={next => { dispatch({ type: 'sortSettingChanged' }); setViewState({ ...viewState, sort: next }); }}
-          onSelect={onSelect || onAddEntry ? tap : undefined}
+          onSelect={onSelect || onAddEntry ? item => isVariationRow(item) ? onAddEntry?.(item.entry) : tap(item) : undefined}
           {...slots(crumb)}
           emptyState={emptyState}
         />)}

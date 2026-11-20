@@ -80,15 +80,6 @@ test('with no variationsStyle stored the tap drills in, with no popover', () => 
   expect(popover()).toBeNull();
 });
 
-test('in the table inline mode still drills in on a row click', () => {
-  view({ browseBy: 'all', variationsStyle: 'inline', view: 'table' });
-  const { onSelect } = renderView();
-  fireEvent.click(screen.getByText('T-Shirt'));
-  expect(onSelect).not.toHaveBeenCalled();
-  expect(screen.getByTestId('catalogue-variations-table')).not.toBeNull();
-  expect(popover()).toBeNull();
-});
-
 test('Escape closes an open popover without adding', () => {
   const { onAddEntry } = renderView();
   openPopover();

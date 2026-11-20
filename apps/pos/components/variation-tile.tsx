@@ -47,6 +47,14 @@ function useVariationParts(entry: CatalogueEntry<any>) {
   };
 }
 
+export function VariationChips({ entry }: { entry: CatalogueEntry<any> }): JSX.Element | null {
+  return useVariationParts(entry).chips || null;
+}
+
+export function VariationMoney({ entry }: { entry: CatalogueEntry<any> }): JSX.Element | null {
+  return useVariationParts(entry).money || null;
+}
+
 /**
  * v2's VariationTile: the parent's picture, its name small and muted, the variation's values as v2's OptionChips,
  * then its price in bold, or Sold out over a greyed picture. The tile is the add control.
