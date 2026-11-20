@@ -78,18 +78,29 @@ test('an empty level still shows the parent tile, with the empty state under it'
   expect(footer()).toBe('0 products');
 });
 
-test('a search with no match inside a level keeps the parent tile and shows the empty state', () => {
+test('a search with no match inside a level names the parent tile count, place and conditions', () => {
   render(<CatalogueView {...props} />);
   fireEvent.click(screen.getByTestId('browse-term-25'));
   fireEvent.change(screen.getByPlaceholderText('Search products'), { target: { value: 'T-Shirt' } });
   expect(slots()).toEqual(['browse-parent-tile']);
-  expect(within(screen.getByTestId('browse-level-empty')).getByTestId('no-data-message-title').textContent).toBe('Nothing here matches the filters');
+  expect(screen.getByTestId('browse-parent-tile').textContent).toBe('Coffee2 products');
+  expect(within(screen.getByTestId('browse-level-empty')).getByTestId('no-data-message-title').textContent)
+    .toBe('None of the 2 products in Coffee match “T-Shirt”, In Stock');
 });
 
 test('a level with products shows no empty state', () => {
   render(<CatalogueView {...props} />);
   fireEvent.click(screen.getByTestId('browse-term-25'));
   expect(screen.queryByTestId('browse-level-empty')).toBeNull();
+});
+
+test('a category search with no matches uses the parent tile baseline count', () => {
+  render(<CatalogueView {...props} products={[...products, { ...products[0], id: 90, stock_status: 'outofstock' }]} />);
+  fireEvent.click(screen.getByTestId('browse-term-25'));
+  expect(screen.getByTestId('browse-parent-tile').textContent).toBe('Coffee2 products');
+  fireEvent.change(screen.getByPlaceholderText('Search products'), { target: { value: 'missing' } });
+  expect(within(screen.getByTestId('browse-level-empty')).getByTestId('no-data-message-title').textContent)
+    .toBe('None of the 2 products in Coffee match “missing”, In Stock');
 });
 
 test('the footer counts the level\'s products, not the parent tile', () => {
