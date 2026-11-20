@@ -1,6 +1,7 @@
 // v2's "Update the POS app" gate on the store's 426 wcpos_update_required refusal (update-app-gate).
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import * as ReactNative from 'react-native';
 import { isTillUpdateRequired, UpdateRequiredGate } from '../components/update-required';
 
 const mocks = vi.hoisted(() => ({
@@ -65,6 +66,25 @@ test('Log out calls the sign-out handler', async () => {
   renderGate();
   await act(async () => { fireEvent.click(screen.getByTestId('update-required-logout')); });
   expect(mocks.signOut).toHaveBeenCalledTimes(1);
+});
+
+test('the till-update docs link shows its code and opens the SYNC341 docs', () => {
+  const open = vi.spyOn(ReactNative.Linking, 'openURL').mockResolvedValue(true);
+  mocks.notice = TILL_UPDATE;
+  renderGate();
+  const link = screen.getByTestId('update-required-docs-link-SYNC341');
+  expect(link.textContent).toContain('Learn more');
+  expect(link.textContent).toContain('· SYNC341');
+  fireEvent.click(link);
+  expect(open).toHaveBeenCalledExactlyOnceWith('https://docs.wcpos.com/error-codes/SYNC341');
+  open.mockRestore();
+});
+
+test('the till-update docs link comes after Log out', () => {
+  mocks.notice = TILL_UPDATE;
+  renderGate();
+  const link = screen.getByTestId('update-required-docs-link-SYNC341');
+  expect(screen.getByTestId('update-required-logout').compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
 test('with no notice or another notice the screens render as now', () => {

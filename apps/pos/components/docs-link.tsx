@@ -11,8 +11,8 @@ export const SCAN_TEST_DOCS_URL = 'https://docs.wcpos.com/hardware/scanners/setu
 export const OpenExternalIcon = createSvgIcon('OpenExternalIcon', () => <Path d="M12 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6m-7 1 9-9m-5 0h5v5" />);
 
 /** v2 components/docs-link/index.tsx: the one way the app links out to documentation, opened in the system browser. */
-export function DocsLink({ href, children, testID, className }: {
-  href: string; children: string; testID?: string; className?: string;
+export function DocsLink({ href, children, testID, className, code }: {
+  href: string; children: string; testID?: string; className?: string; code?: string;
 }): JSX.Element {
   return (
     <Button variant="link" size="sm" accessibilityRole="link" testID={testID}
@@ -21,6 +21,8 @@ export function DocsLink({ href, children, testID, className }: {
       {/* v2 docs-link/index.tsx:38-47: the label, then the ↗ at Icon size `xs` (size-3.5: 14) in an xs (gap-1) HStack. */}
       <View className="flex-row items-center gap-1">
         <Text>{children}</Text>
+        {/* v2 components/docs-link/index.tsx: optional error code after the label. */}
+        {code ? <Text className="text-muted-foreground">{`· ${code}`}</Text> : null}
         <OpenExternalIcon testID={testID ? `${testID}-icon` : undefined} size={14} strokeWidth={1.5} className="text-primary" />
       </View>
     </Button>
