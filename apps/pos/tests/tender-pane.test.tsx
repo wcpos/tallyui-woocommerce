@@ -134,6 +134,54 @@ test('keypad clear and backspace edit the entry in minor units and an entry unde
   expect(disabled()).toBe('true');
 }, 20_000);
 
+test('web: the tender pane takes focus and typed digits, Backspace and Clear drive the keypad', async () => {
+  await startTender('Cash');
+  const pane = screen.getByTestId('checkout-tender');
+  expect(document.activeElement).toBe(pane);
+  expect(fireEvent.keyDown(pane, { key: 'Clear' })).toBe(false);
+  expect(text('checkout-entry')).toBe('$0.00');
+  expect(fireEvent.keyDown(pane, { key: '2' })).toBe(false);
+  expect(fireEvent.keyDown(pane, { key: '5' })).toBe(false);
+  expect(text('checkout-entry')).toBe('$0.25');
+  expect(fireEvent.keyDown(pane, { key: 'Backspace' })).toBe(false);
+  expect(text('checkout-entry')).toBe('$0.02');
+  expect(fireEvent.keyDown(screen.getByTestId('checkout-entry'), { key: '5' })).toBe(false);
+  expect(text('checkout-entry')).toBe('$0.25');
+  expect(fireEvent.keyDown(screen.getByTestId('checkout-tender'), { key: '0' })).toBe(false);
+  expect(text('checkout-entry')).toBe('$2.50');
+}, 20_000);
+
+test('web: modifier shortcuts, Enter and other keys are left to the browser', async () => {
+  const send = await startTender('Cash');
+  const pane = screen.getByTestId('checkout-tender');
+  for (const event of [{ key: '5', metaKey: true }, { key: '5', ctrlKey: true }, { key: '5', altKey: true }, { key: 'Enter' }, { key: 'a' }]) {
+    expect(fireEvent.keyDown(pane, event)).toBe(true);
+    expect(text('checkout-entry')).toBe('$3.00');
+  }
+  expect(send).not.toHaveBeenCalled();
+}, 20_000);
+
+test('web: keys typed in the terminal reference field stay in the field', async () => {
+  await startTender('Card terminal');
+  expect(fireEvent.keyDown(screen.getByLabelText('Terminal reference'), { key: '5' })).toBe(true);
+  expect(text('checkout-entry')).toBe('$3.00');
+}, 20_000);
+
+test('while the sale saves, typed keys and the on-screen keypad do nothing', async () => {
+  await startTender('Cash');
+  const release = holdSave();
+  fireEvent.click(screen.getByTestId('checkout-commit'));
+  expect(fireEvent.keyDown(screen.getByTestId('checkout-tender'), { key: 'Clear' })).toBe(true);
+  expect(text('checkout-entry')).toBe('$3.00');
+  for (const key of screen.getAllByTestId(/^checkout-keypad-key-/)) {
+    expect(key.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(key);
+    expect(text('checkout-entry')).toBe('$3.00');
+  }
+  release();
+  expect(await screen.findByTestId('receipt-order')).not.toBeNull();
+}, 20_000);
+
 test('card refuses an over-tender and takes the total with the terminal reference', async () => {
   const send = await startTender('Card terminal');
   expect(screen.getByTestId('checkout-method-pos_card').getAttribute('aria-selected')).toBe('true');
