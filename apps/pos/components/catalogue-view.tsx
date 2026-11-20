@@ -35,7 +35,7 @@ import { DrawerSheet } from './drawer-content';
 import { EmptyState } from './empty-state';
 import { FilterBarDialog } from './filter-bar-dialog';
 import { ChevronRightIcon } from './icons';
-import { InCartBadge } from './in-cart-badge';
+import { InCartAdd, InCartBadge } from './in-cart-badge';
 import { InlineVariableTile } from './inline-variable-tile';
 import { LevelBack } from './level-back';
 import { ProductAttributes } from './product-attributes';
@@ -264,6 +264,9 @@ export function CatalogueView({
       const id = connector.traits.product.getId(doc);
       const badge = <InCartBadge count={inCartCounts.get(id) ?? 0} testID={`in-cart-row-${id}`} />;
       const chevron = drillChevron(doc);
+      // v2's product-row.tsx:55-68: the trailing add control uses the row's add path.
+      if (!chevron && !expandable(doc) && (onSelect || onAddEntry)) return <InCartAdd count={inCartCounts.get(id) ?? 0} testID={`in-cart-row-${id}`}
+        pressTestID={`in-cart-press-row-${id}`} addTestID={`add-to-cart-row-${id}`} onAdd={() => tap(doc)} />;
       return chevron ? <View className="flex-row items-center justify-end">{badge}{chevron}</View> : badge;
     } });
     // Without onAddEntry nothing drills, so the column would stay empty.
@@ -272,8 +275,9 @@ export function CatalogueView({
       if (!isVariationRow(item)) return column.render(item);
       if (column.id === 'name') return <View className="pl-6"><VariationChips entry={item.entry} /></View>;
       if (column.id === 'price') return <VariationMoney entry={item.entry} />;
-      if (column.id === 'in_cart') return <InCartBadge count={inCartCounts!.get(item.entry.variant.id) ?? 0}
-        testID={`in-cart-variation-row-${item.entry.variant.id}`} />;
+      if (column.id === 'in_cart') return <InCartAdd count={inCartCounts!.get(item.entry.variant.id) ?? 0}
+        testID={`in-cart-variation-row-${item.entry.variant.id}`} pressTestID={`in-cart-press-variation-row-${item.entry.variant.id}`}
+        addTestID={`add-to-cart-variation-row-${item.entry.variant.id}`} onAdd={() => onAddEntry?.(item.entry)} />;
       return null;
     } }));
   })();
@@ -441,7 +445,8 @@ export function CatalogueView({
         <View testID="register-products" className={`flex-1${locked === 'counting' ? ' opacity-40' : ''}`}>
         {/* v2's drill-in.tsx in the table: the variations as rows under the crumb. */}
         {levelBack(drilled && viewState.view === 'table' ? <ScrollView testID="catalogue-variations-table" className="flex-1">
-          {drillEntries.map(entry => <VariationRow key={entry.variant.id} entry={entry} parentName={traits.getName(drilled)} onPress={() => onAddEntry?.(entry)} />)}
+          {drillEntries.map(entry => <VariationRow key={entry.variant.id} entry={entry} parentName={traits.getName(drilled)} onPress={() => onAddEntry?.(entry)}
+            inCart={inCartCounts ? inCartCounts.get(entry.variant.id) ?? 0 : undefined} />)}
         </ScrollView>
         : drilled ? <ProductGrid
           className={gridGutter}

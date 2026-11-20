@@ -209,6 +209,32 @@ test('in the table a variation row adds that entry, and the drill-in stays', () 
   expect(variationRows()).toEqual(['variation-row-104', 'variation-row-105', 'variation-row-106']);
 });
 
+test('drilled-in table add buttons and in-cart counts each add one variation', () => {
+  view({ browseBy: 'all', view: 'table' });
+  const { onAddEntry, onSelect } = renderView(undefined, { inCartCounts: new Map([['105', 2]]) });
+  expect(screen.getByTestId('variable-product-drill-102')).not.toBeNull();
+  expect(screen.queryByTestId('add-to-cart-row-102')).toBeNull();
+  fireEvent.click(screen.getByText('T-Shirt'));
+  const add = screen.getByTestId('add-to-cart-variation-row-104');
+  expect(add.getAttribute('aria-label')).toBe('Add to Cart');
+  fireEvent.click(add);
+  expect(onAddEntry).toHaveBeenCalledTimes(1);
+  expect(onAddEntry.mock.calls[0][0].variant.id).toBe('104');
+  expect(screen.queryByTestId('add-to-cart-variation-row-105')).toBeNull();
+  expect(screen.getByTestId('in-cart-variation-row-105').textContent).toBe('2');
+  fireEvent.click(screen.getByTestId('in-cart-press-variation-row-105'));
+  expect(onAddEntry).toHaveBeenCalledTimes(2);
+  expect(onAddEntry.mock.calls[1][0].variant.id).toBe('105');
+  expect(onSelect).not.toHaveBeenCalled();
+});
+
+test('drilled-in table rows without in-cart counts have no add button', () => {
+  view({ browseBy: 'all', view: 'table' });
+  renderView();
+  fireEvent.click(screen.getByText('T-Shirt'));
+  expect(screen.queryByTestId('add-to-cart-variation-row-104')).toBeNull();
+});
+
 test('in the table the trailing chevron drills in the same way', () => {
   view({ browseBy: 'all', view: 'table' });
   const { onSelect } = renderView();

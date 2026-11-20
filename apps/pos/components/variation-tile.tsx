@@ -9,7 +9,7 @@ import type { CatalogueTileFields } from '../lib/catalogue/catalogue-view-state'
 import { formatTileMoney, tileStockMark } from '../lib/catalogue/tile-words';
 import type { TileTax } from '../lib/catalogue/tile-words';
 import { ChevronLeftIcon } from './icons';
-import { InCartBadge } from './in-cart-badge';
+import { InCartAdd, InCartBadge } from './in-cart-badge';
 import { ProductTile, TilePoster } from './product-tile';
 import { StockPill } from './stock-pill';
 
@@ -83,8 +83,9 @@ export function VariationTile({ entry, fields, inCart = 0, onPress }: { entry: C
  * v2's drilled-in table (drill-in.tsx): one row per variation, its values then its price or Sold out. The row adds it.
  * With `parentName` (the drill-in passes it, as v2's pane provides VariationParentNameContext), the parent's name sits
  * small and muted above the chips (v2 cells/variation-name.tsx:48-53); without it, none.
+ * v2's variation-row.tsx:45-60: the trailing in-cart control adds without also pressing the row.
  */
-export function VariationRow({ entry, parentName, onPress }: { entry: CatalogueEntry<any>; parentName?: string; onPress(): void }): JSX.Element {
+export function VariationRow({ entry, parentName, inCart, onPress }: { entry: CatalogueEntry<any>; parentName?: string; inCart?: number; onPress(): void }): JSX.Element {
   const { id, label, chips, money } = useVariationParts(entry);
   return <Pressable accessibilityRole="button" accessibilityLabel={label} testID={`variation-row-${id}`} onPress={onPress}
     className="min-h-11 flex-row items-center gap-3 border-b border-border px-3 py-2">
@@ -93,5 +94,7 @@ export function VariationRow({ entry, parentName, onPress }: { entry: CatalogueE
       {chips}
     </View>
     {money}
+    {inCart !== undefined && <InCartAdd count={inCart} testID={`in-cart-variation-row-${id}`}
+      pressTestID={`in-cart-press-variation-row-${id}`} addTestID={`add-to-cart-variation-row-${id}`} onAdd={onPress} />}
   </Pressable>;
 }

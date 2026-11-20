@@ -103,6 +103,16 @@ test("the in-cart column shows a variation row's own count", () => {
   expect(screen.getByTestId('in-cart-variation-row-105').textContent).toBe('2');
 });
 
+test('an expanded variation add button adds once and keeps the rows expanded', () => {
+  const { onAddEntry } = renderView(undefined, { inCartCounts: new Map() });
+  fireEvent.click(screen.getByTestId('product-row-102'));
+  fireEvent.click(screen.getByTestId('add-to-cart-variation-row-106'));
+  expect(onAddEntry).toHaveBeenCalledTimes(1);
+  expect(onAddEntry.mock.calls[0][0].variant.id).toBe('106');
+  expect(toggle().getAttribute('aria-expanded')).toBe('true');
+  expect(screen.queryByTestId('add-to-cart-row-102')).toBeNull();
+});
+
 test('the footer still counts products, not variation rows', () => {
   renderView([products[0], products[1], shirt]);
   search('T-Shirt');
