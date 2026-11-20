@@ -38,6 +38,7 @@ function renderView(items: unknown[] = [products[0], shirt], extra: Partial<Cata
 }
 const variationRows = () => screen.queryAllByTestId(/^product-row-variation-/);
 const toggle = () => within(screen.getByTestId('product-row-102')).getByTestId('variable-product-expand');
+const search = (value: string) => fireEvent.change(screen.getByPlaceholderText('Search products'), { target: { value } });
 
 test('the variable row shows its attribute rows and a collapsed "3 variations" toggle instead of options', () => {
   renderView();
@@ -103,10 +104,12 @@ test("the in-cart column shows a variation row's own count", () => {
 });
 
 test('the footer still counts products, not variation rows', () => {
-  renderView();
-  const before = screen.getByTestId('data-table-count').textContent;
+  renderView([products[0], products[1], shirt]);
+  search('T-Shirt');
+  expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 1 of 3');
   fireEvent.click(screen.getByTestId('product-row-102'));
-  expect(screen.getByTestId('data-table-count').textContent).toBe(before);
+  expect(variationRows()).toHaveLength(3);
+  expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 1 of 3');
 });
 
 test('a product with an "Any" variant does not expand and keeps onSelect', () => {
