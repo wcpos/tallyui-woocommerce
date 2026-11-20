@@ -1,6 +1,5 @@
 // v2 core screens/main/update-required.tsx (GateScreen tone="warning", components gate-screen/index.tsx): the store's 426
-// wcpos_update_required refusal, this app older than the store's plugin accepts. No Logo (the app has no mark) and no
-// docs link (the app has no error-code docs).
+// wcpos_update_required refusal, this app older than the store's plugin accepts. No Logo (the app has no mark).
 import type { JSX, ReactNode } from 'react';
 import { Platform, ScrollView, View } from 'react-native';
 import { Path } from 'react-native-svg';
@@ -8,7 +7,10 @@ import { Button, Card, createSvgIcon, Text } from '@tallyui/components';
 import { useSession } from '../lib/auth/session-context';
 import { useCatalogue } from '../lib/catalogue/catalogue-context';
 import { useIsWide } from '../lib/layout/wide';
+import { errorCodeDocUrl } from '../lib/logs/error-code-docs';
+import { DocsLink } from './docs-link';
 
+const CODE = 'SYNC341'; // v2 core screens/main/update-required.tsx:11.
 // v2 tone-disc warning glyph (tabler `warning`).
 const WarningGlyph = createSvgIcon('WarningGlyph', () => <Path d="M12 9v4m-1.637-9.409L2.257 17.125a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636-2.87L13.637 3.59a1.914 1.914 0 0 0-3.274 0M12 16h.01" />);
 
@@ -35,6 +37,7 @@ export function UpdateRequired({ onLogout }: { onLogout(): void }): JSX.Element 
           {web && <Button testID="update-required-reload" className="w-full" onPress={() => window.location.reload()}><Text>Reload</Text></Button>}
           <Button variant="outline" testID="update-required-logout" className="w-full" onPress={onLogout}><Text>Log out</Text></Button>
         </View>
+        <DocsLink testID="update-required-docs-link-SYNC341" href={errorCodeDocUrl(CODE)} code={CODE} className="self-center">Learn more</DocsLink>
       </Card>
     </ScrollView>
   );
