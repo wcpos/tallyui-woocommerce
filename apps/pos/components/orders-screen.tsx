@@ -16,6 +16,7 @@ import { OrderDetailSheet, orderPaymentState } from './order-detail';
 import { ReceiptCopyLine } from './receipt-identity';
 import { ReceiptPrintSheet } from './receipt-print-sheet';
 import { ReceiptStoreLine } from './receipt-store-line';
+import { ReceiptSyncOrder } from './receipt-sync-order';
 import { ReceiptZoom } from './receipt-zoom';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { useReceiptPrintCount } from '../lib/receipts/use-receipt-print-count';
@@ -60,6 +61,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
   const copies = useReceiptPrintCount(receiptId);
   // TallyUI's top Reprint line stays off: the app's copy line, in the footer, carries it after the totals as v2's does.
   const receipt = opened && { ...opened.data, fiscal: { ...opened.data.fiscal, is_reprint: false, reprint_count: 0 } };
+  const liveOpened = opened?.posOrder && ((outbox.enabled && outbox.recent.find(o => o.id === opened.posOrder!.id)) || opened.posOrder);
 
   async function loadPage(nextPage: number, query: string) {
     const mine = ++request.current;
@@ -156,9 +158,10 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
         ? opened
           ? <View className="min-h-0 flex-1 px-4 pb-4">{opened.storeOrder && <NotPaidLine order={opened.storeOrder} />}<ReceiptZoom><ReceiptPrintSheet orderId={opened.posOrder?.id ?? opened.data.header.orderNumber}>
             {/* The live copy: a sale that reaches the store while its receipt is open loses the line. */}
-            <ReceiptStoreLine posOrder={opened.posOrder && (outbox.recent.find(o => o.id === opened.posOrder!.id) || opened.posOrder)} />
+            <ReceiptStoreLine posOrder={liveOpened} />
             <Receipt receipt={receipt!} posOrder={opened.posOrder} newSale={() => setOpened(null)} doneLabel="Back"
-              footerSlot={copies > 0 ? <ReceiptCopyLine count={copies} /> : undefined} /></ReceiptPrintSheet></ReceiptZoom></View>
+              footerSlot={copies > 0 ? <ReceiptCopyLine count={copies} /> : undefined} /></ReceiptPrintSheet></ReceiptZoom>
+            <ReceiptSyncOrder posOrder={liveOpened} onRequeue={ids => (outbox.enabled ? outbox.requeue(ids) : Promise.resolve(0))} /></View>
           : local.length === 0 && orders.length === 0 && !failed && !loading
             ? search !== '' || filtered
               ? <EmptyState kind="no-results" title="No orders match these filters" action={{ label: 'Clear filters', onPress: clear }} />

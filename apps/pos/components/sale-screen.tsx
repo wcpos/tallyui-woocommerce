@@ -56,6 +56,7 @@ import { StoreReceipt } from './store-receipt';
 import { ReceiptTemplateRow } from './receipt-template-row';
 import { ReceiptPaidMoment } from './receipt-paid-moment';
 import { ReceiptStoreLine } from './receipt-store-line';
+import { ReceiptSyncOrder } from './receipt-sync-order';
 import { useReceiptSettings } from '../lib/receipts/receipt-settings';
 import { RegisterControls } from './register-controls';
 import { CancelPaymentView } from './cancel-payment-view';
@@ -406,6 +407,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           </>}
           </ReceiptPrintSheet>
           </ReceiptZoom>
+          {outbox.enabled ? <ReceiptSyncOrder posOrder={receiptOrder} onRequeue={ids => (outbox.enabled ? outbox.requeue(ids) : Promise.resolve(0))} /> : null}
           {mailer && receiptEmails && outbox.enabled ? <ReceiptEmail collection={receiptEmails}
             orderId={sale.stage.posOrder.id} defaultEmail={sale.stage.order.customer?.email ?? ''}
             localOnly={!receiptOrder.serverRefs?.orderId} /> : null}
