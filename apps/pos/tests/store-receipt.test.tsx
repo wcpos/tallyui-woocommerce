@@ -25,6 +25,7 @@ import { EMPTY_CART_TEXT } from './cart-line-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 
 const html = (id: string, body: string): ReceiptTemplate => ({ id, kind: 'receipt', title: id, engine: 'html', dataModel: 'wcpos', body });
+const thermal = (id: string, body: string): ReceiptTemplate => ({ id, kind: 'receipt', title: id, engine: 'thermal', paper: '80mm', dataModel: 'wcpos', body });
 const marked = html('g12', '<h1>{{store.name}}</h1><p>G12-MARKER</p>{{#lines}}<p>{{name}}</p>{{/lines}}');
 
 const order: PosOrder = {
@@ -195,10 +196,46 @@ test('the Template row keeps one line off a phone and stacks the key above the s
   expect(screen.getByTestId('receipt-template-select').textContent).toBe('g12');
 });
 
+test('with HTML templates the Printer row names the browser dialog without a mismatch note', () => {
+  render(<ReceiptTemplateRow templates={[marked, second]} selectedId="g12" onSelect={() => {}} />);
+  expect(within(screen.getByTestId('receipt-printer-row')).getByText('Printer')).not.toBeNull();
+  expect(screen.getByTestId('receipt-printer-value').textContent).toBe('Browser print dialog');
+  expect(screen.queryByTestId('receipt-printer-mismatch')).toBeNull();
+});
+
+test('the mismatch note follows the selected thermal template and disappears for HTML', () => {
+  const templates = [marked, thermal('thermal', 'Receipt')];
+  const { rerender } = render(<ReceiptTemplateRow templates={templates} selectedId="thermal" onSelect={() => {}} />);
+  expect(screen.getByTestId('receipt-printer-mismatch').textContent).toBe(
+    'This thermal template will print its on-screen preview through the print dialog. To print it as designed, choose an HTML template.');
+  rerender(<ReceiptTemplateRow templates={templates} selectedId="g12" onSelect={() => {}} />);
+  expect(screen.queryByTestId('receipt-printer-mismatch')).toBeNull();
+});
+
+test('the Template row precedes the Printer row, which precedes the mismatch note', () => {
+  render(<ReceiptTemplateRow templates={[marked, thermal('thermal', 'Receipt')]} selectedId="thermal" onSelect={() => {}} />);
+  const template = screen.getByTestId('receipt-template-row');
+  const printer = screen.getByTestId('receipt-printer-row');
+  const mismatch = screen.getByTestId('receipt-printer-mismatch');
+  expect(template.compareDocumentPosition(printer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(printer.compareDocumentPosition(mismatch) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+test('the Printer row keeps one line off a phone and stacks the key above the value on a phone', () => {
+  const row = () => render(<ReceiptTemplateRow templates={[marked]} selectedId="g12" onSelect={() => {}} />);
+  row();
+  expect(classesOf('receipt-printer-row')).toEqual(expect.arrayContaining(['flex-row', 'items-center']));
+  cleanup();
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
+  row();
+  expect(classesOf('receipt-printer-row')).not.toContain('flex-row');
+});
+
 test('with one store template the receipt shows its title and no select', async () => {
   await sellEspresso(async () => [marked]);
   await screen.findByTestId('store-receipt-frame');
   expect(screen.getByTestId('receipt-template-title').textContent).toBe('g12');
+  expect(screen.getByTestId('receipt-printer-value').textContent).toBe('Browser print dialog');
   expect(screen.queryByTestId('receipt-template-select')).toBeNull();
 }, 20_000);
 
@@ -211,6 +248,7 @@ test('the printed area carries the chosen template, not the first', async () => 
   await waitFor(() => expect(within(area).getByTestId('store-receipt-frame').getAttribute('srcdoc')).toContain('SECOND-MARKER'));
   expect(within(area).getByTestId('store-receipt-frame').getAttribute('srcdoc')).not.toContain('G12-MARKER');
   expect(within(area).queryByTestId('receipt-template-row')).toBeNull();
+  expect(within(area).queryByTestId('receipt-printer-row')).toBeNull();
   const print = vi.spyOn(window, 'print').mockImplementation(() => {});
   fireEvent.click(screen.getByTestId('store-receipt-print'));
   expect(print).toHaveBeenCalledTimes(1);
