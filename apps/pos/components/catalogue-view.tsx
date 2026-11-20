@@ -1,10 +1,9 @@
 import { useMemo, useReducer, useState } from 'react';
 import type { ComponentProps, JSX, ReactNode } from 'react';
 import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
-import { Path } from 'react-native-svg';
 import { ConnectorProvider } from '@tallyui/core';
 import type { TallyConnector } from '@tallyui/core';
-import { Button, CameraScanButton, CameraScannerPanel, createSvgIcon, defaultProductColumns, IconButton, ProductGrid, ProductTable, SearchInput, Text } from '@tallyui/components';
+import { Button, CameraScanButton, CameraScannerPanel, defaultProductColumns, ProductGrid, ProductTable, SearchInput, Text } from '@tallyui/components';
 import type { ProductTableColumn } from '@tallyui/components';
 import { catalogueEntries, productSortValue, resolveGridColumns, searchProducts, sortProducts } from '@tallyui/pos';
 import type { CatalogueEntry } from '@tallyui/pos';
@@ -44,11 +43,9 @@ import { ProductTile } from './product-tile';
 import { ClearAllButton, QuickFilterChip, SaveAsButton } from './quick-filter-bar';
 import type { QuickFilterMenu } from './quick-filter-bar';
 import { RegisterBarShell } from './register-bar-shell';
+import { SyncButton } from './table-surface';
 import { ParentTile, VariationChips, VariationMoney, VariationRow, VariationTile } from './variation-tile';
 import { ViewModeToggle } from './view-mode-toggle';
-
-const SyncIcon = createSvgIcon('SyncIcon', () => <><Path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><Path d="M21 3v5h-5" />
-  <Path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><Path d="M8 16H3v5" /></>);
 
 // Slot 0 of a level's grid, the opened place's own tile: an id no product carries, for the grid's key.
 const PARENT_SLOT_ID = 'browse-parent';
@@ -492,8 +489,7 @@ export function CatalogueView({
         <View testID="data-table-caption-row" className="flex-row items-center gap-2 px-3 py-2">
           <View className="flex-1" />
           <Text testID="data-table-count" className="text-sm text-muted-foreground">{countLabel}</Text>
-          {onSync ? <IconButton testID="catalogue-sync" accessibilityRole="button" accessibilityLabel="Sync" variant="ghost" size="sm"
-            disabled={syncing || syncPending} onPress={sync}><SyncIcon size={16} /></IconButton> : null}
+          {onSync ? <SyncButton testID="catalogue-sync" size={16} active={syncing || syncPending} onSync={sync} /> : null}
         </View>
         </View>
       </View>

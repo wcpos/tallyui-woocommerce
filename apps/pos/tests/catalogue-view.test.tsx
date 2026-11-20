@@ -142,20 +142,26 @@ test('the footer count shows syncing and a failed sync', () => {
   expect(screen.getByTestId('data-table-count').textContent).toBe('Sync failed');
 });
 
-test('Sync calls onSync once and stays disabled while it is pending or the catalogue is syncing', async () => {
+test('Sync calls onSync once and turns, never disabled, while it is pending or the catalogue is syncing', async () => {
   let finish!: () => void;
   const onSync = vi.fn(() => new Promise<void>(resolve => { finish = resolve; }));
   const { rerender } = render(<CatalogueView {...props} onSync={onSync} />);
   const button = () => screen.getByTestId('catalogue-sync');
   expect(button().getAttribute('aria-disabled')).not.toBe('true');
+  expect(screen.queryByTestId('catalogue-sync-active')).toBeNull();
   fireEvent.click(button());
   fireEvent.click(button());
   expect(onSync).toHaveBeenCalledOnce();
-  expect(button().getAttribute('aria-disabled')).toBe('true');
+  expect(button().getAttribute('aria-disabled')).not.toBe('true');
+  expect(screen.queryByTestId('catalogue-sync-active')).not.toBeNull();
   await act(async () => { finish(); });
   expect(button().getAttribute('aria-disabled')).not.toBe('true');
+  expect(screen.queryByTestId('catalogue-sync-active')).toBeNull();
   rerender(<CatalogueView {...props} onSync={onSync} status="syncing" />);
-  expect(button().getAttribute('aria-disabled')).toBe('true');
+  expect(button().getAttribute('aria-disabled')).not.toBe('true');
+  expect(screen.queryByTestId('catalogue-sync-active')).not.toBeNull();
+  fireEvent.click(button());
+  expect(onSync).toHaveBeenCalledOnce();
 });
 
 test('a rejected sync is caught and frees the button', async () => {
