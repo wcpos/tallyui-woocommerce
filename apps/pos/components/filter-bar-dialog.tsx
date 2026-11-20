@@ -20,11 +20,14 @@ const PILL_ICONS = { stock_status: WarehouseIcon, on_sale: CurrencyIcon, categor
 type Editing = { mode: 'new' } | { mode: 'edit'; quickFilter: QuickFilter } | null;
 
 /** Controlled: v2 opens it from Product settings › Customise filter bar (ui-settings-form.tsx), not from the chip row. */
-export function FilterBarDialog({ open, onOpenChange, quickFilters, onChange, hiddenPills, onShowPill, products, connector, currency, baselineSort, captured = null, start = null }: {
+export function FilterBarDialog({ open, onOpenChange, quickFilters, onChange, order, onOrderChange, hiddenPills, onShowPill, products, connector, currency, baselineSort, captured = null, start = null }: {
   open: boolean;
   onOpenChange(open: boolean): void;
   quickFilters: QuickFilter[];
   onChange(next: QuickFilter[]): void;
+  /** v2's one ordered list of pills and quick filters (filter-bar-list.tsx:36-68). */
+  order: readonly string[];
+  onOrderChange(next: string[]): void;
   /** v2's pill rows (filter-bar-list.tsx:28-55): the built-ins switched off, and showPill. */
   hiddenPills: readonly BuiltInPillId[];
   onShowPill(id: BuiltInPillId, show: boolean): void;
@@ -63,9 +66,9 @@ export function FilterBarDialog({ open, onOpenChange, quickFilters, onChange, hi
     setEditing(null);
   }
   function move(index: number, neighbour: number) {
-    const next = [...quickFilters];
+    const next = [...order];
     [next[index], next[neighbour]] = [next[neighbour], next[index]];
-    onChange(next);
+    onOrderChange(next);
   }
 
   return <>
@@ -78,17 +81,23 @@ export function FilterBarDialog({ open, onOpenChange, quickFilters, onChange, hi
             <View className="gap-2 md:w-2/5">
               {/* v2's hint (`pos_products.filter_bar_hint`) starts "Drag to reorder."; that sentence returns when the bar is draggable. */}
               <Text testID="filter-bar-list-hint" className="text-sm text-muted-foreground">Switch a filter off to take it off the bar.</Text>
-              {/* v2 lists the pills first (DEFAULT_FILTER_BAR); here they keep that fixed order, and only quick filters move. */}
-              {BUILT_IN_PILL_IDS.map(id => {
+              {/* v2's one list keeps built-in pills and quick filters in their saved order. */}
+              {order.map((itemId, index) => {
+                const id = itemId as BuiltInPillId;
                 const Icon = PILL_ICONS[id];
-                return <View key={id} testID={`filter-bar-pill-${id}`} className="min-h-9 flex-row items-center gap-2">
+                if (BUILT_IN_PILL_IDS.includes(id)) return <View key={id} testID={`filter-bar-pill-${id}`} className="min-h-9 flex-row items-center gap-2">
                   <Icon size={16} />
                   <Text className="flex-1" numberOfLines={1}>{BUILT_IN_PILL_LABELS[id]}</Text>
                   <Switch testID={`filter-bar-toggle-${id}`} size="sm" accessibilityLabel={BUILT_IN_PILL_LABELS[id]}
                     checked={!hiddenPills.includes(id)} onCheckedChange={show => onShowPill(id, show)} />
+                  <Button variant="ghost" testID={`filter-bar-move-up-${id}`} accessibilityLabel={`Move ${BUILT_IN_PILL_LABELS[id]} up`}
+                    disabled={index === 0} onPress={() => move(index, index - 1)}><Text>↑</Text></Button>
+                  <Button variant="ghost" testID={`filter-bar-move-down-${id}`} accessibilityLabel={`Move ${BUILT_IN_PILL_LABELS[id]} down`}
+                    disabled={index === order.length - 1} onPress={() => move(index, index + 1)}><Text>↓</Text></Button>
                 </View>;
-              })}
-              {quickFilters.map((qf, index) => <View key={qf.id} testID={`filter-bar-item-${qf.id}`} className="gap-1">
+                const qf = quickFilters.find(qf => qf.id === itemId);
+                if (!qf) return null;
+                return <View key={qf.id} testID={`filter-bar-item-${qf.id}`} className="gap-1">
                 <View>
                   <Text>{qf.label}</Text>
                   <Text className="text-sm text-muted-foreground">{describeQuickFilter(qf, formatPrice)}</Text>
@@ -98,12 +107,13 @@ export function FilterBarDialog({ open, onOpenChange, quickFilters, onChange, hi
                 <Button variant="ghost" testID={`filter-bar-move-up-${qf.id}`} accessibilityLabel={`Move ${qf.label} up`}
                   disabled={index === 0} onPress={() => move(index, index - 1)}><Text>↑</Text></Button>
                 <Button variant="ghost" testID={`filter-bar-move-down-${qf.id}`} accessibilityLabel={`Move ${qf.label} down`}
-                  disabled={index === quickFilters.length - 1} onPress={() => move(index, index + 1)}><Text>↓</Text></Button>
+                  disabled={index === order.length - 1} onPress={() => move(index, index + 1)}><Text>↓</Text></Button>
                 <Button variant="ghost" testID={`filter-bar-edit-${qf.id}`}
                   onPress={() => setEditing({ mode: 'edit', quickFilter: qf })}><Text>Edit</Text></Button>
                 <Button variant="ghost" testID={`filter-bar-delete-${qf.id}`} onPress={() => setDeleting(qf)}><Text>Delete</Text></Button>
                 </View>
-              </View>)}
+              </View>;
+              })}
               <Button variant="outline" testID="filter-bar-add-quick-filter" onPress={() => setEditing({ mode: 'new' })}>
                 <Text>Add quick filter</Text>
               </Button>

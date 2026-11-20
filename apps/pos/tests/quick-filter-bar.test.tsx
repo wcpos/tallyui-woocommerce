@@ -39,13 +39,14 @@ const quickFilters: QuickFilter[] = [
 test('no saved quick filters shows no filter bar', () => {
   localStorage.removeItem(QUICK_FILTERS_KEY);
   render(<CatalogueView {...props} />);
-  expect(screen.queryByTestId('quick-filter-bar')).toBeNull();
+  expect(screen.queryAllByTestId(/^quick-filter-(sale|coffee|cheap)$/)).toHaveLength(0);
   for (const product of products) expect(screen.getByText(product.name)).not.toBeNull();
 });
 
 test('saved quick filters show as buttons in order', () => {
   render(<CatalogueView {...props} />);
-  const buttons = within(screen.getByTestId('quick-filter-bar')).getAllByRole('button');
+  const buttons = within(screen.getByTestId('catalogue-chip-row')).getAllByRole('button')
+    .filter(button => button.getAttribute('data-testid')?.startsWith('quick-filter-'));
   expect(buttons.map(button => button.textContent)).toEqual(['On sale', 'Coffee cheapest first', 'Under 5']);
   expect(buttons.map(button => button.getAttribute('data-testid'))).toEqual(['quick-filter-sale', 'quick-filter-coffee', 'quick-filter-cheap']);
   for (const button of buttons) expect(button.getAttribute('aria-pressed')).toBe('false');
