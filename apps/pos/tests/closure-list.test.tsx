@@ -5,6 +5,8 @@ import { Text } from '@tallyui/components';
 import { formatMoney } from '@tallyui/core';
 import type { Closure } from '@tallyui/pos';
 import { ClosureList, ClosuresExportButton, resultText, resultTone, resultWord, signedMoney } from '../components/closure-list';
+import { cashierNameFor } from '../lib/auth/cashier-name';
+import { closuresCsv } from '../lib/reports/closures-csv';
 import { CARD_CLASSES } from './classes-of';
 
 afterEach(() => {
@@ -97,6 +99,34 @@ test('a row shows expected, counted, difference and result', () => {
   expect(screen.getByTestId('closure-result-c3').textContent).toBe('Over');
   expect(screen.getByTestId('closure-difference-c2').textContent).toBe('$0.00');
   expect(screen.getByTestId('closure-result-c2').textContent).toBe('Exact');
+});
+
+// v2 closure-list.tsx:265 reads the closer name stamped at close, as the panel, print and Closures CSV do.
+const closedBy = (id: string, by: string | null, stamp: string) => closure({ ...c4, id, closed_by: by, breakdowns: { register_name: 'This till', closed_by_name: stamp } });
+const subline = (id: string) => screen.getByTestId(`closure-subline-${id}`).textContent;
+
+test('a stamped closer name heads the subline even when the roster now names that cashier differently', () => {
+  render(<ClosureList {...props} rows={[closedBy('pat', 'u1', 'Pat')]} />);
+  expect(subline('pat')).toBe('09:00 → 12:30 · Pat');
+});
+
+test('with no stamped closer name the subline resolves the closer id, else reads Cashier', () => {
+  render(<ClosureList {...props} resolveCashierName={id => id === 'u1' ? 'Paul' : `Cashier #${id}`}
+    rows={[closedBy('paul', 'u1', ''), closedBy('ghost', 'u9', ''), closedBy('none', null, '')]} />);
+  expect(subline('paul')).toBe('09:00 → 12:30 · Paul');
+  expect(subline('ghost')).toBe('09:00 → 12:30 · Cashier #u9');
+  expect(subline('none')).toBe('09:00 → 12:30 · Cashier');
+});
+
+test('the list subline and the Closures CSV name the same closer', () => {
+  const cashiers = [{ id: '5', name: 'Ann' }];
+  const closures = [closure({ ...closedBy('stamped', '5', 'Pat'), number: 1 }), closure({ ...closedBy('unstamped', '5', ''), number: 2 })];
+  const [header, ...data] = closuresCsv(closures, 'USD', cashiers, 'Test store').split('\r\n').map(line => line.split(',').map(cell => cell.slice(1, -1)));
+  const closerOf = (number: number) => data.find(row => row[header.indexOf('Closure')] === String(number))![header.indexOf('Closer')];
+  render(<ClosureList {...props} rows={closures} resolveCashierName={id => cashierNameFor(cashiers, id)} />);
+  expect([closerOf(1), closerOf(2)]).toEqual(['Pat', 'Ann']);
+  expect(subline('stamped')!.split(' · ').at(-1)).toBe(closerOf(1));
+  expect(subline('unstamped')!.split(' · ').at(-1)).toBe(closerOf(2));
 });
 
 test('a corrected closure carries the Corrected badge', () => {
