@@ -2,7 +2,7 @@
 // `packages/core/src/screens/main/pos/products/filter-bar/filter-bar.tsx`): Stock status, On Sale,
 // Category and Tag, in v2's `BUILT_IN_PILL_IDS` order without Featured and Brand, which need
 // connector data this app does not sync yet.
-import { useRef, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import type { ComponentType, JSX, ReactElement, ReactNode } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Circle, Path, Rect } from 'react-native-svg';
@@ -12,7 +12,7 @@ import {
 } from '@tallyui/components';
 import type { SvgIconProps } from '@tallyui/components';
 import { Combobox as ComboboxPrimitive, Popover } from '@tallyui/primitives';
-import type { BuiltInPillId } from '../lib/catalogue/filter-bar-pills';
+import { BUILT_IN_PILL_IDS, type BuiltInPillId } from '../lib/catalogue/filter-bar-pills';
 import type { CatalogueFilters, QuickFilterStockStatus } from '../lib/catalogue/quick-filters';
 import { FiltersIcon, FolderIcon } from './icons';
 
@@ -226,11 +226,15 @@ export interface CatalogueFilterChipsProps {
   trailing?: ReactNode;
   /** The built-ins switched off in the Filter bar dialog (v2 filter-bar.tsx:505, `!item.show` draws nothing). */
   hidden?: readonly BuiltInPillId[];
+  /** The shared order of built-in pills and quick filters; defaults to the built-ins. */
+  order?: readonly string[];
+  /** Renders an ordered id that is not a built-in pill. */
+  renderOther?: (id: string) => ReactNode;
   /** The long-press menu on each chip; the Products screen has none. */
   menu?: PillMenu;
 }
 
-export function CatalogueFilterChips({ products, filters, onChange, dimmed = false, placeField, trailing, hidden = [], menu }: CatalogueFilterChipsProps): JSX.Element {
+export function CatalogueFilterChips({ products, filters, onChange, dimmed = false, placeField, trailing, hidden = [], menu, order, renderOther }: CatalogueFilterChipsProps): JSX.Element {
   const stock = filters.stock_status;
   const stockLabel = stock !== undefined && stock in STOCK_LABELS ? STOCK_LABELS[stock] : undefined;
   const onSale = filters.on_sale === true;
@@ -261,16 +265,22 @@ export function CatalogueFilterChips({ products, filters, onChange, dimmed = fal
     <CurrencyIcon size={16} className={chipGlyphClassName(onSale)} />
     <Text className={filterChipTextClassName(onSale)}>On Sale</Text>
   </Pressable>;
-  // Both callers (the till's catalogue-chip-row, the Products screen's products-chip-row) draw it in v2's horizontal ChipRow.
-  return <View testID="filter-chips" className="flex-row items-center gap-2">
-    {!hidden.includes('stock_status') && slot('stock_status', onLongPress => <SelectChip field="stock_status" icon={WarehouseIcon} active={'stock_status' in filters} label={stockLabel ?? 'Stock Status'} extra={0}
+  function pill(id: BuiltInPillId): JSX.Element | null {
+    if (id === 'stock_status') return slot('stock_status', onLongPress => <SelectChip field="stock_status" icon={WarehouseIcon} active={'stock_status' in filters} label={stockLabel ?? 'Stock Status'} extra={0}
       selected={stockLabel === undefined ? undefined : { value: stock!, label: stockLabel }}
       options={(Object.keys(STOCK_LABELS) as QuickFilterStockStatus[]).map(value => ({ value, label: STOCK_LABELS[value], testID: `stock-status-option-${value}` }))}
       onChoose={value => onChange({ ...filters, stock_status: value as QuickFilterStockStatus })}
-      onRemove={() => onChange(without(filters, 'stock_status'))} onLongPress={onLongPress} />)}
-    {!hidden.includes('on_sale') && (dimmed ? <DimmedChipTooltip>{onSaleChip()}</DimmedChipTooltip> : slot('on_sale', onSaleChip))}
-    {!hidden.includes('categories') && termChip('categories', 'category', 'Category', 'No category found')}
-    {!hidden.includes('tags') && termChip('tags', 'tag', 'Tag', 'No tag found')}
+      onRemove={() => onChange(without(filters, 'stock_status'))} onLongPress={onLongPress} />);
+    if (id === 'on_sale') return dimmed ? <DimmedChipTooltip>{onSaleChip()}</DimmedChipTooltip> : slot('on_sale', onSaleChip);
+    if (id === 'categories') return termChip('categories', 'category', 'Category', 'No category found');
+    return termChip('tags', 'tag', 'Tag', 'No tag found');
+  }
+  // Both callers (the till's catalogue-chip-row, the Products screen's products-chip-row) draw it in v2's horizontal ChipRow.
+  return <View testID="filter-chips" className="flex-row items-center gap-2">
+    {(order ?? BUILT_IN_PILL_IDS).map(id => <Fragment key={id}>
+      {BUILT_IN_PILL_IDS.includes(id as BuiltInPillId)
+        ? hidden.includes(id as BuiltInPillId) ? null : pill(id as BuiltInPillId) : renderOther?.(id) ?? null}
+    </Fragment>)}
     {trailing}
   </View>;
 }

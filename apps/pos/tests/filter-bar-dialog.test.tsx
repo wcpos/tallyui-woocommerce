@@ -46,7 +46,7 @@ test('the chip row holds the chips and quick filters, and no filter bar button',
   render(<><CatalogueView {...props} /><PortalHost /></>);
   const row = screen.getByTestId('catalogue-chip-row');
   expect(within(row).getByTestId('filter-chips')).not.toBeNull();
-  expect(within(row).getByTestId('quick-filter-bar')).not.toBeNull();
+  expect(within(row).getByTestId('quick-filter-sale')).not.toBeNull();
   expect(screen.queryByTestId('filter-bar-customize')).toBeNull();
   expect(screen.queryByText('Filter bar')).toBeNull();
 });
@@ -96,9 +96,9 @@ test('adding a quick filter saves it to the bar and storage', () => {
   const saved = JSON.parse(localStorage.getItem(QUICK_FILTERS_KEY)!);
   expect(saved).toHaveLength(3);
   expect(saved[2].label).toBe('Coffee');
-  expect(within(screen.getByTestId('quick-filter-bar')).getByRole('button', { name: 'Coffee' })).not.toBeNull();
+  expect(within(screen.getByTestId('catalogue-chip-row')).getByRole('button', { name: 'Coffee' })).not.toBeNull();
   fireEvent.click(screen.getByTestId('filter-bar-modal-close'));
-  fireEvent.click(within(screen.getByTestId('quick-filter-bar')).getByRole('button', { name: 'Coffee' }));
+  fireEvent.click(within(screen.getByTestId('catalogue-chip-row')).getByRole('button', { name: 'Coffee' }));
   expect(screen.getByText('Espresso')).not.toBeNull();
   expect(screen.getByText('Cold Brew')).not.toBeNull();
   expect(screen.queryByText('T-Shirt')).toBeNull();
@@ -163,25 +163,6 @@ test('deleting the quick filter being edited closes the editor', () => {
   fireEvent.click(screen.getByTestId('filter-bar-delete-confirm'));
   expect(screen.queryByTestId('quick-filter-name')).toBeNull();
   expect(screen.getByTestId('filter-bar-hint')).not.toBeNull();
-});
-
-test('move buttons reorder the list, the bar and storage', () => {
-  render(<><CatalogueView {...props} /><PortalHost /></>);
-  openFilterBar();
-  expect(screen.getByTestId('filter-bar-move-up-sale').getAttribute('aria-disabled')).toBe('true');
-  expect(screen.getByTestId('filter-bar-move-down-cheap').getAttribute('aria-disabled')).toBe('true');
-  fireEvent.click(screen.getByTestId('filter-bar-move-down-sale'));
-  expect(screen.getAllByTestId(/^filter-bar-item-/).map(row => row.getAttribute('data-testid')))
-    .toEqual(['filter-bar-item-cheap', 'filter-bar-item-sale']);
-  expect(within(screen.getByTestId('quick-filter-bar')).getAllByRole('button').map(button => button.textContent))
-    .toEqual(['Under 5', 'On sale']);
-  expect(JSON.parse(localStorage.getItem(QUICK_FILTERS_KEY)!).map((qf: QuickFilter) => qf.id)).toEqual(['cheap', 'sale']);
-  fireEvent.click(screen.getByTestId('filter-bar-move-up-sale'));
-  expect(screen.getAllByTestId(/^filter-bar-item-/).map(row => row.getAttribute('data-testid')))
-    .toEqual(['filter-bar-item-sale', 'filter-bar-item-cheap']);
-  expect(within(screen.getByTestId('quick-filter-bar')).getAllByRole('button').map(button => button.textContent))
-    .toEqual(['On sale', 'Under 5']);
-  expect(JSON.parse(localStorage.getItem(QUICK_FILTERS_KEY)!).map((qf: QuickFilter) => qf.id)).toEqual(['sale', 'cheap']);
 });
 
 test('close shuts the dialog', () => {

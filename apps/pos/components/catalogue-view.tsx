@@ -13,6 +13,7 @@ import { useCatalogueView } from '../lib/catalogue/catalogue-view-state';
 import type { AppCatalogueViewState } from '../lib/catalogue/catalogue-view-state';
 import { captureQuickFilter, catalogueFilterBaseline, isQuickFilterActive, matchesCatalogueFilters, useQuickFilters } from '../lib/catalogue/quick-filters';
 import type { CapturedQuickFilter, QuickFilter } from '../lib/catalogue/quick-filters';
+import { normalizeFilterBarOrder, useFilterBarOrder } from '../lib/catalogue/filter-bar-order';
 import { useHiddenPills } from '../lib/catalogue/filter-bar-pills';
 import type { BuiltInPillId } from '../lib/catalogue/filter-bar-pills';
 import { optionsLabel } from '../lib/catalogue/tile-words';
@@ -40,7 +41,7 @@ import { InlineVariableTile } from './inline-variable-tile';
 import { LevelBack } from './level-back';
 import { ProductAttributes } from './product-attributes';
 import { ProductTile } from './product-tile';
-import { ClearAllButton, QuickFilterBar, SaveAsButton } from './quick-filter-bar';
+import { ClearAllButton, QuickFilterChip, SaveAsButton } from './quick-filter-bar';
 import type { QuickFilterMenu } from './quick-filter-bar';
 import { RegisterBarShell } from './register-bar-shell';
 import { ParentTile, VariationChips, VariationMoney, VariationRow, VariationTile } from './variation-tile';
@@ -124,6 +125,8 @@ export function CatalogueView({
   tax, inCartCounts, onSync, hideBar, searchChord, onRevealSearch, scanActive,
 }: CatalogueViewProps): JSX.Element {
   const [quickFilters, setQuickFilters] = useQuickFilters();
+  const [savedBarOrder, setBarOrder] = useFilterBarOrder();
+  const barOrder = normalizeFilterBarOrder(savedBarOrder, quickFilters.map(qf => qf.id));
   const [hiddenPills, setHiddenPills] = useHiddenPills();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [filterBarOpen, setFilterBarOpen] = useState(false);
@@ -336,8 +339,11 @@ export function CatalogueView({
           inside the level. A product drilled from no level only dims it (filter-bar.tsx:508). */}
       <CatalogueFilterChips products={products} filters={filters} onChange={next => dispatch({ type: 'filter', filters: next })} dimmed={drilled !== undefined}
         placeField={level === null ? undefined : 'categories'} hidden={hiddenPills}
+        order={barOrder} renderOther={id => {
+          const qf = quickFilters.find(qf => qf.id === id);
+          return qf ? <QuickFilterChip quickFilter={qf} active={isActive(qf)} onPress={pressQuickFilter} dimmed={drilled !== undefined} menu={chipMenu} /> : null;
+        }}
         menu={{ onHide: id => showPill(id, false), onCustomise: chipMenu.onCustomise }} />
-      <QuickFilterBar quickFilters={quickFilters} isActive={isActive} onPress={pressQuickFilter} dimmed={drilled !== undefined} menu={chipMenu} />
       {filtersOn >= 2 && <ClearAllButton onPress={() => dispatch({ type: 'clearAll', baseline, keep: level === null ? undefined : 'categories' })} />}
       {filtersOn >= 1 && <SaveAsButton onPress={() => setCaptured(captureQuickFilter(queryState, baseline, viewState.sort))} />}
     </ScrollView>
@@ -348,7 +354,7 @@ export function CatalogueView({
     <LockedNotice lock={locked} />
     <FilterBarDialog open={filterBarOpen || captured !== null} onOpenChange={open => { setFilterBarOpen(open); if (!open) { setCaptured(null); setBarStart(null); } }}
       quickFilters={quickFilters} onChange={changeQuickFilters} hiddenPills={hiddenPills} onShowPill={showPill} products={products} connector={connector} currency={currency}
-      baselineSort={viewState.sort} captured={captured} start={barStart} />
+      baselineSort={viewState.sort} captured={captured} start={barStart} order={barOrder} onOrderChange={setBarOrder} />
   </View>;
   // v2's conditionsBeyond (browse/level-place.ts:53): what Clear filters can clear. The open level is the place, not a condition.
   const conditionsOn = searching || !filtersAtBaseline(filters, baseline) || quickFilters.some(isActive);

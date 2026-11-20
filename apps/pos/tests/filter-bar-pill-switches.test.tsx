@@ -4,6 +4,7 @@ import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { PortalHost } from '@tallyui/primitives';
 import { CatalogueView } from '../components/catalogue-view';
 import type { CatalogueViewProps } from '../components/catalogue-view';
+import { FILTER_BAR_ORDER_KEY } from '../lib/catalogue/filter-bar-order';
 import { FILTER_BAR_PILLS_KEY } from '../lib/catalogue/filter-bar-pills';
 import { QUICK_FILTERS_KEY } from '../lib/catalogue/quick-filters';
 import type { QuickFilter } from '../lib/catalogue/quick-filters';
@@ -36,6 +37,7 @@ const props: CatalogueViewProps = {
   storeName: stores[0].name, cashierName: 'Paul', status: 'ready', onSignOut: () => {},
 };
 const PILLS = ['stock_status', 'on_sale', 'categories', 'tags'];
+const LABELS = ['Stock Status', 'On Sale', 'Categories', 'Tags'];
 
 function renderView() {
   return render(<><CatalogueView {...props} /><PortalHost /></>);
@@ -56,8 +58,8 @@ test('the dialog lists the built-in filters with icons and switches under v2\'s 
   expect(screen.queryByText(/Drag to reorder/)).toBeNull();
   const rows = screen.getAllByTestId(/^filter-bar-pill-/);
   expect(rows.map(row => row.getAttribute('data-testid'))).toEqual(PILLS.map(id => `filter-bar-pill-${id}`));
-  expect(rows.map(row => row.textContent)).toEqual(['Stock Status', 'On Sale', 'Categories', 'Tags']);
   for (const [index, id] of PILLS.entries()) {
+    expect(within(rows[index]).getByText(LABELS[index])).not.toBeNull();
     expect(rows[index].querySelector('svg')).not.toBeNull();
     expect(within(rows[index]).getByTestId(`filter-bar-toggle-${id}`).getAttribute('aria-checked')).toBe('true');
   }
@@ -133,7 +135,8 @@ test('quick filters keep their move, edit, delete and add controls beside the sw
   fireEvent.click(screen.getByTestId('filter-bar-move-down-sale'));
   expect(screen.getAllByTestId(/^filter-bar-item-/).map(row => row.getAttribute('data-testid')))
     .toEqual(['filter-bar-item-cheap', 'filter-bar-item-sale']);
-  expect(JSON.parse(localStorage.getItem(QUICK_FILTERS_KEY)!).map((qf: QuickFilter) => qf.id)).toEqual(['cheap', 'sale']);
+  expect(JSON.parse(localStorage.getItem(FILTER_BAR_ORDER_KEY)!)).toEqual([...PILLS, 'cheap', 'sale']);
+  expect(JSON.parse(localStorage.getItem(QUICK_FILTERS_KEY)!).map((qf: QuickFilter) => qf.id)).toEqual(['sale', 'cheap']);
   expect(screen.getByTestId('filter-bar-edit-sale')).not.toBeNull();
   expect(screen.getByTestId('filter-bar-delete-sale')).not.toBeNull();
   expect(screen.getByTestId('filter-bar-add-quick-filter')).not.toBeNull();
