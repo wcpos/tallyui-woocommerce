@@ -356,7 +356,8 @@ test('Add new customer requires an email, omits empty fields, toasts and attache
   expect(form().queryByPlaceholderText('Street address')).toBeNull();
   fireEvent.change(form().getByPlaceholderText('email@example.com'), { target: { value: '   ' } });
   submit();
-  expect(screen.getByTestId('customer-form-error').textContent).toBe('An email is required');
+  // v2 customer-form.tsx:39: zod's email() rejects "" with its one copy, printed under the raw path.
+  expect(screen.getByTestId('customer-form-error-email').textContent).toBe('\u2022 email: Invalid email address');
   expect(customers.create).not.toHaveBeenCalled();
   fireEvent.change(form().getByPlaceholderText('email@example.com'), { target: { value: ' gee@example.invalid ' } });
   fireEvent.change(form().getByPlaceholderText('First name'), { target: { value: ' Gee ' } });
