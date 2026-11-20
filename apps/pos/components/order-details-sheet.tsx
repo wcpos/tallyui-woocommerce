@@ -10,11 +10,12 @@ import { sideSheet } from './cart-settings';
 import { SHEET_TITLE, SheetCloseButton } from './sheet';
 import { FieldLabel } from './select-chevron';
 import { useIsWide } from '../lib/layout/wide';
+import { PrintIcon } from './icons';
 
 // v2's record dialog is `size="xl"` (record-dialog/index.tsx:63), `w-160`: 560 px (dialog/index.tsx:75).
 export const ORDER_SHEET = sideSheet('w-[560px]');
 
-export function OrderDetailsSheet({ open, onOpenChange, side, note, onNoteChange, onVoid }: {
+export function OrderDetailsSheet({ open, onOpenChange, side, note, onNoteChange, onVoid, onPrint }: {
   open: boolean;
   onOpenChange(open: boolean): void;
   side: PanelPosition;
@@ -22,6 +23,8 @@ export function OrderDetailsSheet({ open, onOpenChange, side, note, onNoteChange
   onNoteChange(note: string): void;
   /** Absent: no Void button (nothing to void). */
   onVoid?: () => void;
+  /** Absent: no Print button (an empty cart has nothing to print). */
+  onPrint?: () => void;
 }): JSX.Element | null {
   const railShown = useContext(AppRailShown);
   const wide = useIsWide();
@@ -31,6 +34,10 @@ export function OrderDetailsSheet({ open, onOpenChange, side, note, onNoteChange
   const close = <SheetCloseButton testID="order-details-close" className={wide ? '' : 'w-full'} onPress={() => onOpenChange(false)} />;
   const voidButton = onVoid && <Button testID="order-details-void" variant="outline" className={`h-11 border-destructive ${wide ? '' : 'w-full'}`}
     onPress={() => { onOpenChange(false); onVoid(); }}><Text testID="order-details-void-label">Void</Text></Button>;
+  const printButton = onPrint && <Button testID="order-print-button" variant="outline" className={`h-11 ${wide ? '' : 'w-full'}`}
+    onPress={() => { onOpenChange(false); onPrint(); }}><View className="flex-row items-center gap-2">
+      <PrintIcon size={18} className="text-foreground" /><Text testID="order-print-label">Print</Text>
+    </View></Button>;
   return <Dialog open onOpenChange={onOpenChange}><DialogPortal>
     <DialogOverlay testID="order-details-overlay" className={railShown && side === 'left' ? BESIDE_RAIL : undefined} />
     <DialogPrimitive.Content testID="order-details" dataSet={{ side }} className={ORDER_SHEET[side](railShown)}>
@@ -53,7 +60,7 @@ export function OrderDetailsSheet({ open, onOpenChange, side, note, onNoteChange
         </View>
       </ScrollView>
       <View testID="order-details-footer" className={`${wide ? 'flex-row items-center' : 'flex-col'} gap-2 border-t border-border px-4 pt-4`}>
-        {wide ? <>{voidButton}<View className="flex-1" />{close}</> : <>{close}{voidButton}</>}
+        {wide ? <>{voidButton}<View className="flex-1" />{close}{printButton}</> : <>{printButton}{close}{voidButton}</>}
       </View>
     </DialogPrimitive.Content>
   </DialogPortal></Dialog>;

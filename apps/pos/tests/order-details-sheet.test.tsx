@@ -20,8 +20,8 @@ afterEach(() => {
 
 const phone = () => vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
 const wide = () => vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1280, height: 800, scale: 1, fontScale: 1 });
-const openSheet = (onVoid?: () => void) =>
-  render(<><OrderDetailsSheet open side="left" note="" onOpenChange={vi.fn()} onNoteChange={vi.fn()} onVoid={onVoid} /><PortalHost /></>);
+const openSheet = (onVoid?: () => void, onPrint?: () => void) =>
+  render(<><OrderDetailsSheet open side="left" note="" onOpenChange={vi.fn()} onNoteChange={vi.fn()} onVoid={onVoid} onPrint={onPrint} /><PortalHost /></>);
 // The props the sheet gave the outermost component that took the testID (react-native-web drops what it does not know).
 function propsOf(testID: string): Record<string, unknown> {
   const node = screen.getByTestId(testID) as unknown as Record<string, unknown>;
@@ -69,6 +69,22 @@ test('Void is absent without onVoid', () => {
   expect(screen.queryByTestId('order-details-void')).toBeNull();
 });
 
+test('Print closes the sheet, then calls onPrint', () => {
+  const onOpenChange = vi.fn();
+  const onPrint = vi.fn();
+  render(<><OrderDetailsSheet open side="left" note="" onOpenChange={onOpenChange} onNoteChange={vi.fn()} onPrint={onPrint} /><PortalHost /></>);
+  expect(screen.getByTestId('order-print-label').textContent).toBe('Print');
+  fireEvent.click(screen.getByTestId('order-print-button'));
+  expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
+  expect(onPrint).toHaveBeenCalledExactlyOnceWith();
+  expect(onOpenChange.mock.invocationCallOrder[0]).toBeLessThan(onPrint.mock.invocationCallOrder[0]);
+});
+
+test('no onPrint, no Print button', () => {
+  openSheet();
+  expect(screen.queryByTestId('order-print-button')).toBeNull();
+});
+
 test.each(['order-details-close', 'order-details-x'])('%s closes the sheet', testID => {
   const onOpenChange = vi.fn();
   render(<><OrderDetailsSheet open side="left" note="" onOpenChange={onOpenChange} onNoteChange={vi.fn()} /><PortalHost /></>);
@@ -106,24 +122,26 @@ test('the note box is the Input field box with a muted placeholder and the ring 
   expect(classesOf('order-details-note')).not.toContain('bg-background');
 });
 
-test('on a phone the footer stacks Close above Void, both full width', () => {
+test('on a phone the footer stacks Print, Close and Void, each full width', () => {
   phone();
-  openSheet(vi.fn());
+  openSheet(vi.fn(), vi.fn());
   expect(classesOf('order-details-footer')).toEqual(expect.arrayContaining(['flex-col', 'gap-2', 'border-t', 'border-border', 'px-4', 'pt-4']));
   expect(classesOf('order-details-footer')).not.toContain('flex-row');
   const ids = Array.from(screen.getByTestId('order-details-footer').children, child => child.getAttribute('data-testid'));
-  expect(ids).toEqual(['order-details-close', 'order-details-void']);
+  expect(ids).toEqual(['order-print-button', 'order-details-close', 'order-details-void']);
+  expect(classesOf('order-print-button')).toContain('w-full');
   expect(classesOf('order-details-close')).toContain('w-full');
   expect(classesOf('order-details-void')).toContain('w-full');
 });
 
-test('wide, the footer is a row with Void first and Close last', () => {
+test('wide, the footer is a row with Void first, then Close and Print last', () => {
   wide();
-  openSheet(vi.fn());
+  openSheet(vi.fn(), vi.fn());
   expect(classesOf('order-details-footer')).toEqual(expect.arrayContaining(['flex-row', 'border-t', 'px-4', 'pt-4']));
   const children = Array.from(screen.getByTestId('order-details-footer').children);
   expect(children[0].getAttribute('data-testid')).toBe('order-details-void');
-  expect(children.at(-1)!.getAttribute('data-testid')).toBe('order-details-close');
+  expect(children.at(-2)!.getAttribute('data-testid')).toBe('order-details-close');
+  expect(children.at(-1)!.getAttribute('data-testid')).toBe('order-print-button');
   expect(classesOf('order-details-void')).not.toContain('w-full');
 });
 
