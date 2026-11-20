@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
-import type { JSX } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import type { JSX, KeyboardEvent } from 'react';
+import { Platform, Pressable, TextInput, View } from 'react-native';
+import type { ViewProps } from 'react-native';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Loader, Text } from '@tallyui/components';
 import { formatMoney, minorUnitDigits } from '@tallyui/core';
 import { activePlan, appliedMinor, changeMinor, initTenderState, planLegs, quickTenderedAmounts, tenderReducer } from '@tallyui/pos';
@@ -18,6 +19,14 @@ const METHODS = [
 ] as const;
 /** WCPOS v2's keypad: no decimal key, digits shift in from the right in minor units. */
 const KEY_ROWS: TenderKey[][] = [['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9'], ['clear', '0', 'backspace']];
+// WCPOS v2: tender-pane.tsx:188-194.
+const PHYSICAL_KEYS: Record<string, TenderKey> = { Backspace: 'backspace', Clear: 'clear' };
+// WCPOS v2: tender-pane.tsx:188-194.
+function physicalKey(key: string): TenderKey | undefined { return /^[0-9]$/.test(key) ? key as TenderKey : PHYSICAL_KEYS[key]; }
+// WCPOS v2: tender-pane.tsx:188-194.
+function editable(node: unknown): boolean {
+  return typeof Element !== 'undefined' && node instanceof Element && node.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])') !== null;
+}
 // WCPOS v2: tender-figures.ts:25.
 const QUICK_TENDER_STEPS = [5, 10, 50] as const;
 /** order.create's bound on `payments[].reference`, in UTF-16 units: a typed reference never goes past what finalize keeps. */
@@ -67,6 +76,15 @@ export function TenderPane({ sale, multi = false, onRecordedOffline }: {
   // Multi: one leg per tap; two taps before the new leg renders would otherwise take the same entry twice.
   const taking = useRef(false);
   useEffect(() => { taking.current = false; }, [sale.order.payments.length]);
+  const pane = useRef<View>(null);
+  const tender = sale.stage.kind === 'tender';
+  // WCPOS v2: tender-pane.tsx:207-213.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !tender) return;
+    const node = pane.current as unknown as HTMLElement | null;
+    const active = document.activeElement;
+    if (node && !(node.contains(active) && editable(active))) node.focus({ preventScroll: true });
+  }, [tender]);
   const { stage } = sale;
   if (stage.kind !== 'tender') return null;
 
@@ -153,7 +171,18 @@ export function TenderPane({ sale, multi = false, onRecordedOffline }: {
     void sale.complete();
   }
 
-  return <View dataSet={{ print: 'hide' }} testID="checkout-tender" className="gap-4 p-4">
+  // WCPOS v2: tender-pane.tsx:363-374.
+  const keys: ViewProps & { onKeyDown: (event: KeyboardEvent<HTMLElement>) => void } = {
+    tabIndex: -1, onKeyDown: event => {
+      const { key, metaKey, ctrlKey, altKey, target } = event;
+      const name = physicalKey(key);
+      if (sale.saving || metaKey || ctrlKey || altKey || editable(target) || name === undefined) return;
+      event.preventDefault();
+      dispatch({ type: 'key', key: name });
+    },
+  };
+  return <View ref={pane} dataSet={{ print: 'hide' }} testID="checkout-tender" className="gap-4 p-4 web:outline-none"
+    {...(Platform.OS === 'web' ? keys as ViewProps : {})}>
     {/* WCPOS v2: tender-pane.tsx:415-429. */}
     <View className="flex-row items-center justify-center gap-2">
       <Text testID="checkout-label" className="text-center text-sm text-muted-foreground">
@@ -229,7 +258,7 @@ export function TenderPane({ sale, multi = false, onRecordedOffline }: {
     {slow ? <Text testID="checkout-save-slow" className="text-center text-sm text-warning-text">The store isn't answering. Keep waiting.</Text> : null}
     <View testID="checkout-keypad" className="gap-2">
       {KEY_ROWS.map(row => <View key={row.join()} className="flex-row gap-2">
-        {row.map(key => <Pressable key={key} accessibilityRole="button" testID={`checkout-keypad-key-${key}`}
+        {row.map(key => <Pressable key={key} accessibilityRole="button" testID={`checkout-keypad-key-${key}`} disabled={sale.saving}
           accessibilityLabel={key === 'clear' ? 'C' : key === 'backspace' ? 'Delete last digit' : key}
           className="min-h-12 flex-1 items-center justify-center rounded-lg bg-muted" onPress={() => dispatch({ type: 'key', key })}>
           <Text className="text-xl font-semibold text-foreground">{key === 'clear' ? 'C' : key === 'backspace' ? '⌫' : key}</Text>
