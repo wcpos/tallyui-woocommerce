@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { addRxPlugin, createRxDatabase, type RxCollection, type RxDatabase } from 'rxdb';
 import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
@@ -8,8 +8,21 @@ import { addPosOrderCollection, type PosOrder } from '@tallyui/pos';
 import { QueuedEmailsPanel, queuedAgo } from '../components/queued-emails-panel';
 import { receiptEmailSchema, receiptEmailMigrationStrategies, type ReceiptEmailCollection } from '../lib/receipts/receipt-emails';
 import { dismissToast, getToasts } from '../lib/toast/toast';
+import { classesOf } from './classes-of';
 
 const toasts = () => getToasts().map(({ type, title, description }) => ({ type, title, description }));
+
+function propOf(testID: string, name: string): unknown {
+  type Fiber = { memoizedProps?: Record<string, unknown>; return?: Fiber; alternate?: Fiber };
+  const node = screen.getByTestId(testID) as unknown as Record<string, unknown>;
+  const key = (prefix: string) => Object.keys(node).find(name => name.startsWith(prefix))!;
+  const created = node[key('__reactFiber$')] as Fiber;
+  let fiber: Fiber | undefined = created.memoizedProps === node[key('__reactProps$')] ? created : created.alternate;
+  for (; fiber; fiber = fiber.return) {
+    const props = fiber.memoizedProps;
+    if (props?.testID === testID && props[name] !== undefined) return props[name];
+  }
+}
 
 let db: RxDatabase;
 let collection: ReceiptEmailCollection;
@@ -87,6 +100,35 @@ test('shows the pending body when nothing has failed', async () => {
   render(<QueuedEmailsPanel collection={collection} orders={orders} now={() => new Date('2026-10-07T10:00:00.000Z')} />);
   expect(await screen.findByText('1 receipt email waiting to go out')).not.toBeNull();
   expect(screen.getByText('These are waiting for another send attempt. They may be retried automatically while this device can reach your store, but delivery is not guaranteed.')).not.toBeNull();
+});
+
+test('a failed email makes the callout a bad band with the rows below it', async () => {
+  await collection.insert({ attempts: 2, id: 'f', status: 'failed', email: 'f@example.invalid', queuedAt: '2026-10-07T07:00:00.000Z', error: 'bounced' });
+  await collection.insert({ attempts: 0, id: 'q', status: 'queued', email: 'q@example.invalid', queuedAt: '2026-10-07T09:55:00.000Z' });
+  render(<QueuedEmailsPanel collection={collection} orders={orders} now={() => new Date('2026-10-07T10:00:00.000Z')} />);
+  await screen.findByTestId('db-queued-email-row-f');
+  const callout = screen.getByTestId('db-queued-emails-callout');
+  expect(classesOf('db-queued-emails-callout')).toEqual(expect.arrayContaining(['border-destructive/45', 'bg-destructive/10']));
+  expect(classesOf('db-queued-emails-callout')).not.toContain('border-border');
+  expect(callout.getAttribute('role')).toBe('alert');
+  expect(screen.getByTestId('db-queued-emails-title').textContent).toBe('2 receipt emails waiting to go out');
+  expect(within(callout).queryAllByTestId(/^db-queued-email-row-/)).toHaveLength(0);
+  expect(within(screen.getByTestId('db-queued-emails-rows')).getAllByTestId(/^db-queued-email-row-/)).toHaveLength(2);
+  expect(classesOf('db-queued-email-row-f')).toEqual(expect.arrayContaining(['border-b', 'border-border']));
+  expect(classesOf('db-queued-email-when-f')).toEqual(expect.arrayContaining(['text-xs', 'text-muted-foreground']));
+  expect(classesOf('db-queued-email-error-f')).toEqual(expect.arrayContaining(['text-xs', 'text-muted-foreground/80']));
+  expect(propOf('db-queued-email-retry-f', 'variant')).toBe('outline');
+  expect(propOf('db-queued-email-remove-f', 'variant')).toBe('ghost');
+});
+
+test('only waiting emails make the callout a warning band', async () => {
+  await collection.insert({ attempts: 0, id: 'q', status: 'queued', email: 'q@example.invalid', queuedAt: '2026-10-07T09:55:00.000Z' });
+  render(<QueuedEmailsPanel collection={collection} orders={orders} now={() => new Date('2026-10-07T10:00:00.000Z')} />);
+  const callout = await screen.findByTestId('db-queued-emails-callout');
+  expect(classesOf('db-queued-emails-callout')).toEqual(expect.arrayContaining(['border-warning/45', 'bg-warning/15']));
+  expect(classesOf('db-queued-emails-callout')).not.toContain('border-destructive/45');
+  expect(callout.getAttribute('role')).toBe('status');
+  expect(screen.getByTestId('db-queued-emails-description').textContent).toBe('These are waiting for another send attempt. They may be retried automatically while this device can reach your store, but delivery is not guaranteed.');
 });
 
 test('Send again requeues a failed email', async () => {
