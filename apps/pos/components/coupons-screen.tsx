@@ -7,20 +7,21 @@
 // search (AND). The bar's display options switch v2's columns (area-display-options.tsx). Deviations: no inline
 // editing, Add, Actions column or column reordering, since edits must go through the store's REST
 // API; the coupons collection is replicated from the server, so this screen never writes to it. The expiry date shows in the device's time zone, not the store's (v2's date-picker-input.tsx), and the
-// Expires chip offers the report date presets instead of v2's calendar.
+// Expires chip opens v2's range calendar with its presets, using device days rather than the store's.
 import { useEffect, useState } from 'react';
 import type { ComponentType, JSX } from 'react';
-import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Circle, Path, Rect } from 'react-native-svg';
 import type { RxCollection } from 'rxdb';
 import { formatMoney, moneyFromDecimalString } from '@tallyui/core';
 import { DATE_PRESETS, inRange, presetRange } from '@tallyui/pos';
-import type { DatePreset } from '@tallyui/pos';
+import type { DatePreset, DayRange } from '@tallyui/pos';
 import {
-  Button, createSvgIcon, SearchInput, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, Table, TableBody,
+  Button, Calendar, createSvgIcon, SearchInput, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, Table, TableBody,
   TableCell, TableHead, TableHeader, TableRow, Text, XIcon,
 } from '@tallyui/components';
 import type { SvgIconProps } from '@tallyui/components';
+import { Popover } from '@tallyui/primitives';
 import { useAreaColumns, visibleAreaColumns } from '../lib/area-columns';
 import type { AreaColumn } from '../lib/area-columns';
 import { NARROW_WIDTH } from '../lib/layout/wide';
@@ -63,9 +64,6 @@ const TYPE_CHOICES: Choice[] = [
 const PRESET_LABELS: Record<DatePreset, string> = {
   today: 'Today', yesterday: 'Yesterday', thisWeek: 'This week', lastWeek: 'Last week', thisMonth: 'This month', lastMonth: 'Last month',
 };
-// Deviation from v2's date-range-pill.tsx, which opens a range calendar: Tally has no calendar component, so the chip
-// offers the report date presets, as device-local days.
-const EXPIRES_CHOICES: Choice[] = DATE_PRESETS.map(value => ({ value, label: PRESET_LABELS[value], testID: `coupon-filter-expires-${value}` }));
 
 // The chips' icons, after v2's `info` (./icons), `percent` and `calendar` (lucide).
 const PercentIcon = createSvgIcon('PercentIcon', () => <>
@@ -75,8 +73,8 @@ const CalendarIcon = createSvgIcon('CalendarIcon', () => <>
   <Rect x={3} y={4} width={18} height={18} rx={2} /><Path d="M16 2v4" /><Path d="M8 2v4" /><Path d="M3 10h18" />
 </>);
 
-type FilterKey = 'status' | 'discount_type' | 'date_expires_gmt';
-type CouponFilters = Partial<Record<FilterKey, string>>;
+type FilterKey = 'status' | 'discount_type';
+type CouponFilters = Partial<Record<FilterKey, string>> & { date_expires_gmt?: DayRange };
 
 export type CouponsColumnId = 'active' | 'code' | 'amount' | 'discount_type' | 'description' | 'usage_count'
   | 'date_expires_gmt' | 'status' | 'date_created_gmt' | 'date_modified_gmt';
@@ -214,15 +212,15 @@ function matches(coupon: CouponDoc, query: string): boolean {
 }
 
 /** The chips, each an equality on its field (AND); Expires keeps a coupon whose expiry, a UTC instant, falls on a
- *  device-local day of the preset's range. A coupon with no expiry never matches Expires. */
-function passes(coupon: CouponDoc, filters: CouponFilters, now: Date): boolean {
+ *  device-local day of the range (a deviation from store days). Missing or unreadable expiry never matches. */
+function passes(coupon: CouponDoc, filters: CouponFilters): boolean {
   if (filters.status && coupon.status !== filters.status) return false;
   if (filters.discount_type && coupon.discount_type !== filters.discount_type) return false;
-  const preset = filters.date_expires_gmt as DatePreset | undefined;
-  if (!preset) return true;
+  const range = filters.date_expires_gmt;
+  if (!range) return true;
   const expires = coupon.date_expires_gmt;
   if (!expires || Number.isNaN(utcDate(expires).getTime())) return false;
-  return inRange(expires, presetRange(preset, now, 'device'), 'device');
+  return inRange(expires, range, 'device');
 }
 
 /** One v2 filter pill in the catalogue chips' pattern: a select of choices, tinted when on, with a clear. */
@@ -253,6 +251,61 @@ function FilterPill({ field, icon: Icon, label, value, choices, onChoose, onRemo
       <XIcon size={CHIP_CLEAR_GLYPH_SIZE} className={chipInkClassName(true)} />
     </Pressable>}
   </View>;
+}
+
+export function expiresLabel(range: DayRange | undefined, now: Date, locale?: string): string {
+  if (!range) return 'Expires';
+  for (const preset of ['today', 'yesterday'] as const) {
+    if (range.from === range.to && range.from === presetRange(preset, now, 'device').from) return PRESET_LABELS[preset];
+  }
+  const day = (value: string) => {
+    const [year, month, date] = value.split('-').map(Number);
+    const local = new Date(year, month - 1, date), options = { day: 'numeric', month: 'short' } as const;
+    try { return local.toLocaleDateString(locale, options); } catch { return local.toLocaleDateString(undefined, options); }
+  };
+  return `${day(range.from)} - ${day(range.to)}`;
+}
+
+function ExpiresPill({ range, now, locale, onChange }: { range?: DayRange; now: Date; locale?: string; onChange(range: DayRange | undefined): void }) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<DayRange>(() => presetRange('today', now, 'device'));
+  const { width } = useWindowDimensions();
+  const wide = width >= NARROW_WIDTH, active = range !== undefined, today = presetRange('today', now, 'device').from;
+  useEffect(() => {
+    if (!open || Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open]);
+  return <Popover.Root open={open} onOpenChange={next => { if (next) setDraft(presetRange('today', now, 'device')); setOpen(next); }}>
+    <View className={filterChipClassName(active)}>
+      <Popover.Trigger asChild><Pressable testID="filter-pill-date_expires_gmt" role="button" className="flex-row items-center gap-1.5">
+        <CalendarIcon size={16} className={active ? chipInkClassName(true) : undefined} />
+        <Text className={filterChipTextClassName(active)}>{expiresLabel(range, now, locale)}</Text>
+      </Pressable></Popover.Trigger>
+      {active && <Pressable testID="filter-pill-remove-date_expires_gmt" role="button" accessibilityLabel="Remove" className={CHIP_CLEAR_CELL_CLASS} onPress={() => onChange(undefined)}>
+        <XIcon size={CHIP_CLEAR_GLYPH_SIZE} className={chipInkClassName(true)} />
+      </Pressable>}
+    </View>
+    <Popover.Portal>
+      <Popover.Overlay style={StyleSheet.absoluteFill} />
+      <Popover.Content testID="coupons-expires-menu" align="start" sideOffset={4} style={{ width: Math.min(wide ? 556 : 360, width) }}
+        className="z-50 rounded-md border border-border bg-popover p-1 shadow-md outline-none">
+        <View className={wide ? 'flex-row' : 'flex-col'}>
+          <View className="w-40 shrink-0 gap-1 p-1">{DATE_PRESETS.map(preset => {
+            const candidate = presetRange(preset, now, 'device'), on = candidate.from === draft.from && candidate.to === draft.to;
+            return <Pressable key={preset} testID={`coupon-filter-expires-${preset}`} role="button" aria-pressed={on} className={filterChipClassName(on)} onPress={() => setDraft(candidate)}>
+              <Text className={filterChipTextClassName(on)}>{PRESET_LABELS[preset]}</Text>
+            </Pressable>;
+          })}</View>
+          <View className="flex-1 p-2"><Calendar testID="coupons-expires-calendar" mode="range" value={draft} onChange={setDraft} today={today} max={today} locale={locale} /></View>
+        </View>
+        <View className="flex-row justify-end border-t border-border p-2">
+          <Button testID="coupons-expires-done" onPress={() => { onChange(draft); setOpen(false); }}><Text>Done</Text></Button>
+        </View>
+      </Popover.Content>
+    </Popover.Portal>
+  </Popover.Root>;
 }
 
 function ActiveBadge({ coupon, now }: { coupon: CouponDoc; now: Date }): JSX.Element {
@@ -316,7 +369,7 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
   }, [coupons]);
 
   function clear() { set(''); setFilters({}); }
-  function setFilter(field: FilterKey, value: string | undefined) {
+  function setFilter<K extends keyof CouponFilters>(field: K, value: CouponFilters[K]) {
     setFilters(current => {
       const next = { ...current };
       if (value === undefined) delete next[field];
@@ -330,7 +383,7 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
   }
 
   const now = new Date();
-  const shown = all ? sortCoupons(all.filter(coupon => (!query || matches(coupon, query)) && passes(coupon, filters, now)), sort) : [];
+  const shown = all ? sortCoupons(all.filter(coupon => (!query || matches(coupon, query)) && passes(coupon, filters)), sort) : [];
   const total = all?.length ?? 0;
   // The columns the display options leave on, in the area's order.
   const columns = visibleAreaColumns(COUPONS_COLUMNS, settings);
@@ -402,7 +455,7 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
           contentContainerClassName="items-center gap-2">
           {pill('status', InfoIcon, 'Status', STATUS_CHOICES)}
           {pill('discount_type', PercentIcon, 'Discount Type', TYPE_CHOICES)}
-          {pill('date_expires_gmt', CalendarIcon, 'Expires', EXPIRES_CHOICES)}
+          <ExpiresPill range={filters.date_expires_gmt} now={now} locale={locale} onChange={range => setFilter('date_expires_gmt', range)} />
           {Object.keys(filters).length >= 2 && (
             <Button testID="coupons-filter-clear-all" variant="ghost" size="sm" onPress={() => setFilters({})}><Text>Clear all</Text></Button>
           )}

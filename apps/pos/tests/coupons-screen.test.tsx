@@ -5,8 +5,9 @@ import type { RxCollection } from 'rxdb';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { createTallyDatabase } from '@tallyui/database';
+import { presetRange } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
-import { CouponsScreen, gmtDayText } from '../components/coupons-screen';
+import { CouponsScreen, expiresLabel, gmtDayText } from '../components/coupons-screen';
 import { areaColumnsKey } from '../lib/area-columns';
 import { CatalogueContext } from '../lib/catalogue/catalogue-context';
 import { CARD_CLASSES } from './classes-of';
@@ -319,13 +320,81 @@ test('Expires This month keeps a coupon expiring this month, not next year or ne
     ]);
     await withCoupons();
     expect(pill('date_expires_gmt')).toBe('Expires');
-    choose('date_expires_gmt', 'coupon-filter-expires-thisMonth');
+    fireEvent.click(screen.getByTestId('filter-pill-date_expires_gmt'));
+    fireEvent.click(screen.getByTestId('coupon-filter-expires-thisMonth'));
+    fireEvent.click(screen.getByTestId('coupons-expires-done'));
     await waitFor(() => expect(rowCodes()).toEqual(['coupons-row-soon']));
-    expect(pill('date_expires_gmt')).toBe('This month');
+    const label = expiresLabel(presetRange('thisMonth', new Date(2026, 9, 20, 12), 'device'), new Date(2026, 9, 20, 12));
+    expect(label).toContain(' - ');
+    expect(label).not.toContain('31');
+    expect(pill('date_expires_gmt')).toBe(label);
     expect(screen.getByTestId('filter-pill-remove-date_expires_gmt')).not.toBeNull();
+    fireEvent.click(screen.getByTestId('filter-pill-remove-date_expires_gmt'));
+    await waitFor(() => expect(rowCodes()).toHaveLength(5));
+    expect(rowCodes()).toEqual(expect.arrayContaining(['coupons-row-soon', 'coupons-row-nextyear']));
+    expect(pill('date_expires_gmt')).toBe('Expires');
   } finally {
     vi.useRealTimers();
   }
+});
+
+test('Expires calendar pick applies only the selected days after Done', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 9, 20, 12));
+  try {
+    const gmt = (date: Date) => date.toISOString().slice(0, 19);
+    await db.coupons.bulkInsert([
+      { uuid: 'c-5', id: 5, code: 'inside', discount_type: 'percent', amount: '5', date_expires_gmt: gmt(new Date(2026, 9, 10, 12)), ...base },
+      { uuid: 'c-6', id: 6, code: 'outside', discount_type: 'percent', amount: '5', date_expires_gmt: gmt(new Date(2026, 9, 18, 12)), ...base },
+    ]);
+    renderScreen();
+    await screen.findByTestId('coupons-row-inside');
+    fireEvent.click(screen.getByTestId('filter-pill-date_expires_gmt'));
+    fireEvent.click(screen.getByTestId('coupons-expires-calendar-day-2026-10-05'));
+    fireEvent.click(screen.getByTestId('coupons-expires-calendar-day-2026-10-15'));
+    expect(rowCodes()).toHaveLength(2);
+    fireEvent.click(screen.getByTestId('coupons-expires-done'));
+    await waitFor(() => expect(rowCodes()).toEqual(['coupons-row-inside']));
+    expect(screen.queryByTestId('coupons-expires-menu')).toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test('Expires presets move the draft only, and reopening resets it to Today', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 9, 20, 12));
+  try {
+    await withCoupons();
+    const before = rowCodes();
+    fireEvent.click(screen.getByTestId('filter-pill-date_expires_gmt'));
+    fireEvent.click(screen.getByTestId('coupon-filter-expires-yesterday'));
+    expect(screen.getByTestId('coupon-filter-expires-yesterday').getAttribute('aria-pressed')).toBe('true');
+    expect(rowCodes()).toEqual(before);
+    expect(pill('date_expires_gmt')).toBe('Expires');
+    fireEvent.click(screen.getByTestId('coupons-expires-done'));
+    expect(pill('date_expires_gmt')).toBe('Yesterday');
+    expect(rowCodes()).toHaveLength(0);
+    fireEvent.click(screen.getByTestId('filter-pill-date_expires_gmt'));
+    expect(screen.getByTestId('coupon-filter-expires-today').getAttribute('aria-pressed')).toBe('true');
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test.each([
+  [undefined, 'Expires'],
+  [{ from: '2026-10-20', to: '2026-10-20' }, 'Today'],
+  [{ from: '2026-10-19', to: '2026-10-19' }, 'Yesterday'],
+  [{ from: '2026-10-05', to: '2026-10-15' }, '5 Oct - 15 Oct'],
+])('expiresLabel(%j) reads %s', (range, expected) => {
+  expect(expiresLabel(range, new Date(2026, 9, 20, 12), 'en-GB')).toBe(expected);
+});
+
+test('expiresLabel accepts a WordPress locale using the default locale fallback', () => {
+  const range = { from: '2026-10-05', to: '2026-10-15' }, now = new Date(2026, 9, 20, 12);
+  expect(() => expiresLabel(range, now, 'en_US')).not.toThrow();
+  expect(expiresLabel(range, now, 'en_US')).toBe(expiresLabel(range, now));
 });
 
 test('a chip with a search that matches nothing shows the empty state, and Clear filters clears both', async () => {
