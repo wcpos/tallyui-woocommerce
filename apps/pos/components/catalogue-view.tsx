@@ -43,6 +43,7 @@ import { ProductTile } from './product-tile';
 import { ClearAllButton, QuickFilterChip, SaveAsButton } from './quick-filter-bar';
 import type { QuickFilterMenu } from './quick-filter-bar';
 import { RegisterBarShell } from './register-bar-shell';
+import { StorageOutageBanner } from './storage-outage-banner';
 import { SyncButton } from './table-surface';
 import { ParentTile, VariationChips, VariationMoney, VariationRow, VariationTile } from './variation-tile';
 import { ViewModeToggle } from './view-mode-toggle';
@@ -76,6 +77,8 @@ export interface CatalogueViewProps {
   onOpenCustomers?(): void;
   onOpenReports?(): void;
   onOpenHealth?(): void;
+  /** The database health page (`/health/database`), for the storage-outage notice's View status. */
+  onOpenDatabaseHealth?(): void;
   onOpenSettings?(): void;
   onOpenSupport?(): void;
   viewState?: AppCatalogueViewState;
@@ -117,6 +120,7 @@ export function PosBar({ storeName, cashierName, cashierControl, onSignOut,
 }
 
 export function CatalogueView({
+  onOpenDatabaseHealth,
   connector, currency, products, storeName, cashierName, cashierControl, status, notice, onSignOut, onOpenProducts, onOpenOrders, onOpenCoupons, onOpenCustomers, onOpenReports, onOpenHealth, onOpenSettings, onOpenSupport, onSelect, onAddEntry, onScan, message, locked = null,
   viewState: controlledViewState, onViewStateChange,
   tax, inCartCounts, onSync, hideBar, searchChord, onRevealSearch, scanActive,
@@ -351,6 +355,8 @@ export function CatalogueView({
     {/* v2 index.tsx:607-610: the panel mounts under the chips, above the products, and keeps scanning after a decode. */}
     {scannerOpen && onScan ? <CameraScannerPanel onClose={() => setScannerOpen(false)} onDetected={camera.onDetected}
       onOpen={camera.onOpen} scanCount={camera.scanCount} readiness={readiness} /> : null}
+    {/* v2 index.tsx:613: under the scanner panel and above the locked notice. */}
+    <StorageOutageBanner degraded={storageDegraded} onViewStatus={onOpenDatabaseHealth} />
     {/* v2 index.tsx:615: the locked notice is the column's last row, after the scanner panel. */}
     <LockedNotice lock={locked} />
     <FilterBarDialog open={filterBarOpen || captured !== null} onOpenChange={open => { setFilterBarOpen(open); if (!open) { setCaptured(null); setBarStart(null); } }}
