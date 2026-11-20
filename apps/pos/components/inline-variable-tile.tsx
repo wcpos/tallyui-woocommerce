@@ -22,17 +22,18 @@ export function InlineVariableTile({ doc, entries, groups, currency, traits, til
 
   // Web: a press outside the tile and the panel, or Escape, dismisses it (TallyUI 3.18's PopoverContent has neither)
   // (remove with TallyUI #829).
+  // Capture and stop Escape so a browse level's Escape (LevelBack) does not also go back.
   useEffect(() => {
     if (!open || Platform.OS !== 'web' || typeof document === 'undefined') return;
     const inside = (target: EventTarget | null) => [trigger.current, panel.current]
       .some(node => (node as unknown as Element | null)?.contains(target as Node));
     const onPointerDown = (event: Event) => { if (!inside(event.target)) close(); };
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.stopPropagation(); close(); } };
     document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keydown', onKeyDown, true);
     return () => {
       document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('keydown', onKeyDown, true);
     };
   }, [open]);
 

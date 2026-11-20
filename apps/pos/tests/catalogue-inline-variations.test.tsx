@@ -98,6 +98,21 @@ test('Escape closes an open popover without adding', () => {
   expect(onAddEntry).not.toHaveBeenCalled();
 });
 
+test('in a category level Escape closes only the popover; the level stays', () => {
+  view({ browseBy: 'categories', variationsStyle: 'inline' });
+  const { onAddEntry } = renderView();
+  fireEvent.click(screen.getByTestId('browse-term-27'));
+  openPopover();
+  expect(popover()).not.toBeNull();
+  fireEvent.keyDown(screen.getByTestId('variable-product-tile-102'), { key: 'Escape' });
+  expect(popover()).toBeNull();
+  expect(screen.queryByTestId('browse-root')).toBeNull();
+  expect(screen.getByTestId('products-breadcrumb').textContent).toBe('CategoriesMerch');
+  expect(onAddEntry).not.toHaveBeenCalled();
+  fireEvent.keyDown(screen.getByTestId('product-tile-102'), { key: 'Escape' });
+  expect(screen.getByTestId('browse-root')).not.toBeNull();
+});
+
 test('a product with an "Any" variant opens the popover too, and Add carries the picked value', () => {
   const { onSelect, onAddEntry } = renderView([anySize]);
   openPopover();
