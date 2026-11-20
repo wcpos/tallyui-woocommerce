@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import type { JSX } from 'react';
+import { View } from 'react-native';
 import type { CustomerSummary } from '@tallyui/pos';
 import { ConnectorUnauthorizedError, CustomerServiceError } from '@tallyui/core';
 import { Button, CustomerForm, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Text } from '@tallyui/components';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { toast } from '../lib/toast/toast';
+import { INVALID_EMAIL_MESSAGE, isValidEmail } from '../lib/receipts/receipt-emails';
 
 export interface AddCustomerDialogProps {
   source: CustomerSource;
@@ -26,7 +28,8 @@ export function AddCustomerDialog({ source, onClose, onCreated }: AddCustomerDia
 
   async function save() {
     const email = values.email.trim();
-    if (!email) { setError('An email is required'); return; }
+    // v2 customer-form.tsx:39 `email: z.string().email()`: zod 4 rejects "" and non-addresses with one copy.
+    if (!isValidEmail(email)) { setError(INVALID_EMAIL_MESSAGE); return; }
     const firstName = values.firstName.trim(), lastName = values.lastName.trim(), phone = values.phone.trim();
     setError(undefined);
     try {
@@ -46,9 +49,16 @@ export function AddCustomerDialog({ source, onClose, onCreated }: AddCustomerDia
           the cart's pos/cart/add-customer.tsx:190-197 is size lg (TallyUI's max-w-lg), titled "Add new customer". */}
       <DialogContent side="right" testID="add-customer-dialog" className={onCreated ? undefined : 'max-w-[560px]'}>
         <DialogHeader><DialogTitle>{onCreated ? 'Add new customer' : 'Add Customer'}</DialogTitle></DialogHeader>
+        {/* v2 form-errors.tsx:32-35, above the fields (customer-form.tsx:153): a bad-tone Notice (none in TallyUI
+            3.20.1) titled common.please_fix_the_following_errors, one row per error with the raw path. */}
+        {error ? (
+          <View testID="customer-form-error" accessibilityRole="alert">
+            <Text className="text-destructive">Please fix the following errors:</Text>
+            <Text testID="customer-form-error-email" className="text-muted-foreground">{'\u2022'} email: {error}</Text>
+          </View>
+        ) : null}
         <CustomerForm testID="customer-form" values={values} onChangeField={(field, value) => setValues(v => ({ ...v, [field]: value }))}
           onSubmit={save} showAddress={false} submitLabel="Add Customer" />
-        {error ? <Text testID="customer-form-error" accessibilityRole="alert" className="text-destructive">{error}</Text> : null}
         <DialogFooter>
           <Button testID="customer-form-close" variant="outline" onPress={onClose}><Text>Cancel</Text></Button>
         </DialogFooter>
