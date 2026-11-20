@@ -448,7 +448,8 @@ test('Add new customer opens Add Customer, requires an email and saves', async (
   const submit = () => fireEvent.click(within(screen.getByTestId('customer-form')).getByText('Add Customer'));
   fireEvent.change(screen.getByPlaceholderText('email@example.com'), { target: { value: '   ' } });
   submit();
-  expect(screen.getByTestId('customer-form-error').textContent).toBe('An email is required');
+  // v2 customer-form.tsx:39: zod's email() rejects "" with its one copy, printed under the raw path.
+  expect(screen.getByTestId('customer-form-error-email').textContent).toBe('\u2022 email: Invalid email address');
   expect(create).not.toHaveBeenCalled();
   fireEvent.change(screen.getByPlaceholderText('email@example.com'), { target: { value: ' gee@example.invalid ' } });
   fireEvent.change(screen.getByPlaceholderText('First name'), { target: { value: ' Gee ' } });
