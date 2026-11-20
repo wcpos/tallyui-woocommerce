@@ -15,7 +15,8 @@ export function DocsLink({ href, children, testID, className, code }: {
   href: string; children: string; testID?: string; className?: string; code?: string;
 }): JSX.Element {
   return (
-    <Button variant="link" size="sm" accessibilityRole="link" testID={testID}
+    // v2 components/docs-link/index.tsx: role overrides the Button's default.
+    <Button variant="link" size="sm" role="link" testID={testID}
       className={className ? `h-auto self-start px-0 py-0 ${className}` : 'h-auto self-start px-0 py-0'}
       onPress={() => { void Linking.openURL(href); }}>
       {/* v2 docs-link/index.tsx:38-47: the label, then the ↗ at Icon size `xs` (size-3.5: 14) in an xs (gap-1) HStack. */}
