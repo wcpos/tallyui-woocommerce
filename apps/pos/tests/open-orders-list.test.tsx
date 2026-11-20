@@ -4,7 +4,7 @@ import { formatMoney } from '@tallyui/core';
 import { OpenOrdersList, type OpenOrdersListProps } from '../components/open-orders-list';
 import { AGE_TICK_MS, stripCartIds } from '../components/open-order-tabs';
 import { cartContentsLine, relativeAge } from '../lib/sale/cart-contents';
-import { classesOf } from './classes-of';
+import { classesOf, textPropsOf } from './classes-of';
 
 const currency = 'USD';
 const SECOND = 1000;
@@ -170,4 +170,25 @@ test('a refused or failed resume goes to onError, never a throw', async () => {
   const failed = show({ parked, current: currentCart([]), onSelect: vi.fn(async (): Promise<string | null> => { throw new Error('Boom'); }) });
   fireEvent.click(screen.getByTestId('open-orders-row-p1'));
   await waitFor(() => expect(failed.onError).toHaveBeenCalledWith('Boom'));
+});
+
+// v2 cart/open-orders-list.tsx:112-121: the current row takes focus as the list opens, never while it is leaving.
+test('the current row has focus after mount, unless the list is leaving', () => {
+  const parked = [parkedCart('p1', ago(5 * MINUTE), [{ name: 'Latte', quantity: 1 }], 450)];
+  const focus = vi.spyOn(HTMLElement.prototype, 'focus');
+  show({ parked, current: currentCart([{ name: 'Tea', quantity: 1 }]), currentOpenedAt: ago(MINUTE) });
+  expect(document.activeElement).toBe(screen.getByTestId('open-orders-row-current'));
+  expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+  cleanup();
+  focus.mockClear();
+
+  show({ parked, current: currentCart([{ name: 'Tea', quantity: 1 }]), currentOpenedAt: ago(MINUTE), leaving: true });
+  expect(document.activeElement).not.toBe(screen.getByTestId('open-orders-row-current'));
+  expect(focus).not.toHaveBeenCalled();
+});
+
+// v2 cart/open-orders-list.tsx:52: the header text is plain.
+test('the header text has no font-semibold', () => {
+  show({ parked: [], current: currentCart([{ name: 'Tea', quantity: 1 }]) });
+  expect(textPropsOf(screen.getByText('Open orders')).classes).not.toContain('font-semibold');
 });

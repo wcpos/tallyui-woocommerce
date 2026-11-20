@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { Platform, ScrollView, View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
-import { Button, ParkedSales, Receipt, SyncStatus, Text } from '@tallyui/components';
+import { Button, Receipt, SyncStatus, Text } from '@tallyui/components';
 import { catalogueEntries, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
 import { formatMoney } from '@tallyui/core';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
@@ -62,6 +62,7 @@ import { CancelPaymentView } from './cancel-payment-view';
 import { CashierSheet, type CashierOption } from './cashier-sheet';
 import { CouponRows } from './coupon-entry';
 import { OpenOrderTabs, stripCartIds } from './open-order-tabs';
+import { OpenOrdersList } from './open-orders-list';
 import { PanelResizeHandle } from './panel-resize-handle';
 import { CartWithSettings } from './cart-settings';
 import { OrderDetailsSheet } from './order-details-sheet';
@@ -168,12 +169,14 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const cartRestore = useCartRestore(sale, props.products, connector.traits.product, currency, setMessage);
   const parkedStore = useParkedCarts(parkedCarts);
   const { parked } = parkedStore;
-  const { summaries, park, resume, resumeCart, hold, unhold, discard, currentOpenedAt } = useParkAndResume(sale, {
+  const { park, resume, resumeCart, hold, unhold, currentOpenedAt } = useParkAndResume(sale, {
     store: parkedStore, cartRestore, heldCartKey: props.heldCartKey,
     catalogueReady: props.status === 'ready', say: setMessage,
   });
   const startTender = useTenderStart(sale, { register, multiPayment: outbox.enabled && props.multiplePayments === true, say: setMessage });
-  const [parkedOpen, setParkedOpen] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
+  // Leaving the cart stage unmounts the strip, which uncovers the cart: coming back never finds the list open (v2 cart/tabs.tsx:109-114).
+  useEffect(() => { if (sale.stage.kind !== 'cart') setListOpen(false); }, [sale.stage.kind]);
   const [variants, setVariants] = useState<CatalogueEntry<any>[]>();
   // v2's autoShowReceipt off (use-complete-order-flow.ts): with no auto print either, a finished sale goes straight
   // back to an empty till, once per order. With auto print on, the receipt stage renders so the print area exists.
@@ -305,8 +308,6 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       {width < SALE_SPLIT_MIN_WIDTH && message ? <Text>{message}</Text> : null}
       {sale.stage.kind === 'cart' ? (
         <>
-          <ParkedSales sale={sale} parked={summaries} onPark={park} onResume={resume}
-            onDiscard={discard} currency={currency} open={parkedOpen} onOpenChange={setParkedOpen} />
           {/* M6's order notes can take the price-change reason via onPriceChange. */}
           {/* B7: quantity and price open keypad popovers, as v2's cart/cells/quantity-keypad.tsx and cart/cells/price.tsx do. */}
           <CartWithSettings sale={{ ...sale, startTender: startTender }} canEditPrice lineEditor="popover" taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)}
@@ -318,8 +319,12 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             customers={props.customers ?? null} createCustomersBlockedReason={createCustomersBlockedReason(effective, props.siteHome)}
             checkout={checkout} chords={cartChords} note={<CartNoteRow note={sale.order.note} onPress={() => setDetailsOpen(true)} />}
             position={viewState.position} onPositionChange={position => setViewState({ ...viewState, position })}
-            openOrders={<OpenOrderTabs parked={parked} current={sale.order} currentOpenedAt={currentOpenedAt} currency={currency} locale={props.locale} onSelect={resume} onNew={park} onError={setMessage}
-              onOpenList={() => setParkedOpen(true)} listOpen={parkedOpen} compact={phoneLayout} />} />
+            // v2 cart/tabs.tsx: the count toggles the list (:352); a tab press (:280-284) and + (:438-445) close it.
+            openOrders={<OpenOrderTabs parked={parked} current={sale.order} currentOpenedAt={currentOpenedAt} currency={currency} locale={props.locale}
+              onSelect={id => { setListOpen(false); return resume(id); }} onNew={() => { setListOpen(false); return park(); }} onError={setMessage}
+              onOpenList={() => setListOpen(open => !open)} listOpen={listOpen} compact={phoneLayout} />}
+            openOrdersList={<OpenOrdersList parked={parked} current={sale.order} currentOpenedAt={currentOpenedAt} currency={currency} locale={props.locale}
+              onSelect={resume} onClose={() => setListOpen(false)} onError={setMessage} leaving={!listOpen} />} listOpen={listOpen} />
           <OrderDetailsSheet open={detailsOpen} onOpenChange={setDetailsOpen} side={viewState.position}
             note={sale.order.note} onNoteChange={sale.setNote} onVoid={voiding.offered ? voiding.voidSale : undefined} />
         </>

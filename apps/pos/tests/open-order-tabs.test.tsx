@@ -13,7 +13,7 @@ import { tabWho } from '../lib/sale/tab-who';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
-import { openParkedList, parkedTabs, stripLayout } from './open-orders-helpers';
+import { openParkedList, parkedRow, parkedTabs, rowContents, stripLayout } from './open-orders-helpers';
 import { Toaster } from '../components/toaster';
 import { dismissToast } from '../lib/toast/toast';
 import { runBeforeLeave } from '../lib/sale/before-leave';
@@ -277,7 +277,7 @@ test('sale screen: holding a resumed A for a sign-in redirect parks it in its pl
   expect(stripAmounts()).toEqual(['Guest$3.00', 'Guest$4.00', 'Guest$6.00']);
 }, 20_000);
 
-test('sale screen (e): nothing above the cart parks or lists; the strip\'s count cell opens the parked sheet', async () => {
+test('sale screen (e): nothing above the cart parks or lists; the strip\'s count cell opens the open-orders list', async () => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
   render(<SaleScreen {...props} />);
   addTile(80);
@@ -290,10 +290,31 @@ test('sale screen (e): nothing above the cart parks or lists; the strip\'s count
   expect(screen.queryByTestId('open-orders-count')).toBeNull();
   openParkedList();
   expect(screen.getByRole('button', { name: '2 open' })).not.toBeNull();
-  const sheet = within(screen.getByTestId('parked-sales'));
-  expect(sheet.getByText('1 item')).not.toBeNull();
-  expect(sheet.getByText('$3.00')).not.toBeNull();
+  expect(rowContents(parkedRow()).items).toBe('Espresso');
+  expect(within(parkedRow()).getByText('$3.00')).not.toBeNull();
 }, 20_000);
+
+// v2 cart/tabs.tsx:156-161 closeList: the list closing hands focus back to the strip's active tab.
+test('when the list closes, focus goes back to the current cart\'s tab, or + on the blank cart', () => {
+  const { onSelect, onNew, onError } = handlers();
+  const parked = [cart('a', new Date(NOW - MINUTE).toISOString(), ['Espresso'], 300)];
+  const strip = (current: OpenOrderTabsCurrent, listOpen: boolean) => <OpenOrderTabs currency={currency} onSelect={onSelect} onNew={onNew}
+    onError={onError} now={() => NOW} parked={parked} current={current} listOpen={listOpen} />;
+  const view = render(strip(order(['Cold Brew'], 400), true));
+  const away = document.createElement('button');
+  document.body.append(away);
+  away.focus();
+  expect(document.activeElement).toBe(away);
+  view.rerender(strip(order(['Cold Brew'], 400), true));
+  expect(document.activeElement).toBe(away);
+  view.rerender(strip(order(['Cold Brew'], 400), false));
+  expect(document.activeElement).toBe(screen.getByTestId('open-order-tab-current'));
+  view.rerender(strip(order([], 0), true));
+  away.focus();
+  view.rerender(strip(order([], 0), false));
+  expect(document.activeElement).toBe(screen.getByTestId('new-order-tab'));
+  away.remove();
+});
 
 test('(a) a cart parked 5 h ago reads its amount, then its age', () => {
   const { onSelect, onNew, onError } = handlers();

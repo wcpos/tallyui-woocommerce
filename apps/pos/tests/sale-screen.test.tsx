@@ -10,6 +10,7 @@ import * as ReactNative from 'react-native';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { Cart } from '@tallyui/components';
 import * as TallyComponents from '@tallyui/components';
+import * as OpenOrdersListModule from '../components/open-orders-list';
 import { catalogueEntries, TaxProvider, useSale } from '@tallyui/pos';
 import type { OutboxState } from '@tallyui/pos';
 import { SaleScreen as SaleScreenWithoutHost, syncLineShown } from '../components/sale-screen';
@@ -27,7 +28,7 @@ import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import variations from './fixtures/variations.json';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
-import { openParkedList, parkedTabs } from './open-orders-helpers';
+import { openParkedList, parkedRow, parkedTabs, resumeFromList, rowContents } from './open-orders-helpers';
 import { cartPane, cartTabCount, openCartTab, openProductsTab, paneShown, productsPane } from './phone-tabs-helpers';
 import { SCAN_SOUND_KEY } from '../lib/scan/scan-sound';
 import { installFakeAudio, tones } from './fake-audio-context';
@@ -390,7 +391,7 @@ test('invalid prices leave the form open and Cancel preserves the original price
   expect(within(summaryRow('Total')).getByText('$6.00')).not.toBeNull();
 }, 20_000);
 
-test('parks through the sheet, shows the parked customer and restores them to the cart', async () => {
+test('parks with +, shows the parked customer in the list and restores them to the cart', async () => {
   vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
   const gee = { id: '7', name: 'Gee Four', email: 'gee@example.invalid' };
   const customers = { search: vi.fn().mockResolvedValue([gee]), create: vi.fn().mockResolvedValue(gee) };
@@ -399,14 +400,14 @@ test('parks through the sheet, shows the parked customer and restores them to th
   fireEvent.change(screen.getByPlaceholderText('Search Customers'), { target: { value: 'gee' } });
   fireEvent.click(await screen.findByLabelText('Gee Four, gee@example.invalid'));
   fireEvent.click(screen.getByText('Espresso'));
+  await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
   openParkedList();
-  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Park this sale' })); });
-  const sheet = within(screen.getByTestId('parked-sales'));
-  expect(sheet.getByText('Gee Four')).not.toBeNull();
-  expect(sheet.getByText('1 item')).not.toBeNull();
-  expect(sheet.getByText('$3.00')).not.toBeNull();
-  await act(async () => { fireEvent.click(sheet.getByRole('button', { name: 'Resume parked sale' })); });
-  expect(screen.queryByTestId('parked-sales')).toBeNull();
+  const row = parkedRow();
+  expect(within(row).getByText('Gee Four')).not.toBeNull();
+  expect(rowContents(row).items).toBe('Espresso');
+  expect(within(row).getByText('$3.00')).not.toBeNull();
+  await act(async () => { fireEvent.click(row); });
+  await waitFor(() => expect(screen.queryByTestId('open-orders-list')).toBeNull());
   expect(await screen.findByRole('button', { name: 'Customer: Gee Four' })).not.toBeNull();
   expect(screen.getByLabelText('Edit quantity of Espresso')).not.toBeNull();
 }, 20_000);
@@ -437,8 +438,7 @@ test('a new sale starts with the default customer; a resumed one keeps its own, 
   fireEvent.click(screen.getByText('Cold Brew'));
   expect(chip()).toBe('Customer: Anna Bell');
   const resumeOnly = async (line: string) => {
-    openParkedList();
-    await act(async () => { fireEvent.click(within(screen.getByTestId('parked-sales')).getByRole('button', { name: 'Resume parked sale' })); });
+    await resumeFromList();
     await waitFor(() => expect(screen.queryByLabelText(`Edit quantity of ${line}`)).not.toBeNull());
   };
   // Resuming the Guest sale parks Anna's and restores Guest, not the default; resuming Anna's restores Anna.
@@ -703,7 +703,7 @@ test('with no order transport, Cash shows the payment placeholder and Back to ca
 }, 20_000);
 
 // Several full renders of the sale screen take longer than 5 s on the CI runner.
-test('wide: parks, resumes while parking the current cart, and discards with confirmation', async () => {
+test('wide: parks, and resumes from the list while parking the current cart', async () => {
   vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
   render(<SaleScreen {...props} />);
   expect(screen.getByTestId('new-order-tab').getAttribute('aria-selected')).toBe('true');
@@ -713,34 +713,28 @@ test('wide: parks, resumes while parking the current cart, and discards with con
   expect(screen.getByText(EMPTY_CART_TEXT)).not.toBeNull();
   expect(screen.queryByLabelText('Edit quantity of Espresso')).toBeNull();
   openParkedList();
-  expect(screen.getByText('Parked sales')).not.toBeNull();
-  expect(within(screen.getByTestId('parked-sales')).getByText('2 items')).not.toBeNull();
-  expect(within(screen.getByTestId('parked-sales')).getByText('$6.00')).not.toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Close panel' }));
+  expect(within(screen.getByTestId('open-orders-list')).getByText('Open orders')).not.toBeNull();
+  expect(rowContents(parkedRow()).items).toBe('Espresso ×2');
+  expect(within(parkedRow()).getByText('$6.00')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('open-orders-close'));
+  await waitFor(() => expect(screen.queryByTestId('open-orders-list')).toBeNull());
   fireEvent.click(screen.getByText('Cold Brew'));
-  openParkedList();
-  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' })); });
-  expect(screen.queryByTestId('parked-sales')).toBeNull();
+  await resumeFromList();
+  await waitFor(() => expect(screen.queryByTestId('open-orders-list')).toBeNull());
   expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: '$3.00', total: '$6.00' });
   expect(within(screen.getByText('Subtotal').parentElement!).getByText('$6.00')).not.toBeNull();
   expect(screen.queryByLabelText('Edit quantity of Cold Brew')).toBeNull();
   openParkedList();
-  const sheet = within(screen.getByTestId('parked-sales'));
-  expect(sheet.getByText('1 item')).not.toBeNull();
-  expect(sheet.getByText('$4.00')).not.toBeNull();
-  expect(sheet.queryByText('2 items')).toBeNull();
-  fireEvent.click(sheet.getByRole('button', { name: 'Discard parked sale' }));
-  expect(sheet.getByText('Discard this parked sale?')).not.toBeNull();
   expect(parkedTabs()).toHaveLength(1);
-  await act(async () => { fireEvent.click(sheet.getByRole('button', { name: 'Discard' })); });
-  expect(sheet.getByText('No parked sales.')).not.toBeNull();
-  expect(parkedTabs()).toHaveLength(0);
-  fireEvent.click(screen.getByRole('button', { name: 'Close panel' }));
+  expect(rowContents(parkedRow()).items).toBe('Cold Brew');
+  expect(within(parkedRow()).getByText('$4.00')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('open-orders-close'));
+  await waitFor(() => expect(screen.queryByTestId('open-orders-list')).toBeNull());
   expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: '$3.00', total: '$6.00' });
 }, 20_000);
 
 // B12: no Parked (n) button on the products side; on the Cart tab the open-order strip reaches the parked list.
-test('narrow: on the Cart tab the open-order strip opens the parked sheet and restores the cart', async () => {
+test('narrow: on the Cart tab the open-order strip opens the open-orders list and restores the cart', async () => {
   render(<SaleScreen {...props} />);
   fireEvent.click(screen.getByText('Espresso'));
   openCartTab();
@@ -748,11 +742,12 @@ test('narrow: on the Cart tab the open-order strip opens the parked sheet and re
   expect(cartTabCount()).toBe('New');
   expect(parkedTabs()).toHaveLength(1);
   openParkedList();
-  expect(within(screen.getByTestId('parked-sales')).getByText('1 item')).not.toBeNull();
-  expect(within(screen.getByTestId('parked-sales')).getByText('$3.00')).not.toBeNull();
+  expect(cartPane().getByTestId('open-orders-list')).not.toBeNull();
+  expect(rowContents(parkedRow()).items).toBe('Espresso');
+  expect(within(parkedRow()).getByText('$3.00')).not.toBeNull();
   expect(paneShown('products')).toBe(false);
-  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' })); });
-  expect(screen.queryByTestId('parked-sales')).toBeNull();
+  await act(async () => { fireEvent.click(parkedRow()); });
+  await waitFor(() => expect(screen.queryByTestId('open-orders-list')).toBeNull());
   expect(cartPane().getByText('Espresso')).not.toBeNull();
   expect(parkedTabs()).toHaveLength(0);
   expect(cartTabCount()).toBe('1');
@@ -760,22 +755,22 @@ test('narrow: on the Cart tab the open-order strip opens the parked sheet and re
   expect(paneShown('cart')).toBe(false);
 }, 20_000);
 
-test('onResume resolves after restoration, and the sheet closes with the restored lines present', async () => {
+test('a list row resumes before the list closes, and the list closes with the restored lines present', async () => {
   vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
-  const ParkedSales = TallyComponents.ParkedSales;
-  let latest: Parameters<typeof ParkedSales>[0];
+  const List = OpenOrdersListModule.OpenOrdersList;
+  let latest: Parameters<typeof List>[0];
   const resumed = vi.fn();
   const closed = vi.fn();
-  vi.spyOn(TallyComponents, 'ParkedSales').mockImplementation(sheetProps => {
-    latest = sheetProps;
-    return <ParkedSales {...sheetProps} onResume={async id => {
-      const result = await sheetProps.onResume!(id);
-      resumed(result, latest.sale.order.lineItems.map(({ name, quantity }) => ({ name, quantity })));
+  const linesOf = () => latest.current.lineItems.map(({ name, quantity }) => ({ name, quantity }));
+  vi.spyOn(OpenOrdersListModule, 'OpenOrdersList').mockImplementation(listProps => {
+    latest = listProps;
+    return <List {...listProps} onSelect={async id => {
+      const result = await listProps.onSelect(id);
+      resumed(result, linesOf());
       return result;
-    }} onOpenChange={open => {
-      if (!open) closed(open, latest.sale.order.lineItems.map(({ name, quantity }) => ({ name, quantity })),
-        queryCartLine('Espresso'), queryCartLine('Cold Brew'));
-      sheetProps.onOpenChange(open);
+    }} onClose={() => {
+      closed(linesOf(), queryCartLine('Espresso'), queryCartLine('Cold Brew'));
+      listProps.onClose();
     }} />;
   });
   render(<SaleScreen {...props} />);
@@ -786,19 +781,19 @@ test('onResume resolves after restoration, and the sheet closes with the restore
   await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
   openParkedList();
   await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' }));
+    fireEvent.click(parkedRow());
     await Promise.resolve();
     expect(resumed).not.toHaveBeenCalled();
     expect(closed).not.toHaveBeenCalled();
-    expect(latest.open).toBe(true);
+    expect(latest.leaving).toBe(false);
   });
   const lines = [{ name: 'Espresso', quantity: 2 }, { name: 'Cold Brew', quantity: 3 }];
   expect(resumed).toHaveBeenCalledExactlyOnceWith(null, lines);
   const espresso = { quantity: '2', unitPrice: '$3.00', total: '$6.00' };
   const coldBrew = { quantity: '3', unitPrice: '$4.00', total: '$12.00' };
-  expect(closed).toHaveBeenCalledExactlyOnceWith(false, lines, espresso, coldBrew);
-  expect(latest!.open).toBe(false);
-  expect(screen.queryByTestId('parked-sales')).toBeNull();
+  expect(closed).toHaveBeenCalledExactlyOnceWith(lines, espresso, coldBrew);
+  expect(latest!.leaving).toBe(true);
+  await waitFor(() => expect(screen.queryByTestId('open-orders-list')).toBeNull());
   expect(cartLine('Espresso')).toEqual(espresso);
   expect(cartLine('Cold Brew')).toEqual(coldBrew);
 }, 20_000);
@@ -809,9 +804,8 @@ test('resuming reports a missing product in the phone cart message line', async 
   openCartTab();
   await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
   view.rerender(<SaleScreen {...props} products={products.slice(1)} />);
-  openParkedList();
-  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' })); });
-  expect(screen.queryByTestId('parked-sales')).toBeNull();
+  await resumeFromList();
+  await waitFor(() => expect(screen.queryByTestId('open-orders-list')).toBeNull());
   expect(cartPane().getByText('Espresso is no longer in the catalogue.')).not.toBeNull();
   expect(screen.getByText(EMPTY_CART_TEXT)).not.toBeNull();
 }, 20_000);
@@ -855,18 +849,17 @@ test('a parked cart stays parked while syncing and resumes once the catalogue is
     const view = render(<SaleScreen {...props} parkedCarts={parkedCarts} products={[]} status="syncing" />);
     openCartTab();
     await waitFor(() => expect(parkedTabs()).toHaveLength(1));
-    openParkedList();
-    fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' }));
-    expect(await within(screen.getByTestId('parked-sales')).findByText(
-      'The catalogue is still syncing. Try again in a moment.',
-    )).not.toBeNull();
+    // A refused resume shows its message on the screen's message line and closes the list, as v2's does.
+    await resumeFromList();
+    expect(await cartPane().findByText('The catalogue is still syncing. Try again in a moment.')).not.toBeNull();
+    await waitFor(() => expect(screen.queryByTestId('open-orders-list')).toBeNull());
     expect((await parkedCarts.find().exec()).map(doc => doc.toJSON())).toEqual([cart.toJSON()]);
     expect(screen.getByText(EMPTY_CART_TEXT)).not.toBeNull();
 
     view.rerender(<SaleScreen {...props} parkedCarts={parkedCarts} status="ready" />);
-    fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' }));
+    await resumeFromList();
     await waitFor(() => expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: undefined, total: '$6.00' }));
-    await waitFor(() => expect(screen.queryByTestId('parked-sales')).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('open-orders-list')).toBeNull());
     expect(await parkedCarts.find().exec()).toEqual([]);
     expect(screen.getByLabelText('Edit quantity of Espresso')).not.toBeNull();
   } finally {
@@ -875,7 +868,7 @@ test('a parked cart stays parked while syncing and resumes once the catalogue is
   }
 }, 20_000);
 
-test('persisted carts survive a new screen, restore, swap and discard', async () => {
+test('persisted carts survive a new screen, restore and swap', async () => {
   vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
   const db = await createRxDatabase({
     name: `parked_${crypto.randomUUID()}`, multiInstance: false,
@@ -899,11 +892,11 @@ test('persisted carts survive a new screen, restore, swap and discard', async ()
     render(<SaleScreen {...props} parkedCarts={parkedCarts} />);
     await waitFor(() => expect(parkedTabs()).toHaveLength(1));
     openParkedList();
-    expect(within(screen.getByTestId('parked-sales')).getByText('2 items')).not.toBeNull();
-    expect(within(screen.getByTestId('parked-sales')).getByText('$6.00')).not.toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' }));
+    expect(rowContents(parkedRow()).items).toBe('Espresso ×2');
+    expect(within(parkedRow()).getByText('$6.00')).not.toBeNull();
+    await act(async () => { fireEvent.click(parkedRow()); });
     await waitFor(() => expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: '$3.00', total: '$6.00' }));
-    await waitFor(() => expect(screen.queryByTestId('parked-sales')).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('open-orders-list')).toBeNull());
     expect(await parkedCarts.find().exec()).toEqual([]);
     expect(screen.getByLabelText('Edit quantity of Espresso')).not.toBeNull();
 
@@ -911,50 +904,16 @@ test('persisted carts survive a new screen, restore, swap and discard', async ()
     await waitFor(() => expect(parkedTabs()).toHaveLength(1));
     await waitFor(() => expect(screen.queryByLabelText('Edit quantity of Espresso')).toBeNull());
     fireEvent.click(screen.getByText('Cold Brew'));
-    openParkedList();
-    fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' }));
+    await resumeFromList();
     await waitFor(() => expect(cartLine('Espresso')).toEqual({ quantity: '2', unitPrice: '$3.00', total: '$6.00' }));
-    await waitFor(() => expect(screen.queryByTestId('parked-sales')).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('open-orders-list')).toBeNull());
     await waitFor(() => expect(parkedTabs()).toHaveLength(1));
     const swapped = await parkedCarts.find().exec();
     expect(swapped).toHaveLength(1);
     expect(swapped[0].toJSON()).toMatchObject({ itemCount: 1, totalMinor: 400, lines: [{ name: 'Cold Brew' }] });
     openParkedList();
-    expect(within(screen.getByTestId('parked-sales')).getByText('1 item')).not.toBeNull();
-    expect(within(screen.getByTestId('parked-sales')).getByText('$4.00')).not.toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Discard parked sale' }));
-    expect(screen.getByText('Discard this parked sale?')).not.toBeNull();
-    expect(await parkedCarts.find().exec()).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
-    await screen.findByText('No parked sales.');
-    expect(await parkedCarts.find().exec()).toEqual([]);
-  } finally {
-    cleanup();
-    await db.remove();
-  }
-}, 20_000);
-
-test('a parked sale whose discard fails stays parked and the failure is shown', async () => {
-  vi.mocked(ReactNative.useWindowDimensions).mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
-  const db = await createRxDatabase({
-    name: `parked_${crypto.randomUUID()}`, multiInstance: false,
-    storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }),
-  });
-  try {
-    const { parked_carts: parkedCarts } = await db.addCollections<{ parked_carts: ParkedCartCollection }>({
-      parked_carts: { schema: parkedCartSchema, migrationStrategies: parkedCartMigrationStrategies },
-    });
-    render(<SaleScreen {...props} parkedCarts={parkedCarts} />);
-    fireEvent.click(screen.getByText('Espresso'));
-    await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
-    await waitFor(() => expect(parkedTabs()).toHaveLength(1));
-    vi.spyOn(parkedCarts, 'findOne').mockReturnValueOnce({ remove: () => Promise.reject(new Error('disk full')) } as never);
-    openParkedList();
-    fireEvent.click(screen.getByRole('button', { name: 'Discard parked sale' }));
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Discard' })); });
-    await screen.findByText('disk full');
-    expect(await parkedCarts.find().exec()).toHaveLength(1);
-    expect(parkedTabs()).toHaveLength(1);
+    expect(rowContents(parkedRow()).items).toBe('Cold Brew');
+    expect(within(parkedRow()).getByText('$4.00')).not.toBeNull();
   } finally {
     cleanup();
     await db.remove();
@@ -1196,8 +1155,8 @@ test('Undo after a new sale was started parks that sale and brings the voided on
   expect(queryCartItem('Cold Brew')).toBeNull();
   expect(parkedTabs()).toHaveLength(1);
   openParkedList();
-  expect(within(screen.getByTestId('parked-sales')).getByText('1 item')).not.toBeNull();
-  expect(within(screen.getByTestId('parked-sales')).getByText('$4.00')).not.toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Resume parked sale' }));
+  expect(rowContents(parkedRow()).items).toBe('Cold Brew');
+  expect(within(parkedRow()).getByText('$4.00')).not.toBeNull();
+  await act(async () => { fireEvent.click(parkedRow()); });
   await waitFor(() => expect(queryCartItem('Cold Brew')).not.toBeNull());
 }, 20_000);

@@ -161,6 +161,9 @@ export function OpenOrderTabs({ parked, current, currentOpenedAt, currency, loca
     focusPending.current = false;
     (node as HTMLElement).focus?.({ preventScroll: true });
   };
+  // v2 cart/tabs.tsx:156-161 closeList: the list closing hands focus back to the open cart's tab, or + on the blank cart.
+  const wasListOpen = useRef(listOpen);
+  if (wasListOpen.current !== listOpen) { if (!listOpen) focusPending.current = true; wasListOpen.current = listOpen; }
   function step(delta: number) {
     const at = (fresh ? ids.length : ids.indexOf(current.id)) + delta;
     if (at < 0 || at > ids.length) return;

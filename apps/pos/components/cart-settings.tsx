@@ -18,6 +18,7 @@ import type { CartColumns, CartSettings } from '../lib/sale/cart-settings';
 import { AutoPrintReceiptSetting } from './auto-print-setting';
 import { RECEIPT_SETTINGS_DEFAULTS, saveReceiptSettings } from '../lib/receipts/receipt-settings';
 import { withRemovedToasts } from '../lib/toast/removed-from-cart-toast';
+import { SlideOver } from './slide-over';
 
 // v2's UISettingsDialog trigger is the `filters` icon; in tabler, v2's default set, that is `adjustments-horizontal`.
 const FiltersIcon = createSvgIcon('FiltersIcon', () => <>
@@ -245,25 +246,40 @@ export type CartWithSettingsProps = ComponentProps<typeof Cart> & {
   chords?: boolean;                      // the till chords are live: Alt+D opens Add Discount
   // v2's note row sits above the foot's buttons (cart/foot.tsx:36); TallyUI's Cart has no slot there, so it goes under.
   note?: ReactNode;
+  openOrdersList?: ReactNode; // the open-orders list, slid out of the strip over the cart (v2 cart/tabs.tsx:462-481)
+  listOpen?: boolean;
 };
 
 export function CartWithSettings({ position, onPositionChange, openOrders, coupons = null, couponsOffered = false, customer, customers = null,
-  createCustomersBlockedReason, chords, sale, note, ...cartProps }: CartWithSettingsProps): JSX.Element {
+  createCustomersBlockedReason, chords, sale, note, openOrdersList, listOpen = false, ...cartProps }: CartWithSettingsProps): JSX.Element {
   const [settings, setSettings] = useCartSettings();
-  const openOrdersStrip = <View testID="cart-open-orders">{openOrders}</View>;
+  // Where the strip sits in the cart pane: the list covers the cart on the far side of it (v2 cart/tabs.tsx:116,330-337).
+  const [strip, setStrip] = useState({ y: 0, height: 0 });
+  const openOrdersStrip = <View testID="cart-open-orders" onLayout={({ nativeEvent: { layout } }) => setStrip(was =>
+    was.y === layout.y && was.height === layout.height ? was : { y: layout.y, height: layout.height })}>{openOrders}</View>;
+  const top = settings.openOrdersPosition === 'top';
   return <>
-    {settings.openOrdersPosition === 'top' && openOrdersStrip}
-    {/* The cart's head row: v2's cart header (pos/cart/cart-header.tsx), the customer first (it shrinks, so a long
-        name never pushes the icons off the row), then the + menu and the Cart Settings icon. */}
-    <View testID="cart-head" className="flex-row items-center gap-1">
-      <View className="min-w-0 flex-1">{customer}</View>
-      <CartAddMenu sale={sale} taxClasses={cartProps.taxClasses} coupons={coupons} couponsOffered={couponsOffered}
-        customers={customers} createCustomersBlockedReason={createCustomersBlockedReason} chords={chords} />
-      <CartSettingsDialog position={position} onPositionChange={onPositionChange} settings={settings} onSettingsChange={setSettings} />
+    {top && openOrdersStrip}
+    {/* Covered by the list, the cart leaves the tab order and the accessibility tree; the strip stays reachable to
+        close it (v2 cart/index.tsx:108-112,203-205, cart.LEDGER.md:117). `inert` is web only (RN-web forwards it). */}
+    <View testID="cart-body" className="min-h-0 flex-1" aria-hidden={listOpen} {...(listOpen ? { inert: true } : {})}>
+      {/* The cart's head row: v2's cart header (pos/cart/cart-header.tsx), the customer first (it shrinks, so a long
+          name never pushes the icons off the row), then the + menu and the Cart Settings icon. */}
+      <View testID="cart-head" className="flex-row items-center gap-1">
+        <View className="min-w-0 flex-1">{customer}</View>
+        {/* Covered, Alt+D must not reach the cart behind the list (cart.LEDGER.md:117). */}
+        <CartAddMenu sale={sale} taxClasses={cartProps.taxClasses} coupons={coupons} couponsOffered={couponsOffered}
+          customers={customers} createCustomersBlockedReason={createCustomersBlockedReason} chords={chords && !listOpen} />
+        <CartSettingsDialog position={position} onPositionChange={onPositionChange} settings={settings} onSettingsChange={setSettings} />
+      </View>
+      {/* Sort a copy for display only: the order builder's lineItems keep the add order (receipts, parking, the order). */}
+      <Cart {...cartProps} quickDiscounts={settings.quickDiscounts} columns={settings.columns} sale={{ ...sale, ...withRemovedToasts(sale), order: { ...sale.order, lineItems: sortCartLines(sale.order.lineItems, settings.sortLines) } }} />
+      {note}
     </View>
-    {/* Sort a copy for display only: the order builder's lineItems keep the add order (receipts, parking, the order). */}
-    <Cart {...cartProps} quickDiscounts={settings.quickDiscounts} columns={settings.columns} sale={{ ...sale, ...withRemovedToasts(sale), order: { ...sale.order, lineItems: sortCartLines(sale.order.lineItems, settings.sortLines) } }} />
-    {note}
-    {settings.openOrdersPosition !== 'top' && openOrdersStrip}
+    {!top && openOrdersStrip}
+    {/* The list comes out of the strip and covers the cart beside it; the strip stays put (v2 cart/tabs.tsx:462-481). */}
+    {openOrdersList !== undefined && <SlideOver testID="open-orders-cover" open={listOpen} from={top ? 'top' : 'bottom'}
+      className="absolute inset-x-0 z-50" coverClassName="bg-card"
+      style={top ? { top: strip.y + strip.height, bottom: 0 } : { top: 0, height: strip.y }}>{openOrdersList}</SlideOver>}
   </>;
 }
