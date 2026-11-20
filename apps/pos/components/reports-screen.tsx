@@ -267,7 +267,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
           ? table && <SalesTablePrint table={table} storeName={storeName} scope={panelScope} locale={locale} />
           : reprint === 'summary'
           ? <SalesSummaryPrint storeName={storeName} scope={`${periodName} · ${registerName} · ${cashierName}`} period={room.today}
-              date={range.from === range.to ? printDate(range.from) : `${printDate(range.from)} – ${printDate(range.to)}`} money={minor => money(minor) ?? ''} locale={locale} />
+              date={range.from === range.to ? printDate(range.from) : `${printDate(range.from)} – ${printDate(range.to)}`} money={minor => money(minor) ?? ''} locale={locale} cashierName={resolveCashierName} />
           : reprint === 'x'
           ? register.session && <ClosurePrint kind="x" closure={register.session} expected={register.expected} storeName={storeName} currency={currency} locale={locale} registerName={registerName} resolveCashierName={resolveCashierName} />
           : <ClosurePrint closure={reprint} storeName={storeName} currency={currency} locale={locale} registerName={registerName} resolveCashierName={resolveCashierName} copy />}

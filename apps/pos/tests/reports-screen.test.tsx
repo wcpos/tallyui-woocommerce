@@ -1463,12 +1463,15 @@ test('Print summary prints the shown sales: scope, total, orders and a row per p
   expect(printed.text).toContain('Sales summary');
   expect(printed.text).toContain(stores[0].name);
   expect(text('sales-summary-scope')).toBe(`Today · ${app.register.registerName} · Everyone`);
-  expect(text('sales-summary-total')).toBe('Total sales: $3.00');
-  expect(text('sales-summary-orders')).toBe('Orders: 1');
-  expect(within(screen.getByTestId('sales-summary-payments')).getAllByTestId(/^sales-summary-payment-/).map(row => row.textContent))
-    .toEqual(['Cash — 1 — $3.00']);
+  expect(text('sales-summary-total')).toBe('Total sales — 1 — $3.00');
+  expect(text('sales-summary-sales-row-orders')).toBe('Orders — 1');
+  expect(within(screen.getByTestId('sales-summary-group-payments')).getAllByTestId(/^sales-summary-payments-row-/).map(row => row.textContent))
+    .toEqual(['Cash — $3.00']);
+  expect(text('sales-summary-payments-subtotal')).toBe('Taken — $3.00');
+  expect(text('sales-summary-head')).toBe('Line — Count — Amount');
   expect(printed.text).toMatch(/Printed: .+/);
-  expect(screen.queryByTestId('sales-summary-taxes')).toBeNull();
+  expect(screen.queryByTestId('sales-summary-group-taxes')).toBeNull();
+  expect(screen.queryByTestId('sales-summary-group-cashiers')).toBeNull();
   expect(screen.queryByTestId('closure-print-document')).toBeNull();
 }, 20_000);
 
@@ -1483,9 +1486,22 @@ test("with a cashier chosen, the summary counts only that cashier's sales", asyn
   await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
   await printSummary();
   expect(text('sales-summary-scope')).toBe(`Today · ${app.register.registerName} · Paul`);
-  expect(text('sales-summary-total')).toBe('Total sales: $3.00');
-  expect(text('sales-summary-orders')).toBe('Orders: 1');
-  expect(text('sales-summary-payment-cash')).toBe('Cash — 1 — $3.00');
+  expect(text('sales-summary-total')).toBe('Total sales — 1 — $3.00');
+  expect(text('sales-summary-sales-row-orders')).toBe('Orders — 1');
+  expect(text('sales-summary-payments-row-cash')).toBe('Cash — $3.00');
+}, 30_000);
+
+test('the summary groups sales by cashier when more than one sold', async () => {
+  const app = await setup();
+  await payCash();
+  await payCash();
+  await waitFor(() => expect(text('hero-total')).toBe('$6.00'));
+  const [order] = await app.orders.find().exec();
+  await act(async () => { await order.incrementalPatch({ cashierRef: '7' }); });
+  await printSummary();
+  await waitFor(() => expect(within(screen.getByTestId('sales-summary-group-cashiers')).getAllByTestId(/^sales-summary-cashiers-row-/)).toHaveLength(2));
+  expect(text('sales-summary-cashiers-row-2')).toBe('Paul — 1 — $3.00');
+  expect(text('sales-summary-cashiers-subtotal')).toBe('Total — 2 — $6.00');
 }, 30_000);
 
 test('the summary lists taxes by rate when there is tax', async () => {
@@ -1493,7 +1509,8 @@ test('the summary lists taxes by rate when there is tax', async () => {
   await payCash();
   await waitFor(() => expect(text('hero-total')).toBe('$3.30'));
   await printSummary();
-  expect(within(screen.getByTestId('sales-summary-taxes')).getByText('Tax 10% — Net $3.00 — Tax $0.30 — Gross $3.30')).not.toBeNull();
+  expect(within(screen.getByTestId('sales-summary-group-taxes')).getByText('Tax 10% — $0.30')).not.toBeNull();
+  expect(text('sales-summary-taxes-subtotal')).toBe('Tax collected — $0.30');
 }, 20_000);
 
 /** Opens the date button's menu and picks a preset. */
@@ -1544,7 +1561,7 @@ test('the date menu lists the presets; Yesterday counts only yesterday against t
     await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
     await printSummary();
     expect(text('sales-summary-scope')).toBe(`Yesterday · ${app.register.registerName} · Everyone`);
-    expect(text('sales-summary-total')).toBe('Total sales: $6.00');
+    expect(text('sales-summary-total')).toBe('Total sales — 2 — $6.00');
   } finally {
     vi.useRealTimers();
   }
