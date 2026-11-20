@@ -9,9 +9,9 @@ import { anyPicks, pickerState, variationStockText } from '../lib/catalogue/vari
 import { VariationSelect } from './variation-select';
 
 /** WCPOS v2's variation picker: per attribute a row of values, or a select when they run long, then stock and Add once one variation matches. */
-export function VariationPicker({ entries, groups, currency, traits, onSelect, onClose }: {
+export function VariationPicker({ entries, groups, currency, traits, onSelect, onClose, variant = 'sheet' }: {
   entries: CatalogueEntry<any>[]; groups: VariantOptionGroup[]; currency: string; traits: ProductTraits<any>;
-  onSelect(entry: CatalogueEntry<any>): void; onClose(): void;
+  onSelect(entry: CatalogueEntry<any>): void; onClose(): void; variant?: 'sheet' | 'popover';
 }): JSX.Element {
   const [chosen, setChosen] = useState<Record<string, string>>({});
   const state = pickerState(groups, entries.map(entry => entry.variant), chosen);
@@ -30,9 +30,7 @@ export function VariationPicker({ entries, groups, currency, traits, onSelect, o
     onSelect(picks ? { ...match, picks } : match);
   }
 
-  return (
-    <ScrollView className="flex-1 bg-background p-4" testID="variation-picker">
-      <Text className="text-lg font-semibold">{traits.getName(entries[0].product)}</Text>
+  const body = <>
       <View testID="variation-popover-options" className="mt-3 gap-3">
         {state.groups.map(group => group.values.join('').length < 15 ? (
           // v2's characterCount rule (utils.ts:118, variations.tsx:165): short values are buttons, long ones a select.
@@ -59,6 +57,14 @@ export function VariationPicker({ entries, groups, currency, traits, onSelect, o
       ) : state.matches.length === 0 ? (
         <Text testID="variation-popover-unavailable" className="mt-4 text-muted-foreground">Variant not available</Text>
       ) : null}
+  </>;
+  // v2's popover body (cells/variations-popover/variations.tsx:146): a bare `min-w-52 shrink` stack, no title or Cancel.
+  if (variant === 'popover') return <View testID="variation-picker" className="min-w-52 shrink">{body}</View>;
+
+  return (
+    <ScrollView className="flex-1 bg-background p-4" testID="variation-picker">
+      <Text className="text-lg font-semibold">{traits.getName(entries[0].product)}</Text>
+      {body}
       <Button variant="ghost" className="mt-4" onPress={onClose}><Text>Cancel</Text></Button>
     </ScrollView>
   );

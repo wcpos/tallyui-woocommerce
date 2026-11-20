@@ -33,6 +33,7 @@ test('saves the exact JSON and round-trips a table state', () => {
     width: 37.5,
     showOutOfStock: true,
     browseBy: 'all',
+    variationsStyle: 'inline',
   };
   saveCatalogueView(state, storage);
   expect(storage.getItem(CATALOGUE_VIEW_KEY)).toBe(JSON.stringify(state));

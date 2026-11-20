@@ -6,7 +6,7 @@ import { Path } from 'react-native-svg';
 import { Button, createSvgIcon, Dialog, DialogContent, DialogTitle, IconButton, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Slider, Text, Tooltip, TooltipContent, TooltipTrigger, XIcon } from '@tallyui/components';
 import type { ProductSort } from '@tallyui/pos';
 import { BROWSE_BY, CATALOGUE_COLUMNS, CATALOGUE_TILE_FIELDS, CATALOGUE_VIEW_DEFAULTS } from '../lib/catalogue/catalogue-view-state';
-import type { AppCatalogueViewState, PanelPosition } from '../lib/catalogue/catalogue-view-state';
+import type { AppCatalogueViewState, PanelPosition, VariationsStyle } from '../lib/catalogue/catalogue-view-state';
 import { QUICK_FILTER_SORT_FIELDS } from '../lib/catalogue/quick-filters';
 import { termOptions } from './catalogue-filter-chips';
 import { Segmented } from './segmented';
@@ -155,9 +155,10 @@ export function CatalogueDisplayOptions({ state, onChange, products, quickFilter
           </View>
           <View className="gap-1.5">
             <FieldLabel>Variations</FieldLabel>
-            {/* v2's variationsStyle. The app only opens variations in place (VariantChooser); inline is a Follow-up. */}
-            <Segmented testID="products-variations-style" label="Variations" value="drill" onChange={() => {}}
-              segments={[{ value: 'drill', label: 'Open in place' }, { value: 'inline', label: state.view === 'grid' ? 'Popover' : 'Expanded rows', disabled: true }]} />
+            {/* v2's variationsStyle. Table view's Expanded rows is a later slice, so inline works in grid view only. */}
+            <Segmented testID="products-variations-style" label="Variations" value={state.variationsStyle}
+              onChange={next => onChange({ ...state, variationsStyle: next as VariationsStyle })}
+              segments={[{ value: 'drill', label: 'Open in place' }, { value: 'inline', label: state.view === 'grid' ? 'Popover' : 'Expanded rows', disabled: state.view === 'table' }]} />
           </View>
           {/* v2: a `gap-2 px-1 pt-2` View, its SectionHeading, then one FormSwitch per field. */}
           {state.view === 'grid' ? <View testID="tile-fields" className="gap-2 px-1 pt-2">
