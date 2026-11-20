@@ -28,7 +28,7 @@ import { useSearchChord } from '../lib/sale/use-search-chord';
 import { categoriesLabel, categoryTerms, filtersAtBaseline, productsInCategory, productsLabel } from '../lib/catalogue/browse-terms';
 import { BrowseCrumb, BrowseRootGrid, BrowseRootTable, ParentTermTile } from './browse-terms-view';
 import { CatalogueDisplayOptions, CatalogueSettingsButton } from './catalogue-display-options';
-import { CatalogueFilterChips } from './catalogue-filter-chips';
+import { activeConditionLabels, CatalogueFilterChips } from './catalogue-filter-chips';
 import { LockedNotice } from './locked-notice';
 import type { TillLock } from '../lib/sale/till-lock';
 import { DrawerSheet } from './drawer-content';
@@ -369,7 +369,17 @@ export function CatalogueView({
   const clearFilters = () => dispatch({ type: 'appliedQuickFilterGone', baseline });
   // v2 counts no products: nothing narrows the baseline (pos/products/index.tsx:361, `!browsePlace && !conditionsOn`).
   const emptyStore = level === null && !conditionsOn;
-  const emptyState = <EmptyState kind={emptyStore ? 'empty' : 'no-results'} title={emptyStore ? 'No products yet' : 'Nothing here matches the filters'}
+  const conditions = [...(searching ? [`“${term.trim()}”`] : []), ...activeConditionLabels({
+    products, filters, order: barOrder, hidden: hiddenPills,
+    placeField: level === null ? undefined : 'categories', quickFilters, isActive,
+  })].join(', ');
+  const placeCount = level?.kind === 'term' ? terms.find(term => term.id === level.id)?.count : products.length;
+  const placeName = level?.kind === 'term' ? level.name : undefined;
+  // v2's none_match / none_match_in (pos/products/index.tsx:366-376).
+  const emptyTitle = emptyStore ? 'No products yet' : conditionsOn && placeCount !== undefined && conditions
+    ? `None of the ${placeCount} products${placeName === undefined ? '' : ` in ${placeName}`} match ${conditions}`
+    : 'Nothing here matches the filters';
+  const emptyState = <EmptyState kind={emptyStore ? 'empty' : 'no-results'} title={emptyTitle}
     description={emptyStore ? 'Products you add to the store will appear here.' : undefined}
     action={conditionsOn ? { label: 'Clear filters', onPress: clearFilters } : undefined} />;
   const syncing = status === 'syncing' || status === 'starting';

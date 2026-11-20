@@ -6,6 +6,7 @@ import { PortalHost } from '@tallyui/primitives';
 import { CatalogueView } from '../components/catalogue-view';
 import type { CatalogueViewProps } from '../components/catalogue-view';
 import { CATALOGUE_TILE_FIELDS, CATALOGUE_VIEW_DEFAULTS, CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { FILTER_BAR_PILLS_KEY } from '../lib/catalogue/filter-bar-pills';
 import { QUICK_FILTERS_KEY } from '../lib/catalogue/quick-filters';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
@@ -189,10 +190,10 @@ test('an empty store shows No products yet with its description and no Clear fil
   expect(screen.queryByTestId('no-data-message-action')).toBeNull();
 });
 
-test('a search with no matches shows Nothing here matches the filters, and Clear filters brings the products back', () => {
+test('a search with no matches names the census and conditions, and Clear filters brings the products back', () => {
   render(<CatalogueView {...props} />);
   fireEvent.change(screen.getByPlaceholderText('Search products'), { target: { value: 'missing' } });
-  expect(emptyTitle()).toBe('Nothing here matches the filters');
+  expect(emptyTitle()).toBe('None of the 3 products match “missing”, In Stock');
   expect(screen.queryByTestId('no-data-message-description')).toBeNull();
   fireEvent.click(screen.getByTestId('no-data-message-action'));
   expect((screen.getByPlaceholderText('Search products') as HTMLInputElement).value).toBe('');
@@ -200,10 +201,17 @@ test('a search with no matches shows Nothing here matches the filters, and Clear
   expect(screen.queryByTestId('no-data-message')).toBeNull();
 });
 
-test('an empty store with a search shows Nothing here matches the filters, and Clear filters clears the search', () => {
+test('a search with no matches does not name a pill hidden from the bar', () => {
+  localStorage.setItem(FILTER_BAR_PILLS_KEY, JSON.stringify(['stock_status']));
+  render(<CatalogueView {...props} />);
+  fireEvent.change(screen.getByPlaceholderText('Search products'), { target: { value: 'missing' } });
+  expect(emptyTitle()).toBe('None of the 3 products match “missing”');
+});
+
+test('an empty store with a search names the zero census and conditions, and Clear filters clears the search', () => {
   render(<CatalogueView {...props} products={[]} />);
   fireEvent.change(screen.getByPlaceholderText('Search products'), { target: { value: 'missing' } });
-  expect(emptyTitle()).toBe('Nothing here matches the filters');
+  expect(emptyTitle()).toBe('None of the 0 products match “missing”, In Stock');
   expect(screen.queryByTestId('no-data-message-description')).toBeNull();
   fireEvent.click(screen.getByTestId('no-data-message-action'));
   expect((screen.getByPlaceholderText('Search products') as HTMLInputElement).value).toBe('');
@@ -216,6 +224,21 @@ test('products the baseline hides, with nothing on, show No products yet with it
   expect(screen.queryByTestId('no-data-message-action')).toBeNull();
 });
 
+test('All products with nothing on keeps the fallback title and has no Clear filters', () => {
+  browseCategories();
+  render(<CatalogueView {...props} products={products.map(doc => ({ ...doc, stock_status: 'outofstock' }))} />);
+  fireEvent.click(screen.getByTestId('browse-all-products'));
+  expect(emptyTitle()).toBe('Nothing here matches the filters');
+  expect(screen.queryByTestId('no-data-message-action')).toBeNull();
+});
+
+test('a search at an empty catalogue root names the zero census', () => {
+  browseCategories();
+  render(<CatalogueView {...props} products={[]} />);
+  fireEvent.change(screen.getByPlaceholderText('Search products'), { target: { value: 'missing' } });
+  expect(emptyTitle()).toBe('None of the 0 products match “missing”, In Stock');
+});
+
 test('Clear filters in a category level turns the quick filter off and keeps the level open', () => {
   browseCategories();
   localStorage.setItem(QUICK_FILTERS_KEY, JSON.stringify([
@@ -225,12 +248,23 @@ test('Clear filters in a category level turns the quick filter off and keeps the
   fireEvent.click(screen.getByTestId('browse-term-25'));
   fireEvent.click(screen.getByTestId('quick-filter-ext'));
   expect(screen.getByTestId('quick-filter-ext').getAttribute('aria-pressed')).toBe('true');
-  expect(emptyTitle()).toBe('Nothing here matches the filters');
+  expect(emptyTitle()).toBe('None of the 2 products in Coffee match In Stock, External');
   fireEvent.click(screen.getByTestId('no-data-message-action'));
   expect(screen.getByTestId('quick-filter-ext').getAttribute('aria-pressed')).toBe('false');
   expect(screen.getByTestId('products-breadcrumb')).not.toBeNull();
   expect(screen.getByTestId('product-tile-80')).not.toBeNull();
   expect(screen.getByTestId('product-tile-84')).not.toBeNull();
+});
+
+test('inside a category level, the categories condition is the place and only the quick filter is named', () => {
+  browseCategories();
+  localStorage.setItem(QUICK_FILTERS_KEY, JSON.stringify([
+    { id: 'merch', type: 'quick', label: 'Merch picks', conditions: [{ field: 'categories', value: [27] }] },
+  ]));
+  render(<CatalogueView {...props} />);
+  fireEvent.click(screen.getByTestId('browse-term-25'));
+  fireEvent.click(screen.getByTestId('quick-filter-merch'));
+  expect(emptyTitle()).toBe('None of the 2 products in Coffee match In Stock, Merch picks');
 });
 
 test('an empty level with nothing on shows the no-results title and no Clear filters', () => {

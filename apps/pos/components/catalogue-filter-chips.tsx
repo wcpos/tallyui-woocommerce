@@ -13,7 +13,7 @@ import {
 import type { SvgIconProps } from '@tallyui/components';
 import { Combobox as ComboboxPrimitive, Popover } from '@tallyui/primitives';
 import { BUILT_IN_PILL_IDS, type BuiltInPillId } from '../lib/catalogue/filter-bar-pills';
-import type { CatalogueFilters, QuickFilterStockStatus } from '../lib/catalogue/quick-filters';
+import type { CatalogueFilters, QuickFilter, QuickFilterStockStatus } from '../lib/catalogue/quick-filters';
 import { FiltersIcon, FolderIcon } from './icons';
 
 export const WarehouseIcon = createSvgIcon('WarehouseIcon', () => <>
@@ -117,6 +117,30 @@ export function termOptions(products: any[], field: 'categories' | 'tags', prefi
   }
   return [...names].sort(([, a], [, b]) => a.localeCompare(b))
     .map(([id, name]) => ({ value: String(id), label: name, testID: `${prefix}-option-${id}` }));
+}
+
+/** v2's useActiveConditionLabels (filter-bar.tsx:63-123): the lit, shown pills and the active quick filters, in bar order, the place's own field left out. */
+export function activeConditionLabels({ products, filters, order, hidden, placeField, quickFilters, isActive }: {
+  products: any[]; filters: CatalogueFilters; order: readonly string[]; hidden: readonly string[];
+  placeField?: 'categories'; quickFilters: readonly QuickFilter[]; isActive(qf: QuickFilter): boolean;
+}): string[] {
+  return order.flatMap(id => {
+    if (!BUILT_IN_PILL_IDS.includes(id as BuiltInPillId)) {
+      const qf = quickFilters.find(qf => qf.id === id);
+      return qf && isActive(qf) ? [qf.label] : [];
+    }
+    if (hidden.includes(id) || id === placeField) return [];
+    if (id === 'stock_status') return filters.stock_status === undefined ? [] : [STOCK_LABELS[filters.stock_status]];
+    if (id === 'on_sale') return filters.on_sale === true ? ['On Sale'] : [];
+    if (id === 'categories' || id === 'tags') {
+      const ids = filters[id] ?? [];
+      if (ids.length === 0) return [];
+      const names = termOptions(products, id, id === 'categories' ? 'category' : 'tag')
+        .filter(option => ids.includes(Number(option.value))).map(option => option.label);
+      return [names.join(', ') || (id === 'categories' ? 'Category' : 'Tag')];
+    }
+    return [];
+  });
 }
 
 /** v2's search box copy for the term chips (core en.json:771 common.search_categories, :779 common.search_tags). */

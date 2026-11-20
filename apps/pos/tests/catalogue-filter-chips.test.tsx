@@ -3,7 +3,9 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { PortalHost } from '@tallyui/primitives';
 import { CatalogueView } from '../components/catalogue-view';
+import { activeConditionLabels } from '../components/catalogue-filter-chips';
 import type { CatalogueViewProps } from '../components/catalogue-view';
+import { BUILT_IN_PILL_IDS } from '../lib/catalogue/filter-bar-pills';
 import { QUICK_FILTERS_KEY } from '../lib/catalogue/quick-filters';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
@@ -32,6 +34,36 @@ const catalogue = [
   { ...products[1], id: 91, name: 'Iced Latte', stock_status: 'onbackorder', stock_quantity: 0,
     tags: [{ id: 8, name: 'Cold' }] },
 ];
+
+const labelArgs = { products: catalogue, order: BUILT_IN_PILL_IDS, hidden: [], quickFilters: [], isActive: () => false };
+
+test('active condition labels include baseline stock and on sale in bar order', () => {
+  expect(activeConditionLabels({ ...labelArgs, filters: { stock_status: 'instock', on_sale: true } }))
+    .toEqual(['In Stock', 'On Sale']);
+});
+
+test('active condition labels leave out hidden pills', () => {
+  expect(activeConditionLabels({ ...labelArgs, hidden: ['stock_status'], filters: { stock_status: 'instock', on_sale: true } }))
+    .toEqual(['On Sale']);
+});
+
+test.each<[number[], string]>([
+  [[25], 'Coffee'], [[25, 27], 'Coffee, Merch'], [[999], 'Category'],
+])('active condition labels name categories %j', (categories, label) => {
+  expect(activeConditionLabels({ ...labelArgs, filters: { categories } })).toEqual([label]);
+});
+
+test('active condition labels leave out the place field', () => {
+  expect(activeConditionLabels({ ...labelArgs, filters: { categories: [25] }, placeField: 'categories' })).toEqual([]);
+});
+
+test('active quick filters appear at their place in bar order; inactive and unknown ids are skipped', () => {
+  const qf = { id: 'sale', type: 'quick' as const, label: 'Sale picks', conditions: [] };
+  const args = { ...labelArgs, filters: { stock_status: 'instock' as const, on_sale: true },
+    order: ['on_sale', qf.id, 'unknown', 'stock_status'], quickFilters: [qf] };
+  expect(activeConditionLabels({ ...args, isActive: filter => filter.id === qf.id })).toEqual(['On Sale', 'Sale picks', 'In Stock']);
+  expect(activeConditionLabels(args)).toEqual(['On Sale', 'In Stock']);
+});
 
 const props: CatalogueViewProps = {
   connector: createWooCommerceConnector(), currency: stores[0].currency, products: catalogue,
@@ -126,7 +158,7 @@ test('Category lists the synced categories and narrows the grid', () => {
   expect(screen.getByTestId('filter-pill-categories').textContent).toBe('Category');
   fireEvent.click(screen.getByTestId('filter-pill-categories'));
   fireEvent.click(screen.getByTestId('category-option-30'));
-  expect(screen.getByText('Nothing here matches the filters')).not.toBeNull();
+  expect(screen.getByText('None of the 5 products match In Stock, Bakery')).not.toBeNull();
 });
 
 test('Tag narrows the grid to products with that tag', () => {
