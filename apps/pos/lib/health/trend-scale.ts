@@ -36,3 +36,22 @@ export function xTickValues(points: TrendPoint[], maxTicks = 4): number[] {
 export function yTickValues(domainTop: number): number[] {
   return [0, domainTop / 2, domainTop];
 }
+
+/**
+ * The index of the point nearest `fraction` of the way across the plot (0 the left edge, 1 the right, anything outside
+ * clamped), where each point sits at its share of the first-to-last span; a single point or a zero span sits at 0. The
+ * earlier point wins a tie, and an empty series gives -1. v2's crosshair snaps to the nearest bucket this way.
+ */
+export function nearestIndex(points: TrendPoint[], fraction: number): number {
+  if (points.length === 0) return -1;
+  const at = Math.min(1, Math.max(0, fraction));
+  const first = points[0]!.x;
+  const span = points.at(-1)!.x - first;
+  let best = 0;
+  let bestDistance = Infinity;
+  points.forEach((point, i) => {
+    const distance = Math.abs((span > 0 ? (point.x - first) / span : 0) - at);
+    if (distance < bestDistance) [best, bestDistance] = [i, distance];
+  });
+  return best;
+}

@@ -1,6 +1,6 @@
 // v2 apps/main/components/health/trend-scale.test.ts, case for case.
 import { describe, expect, it } from 'vitest';
-import { niceCeil, xTickValues, yTickValues } from '../lib/health/trend-scale';
+import { nearestIndex, niceCeil, xTickValues, yTickValues } from '../lib/health/trend-scale';
 
 const HOUR_MS = 60 * 60 * 1000;
 const point = (hour: number, y = 1) => ({ x: hour * HOUR_MS, y });
@@ -51,5 +51,30 @@ describe('xTickValues', () => {
 describe('yTickValues', () => {
   it('brackets a zero-based domain with a midpoint', () => {
     expect(yTickValues(2000)).toEqual([0, 1000, 2000]);
+  });
+});
+
+describe('nearestIndex', () => {
+  it('has nothing to point at in an empty series', () => {
+    expect(nearestIndex([], 0.5)).toBe(-1);
+  });
+
+  it('a single point sits at the left edge and is always the nearest', () => {
+    expect(nearestIndex([point(1)], 0.8)).toBe(0);
+  });
+
+  it('snaps to the nearest of evenly spread points, clamping outside the plot', () => {
+    const points = [point(1), point(2), point(3)];
+    expect(nearestIndex(points, 0)).toBe(0);
+    expect(nearestIndex(points, 0.2)).toBe(0);
+    expect(nearestIndex(points, 0.3)).toBe(1);
+    expect(nearestIndex(points, 0.5)).toBe(1);
+    expect(nearestIndex(points, 0.9)).toBe(2);
+    expect(nearestIndex(points, 1.5)).toBe(2);
+    expect(nearestIndex(points, -1)).toBe(0);
+  });
+
+  it('gives a tie to the earlier point', () => {
+    expect(nearestIndex([point(1), point(2)], 0.5)).toBe(0);
   });
 });

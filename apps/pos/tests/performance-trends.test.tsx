@@ -2,7 +2,7 @@
 // (v2 apps/main/components/health/performance-screen.tsx:346-408, trend-frame.tsx, core.json).
 // Uniwind's runtime does not load under Vitest; the trend lines read fixed colours (as hourly-bars.test).
 vi.mock('uniwind', () => ({ useCSSVariable: (names: string[]) => names.map(() => '#000000') }));
-import { act, cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import { Text } from '@tallyui/components';
 import { createRequestMetrics } from '@tallyui/database';
@@ -133,4 +133,54 @@ test('no pace line is drawn, and the section sits after the sync controls and be
   expect(follows('uptime-section', 'performance-child')).toBe(true);
   expect(follows('performance-child', 'server-over-time-section')).toBe(true);
   expect(follows('server-over-time-section', 'performance-docs-link')).toBe(true);
+});
+
+// Pointing at a trend (v2 trend-line-chart.tsx): the plot is the dot's parent. RNW attaches onLayout to the node and
+// jsdom has no ResizeObserver, so the test reports the plot's width; jsdom's rects are all zero, so a responder event's
+// locationX is its clientX, and a web pointer event's offsetX is its clientX too.
+type LayoutNode = HTMLElement & { __reactLayoutHandler(event: { nativeEvent: { layout: { width: number } } }): void };
+const PLOT_WIDTH = 200;
+function requestsPlot() {
+  const metrics = seeded();
+  metrics.record(request(H15));
+  render(<PerformanceScreen metrics={metrics} healthy now={now} />);
+  const plot = screen.getByTestId('performance-trend-requests-dot').parentElement as LayoutNode;
+  act(() => plot.__reactLayoutHandler({ nativeEvent: { layout: { width: PLOT_WIDTH } } }));
+  return plot;
+}
+const left = (id: string) => screen.getByTestId(id).style.left;
+const touch = (clientX: number) => ({ identifier: 0, clientX, clientY: 10, pageX: clientX, pageY: 10 });
+
+test('pointing at a trend reads that hour out: its time and value in the header, a crosshair, the dot on it', () => {
+  const plot = requestsPlot();
+  fireEvent.pointerMove(plot, { clientX: PLOT_WIDTH * 0.52 });
+  expect(text('performance-trend-requests-time')).toBe(clockOf(H14));
+  expect(text('performance-trend-requests-latest')).toBe('4');
+  expect(left('performance-trend-requests-crosshair')).toBe('50%');
+  expect(left('performance-trend-requests-dot')).toBe('50%');
+});
+
+test('leaving the plot restores the latest sample and drops the crosshair', () => {
+  const plot = requestsPlot();
+  fireEvent.pointerMove(plot, { clientX: PLOT_WIDTH * 0.52 });
+  expect(text('performance-trend-requests-latest')).toBe('4');
+  fireEvent.pointerLeave(plot);
+  expect(text('performance-trend-requests-time')).toBe(clockOf(H15));
+  expect(text('performance-trend-requests-latest')).toBe('1');
+  expect(screen.queryByTestId('performance-trend-requests-crosshair')).toBeNull();
+  expect(left('performance-trend-requests-dot')).toBe('100%');
+});
+
+test('a touch-and-drag reads out the same way and ends on release', () => {
+  const plot = requestsPlot();
+  fireEvent.touchStart(plot, { touches: [touch(2)], changedTouches: [touch(2)] });
+  expect(text('performance-trend-requests-time')).toBe(clockOf(H13));
+  expect(text('performance-trend-requests-latest')).toBe('2');
+  fireEvent.touchMove(plot, { touches: [touch(PLOT_WIDTH - 2)], changedTouches: [touch(PLOT_WIDTH - 2)] });
+  expect(text('performance-trend-requests-time')).toBe(clockOf(H15));
+  expect(text('performance-trend-requests-latest')).toBe('1');
+  expect(screen.getByTestId('performance-trend-requests-crosshair')).not.toBeNull();
+  fireEvent.touchEnd(plot, { touches: [], changedTouches: [touch(PLOT_WIDTH - 2)] });
+  expect(screen.queryByTestId('performance-trend-requests-crosshair')).toBeNull();
+  expect(text('performance-trend-requests-latest')).toBe('1');
 });
