@@ -694,6 +694,29 @@ test('table rows show the in-cart count and keep their order', () => {
   expect(screen.getAllByTestId(/^product-row-/).map(row => row.getAttribute('data-testid'))).toEqual(['product-row-84', 'product-row-80', 'product-row-102']);
 });
 
+test('table row add buttons and in-cart counts each add once', () => {
+  const onSelect = vi.fn();
+  render(<><CatalogueView {...props} inCartCounts={new Map([['80', 3]])} onSelect={onSelect} /><PortalHost /></>);
+  fireEvent.click(screen.getByTestId('view-mode-toggle'));
+  const add = screen.getByTestId('add-to-cart-row-84');
+  expect(add.getAttribute('aria-label')).toBe('Add to Cart');
+  fireEvent.click(add);
+  expect(onSelect).toHaveBeenCalledTimes(1);
+  expect(String(onSelect.mock.calls[0][0].id)).toBe('84');
+  expect(screen.queryByTestId('add-to-cart-row-80')).toBeNull();
+  const count = screen.getByTestId('in-cart-press-row-80');
+  expect(count.getAttribute('aria-label')).toBe('In cart: 3');
+  fireEvent.click(count);
+  expect(onSelect).toHaveBeenCalledTimes(2);
+  expect(String(onSelect.mock.calls[1][0].id)).toBe('80');
+});
+
+test('table rows without in-cart counts have no add buttons', () => {
+  render(<CatalogueView {...props} onSelect={vi.fn()} />);
+  fireEvent.click(screen.getByTestId('view-mode-toggle'));
+  expect(screen.queryAllByTestId(/^add-to-cart-/)).toEqual([]);
+});
+
 test('a variable tile says how many options it has and stacks two cards behind it', () => {
   render(<><CatalogueView {...props} /><PortalHost /></>);
   expect(screen.getByTestId('tile-options-102').textContent).toBe('6 options');
