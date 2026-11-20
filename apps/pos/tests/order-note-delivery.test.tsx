@@ -78,7 +78,7 @@ test.each([
   if (note) {
     fireEvent.click(screen.getByTestId('cart-foot-more'));
     fireEvent.click(within(screen.getByTestId('cart-foot-menu')).getByRole('menuitem', { name: 'Order details' }));
-    fireEvent.change(screen.getByLabelText('Customer Note'), { target: { value: note } });
+    fireEvent.change(screen.getByLabelText('Customer note'), { target: { value: note } });
     fireEvent.click(screen.getByTestId('order-details-close'));
   }
   fireEvent.click(screen.getByTestId('cart-checkout'));

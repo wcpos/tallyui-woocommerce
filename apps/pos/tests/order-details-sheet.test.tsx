@@ -38,8 +38,8 @@ test('closed renders nothing; open shows the title and the supplied customer not
   expect(view.container.innerHTML).toBe('');
   view.rerender(<><OrderDetailsSheet {...props} open /><PortalHost /></>);
   expect(screen.getByTestId('order-details-title').textContent).toBe('Order details');
-  const field = screen.getByLabelText('Customer Note') as HTMLTextAreaElement;
-  expect(field).toBe(screen.getByPlaceholderText('Add Customer Note'));
+  const field = screen.getByLabelText('Customer note') as HTMLTextAreaElement;
+  expect(field).toBe(screen.getByPlaceholderText('Add Customer note'));
   expect(field).toBe(screen.getByTestId('order-details-note'));
   expect(field.tagName).toBe('TEXTAREA');
   expect(field.value).toBe('Ring the bell');
@@ -49,7 +49,7 @@ test('closed renders nothing; open shows the title and the supplied customer not
 test('typing saves the new note', () => {
   const onNoteChange = vi.fn();
   render(<><OrderDetailsSheet open side="left" note="" onOpenChange={vi.fn()} onNoteChange={onNoteChange} /><PortalHost /></>);
-  fireEvent.change(screen.getByLabelText('Customer Note'), { target: { value: 'Leave at the door' } });
+  fireEvent.change(screen.getByLabelText('Customer note'), { target: { value: 'Leave at the door' } });
   expect(onNoteChange).toHaveBeenCalledExactlyOnceWith('Leave at the door');
 });
 

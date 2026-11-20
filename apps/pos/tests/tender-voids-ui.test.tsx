@@ -108,7 +108,7 @@ test("a void carries the register id of the sale's order row", async () => {
   expect(rows[0].registerId).not.toBe('');
 }, 20_000);
 
-test('Cancel and void journals every leg with the same sale id', async () => {
+test('Cancel payments journals every leg with the same sale id', async () => {
   await renderSale(true);
   addCash();
   // A card leg short of the balance: covering it would complete the sale before Back.
@@ -132,7 +132,7 @@ test('a failed Remove keeps the leg and shows the write error', async () => {
   expect(await collection.find().exec()).toHaveLength(0);
 }, 20_000);
 
-test('a failed Cancel and void keeps the cancel view and can be retried', async () => {
+test('a failed Cancel payments keeps the cancel view and can be retried', async () => {
   await renderSale(true);
   vi.spyOn(collection, 'bulkInsert').mockRejectedValueOnce(new Error('disk full'));
   addCash();

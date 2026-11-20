@@ -1051,12 +1051,12 @@ test('the ⋮ opens Order details, the note stays on the sale and Void is in the
   fireEvent.click(cartPane().getByTestId('cart-foot-more'));
   expect(within(screen.getByTestId('cart-foot-menu')).queryByText('Void')).toBeNull();
   fireEvent.click(screen.getByText('Order details'));
-  fireEvent.change(screen.getByLabelText('Customer Note'), { target: { value: 'Leave at the door' } });
+  fireEvent.change(screen.getByLabelText('Customer note'), { target: { value: 'Leave at the door' } });
   fireEvent.click(screen.getByTestId('order-details-close'));
   expect(screen.queryByTestId('order-details')).toBeNull();
   fireEvent.click(cartPane().getByTestId('cart-foot-more'));
   fireEvent.click(screen.getByText('Order details'));
-  expect((screen.getByLabelText('Customer Note') as HTMLTextAreaElement).value).toBe('Leave at the door');
+  expect((screen.getByLabelText('Customer note') as HTMLTextAreaElement).value).toBe('Leave at the door');
   fireEvent.click(screen.getByTestId('order-details-void'));
   expect(screen.queryByTestId('order-details')).toBeNull();
   expect(screen.queryByTestId('cart-void-dialog')).toBeNull();

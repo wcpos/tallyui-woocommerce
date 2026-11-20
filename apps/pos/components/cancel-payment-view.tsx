@@ -26,7 +26,7 @@ export function CancelPaymentView(props: CancelPaymentViewProps): JSX.Element {
       })}
       <View className="flex-row justify-end gap-2">
         <Button variant="outline" testID="checkout-cancel-keep-going" onPress={onKeep}><Text>Keep taking payment</Text></Button>
-        <Button variant="destructive" testID="checkout-cancel-confirm" onPress={onConfirm}><Text>Cancel and void</Text></Button>
+        <Button variant="destructive" testID="checkout-cancel-confirm" onPress={onConfirm}><Text>Cancel payments</Text></Button>
       </View>
     </View>
   );

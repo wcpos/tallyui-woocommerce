@@ -4,7 +4,7 @@ import { recordTenderVoids, type TenderVoidCollection } from './tender-voids';
 import { REGISTER_ID } from '../register/register-id';
 
 export interface TenderCancel {
-  /** The "Cancel and void" view is open. */
+  /** The "Cancel payments" view is open. */
   cancelling: boolean;
   /** The last void write failure, shown above the tender. */
   voidError: string | undefined;
@@ -12,7 +12,7 @@ export interface TenderCancel {
   requestCancel(): void;
   /** Keep payments: closes the void view. */
   keepPayments(): void;
-  /** Cancel and void: journals every leg, then cancels the tender. */
+  /** Cancel payments: journals every leg, then cancels the tender. */
   confirmCancel(): Promise<void>;
   /** Journals one leg's void, then removes it. */
   removeLeg(id: string): Promise<void>;

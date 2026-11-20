@@ -49,11 +49,11 @@ export function OrderDetailsSheet({ open, onOpenChange, side, note, onNoteChange
       </View>
       <ScrollView className="flex-1" contentContainerClassName="gap-2 px-4 py-1">
         <View testID="order-details-note-row" className="flex-row gap-3 items-start">
-          <View className="w-32"><FieldLabel>Customer Note</FieldLabel></View>
+          <View className="w-32"><FieldLabel>Customer note</FieldLabel></View>
           <View className="flex-1">
             {/* TallyUI's Input box; v2's field-box (field-box/index.tsx:10-16): muted placeholder, ring when focused. */}
-            <TextInput testID="order-details-note" multiline maxLength={ORDER_NOTE_MAX} placeholder="Add Customer Note"
-              accessibilityLabel="Customer Note" value={note} onChangeText={onNoteChange} placeholderTextColorClassName="accent-muted-foreground"
+            <TextInput testID="order-details-note" multiline maxLength={ORDER_NOTE_MAX} placeholder="Add Customer note"
+              accessibilityLabel="Customer note" value={note} onChangeText={onNoteChange} placeholderTextColorClassName="accent-muted-foreground"
               className="min-h-20 rounded-md border border-input bg-card px-3 py-2 text-base text-foreground web:outline-none web:focus:border-ring web:focus:ring-1 web:focus:ring-ring"
               textAlignVertical="top" />
           </View>
