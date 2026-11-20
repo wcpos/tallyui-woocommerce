@@ -39,9 +39,9 @@ test('"Your server, over time" reads v2\'s copy with Server load above POS reque
   expect(text('performance-trend-load-label')).toBe('Server load');
   expect(text('performance-trend-requests-label')).toBe('POS requests');
   expect(follows('performance-trend-load', 'performance-trend-requests')).toBe(true);
-  expect(points('performance-trend-requests-line')).toBe('0,55 100,10');
-  expect(points('performance-trend-load-line')).toBe('0,55 100,10');
-  expect(points('performance-trend-requests-area')).toBe('0,100 0,55 100,10 100,100');
+  expect(points('performance-trend-requests-line')).toBe('0,60 100,20');
+  expect(points('performance-trend-load-line')).toBe('0,70 100,40');
+  expect(points('performance-trend-requests-area')).toBe('0,100 0,60 100,20 100,100');
   expect(text('performance-trend-load-latest')).toBe('3.0');
   expect(text('performance-trend-requests-latest')).toBe('4');
   expect(screen.queryByTestId('performance-trend-load-unavailable')).toBeNull();
@@ -51,11 +51,47 @@ test('each trend draws one point per bucket in time order and redraws on a new e
   const metrics = seeded();
   render(<PerformanceScreen metrics={metrics} healthy now={now} />);
   act(() => { metrics.record(request(H15)); });
-  expect(points('performance-trend-requests-line')).toBe('0,55 50,10 100,77.5');
+  expect(points('performance-trend-requests-line')).toBe('0,60 50,20 100,80');
   expect(text('performance-trend-requests-latest')).toBe('1');
   act(() => { metrics.recordServerLoad(6, H15 + 60_000); });
-  expect(points('performance-trend-load-line')).toBe('0,77.5 50,55 100,10');
+  expect(points('performance-trend-load-line')).toBe('0,85 50,70 100,40');
   expect(text('performance-trend-load-latest')).toBe('6.0');
+});
+
+const clockOf = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+test('each trend reads v2\'s axes: 0, midpoint and a nice top on y, clock hours on x', () => {
+  render(<PerformanceScreen metrics={seeded()} healthy now={now} />);
+  // Requests peak at 4 and load at 3, so both scales top out at the nice ceiling 5.
+  expect([0, 1, 2].map(i => text(`performance-trend-requests-ytick-${i}`))).toEqual(['0', '2.5', '5']);
+  expect([0, 1, 2].map(i => text(`performance-trend-load-ytick-${i}`))).toEqual(['0.0', '2.5', '5.0']);
+  expect(text('performance-trend-requests-xtick-0')).toBe(clockOf(H13));
+  expect(text('performance-trend-requests-xtick-1')).toBe(clockOf(H14));
+  expect(screen.queryByTestId('performance-trend-requests-xtick-2')).toBeNull();
+  for (const trend of ['requests', 'load']) {
+    for (const i of [0, 1, 2]) expect(screen.getByTestId(`performance-trend-${trend}-grid-${i}`)).not.toBeNull();
+  }
+});
+
+test('a long day spreads at most four clock labels, ends included', () => {
+  const metrics = createRequestMetrics({ now });
+  // Ten consecutive hours ending at the hour of now (15:00), all within the last 24 h.
+  const lastHour = Date.UTC(2026, 10, 12, 15);
+  const firstHour = lastHour - 9 * 3_600_000;
+  for (let h = 0; h < 10; h += 1) metrics.record(request(firstHour + h * 3_600_000));
+  render(<PerformanceScreen metrics={metrics} healthy now={now} />);
+  for (const i of [0, 1, 2, 3]) expect(screen.getByTestId(`performance-trend-requests-xtick-${i}`)).not.toBeNull();
+  expect(screen.queryByTestId('performance-trend-requests-xtick-4')).toBeNull();
+  expect(text('performance-trend-requests-xtick-0')).toBe(clockOf(firstHour));
+  expect(text('performance-trend-requests-xtick-3')).toBe(clockOf(lastHour));
+});
+
+test('under two samples there are no axes', () => {
+  const metrics = createRequestMetrics({ now });
+  metrics.record(request(H15));
+  render(<PerformanceScreen metrics={metrics} healthy now={now} />);
+  expect(screen.queryByTestId('performance-trend-requests-ytick-0')).toBeNull();
+  expect(screen.queryByTestId('performance-trend-requests-xtick-0')).toBeNull();
 });
 
 test('with no buckets both trends hold their frame and say there is not enough data yet', () => {
