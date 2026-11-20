@@ -280,7 +280,7 @@ function customerSource() {
 }
 const chip = () => screen.getByTestId('cart-customer-name').getAttribute('aria-label');
 const form = () => within(screen.getByTestId('customer-form'));
-const submit = () => fireEvent.click(form().getByText('Add Customer'));
+const submit = () => fireEvent.click(screen.getByTestId('customer-form-add'));
 
 test('with customers, Add new customer is first, then a separator, then the add items', async () => {
   await renderTill(COUPONS, { customers: customerSource(), cashier: CAN_CREATE });
@@ -350,6 +350,7 @@ test('Add new customer requires an email, omits empty fields, toasts and attache
   openAddMenuItem('customer');
   // v2 pos/cart/add-customer.tsx:190-197: a right side sheet, size lg, titled common.add_new_customer.
   expect(screen.getByRole('heading', { name: 'Add new customer' })).not.toBeNull();
+  expect(screen.getByTestId('customer-form-add').textContent).toBe('Add Customer');
   expect(screen.queryByRole('heading', { name: 'Add Customer' })).toBeNull();
   expect(classesOf('add-customer-dialog')).toEqual(expect.arrayContaining(['right-0', 'top-0', 'h-full', 'max-w-lg', 'border-l']));
   expect(classesOf('add-customer-dialog')).not.toContain('-translate-x-1/2');

@@ -74,7 +74,7 @@ test('a refused coupon removal toasts the refusal as a warning, not an inline al
 function createCustomer() {
   render(<><AddCustomerDialog source={source} onClose={() => {}} onCreated={onChange} /><PortalHost /><Toaster /></>);
   fireEvent.change(screen.getByPlaceholderText('email@example.com'), { target: { value: 'gee@example.invalid' } });
-  fireEvent.click(within(screen.getByTestId('customer-form')).getByText('Add Customer'));
+  fireEvent.click(screen.getByTestId('customer-form-add'));
 }
 
 test('creating a customer toasts the saved name', async () => {

@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { View } from 'react-native';
 import type { CustomerSummary } from '@tallyui/pos';
 import { ConnectorUnauthorizedError, CustomerServiceError } from '@tallyui/core';
-import { Button, CustomerForm, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Text } from '@tallyui/components';
+import { Button, CustomerForm, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Loader, Text } from '@tallyui/components';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { toast } from '../lib/toast/toast';
 import { INVALID_EMAIL_MESSAGE, isValidEmail } from '../lib/receipts/receipt-emails';
@@ -25,20 +25,25 @@ function saveErrorMessage(cause: unknown): string {
 export function AddCustomerDialog({ source, onClose, onCreated }: AddCustomerDialogProps): JSX.Element {
   const [values, setValues] = useState({ firstName: '', lastName: '', email: '', phone: '', address: '' });
   const [error, setError] = useState<string>();
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   async function save() {
+    if (savingRef.current) return;
     const email = values.email.trim();
     // v2 customer-form.tsx:39 `email: z.string().email()`: zod 4 rejects "" and non-addresses with one copy.
     if (!isValidEmail(email)) { setError(INVALID_EMAIL_MESSAGE); return; }
     const firstName = values.firstName.trim(), lastName = values.lastName.trim(), phone = values.phone.trim();
     setError(undefined);
     try {
+      savingRef.current = true; setSaving(true);
       const created = await source.create({ email, ...(firstName ? { firstName } : {}),
         ...(lastName ? { lastName } : {}), ...(phone ? { phone } : {}) });
       toast({ type: 'success', title: `${created.name || email} saved` });
       onCreated?.({ id: created.id, name: created.name, ...(created.email ? { email: created.email } : {}) });
       onClose();
     } catch (cause) {
+      savingRef.current = false; setSaving(false);
       toast({ type: 'error', title: 'Failed to save customer', description: saveErrorMessage(cause) });
     }
   }
@@ -58,9 +63,15 @@ export function AddCustomerDialog({ source, onClose, onCreated }: AddCustomerDia
           </View>
         ) : null}
         <CustomerForm testID="customer-form" values={values} onChangeField={(field, value) => setValues(v => ({ ...v, [field]: value }))}
-          onSubmit={save} showAddress={false} submitLabel="Add Customer" />
+          showAddress={false} />
         <DialogFooter>
           <Button testID="customer-form-close" variant="outline" onPress={onClose}><Text>Cancel</Text></Button>
+          {/* v2 packages/core/src/screens/main/customers/add.tsx:95-105 and pos/cart/add-customer.tsx:158-168;
+              packages/components/src/dialog/index.tsx:363-420 puts the busy intent after Cancel in the footer. */}
+          <Button testID="customer-form-add" disabled={saving} aria-busy={saving} onPress={() => { void save(); }}>
+            {saving ? <Loader size="sm" testID="customer-form-add-spinner" /> : null}
+            <Text>Add Customer</Text>
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
