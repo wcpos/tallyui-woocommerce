@@ -819,7 +819,7 @@ test('a closure by a roster cashier names them, and an unknown closer reads Cash
   const paul = app.register.lastClosure!;
   // Closures written elsewhere carry no stamped names, so the screen resolves the ids itself.
   const labels = { ...(paul.breakdowns.labels as Record<string, unknown>), opened_by_name: '', closed_by_name: '' };
-  const breakdowns = { ...paul.breakdowns, labels };
+  const breakdowns = { ...paul.breakdowns, opened_by_name: '', closed_by_name: '', labels };
   const later = new Date(Date.parse(paul.closed_at) + 1000).toISOString();
   await copyClosure(app, 'ghost', { number: 2, closed_by: '7', breakdowns });
   await copyClosure(app, 'ann', { number: 3, closed_by: '5', breakdowns, closed_at: later });

@@ -145,13 +145,15 @@ export function ClosureList({ rows, sessionRows, openSessions, blind, today, cur
             const closed = formatClosureDate(c.closed_at, { timezone: 'device', locale });
             const v = c.variance.cash ?? 0;
             const corrected = (c.corrections_count ?? 0) > 0;
+            // v2 closure-list.tsx:265: the stamped closer name first, as the panel, print and Closures CSV read it.
+            const closer = String(c.breakdowns.closed_by_name || '') || (c.closed_by ? resolveCashierName(c.closed_by) : 'Cashier');
             return <View key={c.id} testID={`closure-row-${c.id}`} className="flex-row items-center gap-2 border-t border-border px-4 py-2">
               <Pressable testID={`closure-open-${c.id}`} accessibilityRole="button" accessibilityLabel={`Open closure ${c.number}`} className="flex-1 flex-row items-center gap-3" onPress={() => onOpen?.(c)}>
                 <View className="flex-1 gap-0.5">
                   <View className="flex-row flex-wrap items-center gap-2">
                     <Text testID={`closure-title-${c.id}`} className="font-medium">{`Closure ${c.number} · ${typeof c.breakdowns.register_name === 'string' ? c.breakdowns.register_name : 'This till'}`}</Text>
                   </View>
-                  <Text testID={`closure-subline-${c.id}`} className="text-sm text-muted-foreground">{`${open.time} → ${closed.time} · ${c.closed_by ? resolveCashierName(c.closed_by) : 'Cashier'}`}</Text>
+                  <Text testID={`closure-subline-${c.id}`} className="text-sm text-muted-foreground">{`${open.time} → ${closed.time} · ${closer}`}</Text>
                   {phone && <Text testID={`closure-figures-${c.id}`} className="text-sm text-muted-foreground tabular-nums">
                     {!blind && <>Expected <Text className="text-foreground">{money(c.expected.cash ?? 0)}</Text>{' · '}</>}
                     Counted <Text className="text-foreground">{money(c.counted.cash ?? 0)}</Text>
