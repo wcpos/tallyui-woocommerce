@@ -26,7 +26,7 @@ export type CatalogueQueryAction =
   | { type: 'appliedQuickFilterGone'; baseline: CatalogueFilters }
   /** v2's clearConditions (browse/level-place.ts:86-104), the chip row's Clear all: the filters go back to the baseline
    *  and the search clears; the open level's own field (`keep`) stays, and so do the sort and the place. */
-  | { type: 'clearAll'; baseline: CatalogueFilters; keep?: 'categories' };
+  | { type: 'clearAll'; baseline: CatalogueFilters; keep?: 'categories' | 'tags' };
 
 export function initialCatalogueQuery(baseline: CatalogueFilters): CatalogueQuery {
   return { term: '', filters: baseline, sortOverride: null, place: null };

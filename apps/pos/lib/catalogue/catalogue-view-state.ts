@@ -14,8 +14,8 @@ export const PRODUCTS_WIDTH_DEFAULT = 60;
 export const PRODUCTS_WIDTH_MIN = 25;
 export const PRODUCTS_WIDTH_MAX = 75;
 export const PRODUCTS_WIDTH_STEP = 5;
-// v2's browse-source.ts BROWSE_BY, as far as the app goes: Tags, Brands and Shortcuts are later slices.
-export const BROWSE_BY = ['all', 'categories'] as const;
+// v2's browse-source.ts BROWSE_BY, as far as the app goes: Brands and Shortcuts are later slices.
+export const BROWSE_BY = ['all', 'categories', 'tags'] as const;
 export type BrowseBy = (typeof BROWSE_BY)[number];
 // v2's DEFAULT_BROWSE_BY: a till opens on its categories until the cashier chooses.
 export const DEFAULT_BROWSE_BY: BrowseBy = 'categories';

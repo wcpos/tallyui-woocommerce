@@ -163,6 +163,7 @@ export function BrowseRootTable({ terms, searchSlot, onOpen }: {
 
 // v2's useSourceLabel(source) for Browse by Categories: the crumb's root is the source.
 export const CATEGORIES_LABEL = 'Categories';
+export const TAGS_LABEL = 'Tags'; // v2 browse-stage.tsx:117-127, core.json:1332.
 // v2's pos_products.products_crumb: the drill-in's default parent (drill-in.tsx).
 export const PRODUCTS_LABEL = 'Products';
 
@@ -172,8 +173,8 @@ export const PRODUCTS_LABEL = 'Products';
  * crumb) the place becomes a parent too, the way back to its products, and the product's name ends the
  * row in bold. The last parent carries v2's back testID.
  */
-export function BrowseCrumb({ place, onRoot, product, className = 'min-h-9', autoFocus }: {
-  place: BrowsePlace | null; onRoot(): void; product?: { name: string; onBack(): void }; className?: string; autoFocus?: boolean;
+export function BrowseCrumb({ place, onRoot, product, className = 'min-h-9', autoFocus, rootLabel = CATEGORIES_LABEL }: {
+  place: BrowsePlace | null; onRoot(): void; product?: { name: string; onBack(): void }; className?: string; autoFocus?: boolean; rootLabel?: string;
 }): JSX.Element {
   // v2's Breadcrumb autoFocus (breadcrumb/index.tsx:30-41): the back control takes focus once, on mount, never on a
   // change of parents, and without scrolling it into view.
@@ -184,7 +185,7 @@ export function BrowseCrumb({ place, onRoot, product, className = 'min-h-9', aut
   }, []);
   const placeName = place === null ? null : place.kind === 'all' ? ALL_PRODUCTS_LABEL : place.name;
   const parents = [
-    ...place === null ? [] : [{ label: CATEGORIES_LABEL, onPress: onRoot }],
+    ...place === null ? [] : [{ label: rootLabel, onPress: onRoot }],
     ...product ? [{ label: placeName ?? PRODUCTS_LABEL, onPress: product.onBack }] : [],
   ];
   return <View testID="products-breadcrumb" className={`flex-row flex-wrap items-center gap-1 ${className}`}>

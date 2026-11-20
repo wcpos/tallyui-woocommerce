@@ -25,8 +25,8 @@ import { useStorageDegraded } from '../lib/storage-health';
 import { useCameraScan } from '../lib/scan/use-camera-scan';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { useSearchChord } from '../lib/sale/use-search-chord';
-import { categoriesLabel, categoryTerms, filtersAtBaseline, productsInCategory, productsLabel } from '../lib/catalogue/browse-terms';
-import { BrowseCrumb, BrowseRootGrid, BrowseRootTable, ParentTermTile } from './browse-terms-view';
+import { type BrowseField, browseTerms, categoriesLabel, filtersAtBaseline, productsInTerm, productsLabel, tagsLabel } from '../lib/catalogue/browse-terms';
+import { BrowseCrumb, BrowseRootGrid, BrowseRootTable, CATEGORIES_LABEL, ParentTermTile, TAGS_LABEL } from './browse-terms-view';
 import { CatalogueDisplayOptions, CatalogueSettingsButton } from './catalogue-display-options';
 import { activeConditionLabels, CatalogueFilterChips } from './catalogue-filter-chips';
 import { LockedNotice } from './locked-notice';
@@ -175,18 +175,19 @@ export function CatalogueView({
   // (v2 tiles/tile-grid.tsx `useGridColumns` reads `gridColumns` with no width rule; default 4, initial-settings.json).
   const numColumns = resolveGridColumns(viewState.gridColumns, width);
   const searching = Boolean(term.trim());
-  // Browse by Categories, flat. v2 keeps a path of levels projected into the query (use-browse-path.ts,
+  // Browse by the selected source, flat. v2 keeps a path of levels projected into the query (use-browse-path.ts,
   // browse-stage.tsx); with no hierarchy here one open place is enough: null is the root. The place
   // drops when Browse by changes (React's "previous render" pattern, so a change from anywhere drops it)
   // and when the active quick filter is pressed; a search, a chip or Clear filters stay inside it.
   const [browsedBy, setBrowsedBy] = useState(viewState.browseBy);
   if (browsedBy !== viewState.browseBy) { setBrowsedBy(viewState.browseBy); dispatch({ type: 'browseByChanged' }); }
-  const browsing = viewState.browseBy === 'categories';
+  const field: BrowseField | null = viewState.browseBy === 'all' ? null : viewState.browseBy;
+  const browsing = field !== null;
   const level = browsing ? place : null;
   // The terms count what the baseline lets through: with out-of-stock hidden, only in-stock products.
   const baselineProducts = useMemo(() => products.filter(doc => matchesCatalogueFilters(doc, baseline)), [products, baseline]);
-  const terms = useMemo(() => categoryTerms(baselineProducts), [baselineProducts]);
-  const levelProducts = useMemo(() => level?.kind === 'term' ? productsInCategory(products, level.id) : products, [products, level]);
+  const terms = useMemo(() => browseTerms(baselineProducts, field ?? 'categories'), [baselineProducts, field]);
+  const levelProducts = useMemo(() => level?.kind === 'term' ? productsInTerm(products, field!, level.id) : products, [products, field, level]);
   const items = useMemo(() => {
     const matching = levelProducts.filter(doc => matchesCatalogueFilters(doc, filters));
     const searched = searching ? searchProducts(matching, term, connector.traits.product) : matching;
@@ -287,7 +288,7 @@ export function CatalogueView({
   })();
   const queryState = { filters, search: term, sort };
   // v2's `active` (filter-bar.tsx:495-503): set filters that differ from the baseline; an open level's place is not one.
-  const filtersOn = Object.entries(filters).filter(([key, value]) => !(level !== null && key === 'categories') && (Array.isArray(value)
+  const filtersOn = Object.entries(filters).filter(([key, value]) => !(level !== null && key === field) && (Array.isArray(value)
     ? value.length > 0 : value !== undefined && value !== null) && JSON.stringify(value) !== JSON.stringify(baseline[key as keyof typeof baseline])).length;
   const isActive = (qf: QuickFilter) => isQuickFilterActive(qf, queryState, viewState.sort, baseline);
   // Like v2, a press replaces the whole filter state, and pressing the active button restores the baseline.
@@ -340,16 +341,16 @@ export function CatalogueView({
     <ScrollView testID="catalogue-chip-row" horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
       contentContainerClassName="items-center gap-2">
       {/* v2 folds the place's own pill while a browse level is open (filter-bar.tsx:505, `place={browsePlace}` from
-          index.tsx:599): the Categories source's field, for a category and All products alike, and for a product drilled
+          index.tsx:599): the source's field, for a term and All products alike, and for a product drilled
           inside the level. A product drilled from no level only dims it (filter-bar.tsx:508). */}
       <CatalogueFilterChips products={products} filters={filters} onChange={next => dispatch({ type: 'filter', filters: next })} dimmed={drilled !== undefined}
-        placeField={level === null ? undefined : 'categories'} hidden={hiddenPills}
+        placeField={level === null ? undefined : field!} hidden={hiddenPills}
         order={barOrder} renderOther={id => {
           const qf = quickFilters.find(qf => qf.id === id);
           return qf ? <QuickFilterChip quickFilter={qf} active={isActive(qf)} onPress={pressQuickFilter} dimmed={drilled !== undefined} menu={chipMenu} /> : null;
         }}
         menu={{ onHide: id => showPill(id, false), onCustomise: chipMenu.onCustomise }} />
-      {filtersOn >= 2 && <ClearAllButton onPress={() => dispatch({ type: 'clearAll', baseline, keep: level === null ? undefined : 'categories' })} />}
+      {filtersOn >= 2 && <ClearAllButton onPress={() => dispatch({ type: 'clearAll', baseline, keep: level === null ? undefined : field! })} />}
       {filtersOn >= 1 && <SaveAsButton onPress={() => setCaptured(captureQuickFilter(queryState, baseline, viewState.sort))} />}
     </ScrollView>
     {/* v2 index.tsx:607-610: the panel mounts under the chips, above the products, and keeps scanning after a decode. */}
@@ -371,7 +372,7 @@ export function CatalogueView({
   const emptyStore = level === null && !conditionsOn;
   const conditions = [...(searching ? [`“${term.trim()}”`] : []), ...activeConditionLabels({
     products, filters, order: barOrder, hidden: hiddenPills,
-    placeField: level === null ? undefined : 'categories', quickFilters, isActive,
+    placeField: level === null ? undefined : field!, quickFilters, isActive,
   })].join(', ');
   const placeCount = level?.kind === 'term' ? terms.find(term => term.id === level.id)?.count : products.length;
   const placeName = level?.kind === 'term' ? level.name : undefined;
@@ -389,7 +390,7 @@ export function CatalogueView({
   // root it is v2's root tally (browse-root-footer.tsx); in a level, the level's products are the total.
   const shown = items.length, total = levelProducts.length;
   const countLabel = status === 'error' ? 'Sync failed' : notice ? notice.message ?? notice.code
-    : syncing ? 'Syncing products…' : drilled ? optionsLabel(drillEntries.length) ?? '0 options' : atRoot ? `${categoriesLabel(terms.length)} · ${productsLabel(baselineProducts.length)}`
+    : syncing ? 'Syncing products…' : drilled ? optionsLabel(drillEntries.length) ?? '0 options' : atRoot ? `${(field === 'tags' ? tagsLabel : categoriesLabel)(terms.length)} · ${productsLabel(baselineProducts.length)}`
     : shown < total ? `Showing ${shown.toLocaleString()} of ${total.toLocaleString()}`
     : total === 1 ? '1 product' : `${total.toLocaleString()} products`;
   // One level back from a level: the crumb's previous step and the parent tile's. The browse is flat, so that is the root.
@@ -397,9 +398,9 @@ export function CatalogueView({
   // v2 mounts a crumb per pane with autoFocus (drill-in.tsx:64, term-grid.tsx:303): the key makes each step a new crumb.
   // It stands outside the level wrappers here, so its own LevelBack goes back one step, as v2's pane wrapper does.
   const crumbOf = (className?: string) => drilled || level !== null ? <LevelBack testID="catalogue-crumb-back" onBack={drilled ? () => setDrill(null) : backToRoot}>
-    {drilled ? <BrowseCrumb key={`drill-${traits.getId(drilled)}`} autoFocus place={level} onRoot={() => { setDrill(null); dispatch({ type: 'open', place: null }); }}
+    {drilled ? <BrowseCrumb rootLabel={field === 'tags' ? TAGS_LABEL : CATEGORIES_LABEL} key={`drill-${traits.getId(drilled)}`} autoFocus place={level} onRoot={() => { setDrill(null); dispatch({ type: 'open', place: null }); }}
       product={{ name: traits.getName(drilled), onBack: () => setDrill(null) }} className={className} />
-    : <BrowseCrumb key={level?.kind === 'term' ? `term-${level.id}` : 'all'} autoFocus place={level} onRoot={backToRoot} className={className} />}
+    : <BrowseCrumb rootLabel={field === 'tags' ? TAGS_LABEL : CATEGORIES_LABEL} key={level?.kind === 'term' ? `term-${level.id}` : 'all'} autoFocus place={level} onRoot={backToRoot} className={className} />}
   </LevelBack> : undefined;
   const crumb = crumbOf();
   // v2's LevelBack (level-back.tsx) round the variations (drill-in.tsx:70) and a browse level (term-grid.tsx:295-296):

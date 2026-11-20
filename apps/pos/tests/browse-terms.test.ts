@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { categoriesLabel, categoryTerms, filtersAtBaseline, productsInCategory, productsLabel } from '../lib/catalogue/browse-terms';
+import { browseTerms, categoriesLabel, categoryTerms, filtersAtBaseline, productsInCategory, productsInTerm, productsLabel, tagsLabel } from '../lib/catalogue/browse-terms';
 import { CATALOGUE_VIEW_DEFAULTS, CATALOGUE_VIEW_KEY, loadCatalogueView, readBrowseBy } from '../lib/catalogue/catalogue-view-state';
 import { tintOf } from '../lib/catalogue/tile-words';
 
@@ -52,6 +52,24 @@ test('count labels use the singular for one', () => {
   expect(productsLabel(100)).toBe('100 products');
 });
 
+test('browseTerms counts distinct tag ids once per product and orders by name', () => {
+  const hot = { id: 7, name: 'Hot' }, iced = { id: 8, name: 'iced' };
+  const products = [{ tags: [iced, iced, hot] }, { tags: [hot] }, {}, { tags: [] }, { tags: null }];
+  expect(browseTerms(products, 'tags')).toEqual([{ id: 7, name: 'Hot', count: 2 }, { id: 8, name: 'iced', count: 1 }]);
+});
+
+test('productsInTerm keeps only products carrying the tag', () => {
+  const products = [{ id: 1, tags: [{ id: 7, name: 'Hot' }] }, { id: 2, tags: [{ id: 8, name: 'Iced' }] }, { id: 3 }];
+  expect(productsInTerm(products, 'tags', 7)).toEqual([products[0]]);
+  expect(productsInTerm(products, 'tags', 8)).toEqual([products[1]]);
+  expect(productsInTerm(products, 'tags', 99)).toEqual([]);
+});
+
+test('tagsLabel uses the singular for one', () => {
+  expect(tagsLabel(1)).toBe('1 tag');
+  expect(tagsLabel(2)).toBe('2 tags');
+});
+
 test('filtersAtBaseline: empty on both sides is the baseline; anything moved is not', () => {
   expect(filtersAtBaseline({ stock_status: 'instock' }, { stock_status: 'instock' })).toBe(true);
   expect(filtersAtBaseline({ stock_status: 'instock', categories: [] }, { stock_status: 'instock' })).toBe(true);
@@ -63,7 +81,8 @@ test('filtersAtBaseline: empty on both sides is the baseline; anything moved is 
 test('browseBy defaults to categories, and a missing or unknown stored value reads as the default', () => {
   expect(CATALOGUE_VIEW_DEFAULTS.browseBy).toBe('categories');
   expect(readBrowseBy(undefined)).toBe('categories');
-  expect(readBrowseBy('tags')).toBe('categories');
+  expect(readBrowseBy('tags')).toBe('tags');
+  expect(readBrowseBy('brands')).toBe('categories');
   expect(readBrowseBy('all')).toBe('all');
   const storage = new Map<string, string>();
   const store = { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => { storage.set(key, value); } } as Storage;
