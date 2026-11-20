@@ -67,6 +67,7 @@ import { OpenOrdersList } from './open-orders-list';
 import { PanelResizeHandle } from './panel-resize-handle';
 import { CartWithSettings } from './cart-settings';
 import { OrderDetailsSheet } from './order-details-sheet';
+import { OpenSaleReceipt } from './open-sale-receipt';
 import { KeyboardShortcutsSheet } from './keyboard-shortcuts-sheet';
 import { CartNoteRow } from './cart-note-row';
 import { TenderPane } from './tender-pane';
@@ -189,6 +190,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   // picks the method, and the ⋮'s one item opens the Order details sheet, which holds Void (cart/order-sheet.tsx).
   // v2 voids at once and offers Undo (pos/hooks/use-void-order.ts): Undo brings the voided cart back as resumeCart does.
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [billOpen, setBillOpen] = useState(false);
   const voiding = useVoidSale(sale, { resumeCart, say: setMessage, openedAt: currentOpenedAt });
   const changeCashier = useLeaveTill(sale, { hold, unhold, onSwitchCashier: props.onSwitchCashier, onAddCashier: props.onAddCashier, say: setMessage });
   const checkout = {
@@ -327,7 +329,10 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             openOrdersList={<OpenOrdersList parked={parked} current={sale.order} currentOpenedAt={currentOpenedAt} currency={currency} locale={props.locale}
               onSelect={resume} onClose={() => setListOpen(false)} onError={setMessage} leaving={!listOpen} />} listOpen={listOpen} />
           <OrderDetailsSheet open={detailsOpen} onOpenChange={setDetailsOpen} side={viewState.position}
-            note={sale.order.note} onNoteChange={sale.setNote} onVoid={voiding.offered ? voiding.voidSale : undefined} />
+            note={sale.order.note} onNoteChange={sale.setNote} onVoid={voiding.offered ? voiding.voidSale : undefined}
+            onPrint={sale.order.lineItems.length ? () => setBillOpen(true) : undefined} />
+          <OpenSaleReceipt open={billOpen} onClose={() => setBillOpen(false)} side={viewState.position} order={sale.order}
+            config={{ storeName: props.storeName, cashier: props.cashierName, registerName: register?.registerName ?? undefined }} />
         </>
       ) : sale.stage.kind === 'tender' ? outbox.enabled ? (
         // v2's tender pane is a ScrollView (checkout/tender/tender-pane.tsx:377) whose content takes a minimum height, never

@@ -42,6 +42,10 @@ export const RegisterIcon = createSvgIcon('RegisterIcon', () => <>
 export const CardIcon = createSvgIcon('CardIcon', () => <Path d="M3 8a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zm0 2h18M7 15h.01M11 15h2" />);
 // v2's tabler `product` glyph (components/src/icon/svg/tabler/product.svg).
 export const BoxIcon = createSvgIcon('BoxIcon', () => <Path d="m12 3l8 4.5v9L12 21l-8-4.5v-9zm0 9l8-4.5M12 12v9m0-9L4 7.5" />);
+export const PrintIcon = createSvgIcon('PrintIcon', () => <>
+  <Path d="M17 17h2a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2m10-8V5a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v4" />
+  <Path d="M7 15a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2z" />
+</>);
 // v2's tabler `pending` glyph (components/src/icon/svg/tabler/pending.svg).
 export const ClockIcon = createSvgIcon('ClockIcon', () => <><Path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0-18 0" /><Path d="M12 7v5l3 3" /></>);
 // v2's lucide `info` glyph (coupon status chip, EmptyState `empty`); @tallyui/components exports none.
