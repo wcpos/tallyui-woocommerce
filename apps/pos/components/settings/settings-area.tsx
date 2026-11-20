@@ -7,6 +7,8 @@ import { ChevronLeftIcon, ChevronRightIcon } from '../icons';
 export interface SettingsNavItem { href: string; label: string; testID: string;
   /** The page's help line under its title (v2 `AreaPage` `description`). */
   description?: string;
+  /** Inline after the label, before the chevron (v2 nav-item/index.tsx:94-96). */
+  badge?: ReactNode;
 }
 
 /** v2 `NavItem` (row size): selection lifts the row onto `bg-card`, the page card's own surface; no button look.
@@ -18,6 +20,7 @@ function NavRow({ item, selected, onPress, chevron = false }: { item: SettingsNa
       aria-selected={selected} onPress={onPress}
       className={`h-10 flex-row items-center rounded-md px-3 ${selected ? 'bg-card' : 'web:hover:bg-card/60'}`}>
       <Text className={`flex-1 text-sm ${selected ? 'text-foreground' : 'text-muted-foreground'}`}>{item.label}</Text>
+      {item.badge}
       {chevron && <ChevronRightIcon testID={`${item.testID}-chevron`} size={16} className="text-muted-foreground" />}
     </Pressable>
   );
