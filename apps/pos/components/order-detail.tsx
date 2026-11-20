@@ -145,7 +145,8 @@ export function OrderDetailView({ order, onReceipt, onClose, onSync, syncing }: 
                 <View className="flex-row gap-3 border-b border-border pb-2">
                   <View className="w-8"><Text testID="order-modal-head-qty" className={TABLE_HEAD_TEXT}>Qty</Text></View>
                   <View className="min-w-0 flex-1"><Text testID="order-modal-head-item" className={TABLE_HEAD_TEXT}>Item</Text></View>
-                  <View className="w-20 items-end"><Text testID="order-modal-head-price" className={TABLE_HEAD_TEXT}>Price</Text></View>
+                  {/* v2 line-items.tsx:99,173: a phone drops the Price column, as the cart does; the unit moves into the sub-line. */}
+                  {wide ? <View className="w-20 items-end"><Text testID="order-modal-head-price" className={TABLE_HEAD_TEXT}>Price</Text></View> : null}
                   <View className="w-20 items-end"><Text testID="order-modal-head-total" className={TABLE_HEAD_TEXT}>Total</Text></View>
                 </View>
                 {order.lines.map((line, index) => {
@@ -159,26 +160,50 @@ export function OrderDetailView({ order, onReceipt, onClose, onSync, syncing }: 
                       <View className="w-8"><Text>{line.quantity}</Text></View>
                       <View className="min-w-0 flex-1 gap-0.5">
                         <Text className="font-medium text-foreground">{line.name || '—'}</Text>
-                        {line.sku ? <Chip text={line.sku} /> : null}
+                        {line.sku || !wide ? (
+                          <View className="flex-row flex-wrap items-center gap-x-2 gap-y-1">
+                            {line.sku ? <Chip text={line.sku} /> : null}
+                            {/* v2 line-items.tsx:84-95: a phone's sub-line carries the unit, then the struck original when discounted. */}
+                            {wide ? null : (
+                              <Text testID={`order-modal-line-${index}-unit`} className="text-xs tabular-nums text-muted-foreground">
+                                {discounted ? `${money(unit)} · ` : ''}
+                                {discounted
+                                  ? <Text testID={`order-modal-line-${index}-was`} className="text-xs tabular-nums text-muted-foreground/70 line-through">{money(originalUnit)}</Text>
+                                  : money(unit)}
+                              </Text>
+                            )}
+                          </View>
+                        ) : null}
                       </View>
-                      <View className="w-20 items-end">
-                        {discounted && (
-                          <Text testID={`order-modal-line-${index}-was`} className="text-xs text-muted-foreground line-through">{money(originalUnit)}</Text>
-                        )}
-                        <Text>{money(unit)}</Text>
-                      </View>
+                      {wide ? (
+                        <View testID={`order-modal-line-${index}-price`} className="w-20 items-end">
+                          {discounted && (
+                            <Text testID={`order-modal-line-${index}-was`} className="text-xs text-muted-foreground line-through">{money(originalUnit)}</Text>
+                          )}
+                          <Text>{money(unit)}</Text>
+                        </View>
+                      ) : null}
                       <View className="w-20 items-end"><Text className="font-medium text-foreground">{money(total)}</Text></View>
                     </View>
                   );
                 })}
                 {order.fees.map((fee, index) => (
                   <View key={`fee-${index}`} testID={`order-modal-fee-${index}`} className={rowClass(order.lines.length + index)}>
-                    <View className="w-8" />
+                    {/* v2 line-items.tsx:140-141 draws the fee's "+" tile beside the 28 px line images; with no line image
+                        here, a phone puts it in the empty Qty cell so the names stay in line. */}
+                    <View className="w-8">
+                      {wide ? null : (
+                        <View testID={`order-modal-fee-${index}-tile`} className="h-7 w-7 items-center justify-center rounded bg-primary/10">
+                          <Text className="text-base font-semibold text-primary">+</Text>
+                        </View>
+                      )}
+                    </View>
                     <View className="min-w-0 flex-1 gap-0.5">
                       <Text className="font-medium text-foreground">{fee.name || 'Fees'}</Text>
                       <Text className="text-xs text-muted-foreground">Fees</Text>
                     </View>
-                    <View className="w-20" />
+                    {/* v2 line-items.tsx:153: the fee's Price spacer goes with the column. */}
+                    {wide ? <View testID={`order-modal-fee-${index}-price`} className="w-20" /> : null}
                     <View className="w-20 items-end">
                       <Text className="font-medium text-foreground">{money(gross(fee.totalMinor, fee.taxMinor))}</Text>
                     </View>

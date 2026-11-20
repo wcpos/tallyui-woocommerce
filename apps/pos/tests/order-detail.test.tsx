@@ -1,10 +1,14 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
+import * as ReactNative from 'react-native';
 import type { StoreOrder } from '@tallyui/core';
 import { OrderDetailView } from '../components/order-detail';
-import { classesOf } from './classes-of';
+import { classesOf, textPropsOf } from './classes-of';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 function make(overrides: Partial<StoreOrder> = {}): StoreOrder {
   return {
@@ -19,6 +23,9 @@ function make(overrides: Partial<StoreOrder> = {}): StoreOrder {
 
 const show = (order: StoreOrder) => render(<OrderDetailView order={order} onReceipt={vi.fn()} onClose={vi.fn()} />);
 const part = (testID: string) => within(screen.getByTestId(testID));
+// v2's phone layout (orders/view/sections/line-items.tsx, useIsPhone = the app's !useIsWide()); jsdom's innerHeight is 768.
+const windowOf = (width: number, height: number) =>
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width, height, scale: 1, fontScale: 1 });
 
 // Avatar puts its tone on the fallback disc inside it (bg-primary / bg-muted, @tallyui/components avatarFallbackVariants);
 // react-native-web drops className from the DOM, so read it off the nearest component above that disc (as classesOf).
@@ -68,6 +75,7 @@ test("an older order's identity line shows its weekday, date and time", () => {
 });
 
 test("the item heads are v2's caption rank: QTY ITEM PRICE TOTAL", () => {
+  windowOf(1280, 800);
   show(make());
   for (const [key, word] of [['qty', 'Qty'], ['item', 'Item'], ['price', 'Price'], ['total', 'Total']]) {
     expect(screen.getByTestId(`order-modal-head-${key}`).textContent).toBe(word);
@@ -100,6 +108,7 @@ test('a partly refunded order reads Partially refunded and closes on Net Payment
 });
 
 test('items show qty, unit price and line total, a struck original price when discounted, and fees after them', () => {
+  windowOf(1280, 800);
   show(make({
     lines: [
       { id: '1', name: 'Espresso', sku: 'ESP-1', quantity: 2, subtotalMinor: 600, subtotalTaxMinor: 0, totalMinor: 600, taxMinor: 0 },
@@ -113,6 +122,55 @@ test('items show qty, unit price and line total, a struck original price when di
   expect(screen.getByTestId('order-modal-line-1-was').textContent).toBe('$5.00');
   expect(part('order-modal-line-1').getAllByText('$4.00')).toHaveLength(2);
   for (const text of ['Service', 'Fees', '$1.00']) expect(part('order-modal-fee-0').getByText(text)).not.toBeNull();
+});
+
+const showItems = () => show(make({
+  lines: [
+    { id: '1', name: 'Espresso', sku: 'ESP-1', quantity: 2, subtotalMinor: 600, subtotalTaxMinor: 0, totalMinor: 600, taxMinor: 0 },
+    { id: '2', name: 'Latte', quantity: 1, subtotalMinor: 500, subtotalTaxMinor: 0, totalMinor: 400, taxMinor: 0 },
+  ],
+  fees: [{ name: 'Service', totalMinor: 100, taxMinor: 0 }],
+}));
+
+// v2 line-items.tsx:99-100, :153, :173.
+test('on a phone the items table drops the Price column: no Price head, no Price cell on a line, no Price spacer on a fee', () => {
+  windowOf(390, 844);
+  showItems();
+  for (const id of ['head-price', 'line-0-price', 'line-1-price', 'fee-0-price']) expect(screen.queryByTestId(`order-modal-${id}`)).toBeNull();
+  for (const head of ['qty', 'item', 'total']) expect(screen.getByTestId(`order-modal-head-${head}`)).not.toBeNull();
+});
+
+// v2 line-items.tsx:84-95: "$4.00 · " then the original struck through when discounted, else just the unit.
+test("on a phone each line's sub-line carries its unit price, the original struck beside it when discounted", () => {
+  windowOf(390, 844);
+  showItems();
+  expect(screen.getByTestId('order-modal-line-0-unit').textContent).toBe('$3.00');
+  expect(screen.queryByTestId('order-modal-line-0-was')).toBeNull();
+  expect(screen.getByTestId('order-modal-line-1-unit').textContent).toBe('$4.00 · $5.00');
+  const was = screen.getByTestId('order-modal-line-1-was');
+  expect(was.textContent).toBe('$5.00');
+  expect(screen.getByTestId('order-modal-line-1-unit').contains(was)).toBe(true);
+  expect(classesOf('order-modal-line-1-was')).toEqual(expect.arrayContaining(['line-through', 'text-muted-foreground/70']));
+  expect(classesOf('order-modal-line-1-unit')).toEqual(expect.arrayContaining(['text-xs', 'text-muted-foreground', 'tabular-nums']));
+});
+
+// v2 line-items.tsx:140-141.
+test("on a phone a fee row shows v2's 28px tile with a primary + in its Qty cell", () => {
+  windowOf(390, 844);
+  showItems();
+  const tile = screen.getByTestId('order-modal-fee-0-tile');
+  expect(tile.textContent).toBe('+');
+  expect(classesOf('order-modal-fee-0-tile')).toEqual(expect.arrayContaining(['h-7', 'w-7', 'rounded', 'bg-primary/10']));
+  expect(textPropsOf(within(tile).getByText('+')).classes).toEqual(expect.arrayContaining(['text-primary', 'text-base', 'font-semibold']));
+});
+
+test('on a wide window the items table keeps its Price column and no phone sub-line or fee tile', () => {
+  windowOf(1280, 800);
+  showItems();
+  for (const id of ['head-price', 'line-0-price', 'line-1-price', 'fee-0-price']) expect(screen.getByTestId(`order-modal-${id}`)).not.toBeNull();
+  expect(screen.getByTestId('order-modal-line-1-was').textContent).toBe('$5.00');
+  expect(screen.getByTestId('order-modal-line-1-price').contains(screen.getByTestId('order-modal-line-1-was'))).toBe(true);
+  for (const id of ['line-0-unit', 'line-1-unit', 'fee-0-tile']) expect(screen.queryByTestId(`order-modal-${id}`)).toBeNull();
 });
 
 test('an order with no lines says so', () => {
