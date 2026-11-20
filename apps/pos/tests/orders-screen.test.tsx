@@ -145,12 +145,12 @@ test('store history opens its detail, and Receipt there opens a clean receipt', 
   const back = () => screen.getAllByRole('button', { name: 'Back' }).find(button => button.getAttribute('data-testid') !== 'orders-back')!;
   fireEvent.click(screen.getByTestId('order-modal-receipt'));
   // v2 counts prints, not opens (use-receipt-data.ts:108-109): an unprinted receipt is no copy.
-  expect(screen.queryByTestId('receipt-reprint')).toBeNull();
+  noCopyLine();
   expect(screen.getByTestId('receipt-order').textContent).toBe('Order 901');
   fireEvent.click(back());
   expect(screen.getByTestId('order-modal-title')).not.toBeNull();
   fireEvent.click(screen.getByTestId('order-modal-receipt'));
-  expect(screen.queryByTestId('receipt-reprint')).toBeNull();
+  noCopyLine();
   fireEvent.click(back());
   fireEvent.click(screen.getByTestId('order-modal-close'));
   expect(screen.getByTestId('history-row-901')).not.toBeNull();
@@ -165,13 +165,25 @@ test('a till sale opens clean from Orders', async () => {
   await vi.waitFor(() => expect(table().getByText(`${reference} · #305`)).not.toBeNull());
   fireEvent.click(screen.getByRole('button', { name: 'New sale' }));
   fireEvent.click(screen.getByTestId(/^order-open-/));
-  expect(screen.queryByTestId('receipt-reprint')).toBeNull();
+  noCopyLine();
   expect(screen.getByTestId('receipt-order').textContent).toBe(`Order ${reference} · #305`);
   // The till's own sales are paid at tender: their receipt never says Not paid.
   expect(screen.queryByTestId('receipt-not-paid')).toBeNull();
 }, 20_000);
 
 const printed = () => act(() => { window.dispatchEvent(new Event('afterprint')); });
+// v2 draws the copy line after the totals (default-thermal-template.ts:132-134): in the receipt's footer, never TallyUI's top Reprint line.
+function copyLine() {
+  expect(screen.queryByTestId('receipt-reprint')).toBeNull();
+  const copy = screen.getByTestId('receipt-copy');
+  expect(screen.getByTestId('receipt-footer').contains(copy)).toBe(true);
+  return copy.textContent;
+}
+function noCopyLine() {
+  expect(screen.queryByTestId('receipt-reprint')).toBeNull();
+  expect(screen.queryByTestId('receipt-copy')).toBeNull();
+  expect(screen.queryByTestId('receipt-footer')).toBeNull();
+}
 const sheetBack = () => screen.getAllByRole('button', { name: 'Back' }).find(button => button.getAttribute('data-testid') !== 'orders-back')!;
 
 async function openReceiptOf(id: string) {
@@ -183,15 +195,15 @@ test('a print marks the open store receipt as a copy, one more each print', asyn
   const list = vi.fn<OrderHistorySource['list']>(async () => ({ orders: [storeOrder], hasMore: false }));
   await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list }, false);
   await openReceiptOf('901');
-  expect(screen.queryByTestId('receipt-reprint')).toBeNull();
+  noCopyLine();
   printed();
-  expect(screen.getByTestId('receipt-reprint').textContent).toBe('Reprint 1');
+  expect(copyLine()).toMatch(/^COPY 1 · /);
   printed();
-  expect(screen.getByTestId('receipt-reprint').textContent).toBe('Reprint 2');
+  expect(copyLine()).toMatch(/^COPY 2 · /);
   // The count is in memory for this screen: the same order opened again keeps it.
   fireEvent.click(sheetBack());
   fireEvent.click(screen.getByTestId('order-modal-receipt'));
-  expect(screen.getByTestId('receipt-reprint').textContent).toBe('Reprint 2');
+  expect(copyLine()).toMatch(/^COPY 2 · /);
 });
 
 test('a print counts for its own order only', async () => {
@@ -200,12 +212,12 @@ test('a print counts for its own order only', async () => {
   await setup(async batch => ({ kind: 'results', results: batch.map(applied) }), { list }, false);
   await openReceiptOf('901');
   printed();
-  expect(screen.getByTestId('receipt-reprint').textContent).toBe('Reprint 1');
+  expect(copyLine()).toMatch(/^COPY 1 · /);
   fireEvent.click(sheetBack());
   fireEvent.click(screen.getByTestId('order-modal-close'));
   await openReceiptOf('902');
   expect(screen.getByTestId('receipt-order').textContent).toBe('Order 902');
-  expect(screen.queryByTestId('receipt-reprint')).toBeNull();
+  noCopyLine();
 });
 
 // v2's receipt mark (receipt/receipt.tsx:75-94): a live store order the store does not count as paid says what is due.
