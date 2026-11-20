@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { PortalHost } from '@tallyui/primitives';
-import { GeneralSettings, countryLabel, languageLabel, type DefaultCustomerControl } from '../components/settings/general-settings';
+import { GeneralSettings, languageLabel, type DefaultCustomerControl } from '../components/settings/general-settings';
 import { TaxSettings } from '../components/settings/tax-settings';
 import type { DefaultCustomerSetting } from '../lib/customers/default-customer';
 import { classesOf } from './classes-of';
@@ -28,7 +28,7 @@ test('the Store group reads the base address after the store name', () => {
   render(<GeneralSettings siteHome={siteHome}
     store={{ ...store, address: { country: 'US', state: 'AL', city: 'Birmingham', postcode: '12345' } }} />);
   expect(value('store_country')).toBe('United States (US)');
-  expect(value('store_state')).toBe('AL');
+  expect(value('store_state')).toBe('Alabama');
   expect(value('store_city')).toBe('Birmingham');
   expect(value('store_postcode')).toBe('12345');
   const group = within(screen.getByTestId('settings-general-store'));
@@ -231,13 +231,14 @@ test('each Open link ends in v2\'s ↗ (tabler openExternal at 14 px), on Genera
   expect(screen.getByTestId('settings-tax-locked-calc_taxes-open-icon')).not.toBeNull();
 });
 
-test('countryLabel names the region, and falls back for a code Intl cannot name', () => {
-  expect(countryLabel('US')).toBe('United States (US)');
-  expect(countryLabel('GB')).toBe('United Kingdom (GB)');
-  expect(countryLabel(undefined)).toBeUndefined();
-  // Intl answers "Unknown Region" for an unassigned code, and throws on a malformed one.
-  expect(countryLabel('ZZ')).toBe('Unknown Region (ZZ)');
-  expect(countryLabel('not a code')).toBe('not a code');
+test('the base country and state read WooCommerce\'s names; an unknown country draws a dash and keeps the state code', () => {
+  render(<GeneralSettings siteHome={siteHome} store={{ ...store, address: { country: 'AU', state: 'NSW' } }} />);
+  expect(value('store_country')).toBe('Australia');
+  expect(value('store_state')).toBe('New South Wales');
+  cleanup();
+  render(<GeneralSettings siteHome={siteHome} store={{ ...store, address: { country: 'ZZ', state: 'Q1' } }} />);
+  expect(value('store_country')).toBe('—');
+  expect(value('store_state')).toBe('Q1');
 });
 
 // v2 general.tsx:178-182 with form/saved-mark.tsx: a changed setting shows "Saved" beside its key for 1200 ms.

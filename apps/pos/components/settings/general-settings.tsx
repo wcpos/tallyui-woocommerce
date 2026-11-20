@@ -6,6 +6,7 @@ import type { CurrencyPosition, StoreInfo } from '../../lib/catalogue/store-info
 import type { CustomerSource } from '../../lib/customers/customer-source';
 import { clearDefaultCustomerSetting, type DefaultCustomerSetting } from '../../lib/customers/default-customer';
 import { useRegister } from '../../lib/register/register-context';
+import { wooCountryName, wooStateName } from '../../lib/settings/woo-regions';
 import { CUSTOMER_SELECT_FACE, CustomerPicker, CustomerSelectFace } from '../customer-picker';
 import { OpenExternalIcon } from '../docs-link';
 import { RegisterSwitch } from '../register-controls';
@@ -39,17 +40,6 @@ export function LockedRow({ testID, label, value, href, control }: {
         : <Text testID={`${testID}-value`}>{value || '—'}</Text>}
     </SettingsField>
   );
-}
-
-// v2 General: "<region name> (<CODE>)". The bare code when Intl has no name for it.
-export function countryLabel(code: string | undefined): string | undefined {
-  if (!code) return undefined;
-  try {
-    const name = new Intl.DisplayNames(['en'], { type: 'region' }).of(code);
-    return name ? `${name} (${code})` : code;
-  } catch {
-    return code;
-  }
 }
 
 // v2's Language select (general.tsx:288-293, language-select.tsx:23-30) shows the language's name: "English (US)"
@@ -133,9 +123,9 @@ export function GeneralSettings(props: {
     <SavedFieldProvider><View testID="screen-settings-general" className="gap-5">
       <SettingsSection first title="Store" testID="settings-general-store">
         <LockedRow testID="settings-general-locked-name" label="Store Name" value={props.store.name} href={href} />
-        <LockedRow testID="settings-general-locked-store_country" label="Store Base Country" value={countryLabel(address?.country)} href={href} />
-        {/* v2 names the state; the app shows WooCommerce's code as sent. */}
-        <LockedRow testID="settings-general-locked-store_state" label="Store Base State" value={address?.state} href={href} />
+        <LockedRow testID="settings-general-locked-store_country" label="Store Base Country" value={wooCountryName(address?.country)} href={href} />
+        {/* v2 general.tsx:247-265: WooCommerce's country and state names; the stored state code when it has none. */}
+        <LockedRow testID="settings-general-locked-store_state" label="Store Base State" value={wooStateName(address?.country, address?.state)} href={href} />
         <LockedRow testID="settings-general-locked-store_city" label="Store Base City" value={address?.city} href={href} />
         <LockedRow testID="settings-general-locked-store_postcode" label="Store Base Postcode" value={address?.postcode} href={href} />
       </SettingsSection>
