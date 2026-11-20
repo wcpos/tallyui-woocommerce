@@ -17,10 +17,28 @@ export function stripLayout(stripWidth: number, contentWidth: number) {
   });
 }
 
-/** Overflow the strip so its count cell shows, then press it to open the parked sales sheet. */
+/** Overflow the strip so its count cell shows, then press it: it toggles the open-orders list over the cart. */
 export function openParkedList() {
   stripLayout(300, 900);
   fireEvent.click(screen.getByTestId('open-orders-count'));
+}
+
+/** The list's row for the strip's parked cart at `index` (the list and the strip share one order). */
+export function parkedRow(index = 0): HTMLElement {
+  const id = parkedTabs()[index].getAttribute('data-testid')!.slice('open-order-tab-'.length);
+  return within(screen.getByTestId('open-orders-list')).getByTestId(`open-orders-row-${id}`);
+}
+
+/** A list row's items line and its text, for a parked cart's content and total. */
+export function rowContents(row: HTMLElement): { items: string; text: string } {
+  return { items: within(row).getByTestId(`${row.getAttribute('data-testid')}-items`).textContent!, text: row.textContent! };
+}
+
+/** Open the list and resume the strip's parked cart at `index` from its row. */
+export async function resumeFromList(index = 0) {
+  openParkedList();
+  const row = parkedRow(index);
+  await act(async () => { fireEvent.click(row); });
 }
 
 /** The strip's parked cart tabs: every tab but the current sale's and +. */

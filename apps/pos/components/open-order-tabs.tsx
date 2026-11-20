@@ -161,6 +161,9 @@ export function OpenOrderTabs({ parked, current, currentOpenedAt, currency, loca
     focusPending.current = false;
     (node as HTMLElement).focus?.({ preventScroll: true });
   };
+  // v2 cart/tabs.tsx:156-161 closeList: the list closing hands focus back to the open cart's tab, or + on the blank cart.
+  const wasListOpen = useRef(listOpen);
+  if (wasListOpen.current !== listOpen) { if (!listOpen) focusPending.current = true; wasListOpen.current = listOpen; }
   function step(delta: number) {
     const at = (fresh ? ids.length : ids.indexOf(current.id)) + delta;
     if (at < 0 || at > ids.length) return;
@@ -225,7 +228,8 @@ export function OpenOrderTabs({ parked, current, currentOpenedAt, currency, loca
           : tab(current.id, true, who(current.customer?.name), current.totalMinor, undefined, currentOpenedAt))}
       </ScrollView>
       <Pressable testID="new-order-tab" role="tab" aria-selected={fresh} accessibilityLabel="New order" disabled={busy} ref={focusOpen(fresh)}
-        onPress={() => { if (!fresh) void run(onNew); }}
+        // v2 cart/tabs.tsx:438-445: + always closes the list; on the blank cart there is nothing to park.
+        onPress={() => { if (fresh) { if (listOpen) onOpenList?.(); } else void run(onNew); }}
         className={`h-full flex-row items-center justify-center gap-1.5 px-3 web:hover:bg-accent active:bg-accent ${fresh ? 'border-b-2 border-primary' : ''}`}>
         <Text className={`text-lg ${fresh ? 'text-primary' : ''}`}>+</Text>
         {fresh ? <Text testID="new-order-tab-label" className="font-semibold">New</Text> : null}
