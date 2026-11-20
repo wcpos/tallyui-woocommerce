@@ -89,9 +89,9 @@ test('cash tender records and sends one sale, prints a final receipt, and starts
   // print sheet's style is installed in the same commit's effects, so once it is in the head the counter listens.
   await waitFor(() => expect(document.head.querySelector('style[data-receipt-print]')).not.toBeNull());
   act(() => { window.dispatchEvent(new Event('afterprint')); });
-  expect(screen.getByTestId('receipt-copy').textContent).toBe('COPY 1');
+  expect(screen.getByTestId('receipt-copy').textContent).toMatch(/^COPY 1 · /);
   act(() => { window.dispatchEvent(new Event('afterprint')); });
-  expect(screen.getByTestId('receipt-copy').textContent).toBe('COPY 2');
+  expect(screen.getByTestId('receipt-copy').textContent).toMatch(/^COPY 2 · /);
   expect(receipt.queryByText(/\(draft\)/)).toBeNull();
   await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
   expect(send.mock.calls.flatMap(([batch]) => batch)).toEqual([expect.objectContaining({ type: 'order.create' })]);

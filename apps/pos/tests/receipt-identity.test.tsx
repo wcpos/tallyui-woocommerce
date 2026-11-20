@@ -42,6 +42,7 @@ test('renders the receipt identity lines in order', () => {
 
 test('renders the COPY line before the identity on a reprint', () => {
   render(<ReceiptIdentity identity={buildReceiptIdentity({ ...input, copies: 1 })} />);
-  expect(screen.getByTestId('receipt-copy').textContent).toBe('COPY 1');
-  expect(screen.getByTestId('receipt-identity').textContent?.startsWith('COPY 1Sales receipt')).toBe(true);
+  // v2's copy line carries the print's time: COPY n · Nov 20, 2026, 3:04 PM (U+202F before PM on recent ICU).
+  expect(screen.getByTestId('receipt-copy').textContent).toMatch(/^COPY 1 · [A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2}\s[AP]M$/u);
+  expect(screen.getByTestId('receipt-identity').textContent).toMatch(/^COPY 1 · .+[AP]MSales receipt/u);
 });

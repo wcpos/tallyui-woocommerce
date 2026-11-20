@@ -13,6 +13,7 @@ import { ORDERS_COLUMNS, OrdersTable } from './orders-table';
 import { AreaDisplayOptions } from './area-display-options';
 import { EmptyState } from './empty-state';
 import { OrderDetailSheet, orderPaymentState } from './order-detail';
+import { ReceiptCopyLine } from './receipt-identity';
 import { ReceiptPrintSheet } from './receipt-print-sheet';
 import { ReceiptStoreLine } from './receipt-store-line';
 import { ReceiptZoom } from './receipt-zoom';
@@ -57,7 +58,8 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
   // v2 counts prints, not opens (use-receipt-data.ts:108-109): the receipt is a copy only once printed, as the sale's COPY n.
   const receiptId = opened ? opened.posOrder?.id ?? opened.data.header.orderNumber : null;
   const copies = useReceiptPrintCount(receiptId);
-  const receipt = opened && { ...opened.data, fiscal: { ...opened.data.fiscal, is_reprint: copies > 0, reprint_count: copies } };
+  // TallyUI's top Reprint line stays off: the app's copy line, in the footer, carries it after the totals as v2's does.
+  const receipt = opened && { ...opened.data, fiscal: { ...opened.data.fiscal, is_reprint: false, reprint_count: 0 } };
 
   async function loadPage(nextPage: number, query: string) {
     const mine = ++request.current;
@@ -155,7 +157,8 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
           ? <View className="min-h-0 flex-1 px-4 pb-4">{opened.storeOrder && <NotPaidLine order={opened.storeOrder} />}<ReceiptZoom><ReceiptPrintSheet orderId={opened.posOrder?.id ?? opened.data.header.orderNumber}>
             {/* The live copy: a sale that reaches the store while its receipt is open loses the line. */}
             <ReceiptStoreLine posOrder={opened.posOrder && (outbox.recent.find(o => o.id === opened.posOrder!.id) || opened.posOrder)} />
-            <Receipt receipt={receipt!} posOrder={opened.posOrder} newSale={() => setOpened(null)} doneLabel="Back" /></ReceiptPrintSheet></ReceiptZoom></View>
+            <Receipt receipt={receipt!} posOrder={opened.posOrder} newSale={() => setOpened(null)} doneLabel="Back"
+              footerSlot={copies > 0 ? <ReceiptCopyLine count={copies} /> : undefined} /></ReceiptPrintSheet></ReceiptZoom></View>
           : local.length === 0 && orders.length === 0 && !failed && !loading
             ? search !== '' || filtered
               ? <EmptyState kind="no-results" title="No orders match these filters" action={{ label: 'Clear filters', onPress: clear }} />
