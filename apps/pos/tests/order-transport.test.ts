@@ -48,7 +48,9 @@ beforeEach(() => {
     document: { id: 115, status: 'completed', total: (envelope.payload.totalMinor / 100).toFixed(6) },
     currentRevision: 'r1',
   }), { status: 201 }));
-  vi.stubGlobal('fetch', fetchStub);
+  // connector-woocommerce 4.0.0 reads `/site` once to pick the ledger or the push; answer as stock WCPOS 1.10.20.
+  vi.stubGlobal('fetch', (...args: Parameters<typeof fetch>) => String(args[0]).endsWith('/site')
+    ? Promise.resolve(Response.json({ wcpos_version: '1.10.20' })) : fetchStub(...args));
 });
 
 afterEach(() => { vi.unstubAllGlobals(); });

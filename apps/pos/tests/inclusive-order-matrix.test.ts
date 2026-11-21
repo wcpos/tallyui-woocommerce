@@ -77,6 +77,7 @@ function respond(row: Row) {
     if (path.endsWith('/push/orders')) {
       return new Response(JSON.stringify(row.response.json), { status: row.response.status });
     }
+    if (path.endsWith('/site')) return Response.json({ wcpos_version: '1.10.20' }); // connector 4.0.0 reads /site once
     throw new Error('unexpected fetch ' + url);
   });
 }

@@ -54,6 +54,7 @@ test('removing a product line toasts "<name> removed from cart" as success', () 
 test('removing a fee toasts its name removed from cart', () => {
   renderCart();
   act(() => { latest.addFee({ name: 'Bag', amountMinor: 20 }); });
+  fireEvent.click(screen.getByRole('button', { name: 'Edit total of Bag' })); // 4.0.0: the Total opens the line strip
   fireEvent.click(screen.getByRole('button', { name: 'Remove Bag' }));
   expect(getToasts()).toContainEqual(expect.objectContaining({ type: 'success', title: 'Bag removed from cart' }));
   expect(latest.order.fees ?? []).toHaveLength(0);
@@ -62,6 +63,7 @@ test('removing a fee toasts its name removed from cart', () => {
 test('removing a shipping line toasts its name removed from cart', () => {
   renderCart();
   act(() => { latest.addShipping({ name: 'Flat rate', amountMinor: 500 }); });
+  fireEvent.click(screen.getByRole('button', { name: 'Edit total of Flat rate' })); // 4.0.0: the Total opens the line strip
   fireEvent.click(screen.getByRole('button', { name: 'Remove Flat rate' }));
   expect(getToasts()).toContainEqual(expect.objectContaining({ type: 'success', title: 'Flat rate removed from cart' }));
   expect(latest.order.shipping ?? []).toHaveLength(0);

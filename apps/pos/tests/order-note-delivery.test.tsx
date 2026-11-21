@@ -58,7 +58,8 @@ test.each([
     catalogue: orderCreate === undefined ? null : { capabilities: { orderCreate } } as Catalogue,
     products, status: 'ready',
   });
-  const fetchStub = vi.fn<typeof fetch>(async () => Response.json({
+  // connector 4.0.0 reads /site once; answer as stock WCPOS 1.10.20.
+  const fetchStub = vi.fn<typeof fetch>(async input => String(input).endsWith('/site') ? Response.json({ wcpos_version: '1.10.20' }) : Response.json({
     document: { id: 115, status: 'completed', total: '3.000000' }, currentRevision: 'r1',
   }, { status: 201 }));
   vi.stubGlobal('fetch', fetchStub);

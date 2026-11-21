@@ -111,7 +111,7 @@ function addCharge(item: 'misc-product' | 'fee' | 'shipping', name: string, amou
   const form = within(within(screen.getByTestId(`add-${item}-dialog`)).getByTestId('charge-form'));
   fireEvent.change(form.getByLabelText('Name'), { target: { value: name } });
   fireEvent.change(form.getByLabelText('Amount'), { target: { value: amount } });
-  fireEvent.click(form.getByRole('button', { name: 'Apply' }));
+  fireEvent.click(form.getByRole('button', { name: 'Add to Cart' }));
 }
 
 test('the cart head has the + menu and the settings icon; the menu lists v2\'s add items in order', async () => {
@@ -148,11 +148,11 @@ test('Add Fee, Add Shipping and Add custom item each open a form fixed to their 
   addCharge('misc-product', 'Gift wrap', '3.00');
   const feeRow = within(screen.getByTestId('cart-fee-0'));
   expect(feeRow.getByText('Bag')).not.toBeNull();
-  expect(feeRow.getByText('$0.20')).not.toBeNull();
+  expect(feeRow.getByTestId('cart-charge-total').textContent).toBe('$0.20'); // 4.0.0 4319b3c: Price and Total cells
   expect(screen.queryByTestId('cart-fee-1')).toBeNull();
   const shippingRow = within(screen.getByTestId('cart-shipping-0'));
   expect(shippingRow.getByText('Delivery')).not.toBeNull();
-  expect(shippingRow.getByText('$5.00')).not.toBeNull();
+  expect(shippingRow.getByTestId('cart-charge-total').textContent).toBe('$5.00');
   expect(screen.getByLabelText('Edit quantity of Gift wrap')).not.toBeNull();
   expect(total().getByText('$11.20')).not.toBeNull();
 }, 20_000);

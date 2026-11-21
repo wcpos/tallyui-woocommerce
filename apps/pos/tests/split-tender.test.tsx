@@ -50,7 +50,8 @@ function OrderStoreReady() {
 
 test.each([
   { scenario: 'a scan adds a line during the two-pane checkout', code: '2000000000015', leg: false, before: '$3.00', after: '$6.00', quantity: '2' },
-  { scenario: 'a scan adds a line after one leg is taken', code: '2000000000015', leg: true, before: '$2.00', after: '$5.00', quantity: '2' },
+  // @tallyui/pos 4.0.0 f1c118f: a captured till payment refuses line changes (SALE_HAS_PAYMENT).
+  { scenario: 'a scan adds nothing after one leg is taken', code: '2000000000015', leg: true, before: '$2.00', after: '$2.00', quantity: '1' },
   { scenario: 'an unknown code adds nothing during the two-pane checkout', code: '999999999', leg: false, before: '$3.00', after: '$3.00', quantity: '1' },
 ])('$scenario', async ({ code, leg, before, after, quantity }) => {
   const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => ({
@@ -182,7 +183,8 @@ test.each([true, false, undefined])('uses the advertised tender UI with multiple
 
 test('the existing outbox transport sees a catalogue capability that arrives later', async () => {
   const catalogue = vi.spyOn(CatalogueContext, 'useCatalogue').mockReturnValue({ catalogue: null, products: [], status: 'starting' });
-  const fetchStub = vi.fn<typeof fetch>(async () => Response.json({
+  // connector 4.0.0 reads /site once; answer as stock WCPOS 1.10.20.
+  const fetchStub = vi.fn<typeof fetch>(async input => String(input).endsWith('/site') ? Response.json({ wcpos_version: '1.10.20' }) : Response.json({
     document: { id: 115, status: 'completed', total: '6.000000' }, currentRevision: 'r1',
   }, { status: 201 }));
   vi.stubGlobal('fetch', fetchStub);

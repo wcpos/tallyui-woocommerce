@@ -35,8 +35,9 @@ const lightNames = [...new Set([...names(variantBlock(tokensCss, 'light')), ...n
 
 test('every extra theme defines exactly the variables light defines, once each', () => {
   // 38 plus v2's --selected pair (apps/main/global.css l.400-401), TallyUI 3.20.0's --color-scrim, v2's chart c1-c5
-  // and v2's --warning-text (l.112), plus v2's --ok-bg / --warning-bg (l.111, l.113), plus v2's --rail-accent (l.107)
-  expect(lightNames).toHaveLength(50);
+  // and v2's --warning-text (l.112), plus v2's --ok-bg / --warning-bg (l.111, l.113), plus v2's --rail-accent (l.107),
+  // plus @tallyui/theme 4.0.0's sidebar trio, chart-1..5, ok, bad and bad-bg
+  expect(lightNames).toHaveLength(61);
   expect(lightNames).toContain('--color-warning-text');
   expect(lightNames).toContain('--color-ok-bg');
   expect(lightNames).toContain('--color-warning-bg');

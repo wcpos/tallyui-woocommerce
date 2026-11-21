@@ -103,7 +103,7 @@ function addCharge(item: 'misc-product' | 'fee' | 'shipping', name: string, amou
   const form = within(within(screen.getByTestId(`add-${item}-dialog`)).getByTestId('charge-form'));
   fireEvent.change(form.getByLabelText('Name'), { target: { value: name } });
   fireEvent.change(form.getByLabelText('Amount'), { target: { value: amount } });
-  fireEvent.click(form.getByRole('button', { name: 'Apply' }));
+  fireEvent.click(form.getByRole('button', { name: 'Add to Cart' }));
 }
 
 test('adds, fees, shipping, custom line and quick discount each log once, in order', async () => {
@@ -150,7 +150,7 @@ test('a refused charge logs nothing', async () => {
   await renderTill();
   await addEspresso();
   addCharge('fee', 'Bag', '-1');
-  expect(await screen.findByText('Enter a price of 0 or more.')).not.toBeNull();
+  expect(await screen.findByText('A fee cannot be negative. Use Add Discount instead.')).not.toBeNull();
   expect(info.mock.calls.map(call => call[0])).toEqual(['Espresso added to cart']);
 }, 20_000);
 
