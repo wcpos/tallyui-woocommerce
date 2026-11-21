@@ -1,4 +1,4 @@
-import { formatMoney, type StoreOrder } from '@tallyui/core';
+import { formatMoney, type MoneyFormat, type StoreOrder } from '@tallyui/core';
 import { orderReference } from '@tallyui/components';
 import type { PosOrder } from '@tallyui/pos';
 import { orderCustomerName } from './customer-name';
@@ -98,14 +98,14 @@ export interface OrderRowCells {
   refunds: string;
 }
 
-/** The v2 columns this connector can fill: Status, Order Number, Customer, Date Created, Payment Method, Total. */
-export function orderRowCells(row: OrderTableRow, now: Date): OrderRowCells {
+/** The v2 columns this connector can fill: Status, Order Number, Customer, Date Created, Payment Method, Total; money in the store's format when given. */
+export function orderRowCells(row: OrderTableRow, now: Date, format?: MoneyFormat): OrderRowCells {
   // v2 orders/row.tsx:47 names the customer with the same fallback as the order detail.
   const customer = orderCustomerName(row.order.customer);
-  const total = formatMoney({ amount: row.order.totalMinor, currency: row.order.currency }) ?? '';
+  const total = formatMoney({ amount: row.order.totalMinor, currency: row.order.currency }, undefined, format) ?? '';
   if (row.kind === 'store') {
     const refunded = (row.order.refunds ?? []).reduce((sum, refund) => sum + Math.abs(refund.amountMinor), 0);
-    const refunds = refunded > 0 ? `-${formatMoney({ amount: refunded, currency: row.order.currency }) ?? ''}` : '';
+    const refunds = refunded > 0 ? `-${formatMoney({ amount: refunded, currency: row.order.currency }, undefined, format) ?? ''}` : '';
     return { statusLabel: wooStatusLabel(row.order.status), tone: storeTone(row.order.status), number: row.order.reference,
       day: dayLabel(row.order.placedAt, now),
       customer, date: dateTimeLabel(row.order.placedAt, now), payment: row.order.payments[0]?.title ?? '', total, refunds };

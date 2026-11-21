@@ -16,7 +16,7 @@
 import { Fragment, useCallback, useMemo, useState } from 'react';
 import type { JSX, ReactNode } from 'react';
 import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
-import { ConnectorProvider, formatMoney, moneyFromDecimalString } from '@tallyui/core';
+import { ConnectorProvider, moneyFromDecimalString, useFormatMoney, useMoneyFormat, type MoneyFormat } from '@tallyui/core';
 import type { ProductTraits, TallyConnector } from '@tallyui/core';
 import { Button, ProductImage, ProductTable, SearchInput, Table, TableBody, TableCell, TableRow, Text, Tooltip, TooltipContent, TooltipTrigger } from '@tallyui/components';
 import type { ProductTableColumn } from '@tallyui/components';
@@ -144,7 +144,10 @@ function priceValue(value: string | undefined): number | undefined {
   return Number.isFinite(number) ? number : undefined;
 }
 
-function money(value: string | undefined, currency: string, locale: string | undefined): string {
+/** The store-format formatter a component binds with useFormatMoney(), handed to the helpers below. */
+type FormatMoney = ReturnType<typeof useFormatMoney>;
+
+function money(value: string | undefined, currency: string, locale: string | undefined, formatMoney: FormatMoney): string {
   if (!value) return '';
   const parsed = moneyFromDecimalString(value, currency);
   return (parsed && formatMoney(parsed, locale)) ?? value;
@@ -174,17 +177,17 @@ function variationRange(doc: ProductDoc, field: PriceField): { min: string; max:
 
 /** v2's VariableProductPrice (variable-price.tsx:39-71) for a variable product with variations: nothing without a
  *  range, one price when min equals max, else min and max; any other product shows its own field. */
-function priceParts(doc: ProductDoc, field: PriceField, currency: string, locale: string | undefined): { min: string; max?: string } | null {
-  if (doc.type !== 'variable' || (doc.variation_docs?.length ?? 0) === 0) return { min: money(doc[field], currency, locale) };
+function priceParts(doc: ProductDoc, field: PriceField, currency: string, locale: string | undefined, formatMoney: FormatMoney): { min: string; max?: string } | null {
+  if (doc.type !== 'variable' || (doc.variation_docs?.length ?? 0) === 0) return { min: money(doc[field], currency, locale, formatMoney) };
   const range = variationRange(doc, field);
   if (!range) return null;
-  if (Number(range.min) === Number(range.max)) return { min: money(range.max, currency, locale) };
-  return { min: money(range.min, currency, locale), max: money(range.max, currency, locale) };
+  if (Number(range.min) === Number(range.max)) return { min: money(range.max, currency, locale, formatMoney) };
+  return { min: money(range.min, currency, locale, formatMoney), max: money(range.max, currency, locale, formatMoney) };
 }
 
 /** The wide table's text: v2's `<Text> - </Text>` between min and max (variable-price.tsx). */
-function priceText(doc: ProductDoc, field: PriceField, currency: string, locale: string | undefined): string {
-  const parts = priceParts(doc, field, currency, locale);
+function priceText(doc: ProductDoc, field: PriceField, currency: string, locale: string | undefined, formatMoney: FormatMoney): string {
+  const parts = priceParts(doc, field, currency, locale, formatMoney);
   return !parts ? '' : parts.max ? `${parts.min} - ${parts.max}` : parts.min;
 }
 
@@ -229,6 +232,7 @@ function VariationNameCell({ variation, parent }: { variation: VariationDoc; par
 }
 
 function VariationTouchRow({ variation, parent, currency, locale }: { variation: VariationDoc; parent: ProductDoc; currency: string; locale: string | undefined }): JSX.Element {
+  const formatMoney = useFormatMoney();
   return <View testID={`products-row-${variation.id}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
     <ProductImage doc={parent} size={IMAGE_SIZE} />
     <View className="min-w-0 flex-1">
@@ -237,7 +241,7 @@ function VariationTouchRow({ variation, parent, currency, locale }: { variation:
     </View>
     <View className="flex-row items-center gap-3">
       <View testID={`products-phone-figures-${variation.id}`} className="items-end gap-1 tabular-nums">
-        <View testID={`products-phone-price-${variation.id}`} className="flex-row items-center gap-1">{phonePrice({ min: money(variation.price, currency, locale) })}</View>
+        <View testID={`products-phone-price-${variation.id}`} className="flex-row items-center gap-1">{phonePrice({ min: money(variation.price, currency, locale, formatMoney) })}</View>
         <StockBadge doc={variation} quantity={stockQuantity(variation)} />
       </View>
       {rowChevron(variation.id)}
@@ -271,26 +275,27 @@ function PriceCell({ id, text, line, showTax }: { id: number | string; text: str
 interface PriceTax { tax?: TileTax; traits: ProductTraits; showTax: boolean }
 
 /** Every column of PRODUCTS_COLUMNS, in its order; the screen hands ProductTable the ones left on. */
-function productColumns(currency: string, locale: string | undefined, onDrill: OnDrill, lines: NameLines, { tax, traits, showTax }: PriceTax, inline: boolean, expanded: ReadonlySet<number>, term: string): (ProductTableColumn<ProductDoc> & { id: ProductsColumnId })[] {
+function productColumns(currency: string, locale: string | undefined, onDrill: OnDrill, lines: NameLines, { tax, traits, showTax }: PriceTax, inline: boolean, expanded: ReadonlySet<number>, term: string,
+  formatMoney: FormatMoney, format: MoneyFormat | undefined): (ProductTableColumn<ProductDoc> & { id: ProductsColumnId })[] {
   // The tile's tax words for one price (tile-words.ts tileTaxLine) with the doc's own tax status and class, so a variable
   // product's range ends take the parent's, as v2's VariableProductPrice passes them (variable-price.tsx:23-24).
   const taxLine = (doc: ProductDoc, price: string | undefined): string | null => {
     const money = tax ? moneyFromDecimalString(price ?? '', currency) : undefined;
-    return money && tax ? tileTaxLine(money, traits.getTaxStatus?.(doc), traits.getTaxClass?.(doc), tax) : null;
+    return money && tax ? tileTaxLine(money, traits.getTaxStatus?.(doc), traits.getTaxClass?.(doc), tax, format) : null;
   };
   // v2's VariableProductPrice (variable-price.tsx:45-71): one PriceWithTax(max) when min equals max, else min " - " max in
   // an end-justified wrapping row, each end with its own tax words; no range is an empty cell.
   const priceCell = (doc: ProductDoc): JSX.Element => {
     const ranged = doc.type === 'variable' && (doc.variation_docs?.length ?? 0) > 0;
     const range = ranged ? variationRange(doc, 'price') : undefined;
-    const text = priceText(doc, 'price', currency, locale);
+    const text = priceText(doc, 'price', currency, locale, formatMoney);
     if (!range || Number(range.min) === Number(range.max)) {
       return <PriceCell id={doc.id} text={text} line={taxLine(doc, ranged ? range?.max : doc.price)} showTax={showTax} />;
     }
     return <View testID={`product-price-${doc.id}`} className="flex-row flex-wrap items-center justify-end gap-1">
-      <PriceCell id={`${doc.id}-min`} text={money(range.min, currency, locale)} line={taxLine(doc, range.min)} showTax={showTax} />
+      <PriceCell id={`${doc.id}-min`} text={money(range.min, currency, locale, formatMoney)} line={taxLine(doc, range.min)} showTax={showTax} />
       <Text> - </Text>
-      <PriceCell id={`${doc.id}-max`} text={money(range.max, currency, locale)} line={taxLine(doc, range.max)} showTax={showTax} />
+      <PriceCell id={`${doc.id}-max`} text={money(range.max, currency, locale, formatMoney)} line={taxLine(doc, range.max)} showTax={showTax} />
     </View>;
   };
   // v2 sorts Price only; Regular and Sale Price are `disableSort` (initial-settings.json:323-349), all three `right`.
@@ -298,7 +303,7 @@ function productColumns(currency: string, locale: string | undefined, onDrill: O
     id, header: LABEL[id], flex: 1, align: 'right' as const,
     render: (doc: ProductDoc) => id === 'price'
       ? priceCell(doc)
-      : <Text testID={`product-${id}-${doc.id}`}>{priceText(doc, id, currency, locale)}</Text>,
+      : <Text testID={`product-${id}-${doc.id}`}>{priceText(doc, id, currency, locale, formatMoney)}</Text>,
     sortValue: id !== 'price' ? undefined : (doc: ProductDoc) => doc.type === 'variable' && (doc.variation_docs?.length ?? 0) > 0
       ? priceValue(variationRange(doc, id)?.min) : priceValue(doc[id]),
   });
@@ -397,6 +402,8 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   const pointer = usePointer();
   const sync = useCatalogueSync();
   const locale = storeLocale?.replaceAll('_', '-');
+  const formatMoney = useFormatMoney();
+  const format = useMoneyFormat();
 
   // v2's drill holds while the search it was opened under does (products.tsx `drilled`); otherwise it is dropped,
   // not parked, so restoring the search does not bring it back. Reset while rendering, React's "previous render"
@@ -435,8 +442,8 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
 
   const [sku, barcode, attributes] = (['sku', 'barcode', 'attributes'] as const).map(key => areaDisplayShown(settings, 'name', key));
   const showTax = areaDisplayShown(settings, 'price', 'tax');
-  const columns = useMemo(() => productColumns(currency, locale, drillTo, { sku, barcode, attributes }, { tax, traits: connector.traits.product, showTax }, inline, expanded, query),
-    [currency, locale, drillTo, sku, barcode, attributes, tax, connector.traits.product, showTax, inline, expanded, query]);
+  const columns = useMemo(() => productColumns(currency, locale, drillTo, { sku, barcode, attributes }, { tax, traits: connector.traits.product, showTax }, inline, expanded, query, formatMoney, format),
+    [currency, locale, drillTo, sku, barcode, attributes, tax, connector.traits.product, showTax, inline, expanded, query, formatMoney, format]);
   // The columns the display options leave on, in the area's order; the narrow list keeps sorting on every column.
   const tableColumns = useMemo(() => visibleAreaColumns(columns, settings), [columns, settings]);
   const searched = useMemo(() => query ? searchProducts(products, query, connector.traits.product) : products,
@@ -524,7 +531,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
               </View>
               <View className="flex-row items-center gap-3">
                 <View testID={`products-phone-figures-${doc.id}`} className="items-end gap-1 tabular-nums">
-                  <View testID={`products-phone-price-${doc.id}`} className="flex-row items-center gap-1">{phonePrice(priceParts(doc, 'price', currency, locale))}</View>
+                  <View testID={`products-phone-price-${doc.id}`} className="flex-row items-center gap-1">{phonePrice(priceParts(doc, 'price', currency, locale, formatMoney))}</View>
                   <StockBadge doc={doc} quantity={stockQuantity(doc)} />
                 </View>
                 {rowChevron(doc.id)}

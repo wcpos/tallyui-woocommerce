@@ -1,7 +1,7 @@
 import { useContext, type JSX } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Dialog, DialogOverlay, DialogPortal, DialogTitle, IconButton, Receipt, Text, XIcon } from '@tallyui/components';
-import { formatMoney } from '@tallyui/core';
+import { useFormatMoney } from '@tallyui/core';
 import { buildReceiptData, type ReceiptConfig, type SentOrder } from '@tallyui/pos';
 import { Dialog as DialogPrimitive } from '@tallyui/primitives';
 import type { PanelPosition } from '../lib/catalogue/catalogue-view-state';
@@ -15,6 +15,7 @@ import { SHEET_TITLE } from './sheet';
 export function OpenSaleReceipt({ open, onClose, side, order, config }: {
   open: boolean; onClose(): void; side: PanelPosition; order: SentOrder; config: ReceiptConfig;
 }): JSX.Element | null {
+  const formatMoney = useFormatMoney();
   const railShown = useContext(AppRailShown);
   if (!open) return null;
   const data = buildReceiptData(order, config);

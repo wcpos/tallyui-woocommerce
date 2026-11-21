@@ -3,6 +3,7 @@ import type { JSX } from 'react';
 import { Linking, Pressable, View } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import type { PosOrder } from '@tallyui/pos';
+import { useMoneyFormat } from '@tallyui/core';
 import { Path } from 'react-native-svg';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, createSvgIcon, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, IconButton, Text, XIcon } from '@tallyui/components';
 import { getInitials } from '../lib/cashier/initials';
@@ -41,9 +42,10 @@ function SheetDescription({ storeName, signedInAt }: { storeName?: string; signe
 function SalesTodayRow({ total, currency, locale }: {
   total: SalesTotal; currency: string; locale?: string;
 }) {
+  const format = useMoneyFormat();
   return <View testID="user-sheet-sales-today" className="flex-row items-center justify-between px-3 py-2.5">
     <Text testID="user-sheet-sales-today-label" className={KEY_LABEL}>Your sales today</Text>
-    <Text className={TILE_FIGURE}>{sheetMoney(total.totalMinor, currency, locale)}</Text>
+    <Text className={TILE_FIGURE}>{sheetMoney(total.totalMinor, currency, locale, format)}</Text>
   </View>;
 }
 

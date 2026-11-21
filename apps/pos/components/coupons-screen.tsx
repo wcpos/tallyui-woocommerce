@@ -13,7 +13,7 @@ import type { ComponentType, JSX } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Circle, Path, Rect } from 'react-native-svg';
 import type { RxCollection } from 'rxdb';
-import { formatMoney, moneyFromDecimalString } from '@tallyui/core';
+import { moneyFromDecimalString, useFormatMoney } from '@tallyui/core';
 import { DATE_PRESETS, inRange, presetRange } from '@tallyui/pos';
 import type { DatePreset, DayRange } from '@tallyui/pos';
 import {
@@ -144,8 +144,11 @@ function isActive(coupon: CouponDoc, now: Date): boolean {
   return coupon.status === 'publish' && !expired;
 }
 
+/** The store-format formatter a component binds with useFormatMoney(), handed to the helpers below. */
+type FormatMoney = ReturnType<typeof useFormatMoney>;
+
 /** v2 cells/editable-amount.tsx: a percentage for `percent`, otherwise money in the store currency. */
-function couponAmount(coupon: CouponDoc, currency: string, locale: string | undefined): string {
+function couponAmount(coupon: CouponDoc, currency: string, locale: string | undefined, formatMoney: FormatMoney): string {
   const amount = coupon.amount ?? '';
   if (coupon.discount_type === 'percent') return `${Number(amount)}%`;
   const money = moneyFromDecimalString(amount, currency);
@@ -316,11 +319,11 @@ function ActiveBadge({ coupon, now }: { coupon: CouponDoc; now: Date }): JSX.Ele
 
 /** One body cell's content; the table draws its TableCell. */
 function couponContent(id: CouponsColumnId, c: CouponDoc, now: Date, currency: string, locale: string | undefined,
-  onFilter: (field: FilterKey, value: string) => void): JSX.Element {
+  onFilter: (field: FilterKey, value: string) => void, formatMoney: FormatMoney): JSX.Element {
   switch (id) {
     case 'active': return <ActiveBadge coupon={c} now={now} />;
     case 'code': return <Text className="font-medium">{c.code}</Text>;
-    case 'amount': return <Text>{couponAmount(c, currency, locale)}</Text>;
+    case 'amount': return <Text>{couponAmount(c, currency, locale, formatMoney)}</Text>;
     // v2 cells/discount-type.tsx:20-24: a `size="sm"` Chip that filters to the row's type, as orders-table's customer chip.
     case 'discount_type': return <Pressable accessibilityRole="button" accessibilityLabel={typeLabel(c)} testID={`coupon-type-filter-${c.code}`}
       className="h-8 max-w-full flex-row items-center self-start rounded-full border border-border px-2.5 web:hover:bg-accent"
@@ -360,6 +363,7 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
   const touchRows = width < NARROW_WIDTH || pointer === 'coarse';
   const sync = useCatalogueSync();
   const locale = storeLocale?.replaceAll('_', '-');
+  const formatMoney = useFormatMoney();
 
   useEffect(() => {
     const subscription = coupons.find().$.subscribe(docs => {
@@ -415,7 +419,7 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
               <Text testID={`coupon-row-code-${c.code}`} numberOfLines={1} className="font-semibold text-foreground">{c.code}</Text>
               {c.description ? <Text testID={`coupon-row-description-${c.code}`} numberOfLines={1} className="text-muted-foreground">{c.description}</Text> : null}
               <Text testID={`coupon-row-meta-${c.code}`} numberOfLines={1} className="text-muted-foreground">
-                {[typeLabel(c), couponAmount(c, currency, locale), c.date_expires_gmt ? `Expires ${gmtDayWord(c.date_expires_gmt, now)}` : null].filter(Boolean).join(' · ')}
+                {[typeLabel(c), couponAmount(c, currency, locale, formatMoney), c.date_expires_gmt ? `Expires ${gmtDayWord(c.date_expires_gmt, now)}` : null].filter(Boolean).join(' · ')}
               </Text>
             </View>
             <ActiveBadge coupon={c} now={now} />
@@ -436,7 +440,7 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
           <TableBody>
             {shown.map(c => <TableRow key={c.uuid} testID={`coupons-row-${c.code}`}>
               {columns.map(({ id, className }) => <TableCell key={id} testID={`coupons-cell-${id}-${c.code}`}
-                className={classes(CELL, ALIGN[id], className)}>{couponContent(id, c, now, currency, locale, setFilter)}</TableCell>)}
+                className={classes(CELL, ALIGN[id], className)}>{couponContent(id, c, now, currency, locale, setFilter, formatMoney)}</TableCell>)}
             </TableRow>)}
           </TableBody>
         </Table>}

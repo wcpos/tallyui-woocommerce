@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import type { RxCollection } from 'rxdb';
-import { formatMoney, moneyFromDecimalString } from '@tallyui/core';
+import { moneyFromDecimalString, useFormatMoney } from '@tallyui/core';
 import { Button, DialogFooter, Input, Text, XIcon } from '@tallyui/components';
 import type { useSale } from '@tallyui/pos';
 import { toast } from '../lib/toast/toast';
@@ -16,7 +16,10 @@ const typeLabels: Record<string, string> = {
 
 interface CouponDoc { code: string; status?: string; amount?: string; discount_type?: string; description?: string }
 
-function couponAmount(coupon: CouponDoc, currency: string): string {
+/** The store-format formatter a component binds with useFormatMoney(). */
+type FormatMoney = ReturnType<typeof useFormatMoney>;
+
+function couponAmount(coupon: CouponDoc, currency: string, formatMoney: FormatMoney): string {
   const amount = coupon.amount ?? '';
   if (coupon.discount_type === 'percent') return `${Number(amount)}%`;
   const money = moneyFromDecimalString(amount, currency);
@@ -26,6 +29,7 @@ function couponAmount(coupon: CouponDoc, currency: string): string {
 // WCPOS v2's applied coupons (cart/totals.tsx:120-150): one row per coupon under the cart's Subtotal, a sm Chip
 // (discount icon, code, a close clear at its right edge; chip/index.tsx:152-166) and the negative discount.
 export function CouponRows({ sale }: { sale: ReturnType<typeof useSale> }): JSX.Element | null {
+  const formatMoney = useFormatMoney();
   const applied = sale.order.display.coupons ?? [];
   if (!applied.length) return null;
   const minus = (amountMinor: number) => `−${formatMoney({ amount: amountMinor, currency: sale.order.currency }) ?? amountMinor}`;
@@ -54,6 +58,7 @@ export function CouponRows({ sale }: { sale: ReturnType<typeof useSale> }): JSX.
 export function CouponPicker({ sale, coupons, currency, onClose }: {
   sale: ReturnType<typeof useSale>; coupons: RxCollection; currency: string; onClose(): void;
 }): JSX.Element {
+  const formatMoney = useFormatMoney();
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +111,7 @@ export function CouponPicker({ sale, coupons, currency, onClose }: {
               <Text className="text-foreground">{coupon.code}</Text>
               <Text className="text-muted-foreground">{coupon.description || typeLabels[coupon.discount_type ?? ''] || ''}</Text>
             </View>
-            <Text className="text-foreground">{couponAmount(coupon, currency)}</Text>
+            <Text className="text-foreground">{couponAmount(coupon, currency, formatMoney)}</Text>
           </Pressable>
         )) : <Text className="text-muted-foreground">No coupons found</Text>}
       </ScrollView>

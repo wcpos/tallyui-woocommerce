@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Platform, View } from 'react-native';
 import { Text } from '@tallyui/components';
-import { minorUnitDigits } from '@tallyui/core';
+import { minorUnitDigits, moneyFromMajor, useFormatMoney } from '@tallyui/core';
 import { buildClosureDocument, buildXReportDocument, type Closure, type ClosureContext, type RegisterSession, type labelKeys } from '@tallyui/pos';
 
 const labels: Record<keyof typeof labelKeys, string> = {
@@ -16,15 +16,23 @@ const labels: Record<keyof typeof labelKeys, string> = {
   paid_in: 'Paid in', paid_out: 'Paid out', no_sale: 'No sale', void: 'Void', copy: 'Copy',
 };
 
-/** The local closure/X-report document context: device timezone, the store's currency, the English labels. */
-export function closureContext(storeName: string, currency: string, locale: string, expected?: Record<string, number>): ClosureContext {
+/** The store-format formatter a component binds with useFormatMoney(). */
+type FormatMoney = ReturnType<typeof useFormatMoney>;
+
+/**
+ * The local closure/X-report document context: device timezone, the store's currency, the English labels, and the
+ * report's major-unit amounts in the store's money format through the component's bound formatter.
+ */
+export function closureContext(storeName: string, currency: string, locale: string, formatMoney: FormatMoney, expected?: Record<string, number>): ClosureContext {
   const exponent = minorUnitDigits(currency);
-  const money = new Intl.NumberFormat(locale.replaceAll('_', '-'), {
-    style: 'currency', currency, minimumFractionDigits: exponent, maximumFractionDigits: exponent,
-  });
+  const tag = locale.replaceAll('_', '-');
+  const money = (value: string): string => {
+    const amount = moneyFromMajor(value, currency);
+    return (amount && formatMoney(amount, tag)) ?? value;
+  };
   const ctx: ClosureContext = {
-    store: { name: storeName }, currency, exponent, locale: locale.replaceAll('_', '-'), timezone: 'device', expected,
-    printedAt: new Date().toISOString(), formatMoney: value => value === '' ? '' : money.format(Number(value)), i18n: labels,
+    store: { name: storeName }, currency, exponent, locale: tag, timezone: 'device', expected,
+    printedAt: new Date().toISOString(), formatMoney: value => value === '' ? '' : money(value), i18n: labels,
   };
   return ctx;
 }
@@ -33,6 +41,7 @@ export function ClosurePrint({ kind, closure, expected, storeName, currency, loc
   storeName: string; currency: string; locale?: string; copy?: boolean;
   registerName?: string; resolveCashierName?: (id: string) => string;
 } & ({ kind?: 'z'; closure: Closure; expected?: never } | { kind: 'x'; closure: RegisterSession; expected: Record<string, number> })) {
+  const formatMoney = useFormatMoney();
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
     const style = document.createElement('style');
@@ -41,7 +50,7 @@ export function ClosurePrint({ kind, closure, expected, storeName, currency, loc
     document.head.appendChild(style);
     return () => style.remove();
   }, []);
-  const ctx = closureContext(storeName, currency, locale, expected);
+  const ctx = closureContext(storeName, currency, locale, formatMoney, expected);
   const { closure: report, store, register, order, i18n } = kind === 'x' ? buildXReportDocument(closure, ctx) : buildClosureDocument(closure, ctx);
   const { breakdowns } = report;
   const openedBy = kind === 'x' ? closure.opened_by : report.opened_by;

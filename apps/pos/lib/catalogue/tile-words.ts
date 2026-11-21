@@ -1,5 +1,5 @@
-import { formatMoney, minorUnitDigits, moneyToMajor } from '@tallyui/core';
-import type { Money, StockLevel } from '@tallyui/core';
+import { formatMoney, minorToMajor, minorUnitDigits } from '@tallyui/core';
+import type { Money, MoneyFormat, StockLevel } from '@tallyui/core';
 import { roundMicrosToMinor, taxMicros } from '@tallyui/pos';
 import type { LineItem, TaxContext } from '@tallyui/pos';
 
@@ -7,9 +7,9 @@ import type { LineItem, TaxContext } from '@tallyui/pos';
 export type TileTax = Pick<TaxContext, 'getTaxRatePpm' | 'pricesIncludeTax'>;
 export type TileStockMark = { kind: 'count'; value: number; label: string } | { kind: 'backorder'; label: string };
 
-// v2's tile-words.tsx money words, with ProductPrice's fallback.
-export function formatTileMoney(money: Money): string {
-  return formatMoney(money) ?? `$${moneyToMajor(money).toFixed(minorUnitDigits(money.currency))}`;
+// v2's tile-words.tsx money words in the store's format; a currency formatMoney can't format reads as its plain amount.
+export function formatTileMoney(money: Money, format?: MoneyFormat): string {
+  return formatMoney(money, undefined, format) ?? minorToMajor(money.amount, minorUnitDigits(money.currency));
 }
 
 // v2's tile-words.tsx never marks a variable parent sold out.
@@ -28,12 +28,12 @@ export function tileStockMark(stock: StockLevel, isVariable: boolean): TileStock
 }
 
 // v2's tile-words.tsx tax words use the product's tax class rate.
-export function tileTaxLine(price: Money, taxStatus: 'taxable' | 'none' | undefined, taxClass: string | undefined, tax: TileTax): string | null {
+export function tileTaxLine(price: Money, taxStatus: 'taxable' | 'none' | undefined, taxClass: string | undefined, tax: TileTax, format?: MoneyFormat): string | null {
   if (taxStatus !== 'taxable') return null;
   const ratePpm = tax.getTaxRatePpm(taxClass);
   if (!(ratePpm > 0)) return null;
   const amount = roundMicrosToMinor(taxMicros(price.amount, ratePpm, tax.pricesIncludeTax));
-  return `${tax.pricesIncludeTax ? 'incl.' : 'excl.'} ${formatTileMoney({ amount, currency: price.currency })} tax`;
+  return `${tax.pricesIncludeTax ? 'incl.' : 'excl.'} ${formatTileMoney({ amount, currency: price.currency }, format)} tax`;
 }
 
 // v2's useProductCount sums quantities under the parent id, and v2's variation tile (variation-tile.tsx:177 InCartCount)

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 import { ClosureSheet, RegisterColumn, RegisterCount, RegisterPanel, Switch, Text } from '@tallyui/components';
 import { Portal } from '@tallyui/primitives';
-import { formatMoney } from '@tallyui/core';
+import { useFormatMoney } from '@tallyui/core';
 import { useRegister } from '../lib/register/register-context';
 import { toast } from '../lib/toast/toast';
 import { SavedMark, savedKeys, useMarkSaved } from './settings/settings-form';
@@ -37,6 +37,7 @@ export function RegisterControls({ currency, storeName, locale, cartEmpty, child
   /** Given together, the parent controls the panel (the cashier sheet's drawer door opens it); otherwise the panel keeps its own state. */
   panelOpen?: boolean; onPanelOpenChange?: (open: boolean) => void;
 }) {
+  const formatMoney = useFormatMoney();
   const register = useRegister();
   const [ownOpen, setOwnOpen] = useState(false);
   const controlled = controlledOpen !== undefined && onPanelOpenChange !== undefined;

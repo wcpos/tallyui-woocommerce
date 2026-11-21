@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import type { JSX, ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
-import { formatMoney, moneyFromMajor } from '@tallyui/core';
+import { moneyFromMajor, useFormatMoney } from '@tallyui/core';
 import { Checkbox, Input, SearchIcon, Text } from '@tallyui/components';
 import { createQuickFilterId, describeQuickFilter, QUICK_FILTER_CONDITION_FIELDS } from '../lib/catalogue/quick-filters';
 import type { CapturedQuickFilter, QuickFilter, QuickFilterConditionField } from '../lib/catalogue/quick-filters';
@@ -18,6 +18,7 @@ export function CaptureQuickFilter({ captured, products, currency, onDraftChange
   currency: string;
   onDraftChange(draft: QuickFilter): void;
 }): JSX.Element {
+  const formatMoney = useFormatMoney();
   // As v2 (capture-quick-filter.tsx:32-37): the search and the sort start unticked.
   const [draft, setDraft] = useState<QuickFilter>(() => ({ id: createQuickFilterId(), type: 'quick', label: '',
     conditions: captured.conditions.filter(condition => condition.field !== 'search') }));

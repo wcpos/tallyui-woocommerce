@@ -3,7 +3,7 @@ import type { JSX, KeyboardEvent } from 'react';
 import { Platform, Pressable, TextInput, View } from 'react-native';
 import type { ViewProps } from 'react-native';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Loader, Text } from '@tallyui/components';
-import { formatMoney, minorUnitDigits } from '@tallyui/core';
+import { useFormatMoney, minorUnitDigits } from '@tallyui/core';
 import { activePlan, appliedMinor, changeMinor, initTenderState, planLegs, quickTenderedAmounts, tenderReducer } from '@tallyui/pos';
 import type { TenderKey, useSale } from '@tallyui/pos';
 import { useIsOnline } from '../lib/online/online-status';
@@ -56,6 +56,7 @@ export function TenderPane({ sale, multi = false, onRecordedOffline }: {
   /** Multi: called with the id of a leg the cashier took through the offline question (v2's recorded_offline). */
   onRecordedOffline?: (paymentId: string) => void;
 }): JSX.Element | null {
+  const formatMoney = useFormatMoney();
   const [state, dispatch] = useReducer(tenderReducer,
     { methodId: sale.stage.kind === 'tender' && sale.stage.method === 'cash' ? 'pos_cash' : 'pos_card', balanceMinor: multi ? sale.order.balanceDueMinor : sale.order.totalMinor },
     initTenderState);
