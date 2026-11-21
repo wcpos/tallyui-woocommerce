@@ -2,7 +2,7 @@
 // UISettingsDialog chrome (`components/ui-settings/index.tsx`): the bar's `filters` icon opens a right side panel
 // with one switch per column (`ui-settings/columns-form.tsx`), and a footer with Restore Default Settings and Close.
 import { useState } from 'react';
-import type { JSX } from 'react';
+import type { JSX, ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Dialog, DialogContent, DialogTitle, IconButton, Text, XIcon } from '@tallyui/components';
 import { areaColumnRows, type AreaColumn, type AreaColumnSetting, type AreaId } from '../lib/area-columns';
@@ -20,12 +20,13 @@ const TITLES: Record<AreaId, { trigger: string; title: string }> = {
 
 /** The area bar's settings icon and its panel. `columns` is the area's list in its order with v2's labels and
  *  defaults; `settings` the current rows; Restore sets the defaults back; `onOpenChange` hears the panel open and close. */
-export function AreaDisplayOptions<Id extends string>({ area, columns, settings, onChange, onOpenChange }: {
+export function AreaDisplayOptions<Id extends string>({ area, columns, settings, onChange, onOpenChange, before }: {
   area: AreaId;
   columns: readonly AreaColumn<Id>[];
   settings: readonly AreaColumnSetting<Id>[];
   onChange(next: AreaColumnSetting<Id>[]): void;
   onOpenChange?(open: boolean): void;
+  before?: ReactNode;
 }): JSX.Element {
   const [open, setOpenState] = useState(false);
   function setOpen(next: boolean) { setOpenState(next); onOpenChange?.(next); }
@@ -49,6 +50,7 @@ export function AreaDisplayOptions<Id extends string>({ area, columns, settings,
           <IconButton variant="ghost" className="h-11 w-11" testID={`${area}-display-x`} accessibilityLabel="Close" onPress={() => setOpen(false)}><XIcon size={18} /></IconButton>
         </View>
         <ScrollView className="flex-1" contentContainerClassName="gap-2 px-4 py-1">
+          {before}
           {/* v2's UISettingsColumnsForm: its "Columns" SectionHeading, then one FormSwitch per column. No drag handle:
               reordering is not offered here. */}
           <View testID={`${area}-display-columns`} className="gap-2 px-1 pt-2">

@@ -7,12 +7,13 @@
 // `DrillPane`, pos/products/drill-in.tsx): the crumb "Products › <name>" over the variations, on their own card
 // (`products-variations-surface`) under the table's labels, with the Stock Status chip applied to them; a search
 // change drops the drill for good. The variations are the product doc's own `variation_docs`, as the catalogue's.
+// The inline style expands rows in place (v2 `getRowCanExpand`); an attribute option chip opens the row unfiltered.
 // Deviations: no inline editing, Manage toggle, Actions column or column reordering, since
 // edits must go through the store's REST API; the products collection is replicated from the server, so this
 // screen takes plain docs and never touches it. The Featured and Brands chips are still missing: they need
 // connector data the app does not sync. The drilled view has no per-attribute variation selects or variation
 // search: an option's match shows as one chip that clears it.
-import { useCallback, useMemo, useState } from 'react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
 import type { JSX, ReactNode } from 'react';
 import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { ConnectorProvider, formatMoney, moneyFromDecimalString } from '@tallyui/core';
@@ -25,6 +26,7 @@ import { resolveStock, STOCK_LABEL } from '../lib/products/resolve-stock';
 import type { StockState } from '../lib/products/resolve-stock';
 import { matchesCatalogueFilters } from '../lib/catalogue/quick-filters';
 import type { CatalogueFilters } from '../lib/catalogue/quick-filters';
+import { useCatalogueView, type VariationsStyle } from '../lib/catalogue/catalogue-view-state';
 import { tileTaxLine } from '../lib/catalogue/tile-words';
 import type { TileTax } from '../lib/catalogue/tile-words';
 import { areaDisplayShown, useAreaColumns, visibleAreaColumns } from '../lib/area-columns';
@@ -47,6 +49,8 @@ import { utcDate } from './coupons-screen';
 import { BAR } from './customers-screen';
 import { ChevronRightIcon } from './icons';
 import { StatusDot } from './status-dot';
+import { Segmented } from './segmented';
+import { FieldLabel } from './select-chevron';
 import { CaptionRowInset, TableCount, TableSurface, useCatalogueSync } from './table-surface';
 import type { StatusTone } from './status-dot';
 
@@ -110,6 +114,7 @@ interface ProductDoc {
 /** v2's Drill: the product, the search it was opened under, and an option's match. */
 interface Drill { id: number; query: string; match?: VariationMatch }
 type OnDrill = (doc: ProductDoc, match?: VariationMatch) => void;
+type ProductRow = ProductDoc | { id: string; variationOf: ProductDoc; variation: VariationDoc };
 
 export interface ProductsScreenProps {
   /** Plain product docs, kept live by the catalogue; read only. */
@@ -199,7 +204,7 @@ type NameLines = Record<'sku' | 'barcode' | 'attributes', boolean>;
 
 /** v2's ProductName (cells/name.tsx:48-51): the name, the display lines that are on (SKU, Barcode, Attributes), then
  *  ProductAttributes for a variable product. */
-function NameCell({ doc, onDrill, numberOfLines, showSku, lines }: { doc: ProductDoc; onDrill: OnDrill; numberOfLines?: number; showSku?: boolean; lines?: NameLines }): JSX.Element {
+function NameCell({ doc, onDrill, numberOfLines, showSku, lines, expanded }: { doc: ProductDoc; onDrill: OnDrill; numberOfLines?: number; showSku?: boolean; lines?: NameLines; expanded?: boolean }): JSX.Element {
   return (
     <View className={showSku ? undefined : 'gap-1'}>
       <Text numberOfLines={numberOfLines} className={showSku ? 'text-foreground' : 'font-medium text-foreground'}>{doc.name}</Text>
@@ -209,7 +214,7 @@ function NameCell({ doc, onDrill, numberOfLines, showSku, lines }: { doc: Produc
       {lines?.attributes ? <PlainAttributes id={doc.id} attributes={doc.attributes} /> : null}
       {doc.type === 'variable' ? (
         <ProductAttributes id={doc.id} attributes={doc.attributes} count={doc.variations?.length ?? 0}
-          options={!showSku} onDrill={match => onDrill(doc, match)} />
+          options={!showSku} expanded={expanded} onDrill={match => onDrill(doc, match)} />
       ) : null}
     </View>
   );
@@ -220,6 +225,23 @@ function VariationNameCell({ variation, parent }: { variation: VariationDoc; par
   return <Text testID={`product-variation-name-${variation.id}`} className="font-bold text-foreground">
     {variationName(variation, parent.name)}
   </Text>;
+}
+
+function VariationTouchRow({ variation, parent, currency, locale }: { variation: VariationDoc; parent: ProductDoc; currency: string; locale: string | undefined }): JSX.Element {
+  return <View testID={`products-row-${variation.id}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
+    <ProductImage doc={parent} size={IMAGE_SIZE} />
+    <View className="min-w-0 flex-1">
+      <VariationNameCell variation={variation} parent={parent} />
+      {variation.sku ? <Text testID={`products-phone-sku-${variation.id}`} numberOfLines={1} className="text-sm text-muted-foreground">{variation.sku}</Text> : null}
+    </View>
+    <View className="flex-row items-center gap-3">
+      <View testID={`products-phone-figures-${variation.id}`} className="items-end gap-1 tabular-nums">
+        <View testID={`products-phone-price-${variation.id}`} className="flex-row items-center gap-1">{phonePrice({ min: money(variation.price, currency, locale) })}</View>
+        <StockBadge doc={variation} quantity={stockQuantity(variation)} />
+      </View>
+      {rowChevron(variation.id)}
+    </View>
+  </View>;
 }
 
 /** v2's DrillPane rows: the drilled product's published variations that pass the Stock Status chip and the match. */
@@ -248,7 +270,7 @@ function PriceCell({ id, text, line, showTax }: { id: number | string; text: str
 interface PriceTax { tax?: TileTax; traits: ProductTraits; showTax: boolean }
 
 /** Every column of PRODUCTS_COLUMNS, in its order; the screen hands ProductTable the ones left on. */
-function productColumns(currency: string, locale: string | undefined, onDrill: OnDrill, lines: NameLines, { tax, traits, showTax }: PriceTax): (ProductTableColumn<ProductDoc> & { id: ProductsColumnId })[] {
+function productColumns(currency: string, locale: string | undefined, onDrill: OnDrill, lines: NameLines, { tax, traits, showTax }: PriceTax, inline: boolean, expanded: ReadonlySet<number>): (ProductTableColumn<ProductDoc> & { id: ProductsColumnId })[] {
   // The tile's tax words for one price (tile-words.ts tileTaxLine) with the doc's own tax status and class, so a variable
   // product's range ends take the parent's, as v2's VariableProductPrice passes them (variable-price.tsx:23-24).
   const taxLine = (doc: ProductDoc, price: string | undefined): string | null => {
@@ -290,7 +312,7 @@ function productColumns(currency: string, locale: string | undefined, onDrill: O
     // `hideHeader` draws no label and keeps "Image" as the head's accessible name. id, Stock, Stock Status centre (:256-299 `center`).
     { id: 'image', header: LABEL.image, hideHeader: true, flex: 0.6, render: doc => <ProductImage doc={doc} size={IMAGE_SIZE} /> },
     { id: 'id', header: LABEL.id, flex: 0.6, align: 'center', render: doc => <Text testID={`product-id-${doc.id}`}>{String(doc.id)}</Text>, sortValue: doc => doc.id },
-    { id: 'name', header: LABEL.name, flex: 3, render: doc => <NameCell doc={doc} onDrill={onDrill} lines={lines} />, sortValue: doc => doc.name },
+    { id: 'name', header: LABEL.name, flex: 3, render: doc => <NameCell doc={doc} onDrill={onDrill} lines={lines} expanded={inline ? expanded.has(doc.id) : undefined} />, sortValue: doc => doc.name },
     textColumn('type', 1),
     textColumn('sku', 1),
     textColumn('barcode', 1.2),
@@ -364,6 +386,10 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   // v2's Products area lists every product, in stock or not: no chip is on at the start.
   const [filters, setFilters] = useState<CatalogueFilters>({});
   const [settings, setSettings] = useAreaColumns('products', PRODUCTS_COLUMNS);
+  const [view, setView] = useCatalogueView();
+  const inline = view.variationsStyle === 'inline';
+  const [expanded, setExpanded] = useState<ReadonlySet<number>>(() => new Set());
+  const [sort, setSort] = useState<ProductSort | null>(NAME_ASC);
   const [drill, setDrill] = useState<Drill | null>(null);
   const { width } = useWindowDimensions();
   const pointer = usePointer();
@@ -373,9 +399,17 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   // v2's drill holds while the search it was opened under does (products.tsx `drilled`); otherwise it is dropped,
   // not parked, so restoring the search does not bring it back. Reset while rendering, React's "previous render"
   // pattern, as v2 does. A product gone from the docs drops it too.
-  const drilled = drill && drill.query === query ? (products as ProductDoc[]).find(doc => doc.id === drill.id) : undefined;
+  const drilled = !inline && drill && drill.query === query ? (products as ProductDoc[]).find(doc => doc.id === drill.id) : undefined;
   if (drill && !drilled) setDrill(null);
-  const drillTo = useCallback<OnDrill>((doc, match) => setDrill({ id: doc.id, query, match }), [query]);
+  if (!inline && expanded.size > 0) setExpanded(new Set());
+  const drillTo = useCallback<OnDrill>((doc, match) => {
+    if (inline) setExpanded(previous => {
+      const next = new Set(previous);
+      if (match || !next.has(doc.id)) next.add(doc.id); else next.delete(doc.id);
+      return next;
+    });
+    else setDrill({ id: doc.id, query, match });
+  }, [inline, query]);
 
   function clear() { set(''); setFilters({}); }
   const filtersOn = Object.values(filters).filter(value => Array.isArray(value) ? value.length > 0 : value !== undefined && value !== '').length;
@@ -397,8 +431,8 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
 
   const [sku, barcode, attributes] = (['sku', 'barcode', 'attributes'] as const).map(key => areaDisplayShown(settings, 'name', key));
   const showTax = areaDisplayShown(settings, 'price', 'tax');
-  const columns = useMemo(() => productColumns(currency, locale, drillTo, { sku, barcode, attributes }, { tax, traits: connector.traits.product, showTax }),
-    [currency, locale, drillTo, sku, barcode, attributes, tax, connector.traits.product, showTax]);
+  const columns = useMemo(() => productColumns(currency, locale, drillTo, { sku, barcode, attributes }, { tax, traits: connector.traits.product, showTax }, inline, expanded),
+    [currency, locale, drillTo, sku, barcode, attributes, tax, connector.traits.product, showTax, inline, expanded]);
   // The columns the display options leave on, in the area's order; the narrow list keeps sorting on every column.
   const tableColumns = useMemo(() => visibleAreaColumns(columns, settings), [columns, settings]);
   const searched = useMemo(() => query ? searchProducts(products, query, connector.traits.product) : products,
@@ -407,10 +441,17 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   const total = products.length;
   // v2 picks the row by pointer (list-frame/index.tsx:158); the first-sync placeholders follow the row they stand in for.
   const touchRows = width < NARROW_WIDTH || pointer === 'coarse';
-  const listed = useMemo(() => touchRows ? sortProducts([...shown], NAME_ASC,
-    (doc, field) => columns.find(column => column.id === field)?.sortValue?.(doc)) as ProductDoc[] : [], [touchRows, shown, columns]);
+  const listed = useMemo(() => sortProducts([...shown], touchRows ? NAME_ASC : sort,
+    (doc, field) => columns.find(column => column.id === field)?.sortValue?.(doc)) as ProductDoc[], [touchRows, shown, columns, sort]);
+  const items = useMemo(() => listed.flatMap<ProductRow>(doc => inline && expanded.has(doc.id) && doc.type === 'variable'
+    ? [doc, ...drilledVariations(doc, filters, undefined).map(variation => ({ id: `variation-${variation.id}`, variationOf: doc, variation }))]
+    : [doc]), [listed, inline, expanded, filters]);
   const variations = useMemo(() => drilled ? drilledVariations(drilled, filters, drill?.match) : [], [drilled, filters, drill?.match]);
-  const bodyColumns = useMemo(() => centred(tableColumns), [tableColumns]);
+  const bodyColumns = useMemo(() => centred(tableColumns).map(column => ({ ...column, render: (item: ProductRow) => {
+    if (!('variationOf' in item)) return column.render(item);
+    const cell = centred(variationColumns(tableColumns, item.variationOf)).find(cell => cell.id === column.id)!.render(item.variation);
+    return column.id === 'name' ? <View testID={`products-variation-row-${item.variation.id}`} className="flex-1 pl-6">{cell}</View> : cell;
+  } })), [tableColumns]);
   const paneColumns = useMemo(() => drilled ? centred(variationColumns(tableColumns, drilled)) : [], [drilled, tableColumns]);
 
   const noVariations = (
@@ -432,22 +473,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
       <TableSurface testID="products-variations-surface">
         {variations.length === 0 ? noVariations : touchRows ? (
           <ScrollView testID="products-variations-body">
-            {variations.map(variation => (
-              <View key={variation.id} testID={`products-row-${variation.id}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
-                <ProductImage doc={drilled} size={IMAGE_SIZE} />
-                <View className="min-w-0 flex-1">
-                  <VariationNameCell variation={variation} parent={drilled} />
-                  {variation.sku ? <Text testID={`products-phone-sku-${variation.id}`} numberOfLines={1} className="text-sm text-muted-foreground">{variation.sku}</Text> : null}
-                </View>
-                <View className="flex-row items-center gap-3">
-                  <View testID={`products-phone-figures-${variation.id}`} className="items-end gap-1 tabular-nums">
-                    <View testID={`products-phone-price-${variation.id}`} className="flex-row items-center gap-1">{phonePrice({ min: money(variation.price, currency, locale) })}</View>
-                    <StockBadge doc={variation} quantity={stockQuantity(variation)} />
-                  </View>
-                  {rowChevron(variation.id)}
-                </View>
-              </View>
-            ))}
+            {variations.map(variation => <VariationTouchRow key={variation.id} variation={variation} parent={drilled} currency={currency} locale={locale} />)}
           </ScrollView>
         ) : (
           // In the doc's order, as v2's pane lists them (menu_order); its head row has no sort.
@@ -480,10 +506,10 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
         // A phone row is v2's ListRow (list-row/index.tsx:31,54-65): min-h-14 px-3 py-2, a min-w-0 body, a regular-weight name over a text-sm SKU.
         <ScrollView testID="products-body">
           {listed.map(doc => (
-            <View key={doc.id} testID={`products-row-${doc.id}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
+            <Fragment key={doc.id}><View testID={`products-row-${doc.id}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
               <ProductImage doc={doc} size={IMAGE_SIZE} />
               <View className="min-w-0 flex-1">
-                <NameCell doc={doc} onDrill={drillTo} numberOfLines={1} showSku />
+                <NameCell doc={doc} onDrill={drillTo} numberOfLines={1} showSku expanded={inline ? expanded.has(doc.id) : undefined} />
               </View>
               <View className="flex-row items-center gap-3">
                 <View testID={`products-phone-figures-${doc.id}`} className="items-end gap-1 tabular-nums">
@@ -493,10 +519,12 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
                 {rowChevron(doc.id)}
               </View>
             </View>
+            {inline && expanded.has(doc.id) && doc.type === 'variable' && drilledVariations(doc, filters, undefined)
+              .map(variation => <VariationTouchRow key={variation.id} variation={variation} parent={doc} currency={currency} locale={locale} />)}</Fragment>
           ))}
         </ScrollView>
       ) : (
-        <ProductTable testID="products-body" items={shown} columns={bodyColumns} defaultSort={NAME_ASC} showUnsellable />
+        <ProductTable testID="products-body" items={items} columns={bodyColumns} sortItems={false} sort={sort} onSortChange={setSort} showUnsellable />
       );
 
   return (
@@ -505,7 +533,12 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
         <AreaToolbar area="products" title="Products" onBack={onBack}
           search={<SearchInput testID="search-products" value={term} onChangeText={type} placeholder="Search products" />}>
           <AreaDisplayOptions area="products" columns={PRODUCTS_COLUMNS} settings={settings} onChange={setSettings}
-            onOpenChange={setOptionsOpen} />
+            onOpenChange={setOptionsOpen} before={<View className="gap-1.5">
+              <FieldLabel>Variations</FieldLabel>
+              <Segmented testID="products-variations-style" label="Variations" value={view.variationsStyle}
+                segments={[{ value: 'drill', label: 'Open in place' }, { value: 'inline', label: 'Expanded rows' }]}
+                onChange={next => setView({ ...view, variationsStyle: next as VariationsStyle })} />
+            </View>} />
         </AreaToolbar>
         <View testID="products-filter-row" className={`pb-2 ${gutter}`}>
           {/* v2's ChipRow (chip-row/index.tsx:29-37): the chips stay on one row that scrolls sideways at every width. */}
