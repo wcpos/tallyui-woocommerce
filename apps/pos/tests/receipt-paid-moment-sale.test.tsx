@@ -16,6 +16,7 @@ import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 import { takeLeg } from './tender-helpers';
+import { classesOf } from './classes-of';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 
 beforeEach(() => {
@@ -148,4 +149,11 @@ test('with auto show off and auto print on, a failed print keeps the receipt wit
   expect(screen.getByTestId('receipt-order')).not.toBeNull();
   expect(screen.getByTestId('receipt-print-again')).not.toBeNull();
   expect(screen.queryByText(EMPTY_CART_TEXT)).toBeNull();
+}, 20_000);
+
+test('the receipt X sits above the paid banner (v2 receipt-stage.tsx:262 z-10), so the banner never takes its click', async () => {
+  const { transport, release } = gatedTransport();
+  release();
+  await paySplit(transport);
+  expect(classesOf('receipt-close')).toContain('z-10');
 }, 20_000);

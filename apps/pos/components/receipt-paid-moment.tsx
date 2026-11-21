@@ -40,8 +40,9 @@ export function ReceiptPaidMoment({ posOrder, locale, onClose }: {
   const subLine = figures.paymentCount > 1 ? `${base} · ${figures.paymentCount} payments` : base;
   return (
     <View testID="checkout-paid" className="relative">
+      {/* v2 lifts the X above the banner that follows it (receipt-stage.tsx:262, z-10), or the banner takes its click. */}
       <IconButton testID="receipt-close" accessibilityLabel="Close" variant="ghost" size="sm"
-        className="absolute top-2 right-2" onPress={onClose}><XIcon size={18} /></IconButton>
+        className="absolute top-2 right-2 z-10" onPress={onClose}><XIcon size={18} /></IconButton>
       <View testID="receipt-paid-banner" className="items-center gap-3 p-4">
         <View testID="receipt-paid-disc" dataSet={{ tone: awaiting ? 'warning' : 'ok' }}
           accessibilityLabel={awaiting ? 'Awaiting store' : 'Paid'}
