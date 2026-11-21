@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import TaxSettingsRoute from '../app/settings/tax';
+import { StoreSettingsProvider } from '../lib/sale/store-settings-context';
 import { noTaxSettings } from './fixtures/store-settings';
 
 const mocks = vi.hoisted(() => ({
@@ -48,14 +49,14 @@ test('the route passes the catalogue store, so the basis and Enable Taxes read f
   mocks.catalogueState = {
     catalogue: { store: { id: 1, name: 'Store', currency: noTaxSettings.currency, taxBasedOn: 'base', calcTaxes: true } },
   };
-  render(<TaxSettingsRoute />);
+  render(<TaxSettingsRoute />, { wrapper: StoreSettingsProvider });
   expect(screen.getByTestId('settings-tax-locked-tax_based_on-value').textContent).toBe('Shop base address');
   expect(screen.getByTestId('settings-tax-locked-calc_taxes-switch').getAttribute('aria-checked')).toBe('true');
 });
 
 test('before the catalogue is up, the basis reads the dash and the rest of the page still renders', () => {
   mocks.catalogueState = { catalogue: null };
-  render(<TaxSettingsRoute />);
+  render(<TaxSettingsRoute />, { wrapper: StoreSettingsProvider });
   expect(screen.getByTestId('settings-tax-locked-tax_based_on-value').textContent).toBe('—');
   expect(screen.getByTestId('settings-tax-locked-calc_taxes-value').textContent).toBe('—');
   expect(screen.getByTestId('settings-tax-locked-prices_include_tax-switch')).not.toBeNull();

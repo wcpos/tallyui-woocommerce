@@ -4,7 +4,7 @@ import { CatalogueUnavailable } from '../components/catalogue-unavailable';
 import { SaleScreen } from '../components/sale-screen';
 import { SessionHoldBanner } from '../components/session-hold-banner';
 import { StoreSettingsGate } from '../components/store-settings-gate';
-import { useTillStoreSettings } from '../lib/sale/use-till-store-settings';
+import { useTillStoreSettingsState } from '../lib/sale/store-settings-context';
 import { useSession } from '../lib/auth/session-context';
 import { useRequestContext } from '../lib/auth/request-context';
 import { useCatalogue } from '../lib/catalogue/catalogue-context';
@@ -22,7 +22,7 @@ const HELD_CART_PREFIX = 'tallywoo.held-cart.';
 
 export default function Catalogue() {
   const { session, ready, signOut, cashiers, switchCashier, removeCashier, startAddCashier } = useSession();
-  const store = useTillStoreSettings(session);
+  const store = useTillStoreSettingsState();
   const { catalogue, products, status, notice, error } = useCatalogue();
   const router = useRouter();
   // The web stack keeps the till mounted under a pushed screen (display none): its Alt+F and its wedge claim are live

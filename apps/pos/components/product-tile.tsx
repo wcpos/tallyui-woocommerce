@@ -2,6 +2,7 @@ import type { JSX, ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { resolvePrice, resolvePriceRange, useProductStock, useProductTraits, useTraitContext } from '@tallyui/core';
+import { useStoreMoney } from '../lib/money/store-money';
 import { ProductImage, ProductTitle, Text } from '@tallyui/components';
 import type { CatalogueTileFields } from '../lib/catalogue/catalogue-view-state';
 import { tileNameSize, tileWords, useCompactTiles } from '../lib/catalogue/tile-scale';
@@ -129,6 +130,7 @@ export function TilePoster({ doc, testKey, soldOut, lines, children }: {
  */
 function TileMoney({ doc, id, fields, tax, variable }: { doc: any; id: string; fields: CatalogueTileFields; tax?: TileTax; variable: boolean }): JSX.Element {
   const traits = useProductTraits();
+  const storeMoney = useStoreMoney();
   const context = useTraitContext();
   const variants = variable ? traits.getVariants?.(doc, context) ?? [] : [];
   const range = variable ? resolvePriceRange(variants, context.currency) : undefined;
@@ -137,11 +139,11 @@ function TileMoney({ doc, id, fields, tax, variable }: { doc: any; id: string; f
       .find(price => price?.current.amount === range.min.amount && price.current.currency === range.min.currency);
   if (!resolved) return <Text className="text-base text-muted-foreground">-</Text>;
   const from = range !== undefined && range.min.amount !== range.max.amount;
-  const line = fields.tax && tax ? tileTaxLine(resolved.current, traits.getTaxStatus?.(doc), traits.getTaxClass?.(doc), tax) : null;
+  const line = fields.tax && tax ? tileTaxLine(resolved.current, traits.getTaxStatus?.(doc), traits.getTaxClass?.(doc), tax, storeMoney) : null;
   return <View className="flex-row flex-wrap items-baseline gap-x-1.5">
     {from && <Text testID={`tile-from-${id}`} className="text-xs text-muted-foreground">from</Text>}
-    <Text testID={`tile-price-${id}`} className="text-base font-bold">{formatTileMoney(resolved.current)}</Text>
-    {fields.on_sale && resolved.was && <Text testID={`tile-was-${id}`} className="text-xs text-muted-foreground line-through">{formatTileMoney(resolved.was)}</Text>}
+    <Text testID={`tile-price-${id}`} className="text-base font-bold">{formatTileMoney(resolved.current, storeMoney)}</Text>
+    {fields.on_sale && resolved.was && <Text testID={`tile-was-${id}`} className="text-xs text-muted-foreground line-through">{formatTileMoney(resolved.was, storeMoney)}</Text>}
     {line !== null && <Text testID={`tile-tax-${id}`} className="text-xs text-muted-foreground">{line}</Text>}
   </View>;
 }

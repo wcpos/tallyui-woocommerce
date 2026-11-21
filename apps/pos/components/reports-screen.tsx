@@ -3,7 +3,7 @@ import { Platform, ScrollView, View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { Path } from 'react-native-svg';
 import { createSvgIcon, IconButton, Text } from '@tallyui/components';
-import { formatMoney } from '@tallyui/core';
+import { useFormatStoreMoney, useStoreMoney } from '../lib/money/store-money';
 import {
   formatClosureDate, presetRange, type Closure, type DatePreset, type DayRange, type PosOrder,
 } from '@tallyui/pos';
@@ -21,6 +21,7 @@ import { rangeBounds, salesRoom, type Compare } from '../lib/reports/sales-room'
 import { salesTableCsv } from '../lib/reports/sales-table-csv';
 import { cashiersTable, categoriesTable, ordersTable, paymentsTable, productsTable, taxesTable, whereSoldTable } from '../lib/reports/sales-tables';
 import { useMinuteClock } from '../lib/reports/use-minute-clock';
+import { wholeMoney } from '../lib/reports/whole-money';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { ordersDatabaseName } from '../lib/sale/order-store';
 import { ClosureList, ClosuresExportButton, type ClosureFilter } from './closure-list';
@@ -54,6 +55,8 @@ const ROOM = { 'px-3': 'gap-4 px-3 pb-4 pt-2', 'px-4': 'gap-4 px-4 pb-4 pt-2' } 
 export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }: {
   storeName: string; currency: string; locale?: string; onBack(): void;
 }) {
+  const formatMoney = useFormatStoreMoney();
+  const storeMoney = useStoreMoney();
   const outbox = useOutbox();
   const orders = outbox.enabled ? outbox.orders : null;
   const { session, cashiers } = useSession();
@@ -124,10 +127,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   </ReportChips>;
   const printButton = <PrintSummaryButton wide={wide} onPress={printSummary} />;
   // The donut centres read whole currency units: the amount rounded to whole units, shown with no decimals.
-  const exponent = new Intl.NumberFormat(locale, { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2;
-  const moneyWhole = (minor: number) => new Intl.NumberFormat(locale, {
-    style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 0,
-  }).format(Math.round(minor / 10 ** exponent));
+  const moneyWhole = (minor: number) => wholeMoney(minor, currency, locale, storeMoney);
   // One set of figures feeds each card and its table, so the two never disagree.
   const products = productFigures(counted, { currency, range });
   const categories = categoryFigures(counted, catalogueProducts, { currency, range });

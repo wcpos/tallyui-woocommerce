@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Button, Loader, OrderFilterBar, Receipt, SearchInput, Text, type OrderHistoryRow } from '@tallyui/components';
-import { formatMoney, type StoreOrder } from '@tallyui/core';
+import { type StoreOrder } from '@tallyui/core';
+import { useFormatStoreMoney } from '../lib/money/store-money';
 import { buildReceiptDataFromPosOrder, buildReceiptDataFromStoreOrder, orderFiltersQuery, type PosOrder, type ReceiptConfig } from '@tallyui/pos';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { useRegister } from '../lib/register/register-context';
@@ -192,6 +193,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
 // sheet's description above the receipt, unprinted. The rule is the order view's (orderPaymentState). The till's own
 // sales are paid at tender and never get it: only a store order passes one.
 function NotPaidLine({ order }: { order: StoreOrder }) {
+  const formatMoney = useFormatStoreMoney();
   const { owing, remainingMinor } = orderPaymentState(order);
   if (!owing) return null;
   const money = formatMoney({ amount: remainingMinor, currency: order.currency }) ?? String(remainingMinor);

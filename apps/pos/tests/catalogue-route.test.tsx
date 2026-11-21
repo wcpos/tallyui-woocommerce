@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import Catalogue, { ErrorBoundary } from '../app/catalogue';
+import { StoreSettingsProvider } from '../lib/sale/store-settings-context';
 import { RouteErrorScreen } from '../components/route-error-screen';
 
 const mocks = vi.hoisted(() => {
@@ -69,7 +70,7 @@ afterEach(() => { cleanup(); });
 test('a failed start shows the error with Sign out, which signs out then goes to /connect', async () => {
   const message = 'This user cannot use the POS on this store. Ask the store owner for access.';
   mocks.catalogueState = { catalogue: null, error: message };
-  render(<Catalogue />);
+  render(<Catalogue />, { wrapper: StoreSettingsProvider });
   expect(screen.getByText(message)).not.toBeNull();
   const button = screen.getByTestId('catalogue-error-sign-out');
   await act(async () => { fireEvent.click(button); });
@@ -81,7 +82,7 @@ test('a failed start shows the error with Sign out, which signs out then goes to
 
 test('while connecting the notice shows with no Sign out button', () => {
   mocks.catalogueState = { catalogue: null, error: undefined };
-  render(<Catalogue />);
+  render(<Catalogue />, { wrapper: StoreSettingsProvider });
   expect(screen.getByText('Connecting to Store…')).not.toBeNull();
   expect(screen.queryByTestId('catalogue-error-sign-out')).toBeNull();
 });

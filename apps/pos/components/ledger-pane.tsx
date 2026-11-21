@@ -1,7 +1,7 @@
 import type { JSX } from 'react';
 import { Pressable, View } from 'react-native';
 import { Badge, Text } from '@tallyui/components';
-import { formatMoney } from '@tallyui/core';
+import { useFormatStoreMoney } from '../lib/money/store-money';
 import type { Payment, useSale } from '@tallyui/pos';
 import { cashLegFigures } from '../lib/sale/cash-leg-figures';
 
@@ -28,6 +28,7 @@ export function LedgerPane({ order, onRemove, closing = false, recordedOffline }
   /** Adds the Total / Paid / Remaining block: the wide layout's pane. */
   closing?: boolean;
 }): JSX.Element {
+  const formatMoney = useFormatStoreMoney();
   const fmt = (amount: number) => formatMoney({ amount, currency: order.currency }) ?? '';
   const partPaid = order.payments.length > 0 && order.balanceDueMinor > 0;
   // v2: a zero balance with nothing settled (every leg failed or voided) is not paid.

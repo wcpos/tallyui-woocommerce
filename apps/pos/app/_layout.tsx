@@ -8,6 +8,7 @@ import { SessionProvider } from '../lib/auth/session-context';
 import { SessionOnlineStatusProvider } from '../lib/online/online-status';
 import { OnlineStatusLogger } from '../lib/online/online-status-logger';
 import { CatalogueProvider } from '../lib/catalogue/catalogue-context';
+import { StoreSettingsProvider } from '../lib/sale/store-settings-context';
 import { OutboxProvider } from '../lib/sale/outbox-context';
 import { AppScanHub } from '../lib/scan/app-scan-hub';
 import { RegisterProvider } from '../lib/register/register-context';
@@ -48,6 +49,9 @@ export default function RootLayout() {
         <SessionProvider>
           <SessionOnlineStatusProvider>
             <OnlineStatusLogger />
+            {/* v2 hooks/use-currency-format.tsx:21-60: every money display reads the store's own position, separators,
+                decimals and symbol. One store-settings fetch per site for every screen; PortalHost is inside it too. */}
+            <StoreSettingsProvider>
             <CatalogueProvider>
               {/* v2 (app)/_layout.tsx: the scan hub sits above navigation, so a direct scanner stays open between screens. */}
               <AppScanHub>
@@ -62,6 +66,7 @@ export default function RootLayout() {
               </OutboxProvider>
               </AppScanHub>
             </CatalogueProvider>
+            </StoreSettingsProvider>
           </SessionOnlineStatusProvider>
         </SessionProvider>
         <Toaster />

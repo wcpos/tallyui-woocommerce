@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import Products from '../app/products';
+import { StoreSettingsProvider } from '../lib/sale/store-settings-context';
 import Coupons from '../app/coupons';
 import Customers from '../app/customers';
 import Support from '../app/support';
@@ -67,7 +68,7 @@ test.each([
   ['Products', Products], ['Coupons', Coupons], ['Customers', Customers],
   ['Support', Support], ['Orders', Orders], ['Reports', Reports],
 ] as const)('%s renders the held-session banner once with a catalogue', (_name, Route) => {
-  render(<Route />);
+  render(<Route />, { wrapper: StoreSettingsProvider });
   expect(screen.getAllByTestId('hold-stub')).toHaveLength(1);
 });
 
@@ -75,7 +76,7 @@ test.each([
   ['Products', Products], ['Coupons', Coupons], ['Customers', Customers],
 ] as const)('%s renders the held-session banner once without a catalogue', (_name, Route) => {
   mocks.catalogueAvailable = false;
-  render(<Route />);
+  render(<Route />, { wrapper: StoreSettingsProvider });
   expect(screen.getAllByTestId('hold-stub')).toHaveLength(1);
 });
 
