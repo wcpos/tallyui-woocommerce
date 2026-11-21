@@ -122,10 +122,10 @@ export function CustomerPicker({ source, customer, onChange, face = 'chip', labe
     const onPointerDown = (event: Event) => { if (!inside(event.target)) close(); };
     const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
     document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keydown', onKeyDown, true); // capture: 4.0.0's open CustomerSelect list stops Escape
     return () => {
       document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('keydown', onKeyDown, true);
     };
   }, [open]);
 

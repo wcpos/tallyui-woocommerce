@@ -79,7 +79,7 @@ test('a version 0 register_sessions database from the 3.6.0 app migrates and kee
   const store = await openOrderStore(name, storage);
   try {
     const sessions = store.orders.database.collections.register_sessions;
-    expect(sessions.schema.version).toBe(1);
+    expect(sessions.schema.version).toBe(2);
     const session = await sessions.findOne('session-1').exec();
     expect(session?.toJSON()).toMatchObject({
       status: 'closed', counted_float_minor: 5000, counted: { cash: 12345 },

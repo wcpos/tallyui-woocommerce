@@ -155,9 +155,9 @@ test('open, pay out, sell, count and close, then reuse the counted float', async
   expect(screen.queryByTestId('cart-checkout')).toBeNull();
   fireEvent.click(screen.getByTestId('count-close'));
   expect((await screen.findByTestId('closure-number')).textContent).toBe('Closure #1');
-  expect(screen.getByTestId('closure-counted-cash').textContent).toBe('Counted $83.00');
-  expect(screen.getByTestId('closure-expected-cash').textContent).toBe('Expected $83.00');
-  expect(screen.getByTestId('closure-variance-cash').textContent).toBe('Exact');
+  expect(screen.getByTestId('closure-counted-cash').textContent).toBe('$83.00');
+  expect(screen.getByTestId('closure-expected-cash').textContent).toBe('$83.00');
+  expect(screen.getByTestId('closure-variance-cash').textContent).toBe('$0.00');
   expect(screen.getByTestId('closure-print')).not.toBeNull();
   fireEvent.click(screen.getByTestId('closure-done'));
   await waitFor(() => expect(screen.queryByTestId('closure-sheet')).toBeNull());

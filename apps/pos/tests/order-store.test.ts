@@ -49,7 +49,7 @@ test('opens pos_orders at schema version 12 (the identity step from 11 added by 
   const name = `tallywoo_orders_${crypto.randomUUID()}`;
   const store = await openOrderStore(name, getRxStorageMemory());
   try {
-    expect(store.orders.schema.version).toBe(12);
+    expect(store.orders.schema.version).toBe(19);
   } finally {
     await store.close();
   }
@@ -125,7 +125,7 @@ test("keeps a till's version-9 orders byte for byte when the store opens at vers
 
   const store = await openOrderStore(name, storage);
   try {
-    expect(store.orders.schema.version).toBe(12);
+    expect(store.orders.schema.version).toBe(19);
     const after = (await store.orders.find({ sort: [{ id: 'asc' }] }).exec()).map(order => order.toJSON());
     expect(after).toEqual(before);
     expect(after.find(order => order.id === pending.id)?.syncStatus).toBe(pending.syncStatus);
@@ -205,7 +205,7 @@ test("keeps a till's version-11 orders byte for byte when the store opens at ver
 
   const store = await openOrderStore(name, storage);
   try {
-    expect(store.orders.schema.version).toBe(12);
+    expect(store.orders.schema.version).toBe(19);
     const after = (await store.orders.find({ sort: [{ id: 'asc' }] }).exec()).map(order => order.toJSON());
     expect(after).toEqual(before);
     expect(after.find(order => order.id === synced.id)?.sentVersion).toBe(7);

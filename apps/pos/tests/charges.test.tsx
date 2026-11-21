@@ -46,6 +46,7 @@ beforeEach(() => {
     if (init?.method === 'POST' && url.pathname.endsWith('/push/orders')) {
       return Response.json({ document: { id: 301, number: '301', status: 'completed', total: '11.200000' } }, { status: 201 });
     }
+    if (url.pathname.endsWith('/site')) return Response.json({ wcpos_version: '1.10.20' }); // connector 4.0.0 reads /site once
     throw new Error(`Unexpected request: ${url}`);
   });
   vi.stubGlobal('fetch', fetchStub);
@@ -81,24 +82,24 @@ test('sells a fee, a shipping charge and a custom item and pushes them to WooCom
   const fee = within(screen.getByTestId('charge-form'));
   fireEvent.change(fee.getByLabelText('Name'), { target: { value: 'Bag' } });
   fireEvent.change(fee.getByLabelText('Amount'), { target: { value: '0.20' } });
-  fireEvent.click(fee.getByRole('button', { name: 'Apply' }));
+  fireEvent.click(fee.getByRole('button', { name: 'Add to Cart' }));
   openAddMenuItem('shipping');
   const shipping = within(screen.getByTestId('charge-form'));
   fireEvent.change(shipping.getByLabelText('Name'), { target: { value: 'Delivery' } });
   fireEvent.change(shipping.getByLabelText('Amount'), { target: { value: '5.00' } });
-  fireEvent.click(shipping.getByRole('button', { name: 'Apply' }));
+  fireEvent.click(shipping.getByRole('button', { name: 'Add to Cart' }));
   openAddMenuItem('misc-product');
   const custom = within(screen.getByTestId('charge-form'));
   fireEvent.change(custom.getByLabelText('Name'), { target: { value: 'Gift wrap' } });
   fireEvent.change(custom.getByLabelText('Amount'), { target: { value: '3.00' } });
   fireEvent.click(custom.getByRole('switch', { name: 'No tax' }));
-  fireEvent.click(custom.getByRole('button', { name: 'Apply' }));
+  fireEvent.click(custom.getByRole('button', { name: 'Add to Cart' }));
   const feeRow = within(screen.getByTestId('cart-fee-0'));
   expect(feeRow.getByText('Bag')).not.toBeNull();
-  expect(feeRow.getByText('$0.20')).not.toBeNull();
+  expect(feeRow.getByTestId('cart-charge-total').textContent).toBe('$0.20'); // 4.0.0 4319b3c: Price and Total cells
   const shippingRow = within(screen.getByTestId('cart-shipping-0'));
   expect(shippingRow.getByText('Delivery')).not.toBeNull();
-  expect(shippingRow.getByText('$5.00')).not.toBeNull();
+  expect(shippingRow.getByTestId('cart-charge-total').textContent).toBe('$5.00');
   const footer = within(screen.getByTestId('cart-footer'));
   expect(within(footer.getByText('Total').parentElement!).getByText('$11.20')).not.toBeNull();
   fireEvent.click(screen.getByTestId('cart-checkout'));
@@ -126,6 +127,7 @@ test('a store without order_create_v5 sells on the v3 fallback: no charges, one 
     if (init?.method === 'POST' && url.pathname.endsWith('/push/orders')) {
       return Response.json({ document: { id: 301, number: '301', status: 'completed', total: '3.000000' } }, { status: 201 });
     }
+    if (url.pathname.endsWith('/site')) return Response.json({ wcpos_version: '1.10.20' }); // connector 4.0.0 reads /site once
     throw new Error(`Unexpected request: ${url}`);
   });
   render(

@@ -105,8 +105,8 @@ test('matches WooCommerce order #136: tax 1.16 and total 32.91', async () => {
   setLineQuantity('Espresso', 3);
   for (const name of ['Croissant', 'Tote Bag', 'Banana Bread']) fireEvent.click(screen.getByText(name));
   const footer = within(screen.getByTestId('cart-footer'));
-  const taxMinor = footer.getAllByText(/^Tax /).reduce((sum, label) => {
-    const amount = within(label.parentElement!).getByText(/^\$/).textContent!;
+  const taxMinor = footer.getAllByTestId(/^cart-total-tax-\d+$/).reduce((sum, row) => { // 4.0.0 c34fc71 tax rows
+    const amount = within(row).getByText(/^\$/).textContent!;
     return sum + Math.round(Number(amount.slice(1)) * 100);
   }, 0);
   expect(taxMinor).toBe(116);
@@ -121,24 +121,24 @@ test('taxes a reduced-rate fee, leaves a No-tax fee and inherited shipping untax
   fireEvent.change(bag.getByLabelText('Name'), { target: { value: 'Bag' } });
   fireEvent.change(bag.getByLabelText('Amount'), { target: { value: '2.00' } });
   fireEvent.click(within(bag.getByRole('group', { name: 'Tax class' })).getByRole('button', { name: 'Reduced rate' }));
-  fireEvent.click(bag.getByRole('button', { name: 'Apply' }));
+  fireEvent.click(bag.getByRole('button', { name: 'Add to Cart' }));
   openAddMenuItem('fee');
   const service = within(screen.getByTestId('charge-form'));
   fireEvent.change(service.getByLabelText('Name'), { target: { value: 'Service' } });
   fireEvent.change(service.getByLabelText('Amount'), { target: { value: '1.00' } });
   fireEvent.click(service.getByRole('switch', { name: 'No tax' }));
-  fireEvent.click(service.getByRole('button', { name: 'Apply' }));
+  fireEvent.click(service.getByRole('button', { name: 'Add to Cart' }));
   openAddMenuItem('shipping');
   const shipping = within(screen.getByTestId('charge-form'));
   fireEvent.change(shipping.getByLabelText('Name'), { target: { value: 'Delivery' } });
   fireEvent.change(shipping.getByLabelText('Amount'), { target: { value: '5.00' } });
-  fireEvent.click(shipping.getByRole('button', { name: 'Apply' }));
+  fireEvent.click(shipping.getByRole('button', { name: 'Add to Cart' }));
   // WooCommerce: Croissant 3.50 × 5.5% = 0.1925 → 0.19; Bag 2.00 × 5.5% = 0.11.
   // Service is untaxed; shipping inherits reduced-rate, whose only rate (CA Reduced) has shipping: false, so tax is 0.
   // Total = 3.50 + 2.00 + 1.00 + 5.00 + 0.30 = 11.80.
   const footer = within(screen.getByTestId('cart-footer'));
-  const taxMinor = footer.getAllByText(/^Tax /).reduce((sum, label) => {
-    const amount = within(label.parentElement!).getByText(/^\$/).textContent!;
+  const taxMinor = footer.getAllByTestId(/^cart-total-tax-\d+$/).reduce((sum, row) => { // 4.0.0 c34fc71 tax rows
+    const amount = within(row).getByText(/^\$/).textContent!;
     return sum + Math.round(Number(amount.slice(1)) * 100);
   }, 0);
   expect(taxMinor).toBe(30);
