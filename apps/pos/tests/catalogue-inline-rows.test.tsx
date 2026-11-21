@@ -186,3 +186,18 @@ test('the till variations label stays plain without a search', () => {
   renderView();
   expect(screen.getByTestId(`product-variations-${shirt.id}`).textContent).toBe('3 variations');
 });
+
+test('expanded till rows show only the variations found by the search', () => {
+  renderView();
+  search('MER-TEE-S');
+  fireEvent.click(toggle());
+  expect(variationRows().map(row => row.getAttribute('data-testid')))
+    .toEqual(['product-row-variation-104', 'product-row-variation-105']);
+});
+
+test('a parent name search expands every till variation', () => {
+  renderView();
+  search('shirt');
+  fireEvent.click(toggle());
+  expect(variationRows()).toHaveLength(3);
+});

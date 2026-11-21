@@ -38,7 +38,7 @@ import { ChevronRightIcon } from './icons';
 import { InCartAdd, InCartBadge } from './in-cart-badge';
 import { InlineVariableTile } from './inline-variable-tile';
 import { LevelBack } from './level-back';
-import { ProductAttributes, variationsFoundFor } from './product-attributes';
+import { foundVariations, ProductAttributes, variationsFoundFor } from './product-attributes';
 import { ProductTile } from './product-tile';
 import { ClearAllButton, QuickFilterChip, SaveAsButton } from './quick-filter-bar';
 import type { QuickFilterMenu } from './quick-filter-bar';
@@ -237,7 +237,7 @@ export function CatalogueView({
   }
   const tableItems = !expandRows ? items : items.flatMap(doc => {
     const id = traits.getId(doc);
-    return expanded.has(id) && expandable(doc) ? [doc, ...catalogueEntries([doc], traits, { currency })
+    return expanded.has(id) && expandable(doc) ? [doc, ...foundVariations(catalogueEntries([doc], traits, { currency }), term, entry => entry.variant)
       .filter(entry => variantMatchesStock(entry.variant, filters.stock_status))
       .map(entry => ({ id: `variation-${entry.variant.id}`, variationOf: id, entry }))] : [doc];
   });

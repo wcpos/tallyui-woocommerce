@@ -184,3 +184,45 @@ test('a parent name match has no variations found suffix', async () => {
   await waitFor(() => expect(screen.queryByTestId(`product-row-${espresso.id}`)).toBeNull());
   expect(screen.getByTestId(`product-variations-${shirt.id}`).textContent).not.toContain(' found for ');
 });
+
+test('expanded rows follow the variation search and stay expanded when it clears', async () => {
+  inline();
+  renderScreen();
+  fireEvent.change(screen.getByTestId('search-products'), { target: { value: 'MER-TEE-S' } });
+  await waitFor(() => expect(screen.queryByTestId(`product-row-${espresso.id}`)).toBeNull());
+  toggle();
+  expect(variationIds()).toEqual([104, 105]);
+  fireEvent.change(screen.getByTestId('search-products'), { target: { value: '' } });
+  await waitFor(() => expect(variationIds()).toEqual([104, 105, 106]));
+  expect(expanded()).toBe('true');
+});
+
+test('phone touch rows follow the variation search', async () => {
+  inline();
+  setWidth(400);
+  renderScreen();
+  fireEvent.change(screen.getByTestId('search-products'), { target: { value: 'MER-TEE-S' } });
+  await waitFor(() => {
+    expect(screen.queryByTestId(`products-row-${coldBrew.id}`)).toBeNull();
+    expect(screen.queryByTestId(`products-row-${espresso.id}`)).toBeNull();
+  });
+  toggle();
+  const rows = within(screen.getByTestId('products-body')).getAllByTestId(/^products-row-\d+$/);
+  expect(rows.map(node => node.getAttribute('data-testid'))).toEqual(
+    [shirt.id, 104, 105].map(id => `products-row-${id}`));
+});
+
+test('the search picks variations before the stock filter', async () => {
+  inline();
+  renderScreen();
+  fireEvent.click(screen.getByTestId('filter-pill-stock_status'));
+  fireEvent.click(screen.getByTestId('stock-status-option-instock'));
+  fireEvent.change(screen.getByTestId('search-products'), { target: { value: 'MER-TEE-S-WHT' } });
+  await waitFor(() => {
+    const rows = within(screen.getByTestId('products-body')).queryAllByTestId(/^product-row-\d+$/);
+    expect(rows.map(node => node.getAttribute('data-testid'))).toEqual([`product-row-${shirt.id}`]);
+  });
+  toggle();
+  expect(expanded()).toBe('true');
+  expect(variationIds()).toEqual([]);
+});

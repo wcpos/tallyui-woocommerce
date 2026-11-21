@@ -44,9 +44,20 @@ export function variationsLabel(count: number): string {
 
 /** v2's childrenSearchCount: the variants whose SKU or barcode contains the trimmed term, ignoring case; 0 without a term. */
 export function variationsFoundFor(variants: ReadonlyArray<{ sku?: string; barcode?: string }>, term: string): number {
+  return variants.filter(variant => variationFound(variant, term)).length;
+}
+
+/** One variant of variationsFoundFor: its SKU or barcode contains the trimmed term, ignoring case; false without a term. */
+export function variationFound(variant: { sku?: string; barcode?: string }, term: string): boolean {
   const search = term.trim().toLowerCase();
-  if (!search) return 0;
-  return variants.filter(variant => variant.sku?.toLowerCase().includes(search) || variant.barcode?.toLowerCase().includes(search)).length;
+  return !!search && !!(variant.sku?.toLowerCase().includes(search) || variant.barcode?.toLowerCase().includes(search));
+}
+
+/** v2 seeds a product's variations query with the search that found them (use-row-expansion.ts:39-44, products.tsx:322-327):
+ *  the items whose variant the term found, or every item when it found none. */
+export function foundVariations<T>(items: readonly T[], term: string, variant: (item: T) => { sku?: string; barcode?: string }): T[] {
+  const found = items.filter(item => variationFound(variant(item), term));
+  return found.length ? found : [...items];
 }
 
 /** v2's `common.variation_found_for_term`: '1 variation found for "ABC"' / '2 variations found for "ABC"'. */
