@@ -11,6 +11,7 @@ import { saleScanHandlers, type SaleScanDeps } from '../lib/scan/sale-scan';
 import { scanFeedback } from '../lib/scan/scan-sound';
 import { toast, getToasts, dismissToast } from '../lib/toast/toast';
 import { showAddedToCartToast } from '../lib/toast/added-to-cart-toast';
+import { scanLogger } from '../lib/scan/scan-log';
 import products from './fixtures/products.json';
 import variations from './fixtures/variations.json';
 
@@ -164,4 +165,50 @@ test('two misses in a row leave one scan alert with the second code', () => {
   onTenderScan('888');
   expect(scanFeedback).toHaveBeenCalledWith('failure');
   expect(getToasts()).toEqual([expect.objectContaining({ id: 'pos-scan-alert', type: 'warning', title: 'Barcode not found', description: '888 — not in this store' })]);
+});
+
+function logSpies() {
+  return { info: vi.spyOn(scanLogger, 'info'), warn: vi.spyOn(scanLogger, 'warn') };
+}
+
+test('a scan that adds Espresso logs the barcode', () => {
+  const { info, warn } = logSpies();
+  saleScanHandlers(deps()).onScan('2000000000015');
+  expect(info.mock.calls).toEqual([['Barcode scanned: 2000000000015', { barcode: '2000000000015', productName: 'Espresso' }]]);
+  expect(warn).not.toHaveBeenCalled();
+});
+
+test('a scan the sale refuses logs nothing', () => {
+  const { info, warn } = logSpies();
+  saleScanHandlers(deps({ add: vi.fn(() => false) })).onScan('2000000000015');
+  expect(info).not.toHaveBeenCalled();
+  expect(warn).not.toHaveBeenCalled();
+});
+
+test('an out-of-stock scan logs the product', () => {
+  const { info, warn } = logSpies();
+  saleScanHandlers(deps({ products: [{ ...catalogue[0], stock_status: 'outofstock' }, ...catalogue.slice(1)] })).onScan('2000000000015');
+  expect(info.mock.calls).toEqual([['Barcode scan matched an out-of-stock product', { barcode: '2000000000015', productName: 'Espresso' }]]);
+  expect(warn).not.toHaveBeenCalled();
+});
+
+test('an unknown code logs that it matched no product', () => {
+  const { info, warn } = logSpies();
+  saleScanHandlers(deps()).onScan('999');
+  expect(info.mock.calls).toEqual([['Barcode scan did not match a product', { barcode: '999' }]]);
+  expect(warn).not.toHaveBeenCalled();
+});
+
+test('a code with several matches warns with the count', () => {
+  const { info, warn } = logSpies();
+  saleScanHandlers(deps({ products: [products[0], { ...products[0], id: 980, name: 'Espresso Twin' }] })).onScan('2000000000015');
+  expect(warn.mock.calls).toEqual([['Barcode scan matched multiple products', { barcode: '2000000000015', resultsCount: 2 }]]);
+  expect(info).not.toHaveBeenCalled();
+});
+
+test('a parent code warns that it matched a variable product', () => {
+  const { info, warn } = logSpies();
+  saleScanHandlers(deps()).onScan('MER-TEE');
+  expect(warn.mock.calls).toEqual([['Barcode scan matched a variable product', { barcode: 'MER-TEE', productName: 'T-Shirt' }]]);
+  expect(info).not.toHaveBeenCalled();
 });

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { RegisterSessionRequiredError, type useSale } from '@tallyui/pos';
 import type { useRegister } from '../register/register-context';
+import { cartLogger } from './cart-log';
 
 export interface TenderStartContext {
   register: ReturnType<typeof useRegister> | undefined;
@@ -20,6 +21,8 @@ export function useTenderStart(sale: ReturnType<typeof useSale>, context: Tender
   // method, so startTender's preset tender is cleared on that path (Card's is a full-total leg).
   function beginTender(method: 'cash' | 'external', options?: Parameters<typeof sale.startTender>[1]) {
     sale.startTender(method, options);
+    // v2 pay.tsx:177 logs the checkout start with the order total and line count.
+    cartLogger.info('Checkout started', { total: sale.order.totalMinor, lineItemCount: sale.order.lineItems.length });
     if (context.multiPayment) sale.setTender(null);
   }
 

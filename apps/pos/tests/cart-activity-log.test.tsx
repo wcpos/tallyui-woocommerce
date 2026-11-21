@@ -23,6 +23,7 @@ import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import { RegisterProvider, useRegister } from '../lib/register/register-context';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import { cartLogger } from '../lib/sale/cart-log';
+import { scanLogger } from '../lib/scan/scan-log';
 import { attachLogStore, logRecordMigrationStrategies, logRecordSchema, TALLYUI_LOGGERS, type LogCollection } from '../lib/logs/log-store';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
@@ -206,6 +207,25 @@ test('the store keeps cart rows', async () => {
     const rows = await logs.find().exec();
     expect(rows).toHaveLength(1);
     expect(rows[0].toJSON()).toMatchObject({ scope: 'cart', level: 'info', message: 'Fee added: Bag' });
+  } finally {
+    await store.detach();
+    await logsDb.close();
+  }
+});
+
+test('the store keeps barcode rows', async () => {
+  vi.restoreAllMocks();
+  const logsDb = await createRxDatabase({ name: `scan_logs_${crypto.randomUUID()}`, multiInstance: false,
+    storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }) });
+  const { logs } = await logsDb.addCollections<{ logs: LogCollection }>({
+    logs: { schema: logRecordSchema, migrationStrategies: logRecordMigrationStrategies } });
+  const store = attachLogStore(logs, { loggers: TALLYUI_LOGGERS });
+  try {
+    scanLogger.info('Barcode scanned: 2000000000015', { barcode: '2000000000015', productName: 'Espresso' });
+    await store.flush();
+    const rows = await logs.find().exec();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].toJSON()).toMatchObject({ scope: 'barcode', level: 'info', message: 'Barcode scanned: 2000000000015' });
   } finally {
     await store.detach();
     await logsDb.close();
