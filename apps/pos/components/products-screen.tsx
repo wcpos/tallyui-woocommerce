@@ -43,7 +43,7 @@ import { BrowseCrumb } from './browse-terms-view';
 import { CatalogueFilterChips } from './catalogue-filter-chips';
 import { EmptyState } from './empty-state';
 import { LevelBack } from './level-back';
-import { PlainAttributes, ProductAttributes, variationMatches, variationName } from './product-attributes';
+import { PlainAttributes, ProductAttributes, variationMatches, variationName, variationsFoundFor } from './product-attributes';
 import type { ProductAttribute, VariationDoc, VariationMatch } from './product-attributes';
 import { utcDate } from './coupons-screen';
 import { BAR } from './customers-screen';
@@ -204,7 +204,7 @@ type NameLines = Record<'sku' | 'barcode' | 'attributes', boolean>;
 
 /** v2's ProductName (cells/name.tsx:48-51): the name, the display lines that are on (SKU, Barcode, Attributes), then
  *  ProductAttributes for a variable product. */
-function NameCell({ doc, onDrill, numberOfLines, showSku, lines, expanded }: { doc: ProductDoc; onDrill: OnDrill; numberOfLines?: number; showSku?: boolean; lines?: NameLines; expanded?: boolean }): JSX.Element {
+function NameCell({ doc, onDrill, numberOfLines, showSku, lines, expanded, found }: { doc: ProductDoc; onDrill: OnDrill; numberOfLines?: number; showSku?: boolean; lines?: NameLines; expanded?: boolean; found?: { count: number; term: string } }): JSX.Element {
   return (
     <View className={showSku ? undefined : 'gap-1'}>
       <Text numberOfLines={numberOfLines} className={showSku ? 'text-foreground' : 'font-medium text-foreground'}>{doc.name}</Text>
@@ -214,7 +214,7 @@ function NameCell({ doc, onDrill, numberOfLines, showSku, lines, expanded }: { d
       {lines?.attributes ? <PlainAttributes id={doc.id} attributes={doc.attributes} /> : null}
       {doc.type === 'variable' ? (
         <ProductAttributes id={doc.id} attributes={doc.attributes} count={doc.variations?.length ?? 0}
-          options={!showSku} expanded={expanded} onDrill={match => onDrill(doc, match)} />
+          options={!showSku} expanded={expanded} found={found} onDrill={match => onDrill(doc, match)} />
       ) : null}
     </View>
   );
@@ -270,7 +270,7 @@ function PriceCell({ id, text, line, showTax }: { id: number | string; text: str
 interface PriceTax { tax?: TileTax; traits: ProductTraits; showTax: boolean }
 
 /** Every column of PRODUCTS_COLUMNS, in its order; the screen hands ProductTable the ones left on. */
-function productColumns(currency: string, locale: string | undefined, onDrill: OnDrill, lines: NameLines, { tax, traits, showTax }: PriceTax, inline: boolean, expanded: ReadonlySet<number>): (ProductTableColumn<ProductDoc> & { id: ProductsColumnId })[] {
+function productColumns(currency: string, locale: string | undefined, onDrill: OnDrill, lines: NameLines, { tax, traits, showTax }: PriceTax, inline: boolean, expanded: ReadonlySet<number>, term: string): (ProductTableColumn<ProductDoc> & { id: ProductsColumnId })[] {
   // The tile's tax words for one price (tile-words.ts tileTaxLine) with the doc's own tax status and class, so a variable
   // product's range ends take the parent's, as v2's VariableProductPrice passes them (variable-price.tsx:23-24).
   const taxLine = (doc: ProductDoc, price: string | undefined): string | null => {
@@ -312,7 +312,8 @@ function productColumns(currency: string, locale: string | undefined, onDrill: O
     // `hideHeader` draws no label and keeps "Image" as the head's accessible name. id, Stock, Stock Status centre (:256-299 `center`).
     { id: 'image', header: LABEL.image, hideHeader: true, flex: 0.6, render: doc => <ProductImage doc={doc} size={IMAGE_SIZE} /> },
     { id: 'id', header: LABEL.id, flex: 0.6, align: 'center', render: doc => <Text testID={`product-id-${doc.id}`}>{String(doc.id)}</Text>, sortValue: doc => doc.id },
-    { id: 'name', header: LABEL.name, flex: 3, render: doc => <NameCell doc={doc} onDrill={onDrill} lines={lines} expanded={inline ? expanded.has(doc.id) : undefined} />, sortValue: doc => doc.name },
+    { id: 'name', header: LABEL.name, flex: 3, render: doc => <NameCell doc={doc} onDrill={onDrill} lines={lines} expanded={inline ? expanded.has(doc.id) : undefined}
+      found={{ count: variationsFoundFor(traits.getVariants?.(doc) ?? [], term), term: term.trim() }} />, sortValue: doc => doc.name },
     textColumn('type', 1),
     textColumn('sku', 1),
     textColumn('barcode', 1.2),
@@ -431,8 +432,8 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
 
   const [sku, barcode, attributes] = (['sku', 'barcode', 'attributes'] as const).map(key => areaDisplayShown(settings, 'name', key));
   const showTax = areaDisplayShown(settings, 'price', 'tax');
-  const columns = useMemo(() => productColumns(currency, locale, drillTo, { sku, barcode, attributes }, { tax, traits: connector.traits.product, showTax }, inline, expanded),
-    [currency, locale, drillTo, sku, barcode, attributes, tax, connector.traits.product, showTax, inline, expanded]);
+  const columns = useMemo(() => productColumns(currency, locale, drillTo, { sku, barcode, attributes }, { tax, traits: connector.traits.product, showTax }, inline, expanded, query),
+    [currency, locale, drillTo, sku, barcode, attributes, tax, connector.traits.product, showTax, inline, expanded, query]);
   // The columns the display options leave on, in the area's order; the narrow list keeps sorting on every column.
   const tableColumns = useMemo(() => visibleAreaColumns(columns, settings), [columns, settings]);
   const searched = useMemo(() => query ? searchProducts(products, query, connector.traits.product) : products,
@@ -509,7 +510,8 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
             <Fragment key={doc.id}><View testID={`products-row-${doc.id}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
               <ProductImage doc={doc} size={IMAGE_SIZE} />
               <View className="min-w-0 flex-1">
-                <NameCell doc={doc} onDrill={drillTo} numberOfLines={1} showSku expanded={inline ? expanded.has(doc.id) : undefined} />
+                <NameCell doc={doc} onDrill={drillTo} numberOfLines={1} showSku expanded={inline ? expanded.has(doc.id) : undefined}
+                  found={{ count: variationsFoundFor(connector.traits.product.getVariants?.(doc) ?? [], query), term: query.trim() }} />
               </View>
               <View className="flex-row items-center gap-3">
                 <View testID={`products-phone-figures-${doc.id}`} className="items-end gap-1 tabular-nums">

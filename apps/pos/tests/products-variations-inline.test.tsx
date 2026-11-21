@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
@@ -158,4 +158,29 @@ test('sorting by Product reverses the parents while expanded variations follow t
   fireEvent.click(screen.getByTestId('product-table-sort-name'));
   expect(rowIds()).toEqual([String(shirt.id), 'variation-104', 'variation-105', 'variation-106', String(espresso.id), String(coldBrew.id)]);
   expect(variationIds()).toEqual([104, 105, 106]);
+});
+
+test('variation SKU matches append the found count to the plain variations label', async () => {
+  renderScreen();
+  const plainLabel = screen.getByTestId(`product-variations-${shirt.id}`).textContent;
+  fireEvent.change(screen.getByTestId('search-products'), { target: { value: 'MER-TEE-S' } });
+  await waitFor(() => expect(screen.getByTestId(`product-variations-${shirt.id}`).textContent)
+    .toBe(`${plainLabel} - 2 variations found for "MER-TEE-S"`));
+});
+
+test('the phone row appends the found count too', async () => {
+  setWidth(400);
+  renderScreen();
+  expect(screen.getByTestId('products-row-' + shirt.id)).not.toBeNull();
+  const plainLabel = screen.getByTestId(`product-variations-${shirt.id}`).textContent;
+  fireEvent.change(screen.getByTestId('search-products'), { target: { value: 'MER-TEE-S' } });
+  await waitFor(() => expect(screen.getByTestId(`product-variations-${shirt.id}`).textContent)
+    .toBe(`${plainLabel} - 2 variations found for "MER-TEE-S"`));
+});
+
+test('a parent name match has no variations found suffix', async () => {
+  renderScreen();
+  fireEvent.change(screen.getByTestId('search-products'), { target: { value: 'shirt' } });
+  await waitFor(() => expect(screen.queryByTestId(`product-row-${espresso.id}`)).toBeNull());
+  expect(screen.getByTestId(`product-variations-${shirt.id}`).textContent).not.toContain(' found for ');
 });

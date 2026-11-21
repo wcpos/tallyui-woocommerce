@@ -38,7 +38,7 @@ import { ChevronRightIcon } from './icons';
 import { InCartAdd, InCartBadge } from './in-cart-badge';
 import { InlineVariableTile } from './inline-variable-tile';
 import { LevelBack } from './level-back';
-import { ProductAttributes } from './product-attributes';
+import { ProductAttributes, variationsFoundFor } from './product-attributes';
 import { ProductTile } from './product-tile';
 import { ClearAllButton, QuickFilterChip, SaveAsButton } from './quick-filter-bar';
 import type { QuickFilterMenu } from './quick-filter-bar';
@@ -259,6 +259,7 @@ export function CatalogueView({
       return [{ ...column, render: (doc: any) => {
         const id = traits.getId(doc);
         if (expandable(doc)) return <View>{column.render(doc)}<ProductAttributes id={doc.id} attributes={doc.attributes} count={optionCount(doc)}
+          found={searching ? { count: variationsFoundFor(traits.getVariants?.(doc) ?? [], term), term: term.trim() } : undefined}
           expanded={expanded.has(id)} onDrill={match => toggleRow(id, match ? true : undefined)} /></View>;
         const n = optionCount(doc);
         return n < 1 ? column.render(doc) : <View>{column.render(doc)}

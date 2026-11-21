@@ -42,6 +42,18 @@ export function variationsLabel(count: number): string {
   return count === 1 ? '1 variation' : `${count.toLocaleString()} variations`;
 }
 
+/** v2's childrenSearchCount: the variants whose SKU or barcode contains the trimmed term, ignoring case; 0 without a term. */
+export function variationsFoundFor(variants: ReadonlyArray<{ sku?: string; barcode?: string }>, term: string): number {
+  const search = term.trim().toLowerCase();
+  if (!search) return 0;
+  return variants.filter(variant => variant.sku?.toLowerCase().includes(search) || variant.barcode?.toLowerCase().includes(search)).length;
+}
+
+/** v2's `common.variation_found_for_term`: '1 variation found for "ABC"' / '2 variations found for "ABC"'. */
+export function variationsFoundLabel(count: number, term: string): string {
+  return `${variationsLabel(count)} found for "${term}"`;
+}
+
 /** v2's variationAllMatch for one criterion: a variation without that attribute ("Any") matches, else the option must. */
 export function variationMatches(variation: VariationDoc, match: VariationMatch | undefined): boolean {
   if (!match) return true;
@@ -87,26 +99,27 @@ export function PlainAttributes({ id, attributes }: { id: number; attributes: Pr
 }
 
 // `options` false is v2's phone row (products/row.tsx:178-205 VariableRowContent): the VariationsButton alone, no attribute rows.
-export function ProductAttributes({ id, attributes, count, onDrill, options = true, expanded }: {
+export function ProductAttributes({ id, attributes, count, onDrill, options = true, expanded, found }: {
   id: number;
   attributes: ProductAttribute[] | undefined;
   count: number;
   onDrill(match?: VariationMatch): void;
   options?: boolean;
   expanded?: boolean;
+  found?: { count: number; term: string };
 }): JSX.Element {
   const rows = options ? (attributes ?? []).filter(attribute => attribute.variation) : [];
   return (
     <View className="gap-1">
       {rows.map(attribute => <AttributeRow key={attribute.name} id={id} testID={`product-attributes-${id}-${attribute.name}`}
         attribute={attribute} onOption={onDrill} />)}
-      <Button testID="variable-product-expand" variant="ghost" size="sm" className="max-w-full flex-row self-start px-0"
+      <Button testID="variable-product-expand" variant="ghost" size="sm" className="max-w-full shrink flex-row self-start px-0"
         {...(expanded === undefined ? {} : { 'aria-expanded': expanded, accessibilityState: { expanded } })}
         onPress={() => onDrill()}>
         {expanded !== undefined && <View testID={`product-variations-chevron-${id}`}>
           {expanded ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />}
         </View>}
-        <Text testID={`product-variations-${id}`}>{variationsLabel(count)}</Text>
+        <Text testID={`product-variations-${id}`} numberOfLines={1} className="shrink">{found && found.count > 0 ? `${variationsLabel(count)} - ${variationsFoundLabel(found.count, found.term)}` : variationsLabel(count)}</Text>
         {expanded === undefined && <View testID={`product-variations-chevron-${id}`}><ChevronRightIcon size={14} /></View>}
       </Button>
     </View>
