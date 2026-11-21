@@ -200,3 +200,34 @@ test('Escape in the search input while drilled changes nothing', () => {
   expect(crumb()).not.toBeNull();
   expect(rowIds()).toEqual([104, 105, 106]);
 });
+
+test('a variation search seeds the drill and its search chip clears the seed', async () => {
+  renderScreen();
+  fireEvent.change(screen.getByTestId('search-products'), { target: { value: 'MER-TEE-S' } });
+  await waitFor(() => expect(rowIds()).toEqual([shirt.id]));
+  fireEvent.click(screen.getByTestId(`product-variations-${shirt.id}`));
+  expect(rowIds()).toEqual([104, 105]);
+  expect(text('products-variation-search')).toBe('Search: MER-TEE-S ×');
+  expect(screen.getByTestId('products-variation-search').getAttribute('aria-label')).toBe('Clear search: MER-TEE-S');
+  fireEvent.click(screen.getByTestId('products-variation-search'));
+  expect(rowIds()).toEqual([104, 105, 106]);
+  expect(screen.queryByTestId('products-variation-search')).toBeNull();
+});
+
+test('a parent name search opens every variation without a search chip', async () => {
+  renderScreen();
+  fireEvent.change(screen.getByTestId('search-products'), { target: { value: 'shirt' } });
+  await waitFor(() => expect(rowIds()).toEqual([shirt.id]));
+  fireEvent.click(screen.getByTestId(`product-variations-${shirt.id}`));
+  expect(rowIds()).toEqual([104, 105, 106]);
+  expect(screen.queryByTestId('products-variation-search')).toBeNull();
+});
+
+test('an option drill is not seeded by a variation search', async () => {
+  renderScreen();
+  fireEvent.change(screen.getByTestId('search-products'), { target: { value: 'MER-TEE-S' } });
+  await waitFor(() => expect(rowIds()).toEqual([shirt.id]));
+  fireEvent.click(screen.getByTestId(`product-attribute-${shirt.id}-Colour-Black`));
+  expect(rowIds()).toEqual([104, 106]);
+  expect(screen.queryByTestId('products-variation-search')).toBeNull();
+});

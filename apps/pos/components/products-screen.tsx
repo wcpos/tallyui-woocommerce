@@ -43,7 +43,7 @@ import { BrowseCrumb } from './browse-terms-view';
 import { CatalogueFilterChips } from './catalogue-filter-chips';
 import { EmptyState } from './empty-state';
 import { LevelBack } from './level-back';
-import { PlainAttributes, ProductAttributes, variationMatches, variationName, variationsFoundFor } from './product-attributes';
+import { foundVariations, PlainAttributes, ProductAttributes, variationMatches, variationName, variationsFoundFor } from './product-attributes';
 import type { ProductAttribute, VariationDoc, VariationMatch } from './product-attributes';
 import { utcDate } from './coupons-screen';
 import { BAR } from './customers-screen';
@@ -112,7 +112,7 @@ interface ProductDoc {
 }
 
 /** v2's Drill: the product, the search it was opened under, and an option's match. */
-interface Drill { id: number; query: string; match?: VariationMatch }
+interface Drill { id: number; query: string; match?: VariationMatch; found: boolean }
 type OnDrill = (doc: ProductDoc, match?: VariationMatch) => void;
 type ProductRow = ProductDoc | { id: string; variationOf: ProductDoc; variation: VariationDoc };
 
@@ -245,9 +245,9 @@ function VariationTouchRow({ variation, parent, currency, locale }: { variation:
 }
 
 /** v2's DrillPane rows: the drilled product's published variations that pass the Stock Status chip and the match. */
-function drilledVariations(parent: ProductDoc, filters: CatalogueFilters, match: VariationMatch | undefined): VariationDoc[] {
-  return (parent.variation_docs ?? []).filter(variation => (variation.status === undefined || variation.status === 'publish')
-    && (filters.stock_status === undefined || resolveStock(variation) === filters.stock_status)
+function drilledVariations(parent: ProductDoc, filters: CatalogueFilters, match: VariationMatch | undefined, term: string): VariationDoc[] {
+  const published = (parent.variation_docs ?? []).filter(variation => variation.status === undefined || variation.status === 'publish');
+  return foundVariations(published, term, v => v).filter(variation => (filters.stock_status === undefined || resolveStock(variation) === filters.stock_status)
     && variationMatches(variation, match));
 }
 
@@ -409,8 +409,8 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
       if (match || !next.has(doc.id)) next.add(doc.id); else next.delete(doc.id);
       return next;
     });
-    else setDrill({ id: doc.id, query, match });
-  }, [inline, query]);
+    else setDrill({ id: doc.id, query, match, found: !match && variationsFoundFor(connector.traits.product.getVariants?.(doc) ?? [], query) > 0 });
+  }, [inline, query, connector.traits.product]);
 
   function clear() { set(''); setFilters({}); }
   const filtersOn = Object.values(filters).filter(value => Array.isArray(value) ? value.length > 0 : value !== undefined && value !== '').length;
@@ -445,9 +445,9 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   const listed = useMemo(() => sortProducts([...shown], touchRows ? NAME_ASC : sort,
     (doc, field) => columns.find(column => column.id === field)?.sortValue?.(doc)) as ProductDoc[], [touchRows, shown, columns, sort]);
   const items = useMemo(() => listed.flatMap<ProductRow>(doc => inline && expanded.has(doc.id) && doc.type === 'variable'
-    ? [doc, ...drilledVariations(doc, filters, undefined).map(variation => ({ id: `variation-${variation.id}`, variationOf: doc, variation }))]
-    : [doc]), [listed, inline, expanded, filters]);
-  const variations = useMemo(() => drilled ? drilledVariations(drilled, filters, drill?.match) : [], [drilled, filters, drill?.match]);
+    ? [doc, ...drilledVariations(doc, filters, undefined, query).map(variation => ({ id: `variation-${variation.id}`, variationOf: doc, variation }))]
+    : [doc]), [listed, inline, expanded, filters, query]);
+  const variations = useMemo(() => drilled ? drilledVariations(drilled, filters, drill?.match, drill?.found ? query : '') : [], [drilled, filters, drill?.match, drill?.found, query]);
   const bodyColumns = useMemo(() => centred(tableColumns).map(column => ({ ...column, render: (item: ProductRow) => {
     if (!('variationOf' in item)) return column.render(item);
     const cell = centred(variationColumns(tableColumns, item.variationOf)).find(cell => cell.id === column.id)!.render(item.variation);
@@ -468,6 +468,12 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
           <Button testID="products-variation-match" accessibilityLabel={`Clear ${drill.match.name}: ${drill.match.option}`}
             variant="outline" size="sm" onPress={() => setDrill({ ...drill, match: undefined })}>
             <Text>{`${drill.match.name}: ${drill.match.option} ×`}</Text>
+          </Button>
+        ) : null}
+        {drill?.found ? (
+          <Button testID="products-variation-search" accessibilityLabel={`Clear search: ${query.trim()}`}
+            variant="outline" size="sm" onPress={() => setDrill({ ...drill, found: false })}>
+            <Text>{`Search: ${query.trim()} ×`}</Text>
           </Button>
         ) : null}
       </View>
@@ -521,7 +527,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
                 {rowChevron(doc.id)}
               </View>
             </View>
-            {inline && expanded.has(doc.id) && doc.type === 'variable' && drilledVariations(doc, filters, undefined)
+            {inline && expanded.has(doc.id) && doc.type === 'variable' && drilledVariations(doc, filters, undefined, query)
               .map(variation => <VariationTouchRow key={variation.id} variation={variation} parent={doc} currency={currency} locale={locale} />)}</Fragment>
           ))}
         </ScrollView>
