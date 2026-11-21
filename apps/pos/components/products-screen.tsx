@@ -16,7 +16,8 @@
 import { Fragment, useCallback, useMemo, useState } from 'react';
 import type { JSX, ReactNode } from 'react';
 import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
-import { ConnectorProvider, moneyFromDecimalString, useFormatMoney, useMoneyFormat, type MoneyFormat } from '@tallyui/core';
+import { ConnectorProvider, moneyFromDecimalString } from '@tallyui/core';
+import { useFormatStoreMoney, useStoreMoney, type StoreMoney, type FormatStoreMoney } from '../lib/money/store-money';
 import type { ProductTraits, TallyConnector } from '@tallyui/core';
 import { Button, ProductImage, ProductTable, SearchInput, Table, TableBody, TableCell, TableRow, Text, Tooltip, TooltipContent, TooltipTrigger } from '@tallyui/components';
 import type { ProductTableColumn } from '@tallyui/components';
@@ -144,8 +145,8 @@ function priceValue(value: string | undefined): number | undefined {
   return Number.isFinite(number) ? number : undefined;
 }
 
-/** The store-format formatter a component binds with useFormatMoney(), handed to the helpers below. */
-type FormatMoney = ReturnType<typeof useFormatMoney>;
+/** The store-format formatter a component binds with useFormatStoreMoney(), handed to the helpers below. */
+type FormatMoney = FormatStoreMoney;
 
 function money(value: string | undefined, currency: string, locale: string | undefined, formatMoney: FormatMoney): string {
   if (!value) return '';
@@ -232,7 +233,7 @@ function VariationNameCell({ variation, parent }: { variation: VariationDoc; par
 }
 
 function VariationTouchRow({ variation, parent, currency, locale }: { variation: VariationDoc; parent: ProductDoc; currency: string; locale: string | undefined }): JSX.Element {
-  const formatMoney = useFormatMoney();
+  const formatMoney = useFormatStoreMoney();
   return <View testID={`products-row-${variation.id}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
     <ProductImage doc={parent} size={IMAGE_SIZE} />
     <View className="min-w-0 flex-1">
@@ -276,12 +277,12 @@ interface PriceTax { tax?: TileTax; traits: ProductTraits; showTax: boolean }
 
 /** Every column of PRODUCTS_COLUMNS, in its order; the screen hands ProductTable the ones left on. */
 function productColumns(currency: string, locale: string | undefined, onDrill: OnDrill, lines: NameLines, { tax, traits, showTax }: PriceTax, inline: boolean, expanded: ReadonlySet<number>, term: string,
-  formatMoney: FormatMoney, format: MoneyFormat | undefined): (ProductTableColumn<ProductDoc> & { id: ProductsColumnId })[] {
+  formatMoney: FormatMoney, storeMoney: StoreMoney | undefined): (ProductTableColumn<ProductDoc> & { id: ProductsColumnId })[] {
   // The tile's tax words for one price (tile-words.ts tileTaxLine) with the doc's own tax status and class, so a variable
   // product's range ends take the parent's, as v2's VariableProductPrice passes them (variable-price.tsx:23-24).
   const taxLine = (doc: ProductDoc, price: string | undefined): string | null => {
     const money = tax ? moneyFromDecimalString(price ?? '', currency) : undefined;
-    return money && tax ? tileTaxLine(money, traits.getTaxStatus?.(doc), traits.getTaxClass?.(doc), tax, format) : null;
+    return money && tax ? tileTaxLine(money, traits.getTaxStatus?.(doc), traits.getTaxClass?.(doc), tax, storeMoney) : null;
   };
   // v2's VariableProductPrice (variable-price.tsx:45-71): one PriceWithTax(max) when min equals max, else min " - " max in
   // an end-justified wrapping row, each end with its own tax words; no range is an empty cell.
@@ -402,8 +403,8 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   const pointer = usePointer();
   const sync = useCatalogueSync();
   const locale = storeLocale?.replaceAll('_', '-');
-  const formatMoney = useFormatMoney();
-  const format = useMoneyFormat();
+  const formatMoney = useFormatStoreMoney();
+  const storeMoney = useStoreMoney();
 
   // v2's drill holds while the search it was opened under does (products.tsx `drilled`); otherwise it is dropped,
   // not parked, so restoring the search does not bring it back. Reset while rendering, React's "previous render"
@@ -442,8 +443,8 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
 
   const [sku, barcode, attributes] = (['sku', 'barcode', 'attributes'] as const).map(key => areaDisplayShown(settings, 'name', key));
   const showTax = areaDisplayShown(settings, 'price', 'tax');
-  const columns = useMemo(() => productColumns(currency, locale, drillTo, { sku, barcode, attributes }, { tax, traits: connector.traits.product, showTax }, inline, expanded, query, formatMoney, format),
-    [currency, locale, drillTo, sku, barcode, attributes, tax, connector.traits.product, showTax, inline, expanded, query, formatMoney, format]);
+  const columns = useMemo(() => productColumns(currency, locale, drillTo, { sku, barcode, attributes }, { tax, traits: connector.traits.product, showTax }, inline, expanded, query, formatMoney, storeMoney),
+    [currency, locale, drillTo, sku, barcode, attributes, tax, connector.traits.product, showTax, inline, expanded, query, formatMoney, storeMoney]);
   // The columns the display options leave on, in the area's order; the narrow list keeps sorting on every column.
   const tableColumns = useMemo(() => visibleAreaColumns(columns, settings), [columns, settings]);
   const searched = useMemo(() => query ? searchProducts(products, query, connector.traits.product) : products,

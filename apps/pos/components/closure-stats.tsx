@@ -1,7 +1,7 @@
 import type { JSX } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import { Text } from '@tallyui/components';
-import { useFormatMoney } from '@tallyui/core';
+import { useFormatStoreMoney } from '../lib/money/store-money';
 import type { Closure } from '@tallyui/pos';
 import { resultWord, signedMoney } from './closure-list';
 import { drawerResultClass } from './till-strip';
@@ -22,7 +22,7 @@ export function ClosureStats({ rows, openSession, blind, currency, locale }: {
   currency: string;
   locale: string;
 }): JSX.Element | null {
-  const formatMoney = useFormatMoney();
+  const formatMoney = useFormatStoreMoney();
   const phone = useWindowDimensions().width < 640;
   if (blind) return null;
   const money = (amount: number) => formatMoney({ amount, currency }, locale) ?? '';

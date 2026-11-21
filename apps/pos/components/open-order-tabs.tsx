@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type JSX, type KeyboardEvent } from 'react
 import { Platform, Pressable, ScrollView, View, type ViewProps } from 'react-native';
 import { Path } from 'react-native-svg';
 import { createSvgIcon, Text } from '@tallyui/components';
-import { useFormatMoney } from '@tallyui/core';
+import { useFormatStoreMoney } from '../lib/money/store-money';
 import { tabWho } from '../lib/sale/tab-who';
 import { ChevronDownIcon } from './select-chevron';
 
@@ -81,7 +81,7 @@ export interface OpenOrderTabsProps {
 
 /** The open-order strip under the cart: parked carts, the current sale, then + (WCPOS v2 cart/tabs.tsx). */
 export function OpenOrderTabs({ parked, current, currentOpenedAt, currency, locale, onSelect, onNew, onError, onOpenList, listOpen = false, now = Date.now, compact = false }: OpenOrderTabsProps): JSX.Element {
-  const formatMoney = useFormatMoney();
+  const formatMoney = useFormatStoreMoney();
   const pending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [nowMs, setNowMs] = useState(now);

@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { Platform, View } from 'react-native';
 import { Text } from '@tallyui/components';
-import { minorUnitDigits, moneyFromMajor, useFormatMoney } from '@tallyui/core';
+import { minorUnitDigits, moneyFromMajor } from '@tallyui/core';
+import { useFormatStoreMoney, type FormatStoreMoney } from '../lib/money/store-money';
 import { buildClosureDocument, buildXReportDocument, type Closure, type ClosureContext, type RegisterSession, type labelKeys } from '@tallyui/pos';
 
 const labels: Record<keyof typeof labelKeys, string> = {
@@ -16,8 +17,8 @@ const labels: Record<keyof typeof labelKeys, string> = {
   paid_in: 'Paid in', paid_out: 'Paid out', no_sale: 'No sale', void: 'Void', copy: 'Copy',
 };
 
-/** The store-format formatter a component binds with useFormatMoney(). */
-type FormatMoney = ReturnType<typeof useFormatMoney>;
+/** The store-format formatter a component binds with useFormatStoreMoney(). */
+type FormatMoney = FormatStoreMoney;
 
 /**
  * The local closure/X-report document context: device timezone, the store's currency, the English labels, and the
@@ -41,7 +42,7 @@ export function ClosurePrint({ kind, closure, expected, storeName, currency, loc
   storeName: string; currency: string; locale?: string; copy?: boolean;
   registerName?: string; resolveCashierName?: (id: string) => string;
 } & ({ kind?: 'z'; closure: Closure; expected?: never } | { kind: 'x'; closure: RegisterSession; expected: Record<string, number> })) {
-  const formatMoney = useFormatMoney();
+  const formatMoney = useFormatStoreMoney();
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
     const style = document.createElement('style');

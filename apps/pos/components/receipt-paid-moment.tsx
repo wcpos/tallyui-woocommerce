@@ -1,7 +1,7 @@
 import type { JSX } from 'react';
 import { View } from 'react-native';
 import { IconButton, Text, XIcon } from '@tallyui/components';
-import { useFormatMoney } from '@tallyui/core';
+import { useFormatStoreMoney } from '../lib/money/store-money';
 import type { PosOrder, PosOrderPayment } from '@tallyui/pos';
 import { CheckIcon, ClockIcon } from './icons';
 
@@ -28,7 +28,7 @@ export function paidMomentFigures(payments: readonly PosOrderPayment[]): PaidMom
 export function ReceiptPaidMoment({ posOrder, locale, onClose }: {
   posOrder: Pick<PosOrder, 'payments' | 'currency' | 'syncStatus'>; locale?: string; onClose(): void;
 }): JSX.Element {
-  const formatMoney = useFormatMoney();
+  const formatMoney = useFormatStoreMoney();
   const money = (minor: number) => formatMoney({ amount: minor, currency: posOrder.currency }, locale) ?? String(minor);
   const figures = paidMomentFigures(posOrder.payments);
   // v2's useAwaitsStore: the store has not heard the sale (ADR 0040), whatever the online state. A refused sale is not awaiting.

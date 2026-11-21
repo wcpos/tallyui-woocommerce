@@ -2,7 +2,7 @@ import { useEffect, useState, type JSX } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { Button, IconButton, Text } from '@tallyui/components';
-import { useFormatMoney } from '@tallyui/core';
+import { useFormatStoreMoney } from '../lib/money/store-money';
 import { formatClosureDate, replacedOrderIds, type Closure, type PosOrder } from '@tallyui/pos';
 import { useIsWide } from '../lib/layout/wide';
 import { useRegister } from '../lib/register/register-context';
@@ -30,7 +30,7 @@ export function TillStrip({ orders, currency, locale, resolveCashierName, onPrin
   /** v2's `till-closures` chevron: opens the Closures room. */
   onOpenClosures?(): void;
 }): JSX.Element {
-  const formatMoney = useFormatMoney();
+  const formatMoney = useFormatStoreMoney();
   const register = useRegister();
   const phone = !useIsWide();
   const roomy = useWindowDimensions().width >= ROOMY_MIN_WIDTH;

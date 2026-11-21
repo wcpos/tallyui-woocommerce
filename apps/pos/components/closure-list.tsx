@@ -2,7 +2,7 @@ import { useState, type JSX, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import { Path } from 'react-native-svg';
 import { Badge, Button, createSvgIcon, Text } from '@tallyui/components';
-import { useFormatMoney } from '@tallyui/core';
+import { useFormatStoreMoney } from '../lib/money/store-money';
 import { formatClosureDate, type Closure } from '@tallyui/pos';
 import { useIsWide } from '../lib/layout/wide';
 import { ChevronRightIcon } from './icons';
@@ -82,7 +82,7 @@ export function ClosureList({ rows, sessionRows, openSessions, blind, today, cur
   filter?: ClosureFilter;
   onFilterChange?(next: ClosureFilter): void;
 }): JSX.Element {
-  const formatMoney = useFormatMoney();
+  const formatMoney = useFormatStoreMoney();
   const phone = !useIsWide();
   const [own, setOwn] = useState<ClosureFilter>('all');
   const filter = held ?? own;

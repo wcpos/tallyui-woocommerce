@@ -13,7 +13,8 @@ import type { ComponentType, JSX } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Circle, Path, Rect } from 'react-native-svg';
 import type { RxCollection } from 'rxdb';
-import { moneyFromDecimalString, useFormatMoney } from '@tallyui/core';
+import { moneyFromDecimalString } from '@tallyui/core';
+import { useFormatStoreMoney, type FormatStoreMoney } from '../lib/money/store-money';
 import { DATE_PRESETS, inRange, presetRange } from '@tallyui/pos';
 import type { DatePreset, DayRange } from '@tallyui/pos';
 import {
@@ -144,8 +145,8 @@ function isActive(coupon: CouponDoc, now: Date): boolean {
   return coupon.status === 'publish' && !expired;
 }
 
-/** The store-format formatter a component binds with useFormatMoney(), handed to the helpers below. */
-type FormatMoney = ReturnType<typeof useFormatMoney>;
+/** The store-format formatter a component binds with useFormatStoreMoney(), handed to the helpers below. */
+type FormatMoney = FormatStoreMoney;
 
 /** v2 cells/editable-amount.tsx: a percentage for `percent`, otherwise money in the store currency. */
 function couponAmount(coupon: CouponDoc, currency: string, locale: string | undefined, formatMoney: FormatMoney): string {
@@ -363,7 +364,7 @@ export function CouponsScreen({ coupons, currency, locale: storeLocale, onBack }
   const touchRows = width < NARROW_WIDTH || pointer === 'coarse';
   const sync = useCatalogueSync();
   const locale = storeLocale?.replaceAll('_', '-');
-  const formatMoney = useFormatMoney();
+  const formatMoney = useFormatStoreMoney();
 
   useEffect(() => {
     const subscription = coupons.find().$.subscribe(docs => {

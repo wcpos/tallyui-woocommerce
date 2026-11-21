@@ -1,7 +1,9 @@
-// H4b part 2 (e): the app's own money displays read the store's money format from the provider, as v2's
-// hooks/use-currency-format.tsx:21-60 does: the tender pane, a product tile and an open-order tab.
+// H4b (e, h): the app's own money displays read the store's money format, as v2's hooks/use-currency-format.tsx:21-60
+// does: the tender pane, a product tile and an open-order tab. Only money in the store's currency takes it; v2
+// formats an order in another currency with that currency's own symbol.
 import { noTaxSettings } from './fixtures/store-settings';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
@@ -15,10 +17,23 @@ import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
 import { OnlineStatusContext } from '../lib/online/online-status';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
+import { StoreMoneyContext, type StoreMoney } from '../lib/money/store-money';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 
+// The dev store's proof format: right_space, '.' thousands, ',' decimals, on the fixtures' own currency (USD, '$').
+const DOLLAR_COMMA: MoneyFormat = { position: 'right_space', thousandSeparator: '.', decimalSeparator: ',', decimals: 2, symbol: '$' };
 const EURO: MoneyFormat = { position: 'right_space', thousandSeparator: '.', decimalSeparator: ',', decimals: 2, symbol: '€' };
+const EUR_STORE: StoreMoney = { currency: 'EUR', format: EURO };
+
+// What StoreSettingsProvider hands down: the same format to core's provider (the components) and the app's own.
+function Store({ money, children }: { money: StoreMoney; children: ReactNode }) {
+  return (
+    <MoneyFormatProvider format={money.format}>
+      <StoreMoneyContext.Provider value={money}>{children}</StoreMoneyContext.Provider>
+    </MoneyFormatProvider>
+  );
+}
 
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
@@ -51,7 +66,7 @@ const text = (testId: string) => screen.getByTestId(testId).textContent;
 test('(e) the product tile and the tender pane read the store format', async () => {
   const send = vi.fn(async () => ({ kind: 'results' as const, results: [] }));
   render(
-    <MoneyFormatProvider format={EURO}>
+    <Store money={{ currency: stores[0].currency, format: DOLLAR_COMMA }}>
       <OnlineStatusContext.Provider value={{ status: 'online-website-available' }}>
         <SessionProvider>
           <OutboxProvider transportFor={() => ({ send })} storage={getRxStorageMemory()}>
@@ -63,29 +78,36 @@ test('(e) the product tile and the tender pane read the store format', async () 
           </OutboxProvider>
         </SessionProvider>
       </OnlineStatusContext.Provider>
-    </MoneyFormatProvider>,
+    </Store>,
   );
   await screen.findByText('Order store ready');
   // Espresso is product 80 at 3.00.
-  expect(text('tile-price-80')).toBe('3,00 €');
+  expect(text('tile-price-80')).toBe('3,00 $');
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByTestId('cart-checkout'));
   await screen.findByTestId('checkout-keypad');
-  expect(text('checkout-ledger-balance')).toBe('3,00 €');
-  expect(text('checkout-ledger-totals')).toBe('Total3,00 €Paid0,00 €Remaining3,00 €');
-  expect(text('checkout-commit')).toMatch(/^Take 3,00 € in Cash/);
+  expect(text('checkout-ledger-balance')).toBe('3,00 $');
+  expect(text('checkout-ledger-totals')).toBe('Total3,00 $Paid0,00 $Remaining3,00 $');
+  expect(text('checkout-commit')).toMatch(/^Take 3,00 \$ in Cash/);
   expect(send).not.toHaveBeenCalled();
 }, 20_000);
 
+const tabs = (currency: string) => (
+  <OpenOrderTabs currency={currency} onSelect={async () => null} onNew={async () => null} onError={() => {}}
+    now={() => Date.parse('2026-11-10T10:10:00.000Z')}
+    parked={[{ id: 'a', parkedAt: '2026-11-10T10:05:00.000Z', totalMinor: 123456, lines: [{ name: 'Espresso' }] }]}
+    current={{ id: 'current', lineItems: [{ name: 'Espresso' }], customer: null, totalMinor: 1250 }} />
+);
+
 test('(e) an open-order tab total reads the store format, thousands included', () => {
-  render(
-    <MoneyFormatProvider format={EURO}>
-      <OpenOrderTabs currency="USD" onSelect={async () => null} onNew={async () => null} onError={() => {}}
-        now={() => Date.parse('2026-11-10T10:10:00.000Z')}
-        parked={[{ id: 'a', parkedAt: '2026-11-10T10:05:00.000Z', totalMinor: 123456, lines: [{ name: 'Espresso' }] }]}
-        current={{ id: 'current', lineItems: [{ name: 'Espresso' }], customer: null, totalMinor: 375 }} />
-    </MoneyFormatProvider>,
-  );
+  render(<Store money={EUR_STORE}>{tabs('EUR')}</Store>);
   expect(text('open-order-tab-a-amount')).toBe('1.234,56 €');
-  expect(text('open-order-tab-current-amount')).toBe('3,75 €');
+  expect(text('open-order-tab-current-amount')).toBe('12,50 €');
+});
+
+test('(h) an open-order tab in another currency reads Intl\'s string for that currency, not the store\'s symbol', () => {
+  render(<Store money={EUR_STORE}>{tabs('USD')}</Store>);
+  expect(text('open-order-tab-a-amount')).toBe('$1,234.56');
+  expect(text('open-order-tab-current-amount')).toBe('$12.50');
+  expect(screen.queryByText(/€/)).toBeNull();
 });

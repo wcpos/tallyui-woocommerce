@@ -3,7 +3,7 @@ import { Platform, ScrollView, View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { Path } from 'react-native-svg';
 import { createSvgIcon, IconButton, Text } from '@tallyui/components';
-import { useFormatMoney, useMoneyFormat } from '@tallyui/core';
+import { useFormatStoreMoney, useStoreMoney } from '../lib/money/store-money';
 import {
   formatClosureDate, presetRange, type Closure, type DatePreset, type DayRange, type PosOrder,
 } from '@tallyui/pos';
@@ -55,8 +55,8 @@ const ROOM = { 'px-3': 'gap-4 px-3 pb-4 pt-2', 'px-4': 'gap-4 px-4 pb-4 pt-2' } 
 export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }: {
   storeName: string; currency: string; locale?: string; onBack(): void;
 }) {
-  const formatMoney = useFormatMoney();
-  const format = useMoneyFormat();
+  const formatMoney = useFormatStoreMoney();
+  const storeMoney = useStoreMoney();
   const outbox = useOutbox();
   const orders = outbox.enabled ? outbox.orders : null;
   const { session, cashiers } = useSession();
@@ -127,7 +127,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   </ReportChips>;
   const printButton = <PrintSummaryButton wide={wide} onPress={printSummary} />;
   // The donut centres read whole currency units: the amount rounded to whole units, shown with no decimals.
-  const moneyWhole = (minor: number) => wholeMoney(minor, currency, locale, format);
+  const moneyWhole = (minor: number) => wholeMoney(minor, currency, locale, storeMoney);
   // One set of figures feeds each card and its table, so the two never disagree.
   const products = productFigures(counted, { currency, range });
   const categories = categoryFigures(counted, catalogueProducts, { currency, range });

@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Avatar, Button, Dialog, DialogContent, IconButton, Text, XIcon } from '@tallyui/components';
-import { useFormatMoney, type StoreOrder } from '@tallyui/core';
+import { type StoreOrder } from '@tallyui/core';
+import { useFormatStoreMoney } from '../lib/money/store-money';
 import { customerInitials } from '../lib/customers/customer-table';
 import { orderCustomerName } from '../lib/orders/customer-name';
 import { wooStatusLabel } from '../lib/orders/order-history';
@@ -100,7 +101,7 @@ function Chip({ text }: { text: string }) {
 export function OrderDetailView({ order, onReceipt, onClose, onSync, syncing }: {
   order: StoreOrder; onReceipt(): void; onClose(): void; onSync?(): void; syncing?: boolean;
 }) {
-  const formatMoney = useFormatMoney();
+  const formatMoney = useFormatStoreMoney();
   const wide = useIsWide();
   const close = <SheetCloseButton testID="dialog-footer-close" className={wide ? undefined : 'w-full'} onPress={onClose} />;
   const receipt = <Button testID="order-modal-receipt" variant="outline" className={wide ? 'h-11 border-border' : 'h-11 w-full border-border'} onPress={onReceipt}><Text>Receipt</Text></Button>;

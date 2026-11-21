@@ -1,7 +1,7 @@
 import type { JSX } from 'react';
 import { View } from 'react-native';
 import { Button, Text } from '@tallyui/components';
-import { useFormatMoney } from '@tallyui/core';
+import { useFormatStoreMoney } from '../lib/money/store-money';
 
 export interface CancelPaymentViewProps {
   payments: ReadonlyArray<{ id: string; method: string; amountMinor: number }>;
@@ -12,7 +12,7 @@ export interface CancelPaymentViewProps {
 
 // Cancelling mid-split is a physical act first: cash taken has to go back out of the drawer (v2 CancelPaymentView).
 export function CancelPaymentView(props: CancelPaymentViewProps): JSX.Element {
-  const formatMoney = useFormatMoney();
+  const formatMoney = useFormatStoreMoney();
   const { payments, currency, onKeep, onConfirm } = props;
   return (
     <View testID="cancel-payment" className="gap-4 p-4" dataSet={{ print: 'hide' }}>

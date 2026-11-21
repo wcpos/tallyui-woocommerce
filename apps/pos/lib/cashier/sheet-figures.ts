@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { RxCollection } from 'rxdb';
-import { formatMoney, type MoneyFormat } from '@tallyui/core';
 import type { PosOrder } from '@tallyui/pos';
+import { formatStoreMoney, type StoreMoney } from '../money/store-money';
 import { dayRange } from '../reports/today-sales';
 
 export interface SalesTotal { count: number; totalMinor: number }
@@ -40,9 +40,9 @@ export function useCashierSalesToday(orders: RxCollection<PosOrder> | null | und
   return orders ? total : { count: 0, totalMinor: 0 };
 }
 
-/** Minor units as store money (in the store's format when given); falls back to the bare number when formatMoney cannot format. */
-export function sheetMoney(minor: number, currency: string, locale?: string, format?: MoneyFormat): string {
-  return formatMoney({ amount: minor, currency }, (locale ?? 'en-US').replaceAll('_', '-'), format) ?? String(minor);
+/** Minor units as store money (in the store's format when given and in its currency); falls back to the bare number when formatMoney cannot format. */
+export function sheetMoney(minor: number, currency: string, locale?: string, store?: StoreMoney): string {
+  return formatStoreMoney({ amount: minor, currency }, store, (locale ?? 'en-US').replaceAll('_', '-')) ?? String(minor);
 }
 
 /** The "In the drawer" value, or undefined when the sheet shows no drawer. */

@@ -2,7 +2,7 @@ import { Fragment, type JSX } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Path } from 'react-native-svg';
 import { Button, createSvgIcon, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, IconButton, Text, XIcon } from '@tallyui/components';
-import { useFormatMoney } from '@tallyui/core';
+import { useFormatStoreMoney } from '../lib/money/store-money';
 import { buildClosureDocument, deriveSettled, formatClosureDate, type Closure, type Correction } from '@tallyui/pos';
 import { useIsWide } from '../lib/layout/wide';
 import { resultText, resultWord, signedMoney } from './closure-list';
@@ -34,7 +34,7 @@ export function ClosurePanel({ closure, corrections = [], storeName, currency, l
   onReprint(closure: Closure): void;
   onClose(): void;
 }): JSX.Element {
-  const formatMoney = useFormatMoney();
+  const formatMoney = useFormatStoreMoney();
   const wide = useIsWide();
   const money = (amount: number) => formatMoney({ amount, currency }, locale) ?? '';
   const minus = (minor: number) => minor ? `−${money(Math.abs(minor))}` : money(0);

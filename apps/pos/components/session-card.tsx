@@ -1,7 +1,7 @@
 import type { JSX } from 'react';
 import { View } from 'react-native';
 import { Button, Text } from '@tallyui/components';
-import { useFormatMoney } from '@tallyui/core';
+import { useFormatStoreMoney } from '../lib/money/store-money';
 import { formatClosureDate } from '@tallyui/pos';
 import { useRegister } from '../lib/register/register-context';
 import { PrintIcon } from './report-chips';
@@ -18,7 +18,7 @@ export function SessionCard({ currency, locale, resolveCashierName, onPrintXRepo
   resolveCashierName(id: string): string;
   onPrintXReport(): void;
 }): JSX.Element | null {
-  const formatMoney = useFormatMoney();
+  const formatMoney = useFormatStoreMoney();
   const register = useRegister();
   const { session, salesCount } = register;
   if (!register.enabled || (session?.status !== 'open' && session?.status !== 'counting')) return null;

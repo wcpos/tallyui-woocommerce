@@ -2,7 +2,8 @@
 // `option-chips.tsx`): the parent's own tile in the first slot with the back badge, then one tile per variation.
 import type { JSX } from 'react';
 import { Pressable, View } from 'react-native';
-import { resolvePrice, useMoneyFormat, useProductTraits, useTraitContext } from '@tallyui/core';
+import { resolvePrice, useProductTraits, useTraitContext } from '@tallyui/core';
+import { useStoreMoney } from '../lib/money/store-money';
 import { Text } from '@tallyui/components';
 import type { CatalogueEntry } from '@tallyui/pos';
 import type { CatalogueTileFields } from '../lib/catalogue/catalogue-view-state';
@@ -27,7 +28,7 @@ export function ParentTile({ doc, fields, tax, onBack }: { doc: any; fields: Cat
 /** What a variation's tile and its row both show: its name, its values as v2's OptionChips, its price or Sold out. */
 function useVariationParts(entry: CatalogueEntry<any>) {
   const traits = useProductTraits();
-  const format = useMoneyFormat();
+  const storeMoney = useStoreMoney();
   const context = useTraitContext();
   const { product, variant } = entry;
   const id = variant.id;
@@ -44,7 +45,7 @@ function useVariationParts(entry: CatalogueEntry<any>) {
         className="rounded bg-muted px-1.5 py-px text-xs font-semibold" numberOfLines={1}>{value}</Text>)}
     </View>,
     money: out ? <Text key="money" testID={`variation-sold-out-${id}`} className="text-base font-bold">Sold out</Text>
-      : price && <Text key="money" testID={`variation-price-${id}`} className="text-base font-bold">{formatTileMoney(price.current, format)}</Text>,
+      : price && <Text key="money" testID={`variation-price-${id}`} className="text-base font-bold">{formatTileMoney(price.current, storeMoney)}</Text>,
   };
 }
 
@@ -65,12 +66,12 @@ export function VariationMoney({ entry }: { entry: CatalogueEntry<any> }): JSX.E
  */
 export function VariationTile({ entry, fields, inCart = 0, onPress }: { entry: CatalogueEntry<any>; fields?: CatalogueTileFields; inCart?: number; onPress(): void }): JSX.Element {
   const { id, out, name, was, label, chips, money } = useVariationParts(entry);
-  const format = useMoneyFormat();
+  const storeMoney = useStoreMoney();
   const mark = fields?.stock ? tileStockMark(entry.variant.stock, false) : null;
   const lines = [
     <Text key="name" className="text-xs text-muted-foreground" numberOfLines={1}>{name}</Text>, chips,
     fields?.on_sale && was ? <View key="money" className="flex-row flex-wrap items-baseline gap-x-1.5">{money}
-      <Text testID={`variation-was-${id}`} className="text-xs text-muted-foreground line-through">{formatTileMoney(was, format)}</Text></View> : money,
+      <Text testID={`variation-was-${id}`} className="text-xs text-muted-foreground line-through">{formatTileMoney(was, storeMoney)}</Text></View> : money,
   ].filter(Boolean);
   return <Pressable accessibilityRole="button" accessibilityLabel={label}
     testID={`variation-tile-${id}`} onPress={onPress}>
