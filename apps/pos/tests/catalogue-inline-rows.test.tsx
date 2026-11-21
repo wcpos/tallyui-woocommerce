@@ -174,3 +174,15 @@ test('in grid view the inline style still opens the popover', () => {
   expect(screen.getByTestId('variations-popover-102')).not.toBeNull();
   expect(variationRows()).toEqual([]);
 });
+
+test('variation SKU matches append the found count in the till table', () => {
+  renderView();
+  search('MER-TEE-S');
+  expect(screen.getByTestId(`product-variations-${shirt.id}`).textContent)
+    .toBe('3 variations - 2 variations found for "MER-TEE-S"');
+});
+
+test('the till variations label stays plain without a search', () => {
+  renderView();
+  expect(screen.getByTestId(`product-variations-${shirt.id}`).textContent).toBe('3 variations');
+});
