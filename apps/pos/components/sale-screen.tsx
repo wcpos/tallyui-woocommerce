@@ -23,6 +23,7 @@ import { useReceiptPrintCount } from '../lib/receipts/use-receipt-print-count';
 import { pickReceiptTemplate, receiptPaperWidth, receiptTemplateIdFor, renderedStoreReceipt } from '../lib/receipts/store-receipt';
 import { useStoreTemplates } from '../lib/receipts/use-store-templates';
 import { useOutbox } from '../lib/sale/outbox-context';
+import { cartLogger, useAssignCustomer } from '../lib/sale/cart-log';
 import { useCartRestore } from '../lib/sale/use-cart-restore';
 import { useCheckoutBack } from '../lib/sale/use-checkout-back';
 import { useChord } from '../lib/sale/use-search-chord';
@@ -150,6 +151,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     discountCodes,
     defaultCustomer: props.defaultCustomer,
   });
+  const assignCustomer = useAssignCustomer(sale);
   const inCart = useMemo(() => inCartCounts(sale.order.lineItems), [sale.order.lineItems]);
   const receiptOrderId = sale.stage.kind === 'receipt' ? sale.stage.posOrder.id : null;
   const printCount = useReceiptPrintCount(receiptOrderId);
@@ -255,7 +257,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   function addEntry(entry: CatalogueEntry<any>): boolean {
     if (refuseLockedAdd(lock)) return false;
     try {
-      sale.add(entry, connector.traits.product);
+      const result = sale.add(entry, connector.traits.product);
+      if (typeof result !== 'string') cartLogger.info(`${connector.traits.product.getName(entry.product)} added to cart`, { variantId: entry.variant.id });
       setVariants(undefined);
       setMessage(undefined);
       return true;
@@ -321,7 +324,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
             // v2's cart "+" menu hosts the order discount, charges and coupons (the Coupon side of Add discount).
             orderActions={false} coupons={props.couponCollections?.coupons ?? null} couponsOffered={couponsOffered}
             // B5/B6: v2's cart head row starts with the customer chip; Add new customer is in the + menu.
-            customer={props.customers ? <CustomerPicker source={props.customers} customer={sale.order.customer ?? null} onChange={sale.setCustomer} /> : null}
+            customer={props.customers ? <CustomerPicker source={props.customers} customer={sale.order.customer ?? null} onChange={assignCustomer} /> : null}
             customers={props.customers ?? null} createCustomersBlockedReason={createCustomersBlockedReason(effective, props.siteHome)}
             checkout={checkout} chords={cartChords} note={<CartNoteRow note={sale.order.note} onPress={() => setDetailsOpen(true)} />}
             position={viewState.position} onPositionChange={position => setViewState({ ...viewState, position })}

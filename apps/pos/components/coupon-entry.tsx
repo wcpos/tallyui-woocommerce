@@ -6,6 +6,7 @@ import { formatMoney, moneyFromDecimalString } from '@tallyui/core';
 import { Button, DialogFooter, Input, Text, XIcon } from '@tallyui/components';
 import type { useSale } from '@tallyui/pos';
 import { toast } from '../lib/toast/toast';
+import { cartLogger } from '../lib/sale/cart-log';
 import { chipToneClassName } from './catalogue-filter-chips';
 import { DiscountIcon } from './icons';
 
@@ -84,7 +85,7 @@ export function CouponPicker({ sale, coupons, currency, onClose }: {
     setApplying(true);
     const refusal = await sale.applyCoupon(selected);
     setApplying(false);
-    if (refusal === null) onClose();
+    if (refusal === null) { cartLogger.info('Coupon applied', { code: selected }); onClose(); }
     else setError(refusal);
   }
 

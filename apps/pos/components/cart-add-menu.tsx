@@ -9,6 +9,7 @@ import { Cart, ChargeForm, createSvgIcon, Dialog, DialogContent, DialogHeader, D
   DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, IconButton, Text } from '@tallyui/components';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { useChord } from '../lib/sale/use-search-chord';
+import { cartLogger, useAssignCustomer } from '../lib/sale/cart-log';
 import { AddCustomerDialog } from './add-customer-dialog';
 import { CouponPicker } from './coupon-entry';
 import { BoxIcon } from './icons';
@@ -37,6 +38,7 @@ export function CartAddMenu({ sale, taxClasses, coupons, couponsOffered, custome
   createCustomersBlockedReason?: string; // why the cashier cannot create customers (v2's capability tooltip)
   chords?: boolean;                      // the till chords are live (sale-screen's gate)
 }): JSX.Element {
+  const assignCustomer = useAssignCustomer(sale);
   const [dialog, setDialog] = useState<'customer' | 'misc-product' | 'fee' | 'shipping' | 'discount' | null>(null);
   const [kind, setKind] = useState<'quick' | 'coupon'>('quick');
   // v2's alt+d → pos.cart.discount opens this menu's Add Discount (pos/cart/add-cart-items-menu.tsx:41
@@ -83,7 +85,7 @@ export function CartAddMenu({ sale, taxClasses, coupons, couponsOffered, custome
           <ShippingIcon testID="cart-add-menu-shipping-icon" {...ICON} /><Text>Add Shipping</Text></DropdownMenuItem>}
       </DropdownMenuContent>
     </DropdownMenu>
-    {dialog === 'customer' && customers && <AddCustomerDialog source={customers} onClose={close} onCreated={sale.setCustomer} />}
+    {dialog === 'customer' && customers && <AddCustomerDialog source={customers} onClose={close} onCreated={assignCustomer} />}
     {(dialog === 'misc-product' || dialog === 'fee' || dialog === 'shipping') && <Dialog open onOpenChange={onOpenChange}>
       <DialogContent testID={`add-${dialog}-dialog`} className="w-full max-w-lg">
         {/* Wired as the Cart wires its own ChargeForm. */}
@@ -93,6 +95,7 @@ export function CartAddMenu({ sale, taxClasses, coupons, couponsOffered, custome
             const result = chargeKind === 'custom' ? sale.addCustomLine({ name, priceMinor: amountMinor, taxStatus, taxClass })
               : chargeKind === 'fee' ? sale.addFee({ name, amountMinor, taxStatus, taxClass })
                 : sale.addShipping({ name, amountMinor, taxStatus, taxClass });
+            if (typeof result !== 'string') cartLogger.info(chargeKind === 'fee' ? `Fee added: ${name}` : chargeKind === 'shipping' ? `Shipping added: ${name}` : `${name} added to cart`);
             return typeof result === 'string' ? result : null;
           }} />
       </DialogContent>
@@ -108,7 +111,7 @@ export function CartAddMenu({ sale, taxClasses, coupons, couponsOffered, custome
         {couponCollection && kind === 'coupon'
           ? <CouponPicker sale={sale} coupons={couponCollection} currency={sale.order.currency} onClose={close} />
           : <DiscountForm title="Order discount" currency={sale.order.currency} onClose={close}
-            onApply={discount => sale.applyDiscount(null, discount)} />}
+            onApply={discount => { const result = sale.applyDiscount(null, discount); if (result === null) cartLogger.info('Quick discount added'); return result; }} />}
       </DialogContent>
     </Dialog>}
   </>;
