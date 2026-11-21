@@ -35,6 +35,7 @@ import { NARROW_WIDTH } from '../lib/layout/wide';
 import { usePointer } from '../lib/layout/pointer';
 import { useSearchTerm } from '../lib/search-term';
 import { lookupCode } from '../lib/scan/lookup';
+import { scanLogger } from '../lib/scan/scan-log';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { toast } from '../lib/toast/toast';
 import { AreaDisplayOptions } from './area-display-options';
@@ -419,6 +420,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
   // _other): toast the local match count, info for 0 or 1 and warn for an ambiguous code, then search for it whatever
   // the count, which ends a drill as v2's does. While the display options panel is open a scan is dropped, but the
   // screen keeps the wedge, so the till under this route on the stack does not ring it up.
+  // Each scan that is not dropped also writes a Health > Logs row with the same level, as v2's (use-barcode.ts:35-59).
   const [optionsOpen, setOptionsOpen] = useState(false);
   function scan(code: string) {
     if (optionsOpen) return;
@@ -426,6 +428,7 @@ export function ProductsScreen({ products, connector, currency, locale: storeLoc
     const count = found.kind === 'several' ? found.count : found.kind === 'none' ? 0 : 1;
     toast({ title: `Barcode scanned: ${code}`, description: `${count} ${count === 1 ? 'product' : 'products'} found locally`,
       type: count > 1 ? 'warning' : 'info' });
+    scanLogger[count > 1 ? 'warn' : 'info'](`Barcode scanned: ${code}`, { barcode: code, resultsCount: count });
     set(code);
   }
   useWedgeScanner(scan, true);
