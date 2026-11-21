@@ -7,12 +7,12 @@ import { ProductsTaxBasedOn } from '../components/products-tax-based-on';
 import { SessionHoldBanner } from '../components/session-hold-banner';
 import { useSession } from '../lib/auth/session-context';
 import { useCatalogue } from '../lib/catalogue/catalogue-context';
-import { useTillStoreSettings } from '../lib/sale/use-till-store-settings';
+import { useTillStoreSettingsState } from '../lib/sale/store-settings-context';
 
 export default function Products() {
   const { session, ready } = useSession();
   const { catalogue, products, error } = useCatalogue();
-  const store = useTillStoreSettings(session);
+  const store = useTillStoreSettingsState();
   const router = useRouter();
   // The till's tax settings (sale-screen.tsx's TaxProvider props) for the Price cell's tax line, gated on calcTaxes as
   // v2's PriceWithTax is (price-with-tax.tsx:43).
