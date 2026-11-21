@@ -157,3 +157,58 @@ test('dragProductsWidth turns pixels into points', () => {
 test('Restore defaults include the default width', () => {
   expect(CATALOGUE_VIEW_DEFAULTS.width).toBe(60);
 });
+
+test('shares updates between mounted hooks and persists them', () => {
+  const a = renderHook(() => useCatalogueView());
+  const b = renderHook(() => useCatalogueView());
+  act(() => a.result.current[1]({ ...CATALOGUE_VIEW_DEFAULTS, variationsStyle: 'inline' }));
+  expect(b.result.current[0].variationsStyle).toBe('inline');
+  expect(JSON.parse(localStorage.getItem(CATALOGUE_VIEW_KEY)!)).toMatchObject({ variationsStyle: 'inline' });
+});
+
+test('shares updates between mounted hooks even when saving fails', () => {
+  const storage = memoryStorage();
+  storage.setItem = () => { throw new Error('unwritable'); };
+  vi.stubGlobal('localStorage', storage);
+  const a = renderHook(() => useCatalogueView());
+  const b = renderHook(() => useCatalogueView());
+  act(() => a.result.current[1]({ ...CATALOGUE_VIEW_DEFAULTS, variationsStyle: 'inline' }));
+  expect(b.result.current[0].variationsStyle).toBe('inline');
+});
+
+test('loads defaults from fresh storage after a failed save to the previous storage', () => {
+  const storage = memoryStorage();
+  storage.setItem = () => { throw new Error('unwritable'); };
+  vi.stubGlobal('localStorage', storage);
+  const a = renderHook(() => useCatalogueView());
+  act(() => a.result.current[1]({ ...CATALOGUE_VIEW_DEFAULTS, variationsStyle: 'inline' }));
+  a.unmount();
+  vi.stubGlobal('localStorage', memoryStorage());
+  const b = renderHook(() => useCatalogueView());
+  expect(b.result.current[0].variationsStyle).toBe('drill');
+  expect(b.result.current[0]).toEqual(CATALOGUE_VIEW_DEFAULTS);
+});
+
+test('loads storage populated before mounting instead of a stale module cache', () => {
+  const storage = memoryStorage();
+  storage.setItem(CATALOGUE_VIEW_KEY, '{"view":"table"}');
+  vi.stubGlobal('localStorage', storage);
+  const { result } = renderHook(() => useCatalogueView());
+  expect(result.current[0].view).toBe('table');
+});
+
+test('keeps the snapshot and update references stable on rerender', () => {
+  const { result, rerender } = renderHook(() => useCatalogueView());
+  const [state, update] = result.current;
+  rerender();
+  expect(result.current[0]).toBe(state);
+  expect(result.current[1]).toBe(update);
+});
+
+test('continues updating after another hook unmounts', () => {
+  const a = renderHook(() => useCatalogueView());
+  const b = renderHook(() => useCatalogueView());
+  b.unmount();
+  expect(() => act(() => a.result.current[1]({ ...CATALOGUE_VIEW_DEFAULTS, variationsStyle: 'inline' }))).not.toThrow();
+  expect(a.result.current[0].variationsStyle).toBe('inline');
+});
