@@ -2,6 +2,7 @@ import type { ProductTraits } from '@tallyui/core';
 import type { CatalogueEntry } from '@tallyui/pos';
 import { scanOutcome } from './lookup';
 import { scanFeedback } from './scan-sound';
+import { scanLogger } from './scan-log';
 import { toast } from '../toast/toast';
 import { showAddedToCartToast } from '../toast/added-to-cart-toast';
 
@@ -35,10 +36,12 @@ export function saleScanHandlers<Doc>(deps: SaleScanDeps<Doc>): SaleScanHandlers
         if (result.kind === 'out-of-stock') {
           scanFeedback('failure');
           scanAlert('warning', `${label} out of stock`, code);
+          scanLogger.info('Barcode scan matched an out-of-stock product', { barcode: code, productName: label });
           return 'keep';
         }
         if (deps.add(result.entry)) {
           scanFeedback('success');
+          scanLogger.info(`Barcode scanned: ${code}`, { barcode: code, productName: label });
           showAddedToCartToast(label);
         } else {
           scanFeedback('failure');
@@ -50,14 +53,17 @@ export function saleScanHandlers<Doc>(deps: SaleScanDeps<Doc>): SaleScanHandlers
         // v2's chooseVariation plays the failure tone: the scan did not add a line.
         scanFeedback('failure');
         scanAlert('warning', 'Choose a variation', `${deps.traits.getName(result.product)} — ${code}`);
+        scanLogger.warn('Barcode scan matched a variable product', { barcode: code, productName: deps.traits.getName(result.product) });
         // v2 use-barcode.ts:486 (#2413): a variable parent is never a cart line; the cashier picks the variation from search.
         return 'search';
       }
       scanFeedback('failure');
       if (result.kind === 'several') {
         scanAlert('warning', 'Several matches', `${result.count} products found locally — ${code}`);
+        scanLogger.warn('Barcode scan matched multiple products', { barcode: code, resultsCount: result.count });
       } else {
         scanAlert('warning', 'Barcode not found', `${code} — not in this store`);
+        scanLogger.info('Barcode scan did not match a product', { barcode: code });
       }
       return 'search';
     } catch (error) {
