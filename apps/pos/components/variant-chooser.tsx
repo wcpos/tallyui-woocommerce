@@ -1,9 +1,9 @@
 import type { JSX } from 'react';
 import { ScrollView } from 'react-native';
 import { Button, Text } from '@tallyui/components';
-import { variantPriceLabel } from '@tallyui/pos';
 import type { CatalogueEntry } from '@tallyui/pos';
-import type { ProductTraits } from '@tallyui/core';
+import { resolvePrice, type ProductTraits } from '@tallyui/core';
+import { useFormatStoreMoney } from '../lib/money/store-money';
 import { VariationPicker } from './variation-picker';
 
 const stockLabels = { in_stock: 'In stock', out_of_stock: 'Out of stock', backorder: 'Backorder', unknown: 'Stock unknown' };
@@ -11,6 +11,12 @@ const stockLabels = { in_stock: 'In stock', out_of_stock: 'Out of stock', backor
 export function VariantChooser({ entries, currency, traits, onSelect, onClose }: {
   entries: CatalogueEntry<any>[]; currency: string; traits: ProductTraits<any>; onSelect(entry: CatalogueEntry<any>): void; onClose(): void;
 }): JSX.Element {
+  const formatMoney = useFormatStoreMoney();
+  // @tallyui/pos' variantPriceLabel is resolvePrice + Intl; the same price in the store's format.
+  const priceOf = (entry: CatalogueEntry<any>) => {
+    const resolved = resolvePrice(entry.variant.prices, currency);
+    return resolved ? formatMoney(resolved.current) : undefined;
+  };
   const groups = entries.length ? traits.getVariantOptions?.(entries[0].product) ?? [] : [];
   // A product whose connector reports option groups gets v2's picker; otherwise the flat list below.
   if (groups.length > 0) {
@@ -22,7 +28,7 @@ export function VariantChooser({ entries, currency, traits, onSelect, onClose }:
       {entries.map(entry => (
         <Button key={entry.variant.id} onPress={() => onSelect(entry)}>
           <Text>{entry.variant.title}</Text>
-          <Text>{variantPriceLabel(entry.variant, currency)}</Text>
+          <Text>{priceOf(entry)}</Text>
           <Text>{`${stockLabels[entry.variant.stock.status]}${entry.variant.stock.quantity === undefined ? '' : ` · ${entry.variant.stock.quantity}`}`}</Text>
         </Button>
       ))}

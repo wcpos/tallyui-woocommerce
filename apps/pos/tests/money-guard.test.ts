@@ -15,6 +15,12 @@ const ALLOWED_CORE_FORMATTERS: Record<string, string> = {
 // sales-summary-print's count use Intl without a currency style.
 const ALLOWED_INTL_CURRENCY: Record<string, string> = {};
 const CORE_MONEY = new Set(['formatMoney', 'useFormatMoney', 'useMoneyFormat']);
+// Files allowed core's MoneyFormatProvider, each with its reason. Core applies the provider's format to any currency,
+// so every other `@tallyui/components` money display gets its format through these two.
+const ALLOWED_FORMAT_PROVIDERS: Record<string, string> = {
+  'lib/sale/store-settings-context.tsx': 'the store-wide provider, from the signed-in store\'s settings',
+  'lib/money/store-money-for.tsx': 'scopes it to one document\'s currency: the store\'s format only for the store\'s currency',
+};
 const CORE_IMPORT = /import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"]@tallyui\/core['"]/g;
 
 function sources(dir: string): string[] {
@@ -64,6 +70,11 @@ test('only lib/money/store-money.ts imports formatMoney, useFormatMoney or useMo
   const offenders = files.filter(file => !(file in ALLOWED_CORE_FORMATTERS)
     && coreImports(read(file)).some(name => CORE_MONEY.has(name)));
   expect(offenders).toEqual([]);
+});
+
+test('only store-settings-context.tsx and store-money-for.tsx import MoneyFormatProvider from @tallyui/core', () => {
+  const users = files.filter(file => coreImports(read(file)).includes('MoneyFormatProvider'));
+  expect(users.sort()).toEqual(Object.keys(ALLOWED_FORMAT_PROVIDERS).sort());
 });
 
 test('no file formats currency with Intl.NumberFormat', () => {

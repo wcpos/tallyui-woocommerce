@@ -50,7 +50,11 @@ export function StoreSettingsProvider({ children }: { children: ReactNode }) {
   const storeMoney = useMemo<StoreMoney | undefined>(() => {
     if (!money || !currency) return undefined;
     const digits = minorUnitDigits(currency);
-    return { currency, format: { ...money, decimals: Math.max(money.decimals ?? digits, digits) } };
+    // WCPOS /stores hands over the raw woocommerce_price_decimal_sep, which may be ''; WooCommerce's own
+    // wc_get_price_decimal_separator() falls back to '.' then, so $12.50 never reads 1250. An empty thousands
+    // separator stays empty: WooCommerce allows none.
+    const decimalSeparator = money.decimalSeparator === '' ? '.' : money.decimalSeparator;
+    return { currency, format: { ...money, decimalSeparator, decimals: Math.max(money.decimals ?? digits, digits) } };
   }, [currency, money === undefined, money?.position, money?.thousandSeparator, money?.decimalSeparator, money?.decimals, money?.symbol]);
   return (
     <>

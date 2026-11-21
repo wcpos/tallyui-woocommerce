@@ -2,6 +2,7 @@ import { useContext, type JSX } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Dialog, DialogOverlay, DialogPortal, DialogTitle, IconButton, Receipt, Text, XIcon } from '@tallyui/components';
 import { useFormatStoreMoney } from '../lib/money/store-money';
+import { StoreMoneyFor } from '../lib/money/store-money-for';
 import { buildReceiptData, type ReceiptConfig, type SentOrder } from '@tallyui/pos';
 import { Dialog as DialogPrimitive } from '@tallyui/primitives';
 import type { PanelPosition } from '../lib/catalogue/catalogue-view-state';
@@ -33,9 +34,9 @@ export function OpenSaleReceipt({ open, onClose, side, order, config }: {
       </View>
       <ScrollView className="flex-1" contentContainerClassName="gap-2 px-4 py-1">
         {dueMinor > 0 && <Text testID="receipt-not-paid" className="pb-2 text-sm text-warning-text">{`Not paid · ${money} due`}</Text>}
-        <ReceiptZoom><ReceiptPrintSheet orderId={null}>
+        <StoreMoneyFor currency={receipt.currency}><ReceiptZoom><ReceiptPrintSheet orderId={null}>
           <Receipt receipt={receipt} newSale={() => onClose()} doneLabel="Close" />
-        </ReceiptPrintSheet></ReceiptZoom>
+        </ReceiptPrintSheet></ReceiptZoom></StoreMoneyFor>
       </ScrollView>
     </DialogPrimitive.Content>
   </DialogPortal></Dialog>;

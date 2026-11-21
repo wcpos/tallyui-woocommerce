@@ -5,6 +5,7 @@ import type { RxCollection } from 'rxdb';
 import { Button, Receipt, SyncStatus, Text } from '@tallyui/components';
 import { catalogueEntries, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
 import { useFormatStoreMoney, useStoreMoney } from '../lib/money/store-money';
+import { StoreMoneyFor } from '../lib/money/store-money-for';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
 import type { CatalogueEntry, CustomerSummary, OutboxState } from '@tallyui/pos';
 import { createCustomersBlockedReason, type CashierCapabilities } from '../lib/auth/capabilities';
@@ -398,9 +399,10 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           <ReceiptStoreLine posOrder={receiptOrder} />
           {storeHtml !== null ? <StoreReceipt html={storeHtml} paper={paperWidth} doneLabel={doneLabel} onDone={sale.newSale} printed={printCount > 0}
             onLoad={() => setFrameLoaded(orderId)} /> : <>
-          <Receipt order={sale.stage.order} posOrder={receiptOrder} store={{ name: props.storeName }}
+          {/* The sale's own currency (the till's, so a no-op today), by the same rule as the Orders screen's receipt. */}
+          <StoreMoneyFor currency={receiptCurrency}><Receipt order={sale.stage.order} posOrder={receiptOrder} store={{ name: props.storeName }}
             cashier={props.cashierName} registerId={REGISTER_ID} newSale={sale.newSale}
-            doneLabel={doneLabel} />
+            doneLabel={doneLabel} /></StoreMoneyFor>
           {receiptCoupons.length ? (
             <View testID="receipt-coupons" className="gap-1 py-2">
               {receiptCoupons.map(coupon => (

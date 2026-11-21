@@ -148,6 +148,16 @@ test('(i) a store asking more places than its currency has keeps them', async ()
   expect(probe()).toMatch(/^\$12\.\d{3}$/);
 });
 
+// WCPOS /stores sends the raw woocommerce_price_decimal_sep, which may be ''; WooCommerce falls back to '.'
+// (wc_get_price_decimal_separator()), so 12.50 never reads 1250.
+test('(m) a store with an empty decimal separator shows a point, in the app and in the components', async () => {
+  mocks.storeSettings.mockResolvedValue({ ...euroStore, moneyFormat: { ...euroStore.moneyFormat!, decimalSeparator: '' } });
+  render(<StoreSettingsProvider><StoreState /><MoneyProbe money={{ amount: 1250, currency: 'EUR' }} /><ChangeDisplay change={{ amount: 350, currency: 'EUR' }} /></StoreSettingsProvider>);
+  await waitFor(() => { expect(screen.getByTestId('store-state').textContent).toBe('ready'); });
+  expect(probe()).toBe('12.50 €');
+  expect(screen.getByText(/^3\.50\s€$/).textContent).toBe('3.50 €');
+});
+
 const krStore: StoreSettings = {
   ...noTaxSettings, currency: 'SEK',
   moneyFormat: { position: 'right_space', thousandSeparator: ' ', decimalSeparator: ',', decimals: 2, symbol: 'kr' },
