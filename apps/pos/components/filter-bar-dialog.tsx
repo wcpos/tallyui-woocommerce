@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import { ScrollView, View, useWindowDimensions } from 'react-native';
-import { formatMoney, moneyFromMajor } from '@tallyui/core';
+import { moneyFromMajor } from '@tallyui/core';
+import { useFormatStoreMoney } from '../lib/money/store-money';
 import type { TallyConnector } from '@tallyui/core';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Switch, Text } from '@tallyui/components';
 import type { ProductSort } from '@tallyui/pos';
@@ -40,6 +41,7 @@ export function FilterBarDialog({ open, onOpenChange, quickFilters, onChange, or
   /** A chip menu's Edit or Remove from bar (v2 filter-bar.tsx:205-249, modal.tsx:51-66): each new object seeds the editor or the confirm. */
   start?: { mode: 'edit' | 'delete'; quickFilter: QuickFilter } | null;
 }): JSX.Element {
+  const formatMoney = useFormatStoreMoney();
   const [editing, setEditing] = useState<Editing>(null);
   const [captureDraft, setCaptureDraft] = useState<QuickFilter | null>(null);
   const [deleting, setDeleting] = useState<QuickFilter | null>(null);

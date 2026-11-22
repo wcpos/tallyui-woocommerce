@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Button, Loader, OrderFilterBar, Receipt, SearchInput, Text, type OrderHistoryRow } from '@tallyui/components';
-import { formatMoney, type StoreOrder } from '@tallyui/core';
+import { type StoreOrder } from '@tallyui/core';
+import { useFormatStoreMoney } from '../lib/money/store-money';
+import { StoreMoneyFor } from '../lib/money/store-money-for';
 import { buildReceiptDataFromPosOrder, buildReceiptDataFromStoreOrder, orderFiltersQuery, type PosOrder, type ReceiptConfig } from '@tallyui/pos';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { useRegister } from '../lib/register/register-context';
@@ -156,11 +158,13 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
       </View>}
       {outbox.enabled
         ? opened
-          ? <View className="min-h-0 flex-1 px-4 pb-4">{opened.storeOrder && <NotPaidLine order={opened.storeOrder} />}<ReceiptZoom><ReceiptPrintSheet orderId={opened.posOrder?.id ?? opened.data.header.orderNumber}>
+          ? <View className="min-h-0 flex-1 px-4 pb-4">{opened.storeOrder && <NotPaidLine order={opened.storeOrder} />}
+            {/* The order's own currency: the store's format only when it is the store's (a USD order on a EUR store reads $12.50). */}
+            <StoreMoneyFor currency={opened.data.currency}><ReceiptZoom><ReceiptPrintSheet orderId={opened.posOrder?.id ?? opened.data.header.orderNumber}>
             {/* The live copy: a sale that reaches the store while its receipt is open loses the line. */}
             <ReceiptStoreLine posOrder={liveOpened} />
             <Receipt receipt={receipt!} posOrder={opened.posOrder} newSale={() => setOpened(null)} doneLabel="Back"
-              footerSlot={copies > 0 ? <ReceiptCopyLine count={copies} /> : undefined} /></ReceiptPrintSheet></ReceiptZoom>
+              footerSlot={copies > 0 ? <ReceiptCopyLine count={copies} /> : undefined} /></ReceiptPrintSheet></ReceiptZoom></StoreMoneyFor>
             <ReceiptSyncOrder posOrder={liveOpened} onRequeue={ids => (outbox.enabled ? outbox.requeue(ids) : Promise.resolve(0))} /></View>
           : local.length === 0 && orders.length === 0 && !failed && !loading
             ? search !== '' || filtered
@@ -192,6 +196,7 @@ export function OrdersScreen({ onBack, history, storeName, cashierName, cashierI
 // sheet's description above the receipt, unprinted. The rule is the order view's (orderPaymentState). The till's own
 // sales are paid at tender and never get it: only a store order passes one.
 function NotPaidLine({ order }: { order: StoreOrder }) {
+  const formatMoney = useFormatStoreMoney();
   const { owing, remainingMinor } = orderPaymentState(order);
   if (!owing) return null;
   const money = formatMoney({ amount: remainingMinor, currency: order.currency }) ?? String(remainingMinor);

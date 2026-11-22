@@ -2,7 +2,8 @@ import { useRef, type JSX, type KeyboardEvent, type ReactNode } from 'react';
 import { Platform, Pressable, ScrollView, View, useWindowDimensions, type ViewProps } from 'react-native';
 import { Path, Polyline } from 'react-native-svg';
 import { createSvgIcon, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Text } from '@tallyui/components';
-import type { StoreOrder } from '@tallyui/core';
+import { type StoreOrder } from '@tallyui/core';
+import { useStoreMoney } from '../lib/money/store-money';
 import type { PosOrder } from '@tallyui/pos';
 import type { AreaColumn } from '../lib/area-columns';
 import { NARROW_WIDTH } from '../lib/layout/wide';
@@ -199,6 +200,7 @@ export function OrdersTable({ local, store, onOpen, onEndReached, footer, active
   const pointer = usePointer();
   const touchRows = width < NARROW_WIDTH || pointer === 'coarse';
   const today = now();
+  const storeMoney = useStoreMoney();
   const items = orderTableItems(local, store, today);
   const rows = items.filter(item => item.type === 'order');
   const ids = rows.map(row => row.id);
@@ -228,7 +230,7 @@ export function OrdersTable({ local, store, onOpen, onEndReached, footer, active
             ))}
             {items.map(item => item.type === 'day' ? dayHeadingView(item) : (
               <KeyboardRow key={item.id} index={ids.indexOf(item.id)} keyboard={keyboard} testID={`${item.kind === 'store' ? 'history' : 'order'}-keyrow-${item.order.id}`}>
-              <OrderPhoneRow item={item} cells={orderRowCells(item, today)}
+              <OrderPhoneRow item={item} cells={orderRowCells(item, today, storeMoney)}
                 prefix={item.kind === 'store' ? 'history' : 'order'} onOpen={onOpen} />
               </KeyboardRow>
             ))}
@@ -247,7 +249,7 @@ export function OrdersTable({ local, store, onOpen, onEndReached, footer, active
               </TableRow>)}
               {items.map(item => {
                 if (item.type === 'day') return dayHeadingView(item);
-                const cells = orderRowCells(item, today);
+                const cells = orderRowCells(item, today, storeMoney);
                 const prefix = item.kind === 'store' ? 'history' : 'order';
                 return (
                   <KeyboardRow key={item.id} index={ids.indexOf(item.id)} keyboard={keyboard} testID={`${prefix}-keyrow-${item.order.id}`}>

@@ -2,9 +2,9 @@ import { useState } from 'react';
 import type { JSX } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Badge, Button, ProductVariantPicker, Text } from '@tallyui/components';
-import { variantPriceLabel } from '@tallyui/pos';
 import type { CatalogueEntry } from '@tallyui/pos';
-import type { ProductTraits, VariantOptionGroup } from '@tallyui/core';
+import { resolvePrice, type ProductTraits, type VariantOptionGroup } from '@tallyui/core';
+import { useFormatStoreMoney } from '../lib/money/store-money';
 import { anyPicks, pickerState, variationStockText } from '../lib/catalogue/variation-match';
 import { VariationSelect } from './variation-select';
 
@@ -17,7 +17,10 @@ export function VariationPicker({ entries, groups, currency, traits, onSelect, o
   const state = pickerState(groups, entries.map(entry => entry.variant), chosen);
   const match = state.matches.length === 1 ? entries.find(entry => entry.variant.id === state.matches[0].id) : undefined;
   const stockText = match ? variationStockText(match.variant.stock) : null;
-  const price = match ? variantPriceLabel(match.variant, currency) : undefined;
+  const formatMoney = useFormatStoreMoney();
+  // @tallyui/pos' variantPriceLabel is resolvePrice + Intl; the same price in the store's format, as the tile reads it.
+  const resolved = match ? resolvePrice(match.variant.prices, currency) : undefined;
+  const price = resolved ? formatMoney(resolved.current) : undefined;
 
   function choose(name: string, value: string | undefined) {
     // Only the cashier's own press becomes a choice; auto-selected values stay display only.

@@ -1,6 +1,7 @@
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 import Catalogue from '../app/catalogue';
+import { StoreSettingsProvider } from '../lib/sale/store-settings-context';
 import type { SaleScreenProps } from '../components/sale-screen';
 
 const mocks = vi.hoisted(() => ({
@@ -49,16 +50,16 @@ vi.mock('../components/sale-screen', () => ({
 afterEach(() => { cleanup(); mocks.pathname = '/catalogue'; });
 
 test("the till's Alt+F and wedge claim are live only while the till is the shown route, not under a pushed screen", () => {
-  render(<Catalogue />);
+  render(<Catalogue />, { wrapper: StoreSettingsProvider });
   expect([mocks.props.searchChord, mocks.props.scanActive]).toEqual([true, true]);
   cleanup();
   mocks.pathname = '/orders';
-  render(<Catalogue />);
+  render(<Catalogue />, { wrapper: StoreSettingsProvider });
   expect([mocks.props.searchChord, mocks.props.scanActive]).toEqual([false, false]);
 });
 
 test("the till's drawer opens Products at /products and Coupons at /coupons", () => {
-  render(<Catalogue />);
+  render(<Catalogue />, { wrapper: StoreSettingsProvider });
   mocks.props.onOpenProducts!();
   mocks.props.onOpenCoupons!();
   mocks.props.onOpenOrders!();
@@ -66,14 +67,14 @@ test("the till's drawer opens Products at /products and Coupons at /coupons", ()
 });
 
 test('Store health in the rail and drawer opens the area index at /health', () => {
-  render(<Catalogue />);
+  render(<Catalogue />, { wrapper: StoreSettingsProvider });
   mocks.router.push.mockClear();
   mocks.props.onOpenHealth!();
   expect(mocks.router.push.mock.calls).toEqual([['/health']]);
 });
 
 test("the storage-outage notice's View status opens /health/database", () => {
-  render(<Catalogue />);
+  render(<Catalogue />, { wrapper: StoreSettingsProvider });
   mocks.router.push.mockClear();
   mocks.props.onOpenDatabaseHealth!();
   expect(mocks.router.push.mock.calls).toEqual([['/health/database']]);
