@@ -62,6 +62,7 @@ import { ReceiptSyncOrder } from './receipt-sync-order';
 import { useReceiptSettings } from '../lib/receipts/receipt-settings';
 import { RegisterControls } from './register-controls';
 import { CancelPaymentView } from './cancel-payment-view';
+import { CheckoutTitleBar } from './checkout-title-bar';
 import { CashierSheet, type CashierOption } from './cashier-sheet';
 import { CouponRows } from './coupon-entry';
 import { OpenOrderTabs, stripCartIds } from './open-order-tabs';
@@ -345,7 +346,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         </>
       ) : sale.stage.kind === 'tender' ? outbox.enabled ? (
         // v2's tender pane is a ScrollView (checkout/tender/tender-pane.tsx:377) whose content takes a minimum height, never
-        // a height (checkout/LEDGER.md:49), so on a phone a tall pane scrolls to Back and the commit button.
+        // a height (checkout/LEDGER.md:49), so on a phone a tall pane scrolls to the commit button.
         <ScrollView testID="checkout-scroll" className="flex-1" contentContainerClassName="grow" keyboardShouldPersistTaps="handled">
         {props.multiplePayments === true ? (
         cancelling && sale.order.payments.length > 0 ? (
@@ -356,16 +357,21 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           </>
         ) : (
           <>
+            <CheckoutTitleBar disabled={sale.saving} onClose={requestCancel}>
+              {/* v2's CancelPaymentButton (checkout-body-view.tsx:87-101): outline-destructive (button/index.tsx:53-54), sm beside
+                  the title when wide, default in the phone sheet (tender-checkout.tsx:129), disabled while the order saves. */}
+              {sale.order.payments.length > 0 ? <Button variant="outline" className="border-destructive bg-card" size={width < SALE_SPLIT_MIN_WIDTH ? undefined : 'sm'} disabled={sale.saving} testID="checkout-cancel-payment" onPress={requestCancel}><Text>Cancel payment</Text></Button> : null}
+            </CheckoutTitleBar>
             {voidError ? <Text testID="tender-void-error" accessibilityRole="alert" className="text-destructive">{voidError}</Text> : null}
-            {/* v2's CancelPaymentButton (checkout-body-view.tsx:87-101): outline-destructive (button/index.tsx:53-54), sm beside
-                the title when wide, default in the phone sheet (tender-checkout.tsx:129), disabled while the order saves. */}
-            {sale.order.payments.length > 0 ? <Button variant="outline" className="border-destructive bg-card" size={width < SALE_SPLIT_MIN_WIDTH ? undefined : 'sm'} disabled={sale.saving} testID="checkout-cancel-payment" onPress={requestCancel}><Text>Cancel payment</Text></Button> : null}
-            <TenderPane multi sale={{ ...sale, cancelTender: requestCancel }} onRecordedOffline={offlineLegs.mark} />
+            <TenderPane multi sale={sale} onRecordedOffline={offlineLegs.mark} />
             {/* One column below 900: the legs sit under the tender (wide, the ledger has the products panel). */}
             {width < SALE_SPLIT_MIN_WIDTH ? <LedgerPane order={sale.order} recordedOffline={offlineLegs.ids} onRemove={sale.saving ? undefined : id => { void removeLeg(id); }} /> : null}
           </>
         )
-      ) : <TenderPane sale={sale} />}
+      ) : <>
+        <CheckoutTitleBar disabled={sale.saving} onClose={() => sale.cancelTender()} />
+        <TenderPane sale={sale} />
+      </>}
         </ScrollView>
       ) : (
         <>

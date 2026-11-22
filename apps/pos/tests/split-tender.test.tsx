@@ -99,7 +99,7 @@ test.each([
     expect(screen.queryByText('Choose an option')).toBeNull();
     if (!leg) {
       // This tree has no Toaster; return to the cart to verify the scanned quantity.
-      fireEvent.click(screen.getByText('Back'));
+      fireEvent.click(screen.getByTestId('checkout-close'));
       expect(screen.getByLabelText('Edit quantity of Espresso').textContent).toBe(quantity);
       expect(screen.queryByTestId('variation-picker')).toBeNull();
       expect(screen.queryByText('Choose an option')).toBeNull();

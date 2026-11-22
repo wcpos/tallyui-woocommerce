@@ -677,3 +677,29 @@ test('multi: percent entry hides the quick amounts and Exact, and closing then r
   expect(screen.getByTestId('checkout-quick-exact')).not.toBeNull();
   expect(screen.getAllByTestId(/^checkout-quick-\d/).length).toBeGreaterThan(0);
 }, 20_000);
+
+test.each([false, true])('multi %s: the tender has the Checkout title bar with an X labelled Close, and no Back', async multi => {
+  await startTender('Cash', 'online-website-available', multi);
+  const bar = screen.getByTestId('checkout-title-bar');
+  expect(within(bar).getByTestId('checkout-title').textContent).toBe('Checkout');
+  expect(within(bar).getByTestId('checkout-close').getAttribute('aria-label')).toBe('Close');
+  expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
+}, 20_000);
+
+test('single: the X returns to the cart', async () => {
+  await startTender('Cash');
+  fireEvent.click(screen.getByTestId('checkout-close'));
+  expect(screen.queryByTestId('checkout-tender')).toBeNull();
+  expect(screen.getByTestId('cart-checkout')).not.toBeNull();
+}, 20_000);
+
+test('single: the X is disabled while the sale saves, and a press keeps the tender', async () => {
+  await startTender('Cash');
+  const release = holdSave();
+  fireEvent.click(screen.getByTestId('checkout-commit'));
+  expect(screen.getByTestId('checkout-close').getAttribute('aria-disabled')).toBe('true');
+  fireEvent.click(screen.getByTestId('checkout-close'));
+  expect(screen.getByTestId('checkout-tender')).not.toBeNull();
+  release();
+  expect(await screen.findByTestId('receipt-order')).not.toBeNull();
+}, 20_000);
