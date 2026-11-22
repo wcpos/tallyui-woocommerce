@@ -3,7 +3,7 @@ import type { JSX } from 'react';
 import { Platform, ScrollView, View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { Button, Receipt, SyncStatus, Text } from '@tallyui/components';
-import { catalogueEntries, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
+import { catalogueEntries, saleTaxContexts, TAX_ADDRESS_ORDER_CREATE_VERSION, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
 import { formatMoney } from '@tallyui/core';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
 import type { CatalogueEntry, CustomerSummary, OutboxState } from '@tallyui/pos';
@@ -47,6 +47,7 @@ import { CatalogueView, PosBar } from './catalogue-view';
 import type { CatalogueViewProps } from './catalogue-view';
 import type { CustomerSource } from '../lib/customers/customer-source';
 import { CustomerPicker } from './customer-picker';
+import { TaxBasedOnCaption } from './tax-based-on-caption';
 import type { ReceiptMailer } from '../lib/receipts/receipt-mailer';
 import { useReceiptEmailSender, type ReceiptEmailCollection } from '../lib/receipts/receipt-emails';
 import { ReceiptEmail } from './receipt-email';
@@ -84,6 +85,8 @@ export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | '
   storeSettings: StoreSettings; locale?: string;
   multiplePayments?: boolean;
   capabilities?: ServerCapabilities;
+  /** The till's "Tax based on" caption: "Change setting" opens Settings › Tax. Without it the caption is not shown. */
+  onOpenTaxSettings?: () => void;
   couponCollections?: { coupons: RxCollection; products: RxCollection };
   cashier?: CashierCapabilities;
   cashiers?: CashierOption[];
@@ -137,6 +140,12 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const discountCodes = useMemo(() => props.couponCollections && outboxOrders
     ? saleDiscountCodes({ ...props.couponCollections, orders: outboxOrders }) : undefined, [props.couponCollections, outboxOrders]);
   const capabilities: ServerCapabilities = props.capabilities ?? DEFAULT_CAPABILITIES;
+  const orderCreate = capabilities.orderCreate ?? 0;
+  // #722: each sale is taxed for its customer's address as WooCommerce's tax_based_on picks it; saleTaxContexts
+  // re-matches only at order.create 8, below which the server taxes on the shop base (every customer gets the store's rates).
+  const taxContextFor = useMemo(() => saleTaxContexts(props.storeSettings, { orderCreateVersion: orderCreate }),
+    [props.storeSettings, orderCreate]);
+  const readsAddress = orderCreate >= TAX_ADDRESS_ORDER_CREATE_VERSION;
   const tax = useTax();
   const { rounding } = tax;
   // useSale's own coupon gate (codesFor): the UI shows only when applyCoupon can succeed.
@@ -145,6 +154,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const sale = useSale({ currency, calcDiscountsSequentially: props.storeSettings.calcDiscountsSequentially }, {
     registerId: REGISTER_ID, cashierRef: props.cashierRef,
     capabilities,
+    taxContextFor,
     session: register?.saleSession,
     onSaleCompleted: outbox.enabled ? outbox.record : undefined,
     isStored: outbox.enabled ? outbox.isStored : undefined,
@@ -304,6 +314,11 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     <VariantChooser entries={variants} currency={currency} traits={connector.traits.product} onSelect={onAdd} onClose={() => setVariants(undefined)} />
   ) : <CatalogueView {...props} onSelect={onSelect} onAddEntry={onAdd} onScan={onScan} message={message}
     tax={tax} locked={lock} inCartCounts={inCart} hideBar
+    // v2 pos/products/footer.tsx:53, gated on calcTaxes: the connector sets taxBasedOn only when calc_taxes is yes. Below
+    // order.create 8 the sale is taxed on the shop base whoever the customer is, so the panel shows the shop address.
+    captionStart={sale.taxLocation && props.onOpenTaxSettings ? <TaxBasedOnCaption settings={props.storeSettings}
+      calcTaxes={props.storeSettings.taxBasedOn !== undefined} onChangeSetting={props.onOpenTaxSettings}
+      location={readsAddress ? sale.taxLocation : { ...sale.taxLocation, hasCustomer: false }} /> : undefined}
     // v2's `onTill`: Alt+F only on the till's own route, never at checkout; the phone till brings Products forward.
     searchChord={chords} onRevealSearch={phoneLayout ? () => setCartOpen(false) : undefined}
     viewState={viewState} onViewStateChange={setViewState} cashierControl={cashierControl} />;
