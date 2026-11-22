@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 import { FlatList, Pressable, View } from 'react-native';
 import { IconButton, Text, XIcon } from '@tallyui/components';
-import { formatMoney } from '@tallyui/core';
+import { useFormatStoreMoney } from '../lib/money/store-money';
 import { getInitials } from '../lib/cashier/initials';
 import { cartContentsLine, relativeAge } from '../lib/sale/cart-contents';
 import { UserIcon } from './icons';
@@ -27,6 +27,7 @@ export interface OpenOrdersListProps {
 // list, since the carts are local and few (a FlatList); and the "restarts on add" age rule (cartRestartsOnAdd), for server pos-open
 // orders the app does not have (the blank cart has no row). Copied: the current row's focus on open and the `leaving` prop.
 export function OpenOrdersList({ parked, current, currentOpenedAt, currency, locale, onSelect, onClose, onError, leaving = false, now = Date.now }: OpenOrdersListProps): JSX.Element {
+  const formatMoney = useFormatStoreMoney();
   // The ages tick as the strip's do (open-order-tabs.tsx:85-101).
   const [nowMs, setNowMs] = useState(now);
   const clock = useRef(now); clock.current = now;

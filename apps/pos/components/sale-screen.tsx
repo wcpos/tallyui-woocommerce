@@ -4,7 +4,8 @@ import { Platform, ScrollView, View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { Button, Receipt, SyncStatus, Text } from '@tallyui/components';
 import { catalogueEntries, saleTaxContexts, TAX_ADDRESS_ORDER_CREATE_VERSION, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
-import { formatMoney } from '@tallyui/core';
+import { useFormatStoreMoney, useStoreMoney } from '../lib/money/store-money';
+import { StoreMoneyFor } from '../lib/money/store-money-for';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
 import type { CatalogueEntry, CustomerSummary, OutboxState } from '@tallyui/pos';
 import { createCustomersBlockedReason, type CashierCapabilities } from '../lib/auth/capabilities';
@@ -119,6 +120,8 @@ export function SaleScreen(props: SaleScreenProps): JSX.Element {
 }
 
 function SaleScreenInner(props: SaleScreenProps): JSX.Element {
+  const formatMoney = useFormatStoreMoney();
+  const storeMoney = useStoreMoney();
   const { connector, currency, parkedCarts, mailer, receiptEmails } = props;
   const [viewState, setViewState] = useCatalogueView();
   const [liveWidth, setLiveWidth] = useState<number | null>(null);
@@ -290,7 +293,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   // v2 use-barcode.ts:173-181: refused before the lookup, so a locked till never reads a scan as "not found".
   const onScan = (code: string) => refuseLockedAdd(lock) ? 'keep' as const : scanAdd(code);
 
-  const drawerFigure = drawerFigureText(register, minor => sheetMoney(minor, currency, props.locale));
+  const drawerFigure = drawerFigureText(register, minor => sheetMoney(minor, currency, props.locale, storeMoney));
   const signOutTitle = signOutQuestion(register, drawerFigure);
   const cashierControl = props.onSwitchCashier ? <CashierSheet name={props.cashierName} cashiers={props.cashiers ?? []}
       onSwitch={changeCashier} onAddAnother={() => changeCashier()} onSignOut={props.onSignOut}
@@ -411,9 +414,10 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           <ReceiptStoreLine posOrder={receiptOrder} />
           {storeHtml !== null ? <StoreReceipt html={storeHtml} paper={paperWidth} doneLabel={doneLabel} onDone={sale.newSale} printed={printCount > 0}
             onLoad={() => setFrameLoaded(orderId)} /> : <>
-          <Receipt order={sale.stage.order} posOrder={receiptOrder} store={{ name: props.storeName }}
+          {/* The sale's own currency (the till's, so a no-op today), by the same rule as the Orders screen's receipt. */}
+          <StoreMoneyFor currency={receiptCurrency}><Receipt order={sale.stage.order} posOrder={receiptOrder} store={{ name: props.storeName }}
             cashier={props.cashierName} registerId={REGISTER_ID} newSale={sale.newSale}
-            doneLabel={doneLabel} />
+            doneLabel={doneLabel} /></StoreMoneyFor>
           {receiptCoupons.length ? (
             <View testID="receipt-coupons" className="gap-1 py-2">
               {receiptCoupons.map(coupon => (
