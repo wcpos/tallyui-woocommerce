@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 import { ClosureSheet, RegisterColumn, RegisterCount, RegisterPanel, Switch, Text } from '@tallyui/components';
 import { Portal } from '@tallyui/primitives';
+import { useSession } from '../lib/auth/session-context';
+import { cashierNameFor, deviceCashiers } from '../lib/auth/cashier-name';
 import { useFormatStoreMoney } from '../lib/money/store-money';
 import { useRegister } from '../lib/register/register-context';
 import { toast } from '../lib/toast/toast';
@@ -39,12 +41,26 @@ export function RegisterControls({ currency, storeName, locale, cartEmpty, child
 }) {
   const formatMoney = useFormatStoreMoney();
   const register = useRegister();
+  const auth = useSession() as ReturnType<typeof useSession> | null;
+  const opener = auth && register?.session?.opened_by
+    ? cashierNameFor(deviceCashiers(auth.session, auth.cashiers), register.session.opened_by) : undefined;
   const [ownOpen, setOwnOpen] = useState(false);
   const controlled = controlledOpen !== undefined && onPanelOpenChange !== undefined;
   const panelOpen = controlled ? controlledOpen : ownOpen;
   const setPanelOpen = controlled ? onPanelOpenChange : setOwnOpen;
   const [showClosure, setShowClosure] = useState(false);
+  const [xPrint, setXPrint] = useState(0);
+  const printXReport = () => setXPrint(n => n + 1);
   const hadCounting = useRef(false);
+  useEffect(() => {
+    if (!xPrint) return;
+    // Portal publishes to its host in an effect; print after that DOM update.
+    const timer = setTimeout(() => {
+      if (typeof window !== 'undefined' && typeof window.print === 'function') window.print();
+      setXPrint(0);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [xPrint]);
   useEffect(() => {
     if (register?.session?.status === 'counting') {
       hadCounting.current = true;
@@ -65,16 +81,23 @@ export function RegisterControls({ currency, storeName, locale, cartEmpty, child
     return doc;
   } } };
   return (
-    <View className="flex-1" dataSet={showClosure ? { print: 'hide' } : undefined}>
+    <View className="flex-1" dataSet={showClosure || (xPrint > 0 && register.session) ? { print: 'hide' } : undefined}>
       {/* No row of its own over the column: v2 draws one bar over the cart (cart/index.tsx RegisterBar), so the
           register's pill is RegisterBarShell's and the way into the panel is the cashier sheet's drawer door.
           No registerName: a Tally till has one register, so RegisterPanel titles itself "Register", as v2
-          register-panel.tsx does for a single register. */}
+          register-panel.tsx does for a single register. Its side sheet and print footer follow v2
+          register-panel.tsx:280-317, 615-660. */}
       <RegisterColumn register={withOpenToast} registerId={register.boundRegisterId} registers={[]} onPick={() => {}}
         currency={currency} cartEmpty={cartEmpty} countSlot={<RegisterCount register={register} currency={currency} />}>
         {children}
       </RegisterColumn>
-      <RegisterPanel register={register} currency={currency} open={panelOpen} onOpenChange={setPanelOpen} />
+      <RegisterPanel register={register} currency={currency} open={panelOpen} onOpenChange={setPanelOpen}
+        presentation="side" storeName={storeName} onPrintXReport={printXReport} openedBy={opener ? { name: opener } : undefined} />
+      {!showClosure && xPrint > 0 && register.session && <Portal name="x-report-print">
+        <ClosurePrint kind="x" closure={register.session} expected={register.expected} storeName={storeName} currency={currency} locale={locale}
+          registerName={register.registerName ?? 'This till'}
+          resolveCashierName={id => cashierNameFor(deviceCashiers(auth?.session ?? null, auth?.cashiers ?? []), id)} />
+      </Portal>}
       {showClosure && register.lastClosure && <>
         <ClosureSheet register={register} currency={currency} onDone={() => setShowClosure(false)} onPrint={() => {
           if (typeof window !== 'undefined' && typeof window.print === 'function') window.print();
