@@ -94,8 +94,8 @@ export function parkCart(order: Order, now = new Date(), openedAt?: string): Par
       // Whole, as the sale holds them: order.create 8 sends every address field with taxAddress (#623).
       ...(order.customer.billing ? { billing: definedFields(order.customer.billing) } : {}),
       ...(order.customer.shipping ? { shipping: definedFields(order.customer.shipping) } : {}),
-      // No taxIds yet (#626): the first PR that sets them on a sale (setTaxIds, or a connector read) adds them here with
-      // schema v5, and turns the #626 test.todo in parked-carts.test.ts into a test.
+      // No taxIds yet (#626): the first PR that puts them on the sale's customer (setTaxIds, a connector read, or a
+      // customer passed to setCustomer with them) adds them here with schema v5, and turns the #626 test.todo into a test.
     } } : {}),
     lines: order.lineItems.map(({ productId, variantId, quantity, name, discounts, custom, unitPriceMinor, sku, taxClass, taxStatus }) => ({
       productId, ...(custom ? { custom: {
