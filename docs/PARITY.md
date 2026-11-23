@@ -14,7 +14,7 @@ against TallyUI 3.10 to 3.19 and the monorepo's old `next` lane. Those versions 
 - **The pin:** the till pins `@tallyui/*` 4.2.0. The library has moved on since (cash rounding ADR-094, cart hover
   peek, removal undo rules); none of that is in the till until a release is bumped.
 
-**Where it stands: 51 of 176 judged rows match (29%); 77 partial, 48 missing, 5 not reached.** The frame is v2's:
+**Where it stands: 51 of 176 judged rows match (29%); 78 partial, 47 missing, 5 not reached.** The frame is v2's:
 rail, sale screen, cash tender, register and browse screens. Most of what a v2 cashier does beyond a plain cash sale
 is not there yet.
 
@@ -163,7 +163,7 @@ pick and approval; H, safety nets; I, translations; then the periphery (customer
 | 69 | Quantity and price keypads, quick-discount keys | quantity-keypad, quick-discount-keys.tsx | L cart.tsx LinePopover | MATCH | – | – | |
 | 70 | Line edit dialog (name, SKU, regular price, tax status and class, meta) | cells/edit-line-item/form.tsx | L `updateLine` unwired | MISSING | money | M | No form in the app; library covers name, SKU, regular price only |
 | 71 | Line attributes, meta, notes | product-name | L CartLine | PARTIAL | look | S | Attributes and SKU show; meta and line notes not verified |
-| 72 | Remove line with Undo | use-remove-line-item | W/lib/removed-from-cart-toast.ts:8 | MISSING | behaviour | S | Toast without Undo at 4.2.0; library main has since gained removal undo |
+| 72 | Remove line with Undo | use-remove-line-item | W/lib/toast/removed-from-cart-toast.ts | PARTIAL | behaviour | S | Undo is mounted since wiring pass 3 (`useSale().removal/restore`, 4.2.0) for product, fee and shipping lines. Once the sale is parked, finished or replaced, Undo says "This item can no longer be put back. Add it again."; v2 puts the line back into the order it left (use-remove-line-item.ts:36-40) |
 | 73 | Miscellaneous product | cart/add-misc-product.tsx | W/components/cart-add-menu.tsx | PARTIAL | money | S | No virtual, downloadable, categories; needs orderCreate 5. "+ SKU" is mounted since wiring pass 2 |
 | 74 | Fee: fixed or percent, includes tax, tax class | cart/add-fee.tsx | cart-add-menu.tsx ChargeForm | PARTIAL | money | S | Amount Includes Tax starts in the store's tax mode (v2: on; Desk Q4, ADR-075) and is hidden on a percent fee, which then follows the store's mode (v2 shows it). The % toggle and the switch are mounted since wiring pass 2 |
 | 75 | Shipping: method, amount, tax | cart/add-shipping.tsx | cart-add-menu.tsx | PARTIAL | money | S | No method select; Amount Includes Tax starts in the store's tax mode (v2: on). The switch and "No tax" (orderCreate 6) are mounted since wiring pass 2 |
@@ -348,7 +348,7 @@ it until the ruling changes.
 
 ## Counts
 
-- 181 rows: 51 MATCH, 77 PARTIAL, 48 MISSING, 5 UNVISITED. MATCH is 51 of 176 judged, 29%.
+- 181 rows: 51 MATCH, 78 PARTIAL, 47 MISSING, 5 UNVISITED. MATCH is 51 of 176 judged, 29%.
 - The 125 open rows by kind: 74 behaviour, 28 money, 23 look (look is under-counted: code shows structure, not pixels).
 - By size: 58 S, 49 M, 18 L.
 - The 18 L rows: bell feed (13), translations (21), health database (32), mini-apps (36), customer display (43), store gateway tiles (95), order-pay webview (96), smart readers (103), on-device readers (104), real printer output (126), refunds (131), orders on the device (142), order edit (157), product price edit (160), product edit dialog (162), customer open and edit (170), coupon add and edit (175), report scope (176).

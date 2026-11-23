@@ -154,6 +154,26 @@ test('each charge form shows its v2 controls', async () => {
   expect(custom.getByRole('textbox', { name: 'SKU' })).not.toBeNull();
 }, 20_000);
 
+test('a negative fee is refused in % and $ mode', async () => {
+  await renderTill(COUPONS);
+  await addEspresso();
+  openAddMenuItem('fee');
+  const form = within(screen.getByRole('group', { name: 'Add fee' }));
+  const unit = within(form.getByRole('group', { name: 'Amount unit' }));
+  fireEvent.click(unit.getByRole('button', { name: '%' }));
+  fireEvent.change(form.getByLabelText('Name'), { target: { value: 'Bag' } });
+  fireEvent.change(form.getByLabelText('Amount'), { target: { value: '-10' } });
+  fireEvent.click(form.getByRole('button', { name: 'Add to Cart' }));
+  expect(form.getByText('A fee cannot be negative. Use Add Discount instead.')).not.toBeNull();
+  expect(screen.queryByTestId('add-fee-dialog')).not.toBeNull();
+  expect(screen.queryByTestId('cart-fee-0')).toBeNull();
+  fireEvent.click(unit.getByRole('button', { name: '$' }));
+  fireEvent.change(form.getByLabelText('Amount'), { target: { value: '-1.00' } });
+  fireEvent.click(form.getByRole('button', { name: 'Add to Cart' }));
+  expect(form.getByText('A fee cannot be negative. Use Add Discount instead.')).not.toBeNull();
+  expect(screen.queryByTestId('cart-fee-0')).toBeNull();
+}, 20_000);
+
 test('Add Shipping has no No tax below orderCreate 6', async () => {
   await renderTill({ ...COUPONS, orderCreate: 5 });
   openAddMenuItem('shipping');
