@@ -121,6 +121,94 @@ test('sells a fee, a shipping charge and a custom item and pushes them to WooCom
   expect(payload.shipping_lines).toEqual([{ method_id: 'pos', method_title: 'Delivery', total: '5.00' }]);
 }, 20_000);
 
+test('pushes a percent fee and a custom item SKU to WooCommerce', async () => {
+  fetchStub.mockImplementation(async (input, init) => {
+    const url = new URL(String(input));
+    if (init?.method === 'POST' && url.pathname.endsWith('/push/orders')) {
+      return Response.json({ document: { id: 301, number: '301', status: 'completed', total: '6.600000' } }, { status: 201 });
+    }
+    if (url.pathname.endsWith('/site')) return Response.json({ wcpos_version: '1.10.20' });
+    throw new Error(`Unexpected request: ${url}`);
+  });
+  render(
+    <SessionProvider>
+      <OutboxProvider storage={getRxStorageMemory()}>
+        <OrderStoreReady />
+        <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency="USD" products={products}
+          storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}} capabilities={CHARGES} />
+      </OutboxProvider>
+    </SessionProvider>,
+  );
+  await screen.findByText('Order store ready');
+  fireEvent.click(screen.getByText('Espresso'));
+  openAddMenuItem('fee');
+  const fee = within(screen.getByTestId('charge-form'));
+  fireEvent.change(fee.getByRole('textbox', { name: 'Name' }), { target: { value: 'Service' } });
+  fireEvent.click(within(fee.getByRole('group', { name: 'Amount unit' })).getByRole('button', { name: '%' }));
+  fireEvent.change(fee.getByRole('textbox', { name: 'Amount' }), { target: { value: '10' } });
+  fireEvent.click(fee.getByRole('button', { name: 'Add to Cart' }));
+  expect(within(screen.getByTestId('cart-fee-0')).getByTestId('cart-charge-total').textContent).toBe('$0.30');
+  openAddMenuItem('misc-product');
+  const custom = within(screen.getByTestId('charge-form'));
+  fireEvent.change(custom.getByRole('textbox', { name: 'Name' }), { target: { value: 'Gift wrap' } });
+  fireEvent.change(custom.getByRole('textbox', { name: 'Amount' }), { target: { value: '3.00' } });
+  fireEvent.click(custom.getByRole('button', { name: '+ SKU' }));
+  fireEvent.change(custom.getByRole('textbox', { name: 'SKU' }), { target: { value: 'GW-1' } });
+  fireEvent.click(custom.getByRole('button', { name: 'Add to Cart' }));
+  // @tallyui/pos 4.2.0 dist/index.js:1542-1550 recalculates over all product lines: 10% of $6.00 after Gift wrap.
+  const feeRow = within(screen.getByTestId('cart-fee-0'));
+  expect(feeRow.getByText('Service')).not.toBeNull();
+  expect(feeRow.getByTestId('cart-charge-total').textContent).toBe('$0.60');
+  fireEvent.click(screen.getByTestId('cart-checkout'));
+  await takeCash(1000);
+  const receiptOrder = await screen.findByTestId('receipt-order');
+  expect(within(receiptOrder.parentElement!).getByLabelText('Total: $6.60')).not.toBeNull();
+  await waitFor(() => expect(screen.queryByTestId('sync-status')).toBeNull());
+  expect(posts()).toHaveLength(1);
+  const payload = JSON.parse(String(posts()[0][1]?.body)).payload;
+  expect(payload.fee_lines).toEqual([{ name: 'Service', total: '0.60', tax_status: 'taxable', tax_class: '' }]);
+  expect(payload.line_items).toEqual(expect.arrayContaining([
+    expect.objectContaining({ product_id: 0, name: 'Gift wrap', total: '3.00', sku: 'GW-1' }),
+  ]));
+}, 20_000);
+
+test('pushes an inclusive fee as net and includes its tax in the receipt total', async () => {
+  fetchStub.mockImplementation(async (input, init) => {
+    const url = new URL(String(input));
+    if (init?.method === 'POST' && url.pathname.endsWith('/push/orders')) {
+      return Response.json({ document: { id: 301, number: '301', status: 'completed', total: '4.400000' } }, { status: 201 });
+    }
+    if (url.pathname.endsWith('/site')) return Response.json({ wcpos_version: '1.10.20' });
+    throw new Error(`Unexpected request: ${url}`);
+  });
+  render(
+    <SessionProvider>
+      <OutboxProvider storage={getRxStorageMemory()}>
+        <OrderStoreReady />
+        <SaleScreen storeSettings={{ ...noTaxSettings, taxRatesPpm: { default: 100000 } }} connector={createWooCommerceConnector()}
+          currency="USD" products={products} storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready"
+          onSignOut={() => {}} capabilities={{ orderCreate: 5, lineTax: CHARGES.lineTax }} />
+      </OutboxProvider>
+    </SessionProvider>,
+  );
+  await screen.findByText('Order store ready');
+  fireEvent.click(screen.getByText('Espresso'));
+  openAddMenuItem('fee');
+  const fee = within(screen.getByTestId('charge-form'));
+  fireEvent.change(fee.getByRole('textbox', { name: 'Name' }), { target: { value: 'Bag' } });
+  fireEvent.change(fee.getByRole('textbox', { name: 'Amount' }), { target: { value: '1.10' } });
+  fireEvent.click(fee.getByRole('switch', { name: 'Amount Includes Tax' }));
+  fireEvent.click(fee.getByRole('button', { name: 'Add to Cart' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
+  await takeCash(500);
+  const receiptOrder = await screen.findByTestId('receipt-order');
+  expect(within(receiptOrder.parentElement!).getByLabelText('Total: $4.40')).not.toBeNull();
+  await waitFor(() => expect(screen.queryByTestId('sync-status')).toBeNull());
+  expect(posts()).toHaveLength(1);
+  const payload = JSON.parse(String(posts()[0][1]?.body)).payload;
+  expect(payload.fee_lines).toEqual([{ name: 'Bag', total: '1.00', tax_status: 'taxable', tax_class: '' }]);
+}, 20_000);
+
 test('a store without order_create_v5 sells on the v3 fallback: no charges, one cash payment, no fee or shipping lines', async () => {
   fetchStub.mockImplementation(async (input, init) => {
     const url = new URL(String(input));

@@ -88,13 +88,14 @@ export function CartAddMenu({ sale, taxClasses, coupons, couponsOffered, custome
     {dialog === 'customer' && customers && <AddCustomerDialog source={customers} onClose={close} onCreated={assignCustomer} />}
     {(dialog === 'misc-product' || dialog === 'fee' || dialog === 'shipping') && <Dialog open onOpenChange={onOpenChange}>
       <DialogContent testID={`add-${dialog}-dialog`} className="w-full max-w-lg">
-        {/* Wired as the Cart wires its own ChargeForm. */}
+        {/* As the library Cart wires its ChargeForm (4.2.0), plus `sku` for v2's custom item SKU; v2 cart/add-fee.tsx, add-shipping.tsx, add-misc-product.tsx. */}
         <ChargeForm kind={dialog === 'misc-product' ? 'custom' : dialog} currency={sale.order.currency} lineTax={sale.capabilities?.lineTax} taxClasses={taxClasses}
+          allowPercent pricesIncludeTax={sale.order.pricesIncludeTax} shippingNoTax={(sale.capabilities?.orderCreate ?? 0) >= 6} sku
           shippingTaxFromStore={sale.capabilities?.taxRounding?.granularity === 'woocommerce'} onClose={close}
-          onApply={({ kind: chargeKind, name, amountMinor, taxStatus, taxClass }) => {
-            const result = chargeKind === 'custom' ? sale.addCustomLine({ name, priceMinor: amountMinor, taxStatus, taxClass })
-              : chargeKind === 'fee' ? sale.addFee({ name, amountMinor, taxStatus, taxClass })
-                : sale.addShipping({ name, amountMinor, taxStatus, taxClass });
+          onApply={({ kind: chargeKind, name, amountMinor, taxStatus, taxClass, amountIncludesTax, percent, sku }) => {
+            const result = chargeKind === 'custom' ? sale.addCustomLine({ name, priceMinor: amountMinor, taxStatus, taxClass, sku })
+              : chargeKind === 'fee' ? sale.addFee({ name, amountMinor, taxStatus, taxClass, amountIncludesTax, percent })
+                : sale.addShipping({ name, amountMinor, taxStatus, taxClass, amountIncludesTax });
             if (typeof result !== 'string') cartLogger.info(chargeKind === 'fee' ? `Fee added: ${name}` : chargeKind === 'shipping' ? `Shipping added: ${name}` : `${name} added to cart`);
             return typeof result === 'string' ? result : null;
           }} />

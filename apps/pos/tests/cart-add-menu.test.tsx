@@ -132,6 +132,32 @@ test.each([4, 3])('the charge items are hidden when orderCreate is %s', async or
   for (const item of ['misc-product', 'fee', 'shipping']) expect(screen.queryByTestId(`cart-add-menu-${item}`)).toBeNull();
 }, 20_000);
 
+test('each charge form shows its v2 controls, with shipping No tax gated on orderCreate 6', async () => {
+  await renderTill(COUPONS);
+  openAddMenuItem('fee');
+  const fee = within(screen.getByRole('group', { name: 'Add fee' }));
+  const unit = within(fee.getByRole('group', { name: 'Amount unit' }));
+  expect(unit.getByRole('button', { name: '$' })).not.toBeNull();
+  expect(unit.getByRole('button', { name: '%' })).not.toBeNull();
+  expect(fee.getByRole('switch', { name: 'Amount Includes Tax' }).getAttribute('aria-checked')).toBe('false');
+  fireEvent.click(fee.getByRole('button', { name: 'Cancel' }));
+  openAddMenuItem('shipping');
+  const shipping = within(screen.getByRole('group', { name: 'Add shipping' }));
+  expect(shipping.getByRole('switch', { name: 'Amount Includes Tax' })).not.toBeNull();
+  expect(shipping.getByRole('switch', { name: 'No tax' })).not.toBeNull();
+  fireEvent.click(shipping.getByRole('button', { name: 'Cancel' }));
+  openAddMenuItem('misc-product');
+  const custom = within(screen.getByRole('group', { name: 'Add custom item' }));
+  expect(custom.queryByRole('group', { name: 'Amount unit' })).toBeNull();
+  expect(custom.queryByRole('switch', { name: 'Amount Includes Tax' })).toBeNull();
+  fireEvent.click(custom.getByRole('button', { name: '+ SKU' }));
+  expect(custom.getByRole('textbox', { name: 'SKU' })).not.toBeNull();
+  cleanup();
+  await renderTill({ ...COUPONS, orderCreate: 5 });
+  openAddMenuItem('shipping');
+  expect(within(screen.getByRole('group', { name: 'Add shipping' })).queryByRole('switch', { name: 'No tax' })).toBeNull();
+}, 20_000);
+
 test('Add Fee, Add Shipping and Add custom item each open a form fixed to their kind and reach the order', async () => {
   await renderTill();
   await addEspresso();
