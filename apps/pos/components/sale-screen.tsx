@@ -3,7 +3,7 @@ import type { JSX } from 'react';
 import { Platform, View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
 import { Receipt, SyncStatus, Text } from '@tallyui/components';
-import { catalogueEntries, saleTaxContexts, TAX_ADDRESS_ORDER_CREATE_VERSION, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
+import { catalogueEntries, saleTaxContexts, TAX_ADDRESS_ORDER_CREATE_VERSION, TaxProvider, taxProviderProps, taxSettingsForLocation, useSale, useTax } from '@tallyui/pos';
 import { useFormatStoreMoney, useStoreMoney } from '../lib/money/store-money';
 import { StoreMoneyFor } from '../lib/money/store-money-for';
 import type { ServerCapabilities, StoreSettings } from '@tallyui/core';
@@ -37,6 +37,7 @@ import { useTenderStart } from '../lib/sale/use-tender-start';
 import { useVoidSale } from '../lib/sale/use-void-sale';
 import { saleDiscountCodes } from '../lib/sale/discount-codes';
 import { taxClassOptions } from '../lib/sale/tax-classes';
+import { taxRateLabel } from '../lib/sale/tax-labels';
 import { refuseLockedAdd, tillLock } from '../lib/sale/till-lock';
 import { saleScanHandlers } from '../lib/scan/sale-scan';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
@@ -164,6 +165,9 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     discountCodes,
     defaultCustomer: props.defaultCustomer,
   });
+  const taxLabel = useMemo(() => taxRateLabel(sale.taxLocation
+    ? taxSettingsForLocation(props.storeSettings, sale.taxLocation.location) : props.storeSettings),
+    [props.storeSettings, sale.taxLocation]);
   const assignCustomer = useAssignCustomer(sale);
   const inCart = useMemo(() => inCartCounts(sale.order.lineItems), [sale.order.lineItems]);
   const receiptOrderId = sale.stage.kind === 'receipt' ? sale.stage.posOrder.id : null;
@@ -339,6 +343,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           {/* M6's order notes can take the price-change reason via onPriceChange. */}
           {/* B7: quantity and price open keypad popovers, as v2's cart/cells/quantity-keypad.tsx and cart/cells/price.tsx do. */}
           <CartWithSettings sale={{ ...sale, startTender: startTender }} canEditPrice lineEditor="popover" taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)}
+            taxLabel={taxLabel}
             afterSubtotal={couponsOffered && props.couponCollections ? <CouponRows sale={sale} /> : undefined}
             // Avoid counting itemised coupons twice, matching v2 cart/totals.tsx:121-148.
             couponDiscountMinor={couponsOffered && props.couponCollections

@@ -100,6 +100,22 @@ test.each([
   expect(screen.getByTestId('cart-checkout').textContent).toBe(`Checkout ${total}`);
 });
 
+test("the cart's tax row is named after the store's rate", () => {
+  renderSale({ storeSettings: taxed });
+  fireEvent.click(screen.getByText('Espresso'));
+  const footer = within(screen.getByTestId('cart-footer'));
+  expect(footer.getByText('CA Tax')).toBeTruthy();
+  expect(footer.queryByText('Tax 10%')).toBeNull();
+});
+
+test("the cart's tax row follows the customer's rate name", () => {
+  renderSale({ storeSettings: taxed, defaultCustomer: customer, capabilities: { orderCreate: 8 } });
+  fireEvent.click(screen.getByText('Espresso'));
+  const footer = within(screen.getByTestId('cart-footer'));
+  expect(footer.getByText('VAT')).toBeTruthy();
+  expect(footer.queryByText('CA Tax')).toBeNull();
+});
+
 test("the till's panel links to Settings › Tax and lists View all tax rates", () => {
   renderSale({ storeSettings: taxed });
   fireEvent.click(screen.getByTestId('tax-based-on-trigger'));
