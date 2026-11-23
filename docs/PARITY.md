@@ -158,7 +158,7 @@ pick and approval; H, safety nets; I, translations; then the periphery (customer
 |---|---|---|---|---|---|---|---|
 | 65 | Add: increment or new line, split line | pos hooks | L use-sale.ts | MATCH | – | – | |
 | 66 | Decimal quantities | quantity keypad | L/pos/src/order/order-builder.ts:600 | MISSING | money | M | Throws "Quantity must be an integer >= 1" |
-| 67 | Stock guard (overselling) | hooks/stock-guard | W sale-screen.tsx addEntry | PARTIAL | behaviour | M | Add (tap, chooser, scan) guarded with v2's rules and toasts (#642); quantity raise in the cart and the pay-time gate missing |
+| 67 | Stock guard (overselling) | hooks/stock-guard | W sale-screen.tsx addEntry | PARTIAL | behaviour | M | Add (tap, chooser, scan) and a quantity raise in the cart guarded with v2's rules and toasts; the pay-time gate missing |
 | 68 | Cart columns | cart/cells | W/components/cart-settings.tsx:130 | PARTIAL | look | S | No Subtotal or Actions column and no tax displays on Price, Subtotal or Total (not in the library). Regular price, On sale and column order (Move up / Move down for v2's drag) are mounted since #635 |
 | 69 | Quantity and price keypads, quick-discount keys | quantity-keypad, quick-discount-keys.tsx | L cart.tsx LinePopover | MATCH | – | – | |
 | 70 | Line edit dialog (name, SKU, regular price, tax status and class, meta) | cells/edit-line-item/form.tsx | L `updateLine` unwired | MISSING | money | M | No form in the app; library covers name, SKU, regular price only |
