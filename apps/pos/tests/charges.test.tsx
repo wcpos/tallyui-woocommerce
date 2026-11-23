@@ -209,6 +209,43 @@ test('pushes an inclusive fee as net and includes its tax in the receipt total',
   expect(payload.fee_lines).toEqual([{ name: 'Bag', total: '1.00', tax_status: 'taxable', tax_class: '' }]);
 }, 20_000);
 
+test('pushes inclusive shipping as net and includes its tax in the receipt total', async () => {
+  fetchStub.mockImplementation(async (input, init) => {
+    const url = new URL(String(input));
+    if (init?.method === 'POST' && url.pathname.endsWith('/push/orders')) {
+      return Response.json({ document: { id: 301, number: '301', status: 'completed', total: '8.800000' } }, { status: 201 });
+    }
+    if (url.pathname.endsWith('/site')) return Response.json({ wcpos_version: '1.10.20' });
+    throw new Error(`Unexpected request: ${url}`);
+  });
+  render(
+    <SessionProvider>
+      <OutboxProvider storage={getRxStorageMemory()}>
+        <OrderStoreReady />
+        <SaleScreen storeSettings={{ ...noTaxSettings, taxRatesPpm: { default: 100000 } }} connector={createWooCommerceConnector()}
+          currency="USD" products={products} storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready"
+          onSignOut={() => {}} capabilities={{ orderCreate: 5, lineTax: CHARGES.lineTax }} />
+      </OutboxProvider>
+    </SessionProvider>,
+  );
+  await screen.findByText('Order store ready');
+  fireEvent.click(screen.getByText('Espresso'));
+  openAddMenuItem('shipping');
+  const shipping = within(screen.getByTestId('charge-form'));
+  fireEvent.change(shipping.getByRole('textbox', { name: 'Name' }), { target: { value: 'Delivery' } });
+  fireEvent.change(shipping.getByRole('textbox', { name: 'Amount' }), { target: { value: '5.50' } });
+  fireEvent.click(shipping.getByRole('switch', { name: 'Amount Includes Tax' }));
+  fireEvent.click(shipping.getByRole('button', { name: 'Add to Cart' }));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
+  await takeCash(1000);
+  const receiptOrder = await screen.findByTestId('receipt-order');
+  expect(within(receiptOrder.parentElement!).getByLabelText('Total: $8.80')).not.toBeNull();
+  await waitFor(() => expect(screen.queryByTestId('sync-status')).toBeNull());
+  expect(posts()).toHaveLength(1);
+  const payload = JSON.parse(String(posts()[0][1]?.body)).payload;
+  expect(payload.shipping_lines).toEqual([{ method_id: 'pos', method_title: 'Delivery', total: '5.00' }]);
+}, 20_000);
+
 test('a store without order_create_v5 sells on the v3 fallback: no charges, one cash payment, no fee or shipping lines', async () => {
   fetchStub.mockImplementation(async (input, init) => {
     const url = new URL(String(input));
