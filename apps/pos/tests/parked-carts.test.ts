@@ -102,6 +102,12 @@ test("parkCart keeps the customer's billing and shipping whole, and neither key 
   expect(Object.keys(parkCart({ ...orderFixture(), customer: gee }).customer!)).toEqual(['id', 'name', 'email']);
 });
 
+// #626, parked by the front desk (23 Nov): nothing puts tax ids on a sale's customer yet (the connector does not read
+// `tax_ids`, nothing calls `useSale().setTaxIds`, and no customer passed to setCustomer carries them). The first PR that
+// adds such a path also adds parked-cart schema v5 with an optional `taxIds` array and turns this todo into a test, or a
+// parked sale loses its tax ids.
+test.todo('#626: a parked sale resumes with its customer\'s taxIds; schema v5 stores them and migrates v4 unchanged');
+
 test.each([undefined, gee, { ...gee, billing, shipping }])('the v4 schema stores a real parked cart with optional customer %j, variants and discount fields', async customer => {
   const db = await createRxDatabase({
     name: `parked_${crypto.randomUUID()}`, multiInstance: false,
