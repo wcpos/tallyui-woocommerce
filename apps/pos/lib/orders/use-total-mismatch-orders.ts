@@ -8,8 +8,9 @@ export type TotalMismatchRow = { order: PosOrder; expectedMinor: number; serverM
 /**
  * The sales a WCPOS 1.10.x store accepted at a different total, newest first: `expectedMinor` is what the till charged,
  * `serverMinor` what the store recorded. Only a valid warning counts (`knownWarnings`). A row marked handled for the
- * order's current `commandId` is left out; a requeue mints a new one, so it shows again (ADR-092 6f). A failed read
- * shows none: the band has no error state.
+ * order's current `commandId` is left out (ADR-092 6f); an applied order is never requeued, so for these rows Handled
+ * is final. The WooCommerce connector never sends `bridgeMinor` (a server surcharge that makes the totals meet), so
+ * this reads every kept warning as a real difference. A failed read shows none: the band has no error state.
  */
 export function useTotalMismatchOrders(orders: RxCollection<PosOrder> | null): TotalMismatchRow[] {
   const [rows, setRows] = useState<TotalMismatchRow[]>([]);

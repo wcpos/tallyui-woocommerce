@@ -28,7 +28,7 @@ A 12.00 inclusive product with a 20% base rate, sold to a customer whose billing
 8). The till splits 12.00 at the customer's rate into net 10.909091 plus tax 1.090909 and posts only the net. The REST
 forward keeps the posted net (`class-wc-rest-orders-v2-controller.php:1010` overrides the base-adjusted value from
 `:999`) and recomputes tax at the billing rate (`woocommerce-pos/includes/Orders.php:755-759`), so the store keeps
-12.00 as well. Pinned by the order.create 8 inclusive test in `apps/pos/tests/tax-based-on-footer.test.tsx`.
+12.00 as well. Pinned by the order.create 8 inclusive test in `apps/pos/tests/tax-based-on-footer.test.tsx` (#632).
 
 WooCommerce's own web cart would charge that customer 11.00 (`woocommerce_adjust_non_base_location_prices` rebases
 the price). The till's 1.00 above the web price is product behaviour, not a fault (front desk ruling, 23 Nov 2026).
@@ -37,4 +37,4 @@ the price). The till's 1.00 above the web price is product behaviour, not a faul
 
 A sale the store accepted at a different total carries a `total_mismatch` warning. Orders lists it in the attention
 band at the top, with both totals, until the cashier marks it handled. A sale the store refused for its total is
-listed there with the store's own sentence.
+listed there with the reason the connector reports for it.
