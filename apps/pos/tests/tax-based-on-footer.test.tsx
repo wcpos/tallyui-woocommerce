@@ -214,7 +214,7 @@ test('order.create 8 with inclusive prices and a non-base customer rate keeps th
   // the only place woocommerce_adjust_non_base_location_prices could apply), then calculate_totals (:828) recomputes
   // the line tax on that net at the billing rate (woocommerce-pos/includes/Orders.php:755-759 via the
   // _woocommerce_pos_tax_based_on meta; created_via restored at woocommerce-pos/includes/API/V2/Writers/Order_Writer.php:261-268;
-  // woocommerce/includes/class-wc-order-item.php:289): 10.909091 × 10% = 1.09 (abstract-wc-order.php:2294), and
+  // woocommerce/includes/class-wc-order-item.php:289): 10.909091 × 10% = 1.09 (abstract-wc-order.php:2282), and
   // abstract-wc-order.php:2436 sets total = round(10.91 + 1.09, 2) = 12.00.
   const storeTotal = '$12.00';
   expect(screen.getByTestId('cart-checkout').textContent).toBe(`Checkout ${storeTotal}`);
