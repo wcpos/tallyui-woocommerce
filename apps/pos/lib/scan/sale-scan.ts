@@ -42,9 +42,9 @@ export function saleScanHandlers<Doc>(deps: SaleScanDeps<Doc>): SaleScanHandlers
         }
         const added = deps.add(result.entry);
         if (added === 'refused') {
-          scanFeedback('failure');
+          // v2 use-barcode.ts:497-504 returns with no tone and the code left in search; the guard's toast is the only feedback.
           scanLogger.info('Barcode scan refused by the stock guard', { barcode: code, productName: label });
-          return 'clear';
+          return 'keep';
         }
         if (added) {
           scanFeedback('success');

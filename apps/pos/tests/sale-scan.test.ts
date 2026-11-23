@@ -211,12 +211,12 @@ test('a managed product at zero that allows backorders scans as sellable', () =>
   expect(toast).not.toHaveBeenCalled();
 });
 
-test('a scan the stock guard refuses plays failure and shows no second toast', () => {
+test('a scan the stock guard refuses plays no tone, keeps the code and shows no second toast', () => {
   const { info } = logSpies();
   const d = deps({ add: vi.fn(() => 'refused' as const) });
-  expect(saleScanHandlers(d).onScan('2000000000015')).toBe('clear');
+  expect(saleScanHandlers(d).onScan('2000000000015')).toBe('keep');
   expect(d.add).toHaveBeenCalledTimes(1);
-  expect(vi.mocked(scanFeedback).mock.calls).toEqual([['failure']]);
+  expect(scanFeedback).not.toHaveBeenCalled();
   expect(info).toHaveBeenCalledWith('Barcode scan refused by the stock guard', { barcode: '2000000000015', productName: 'Espresso' });
   expect(toast).not.toHaveBeenCalled();
   expect(showAddedToCartToast).not.toHaveBeenCalled();

@@ -282,7 +282,9 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
       let stock: ReturnType<typeof evaluateStock> | undefined;
       if (props.storeSettings.preventOverselling === true) {
         const docs = entryStockDocs(entry);
-        const existing = existingCartQuantity(sale.order.lineItems, connector.traits.product.getId(entry.product), entry.variant.id, docs);
+        // The add starts the next sale first (v2 #2861), so the finished sale's lines do not count.
+        const existing = sale.stage.kind === 'receipt' ? 0
+          : existingCartQuantity(sale.order.lineItems, connector.traits.product.getId(entry.product), entry.variant.id, docs);
         stock = evaluateStock(docs, existing, 1);
         if (!stock.allowed) {
           toast({ title: stockGuardToast(stock, name)!, type: 'warning' });

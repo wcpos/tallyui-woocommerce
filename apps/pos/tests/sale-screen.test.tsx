@@ -291,6 +291,19 @@ test('with prevent overselling on, a second tap past stock is refused with Only 
   expect(getToasts()).toEqual([expect.objectContaining({ type: 'warning', title: 'Only 1 available for Espresso' })]);
 });
 
+test('with prevent overselling on, a variation that owns its stock is refused past its own quantity', () => {
+  render(<SaleScreen {...props} storeSettings={{ ...noTaxSettings, preventOverselling: true }}
+    products={[{ ...shirt, variation_docs: [{ ...shirt.variation_docs[2], manage_stock: true, stock_quantity: 1 }] }]} />);
+  fireEvent.click(productsPane().getByText('T-Shirt'));
+  expect(cartTabCount()).toBe('1');
+  act(() => dismissToast());
+  fireEvent.click(productsPane().getByText('T-Shirt'));
+  expect(cartTabCount()).toBe('1');
+  openCartTab();
+  expect(cartLine('T-Shirt · M / Black').quantity).toBe('1');
+  expect(getToasts()).toEqual([expect.objectContaining({ type: 'warning', title: 'Only 1 available for T-Shirt · M / Black' })]);
+});
+
 test('with prevent overselling off, taps past stock still add', () => {
   render(<SaleScreen {...props} storeSettings={{ ...noTaxSettings, preventOverselling: false }}
     products={[{ ...products[0], stock_quantity: 1 }]} />);
@@ -319,7 +332,7 @@ test('a repeated scan past stock shows only the guard warning', () => {
   act(() => dismissToast());
   scanInto(input, '2000000000015');
   expect(cartTabCount()).toBe('1');
-  expect(input.value).toBe('');
+  expect(input.value).toBe('2000000000015');
   expect(getToasts()).toEqual([expect.objectContaining({ type: 'warning', title: 'Only 1 available for Espresso' })]);
 });
 
