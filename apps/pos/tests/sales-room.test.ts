@@ -64,7 +64,7 @@ const lastWeek: PosOrder[] = [
 
 test('today totals every sync state in the store currency only', () => {
   expect(salesRoom(orders, { now, currency: 'USD', ...day }).today).toMatchObject({
-    count: 4, totalMinor: 2996, taxMinor: 196, averageMinor: 749, pending: 1, rejected: 1, splitCount: 1,
+    count: 3, totalMinor: 2896, taxMinor: 196, averageMinor: 965, pending: 1, rejected: 1, splitCount: 1,
   });
 }, 20_000);
 
@@ -88,7 +88,7 @@ test('byCashier rolls the period\'s orders up by cashier, largest first', () => 
 
 test('a split counts once per method with its applied amounts', () => {
   expect(salesRoom(orders, { now, currency: 'USD', ...day }).today.byMethod).toEqual([
-    { method: 'cash', label: 'Cash', count: 3, totalMinor: 758 },
+    { method: 'cash', label: 'Cash', count: 2, totalMinor: 658 },
     { method: 'external', label: 'Card terminal', count: 2, totalMinor: 2238 },
   ]);
 }, 20_000);
@@ -141,7 +141,7 @@ test('yesterday excludes the day before and tomorrow', () => {
 test('the comparison uses yesterday up to the same time', () => {
   const { yesterdaySoFar, delta } = salesRoom(orders, { now, currency: 'USD', ...day });
   expect(yesterdaySoFar).toEqual({ count: 1, totalMinor: 400, averageMinor: 400, items: 0 });
-  expect(delta).toEqual({ totalMinor: 2596, percentTenths: 6490, count: 3, averageMinor: 349, items: 2 });
+  expect(delta).toEqual({ totalMinor: 2496, percentTenths: 6240, count: 2, averageMinor: 565, items: 2 });
   expect(salesRoom(orders.filter(order => order.id.startsWith('T')), { now, currency: 'USD', ...day }).delta.percentTenths).toBeNull();
 }, 20_000);
 
@@ -150,7 +150,7 @@ test('hours span both days\' sales', () => {
   expect(hours.map(bucket => bucket.hour)).toEqual([9, 10, 11, 12, 13, 14, 15, 16]);
   for (const bucket of hours) {
     expect(bucket.today).toEqual(bucket.hour === 9 ? { count: 2, totalMinor: 1158 }
-      : bucket.hour === 13 ? { count: 2, totalMinor: 1838 } : { count: 0, totalMinor: 0 });
+      : bucket.hour === 13 ? { count: 1, totalMinor: 1738 } : { count: 0, totalMinor: 0 });
     expect(bucket.yesterday).toEqual(bucket.hour === 11 ? { count: 1, totalMinor: 400 }
       : bucket.hour === 16 ? { count: 1, totalMinor: 600 } : { count: 0, totalMinor: 0 });
   }
@@ -164,8 +164,8 @@ test('last week compares the same weekday up to the same time', () => {
   const result = salesRoom([...orders, ...lastWeek], { now, currency: 'USD', ...day, comparison: { from: '2026-09-29', to: '2026-09-29' } });
   expect(result.yesterday).toMatchObject({ count: 2, totalMinor: 1200 });
   expect(result.yesterdaySoFar).toEqual({ count: 1, totalMinor: 250, averageMinor: 250, items: 0 });
-  expect(result.delta).toEqual({ totalMinor: 2746, percentTenths: 10984, count: 3, averageMinor: 499, items: 2 });
-  expect(result.today).toMatchObject({ count: 4, totalMinor: 2996 });
+  expect(result.delta).toEqual({ totalMinor: 2646, percentTenths: 10584, count: 2, averageMinor: 715, items: 2 });
+  expect(result.today).toMatchObject({ count: 3, totalMinor: 2896 });
   expect(result.hours.find(bucket => bucket.hour === 11)!.yesterday).toEqual({ count: 1, totalMinor: 250 });
   expect(result.hours.find(bucket => bucket.hour === 16)!.yesterday).toEqual({ count: 1, totalMinor: 950 });
 }, 20_000);
@@ -209,8 +209,8 @@ test('the median takes the middle total of an odd count', () => {
 }, 20_000);
 
 test('the median of an even count averages the middle two, rounded', () => {
-  expect(salesRoom(orders, { now, currency: 'USD', ...day }).today.medianMinor).toBe(579);
-  const pair = [orders[0], orders[3]].map((order, index) => ({ ...order, totalMinor: [100, 201][index] }));
+  expect(salesRoom(orders, { now, currency: 'USD', ...day }).today.medianMinor).toBe(858);
+  const pair = [orders[0], orders[2]].map((order, index) => ({ ...order, totalMinor: [100, 201][index] }));
   expect(salesRoom(pair, { now, currency: 'USD', ...day }).today.medianMinor).toBe(151);
 }, 20_000);
 
@@ -247,13 +247,13 @@ test('Yesterday counts only its own day, by hour, and compares the whole day bef
 test("This week buckets by day and cuts the comparison's last day at now's time of day", () => {
   const weekBefore = [...lastWeek, sale('S1', new Date(2026, 8, 28, 18, 0), 300)];
   const result = salesRoom([...orders, ...weekBefore], { now, currency: 'USD', ...period('thisWeek') });
-  expect(result.today).toMatchObject({ count: 6, totalMinor: 3996 });
+  expect(result.today).toMatchObject({ count: 5, totalMinor: 3896 });
   expect(result.yesterday).toMatchObject({ count: 3, totalMinor: 1500 });
   // Monday's 18:00 counts whole; Tuesday's 16:45 is after 14:30 and is left out.
   expect(result.yesterdaySoFar).toMatchObject({ count: 2, totalMinor: 550 });
   expect(result.hours).toEqual([
     { hour: 0, minute: 0, day: '2026-10-05', today: { count: 2, totalMinor: 1000 }, yesterday: { count: 1, totalMinor: 300 } },
-    { hour: 1, minute: 0, day: '2026-10-06', today: { count: 4, totalMinor: 2996 }, yesterday: { count: 2, totalMinor: 1200 } },
+    { hour: 1, minute: 0, day: '2026-10-06', today: { count: 3, totalMinor: 2896 }, yesterday: { count: 2, totalMinor: 1200 } },
   ]);
   // v2 aggregateData draws every day of a multi-day period, sales or none.
   expect(salesRoom([], { now, currency: 'USD', ...period('thisWeek') }).hours.map(bucket => bucket.day)).toEqual(['2026-10-05', '2026-10-06']);
@@ -301,4 +301,35 @@ test('a day with no sales is the whole day in twelve 120-minute buckets', () => 
   const hours = steps([]);
   expect(hours.map(bucket => bucket.minute)).toEqual(Array.from({ length: 12 }, (_, i) => i * 120));
   expect(hours.every(bucket => bucket.today.totalMinor === 0 && bucket.yesterday.totalMinor === 0)).toBe(true);
+}, 20_000);
+
+/** A 10.00 cash sale (8.00 + 2.00 tax) the store refused, by cashier 7, at 09:15 today unless `at` says otherwise. */
+const refused = (id: string, at = new Date(2026, 9, 6, 9, 15)): PosOrder => ({ ...base, id, createdAt: at.toISOString(),
+  cashierRef: '7', subtotalMinor: 800, taxMinor: 200, totalMinor: 1000, syncStatus: 'rejected', lines: [{ ...line(id, 1),
+    unitPriceMinor: 800, netMinor: 800, taxLines: [{ ratePpm: 250000, taxMicros: '200000000' }] }],
+  payments: [{ id, method: 'cash', amountMinor: 1000 }] });
+
+test('a refused order counts through its successor only (money verify BUG 1)', () => {
+  const successor: PosOrder = { ...refused('S1', new Date(2026, 9, 6, 9, 30)), saleId: 'R1', syncStatus: 'applied' };
+  const { today } = salesRoom([refused('R1'), successor], { now, currency: 'USD', ...day });
+  expect(today).toMatchObject({ count: 1, totalMinor: 1000, taxMinor: 200, items: 1, rejected: 0 });
+  expect(today.byMethod).toEqual([{ method: 'cash', label: 'Cash', count: 1, totalMinor: 1000 }]);
+  expect(today.byCashier).toEqual([{ cashierRef: '7', count: 1, totalMinor: 1000 }]);
+}, 20_000);
+
+test('a refused order no sale replaced is not a sale', () => {
+  const { today, hours } = salesRoom([refused('R1')], { now, currency: 'USD', ...day });
+  expect(today).toMatchObject({ count: 0, totalMinor: 0, taxMinor: 0, items: 0, largestMinor: null, splitCount: 0, rejected: 1 });
+  expect(today.byMethod.reduce((sum, tile) => sum + tile.totalMinor, 0)).toBe(0);
+  expect(today.byCashier.reduce((sum, row) => sum + row.totalMinor, 0)).toBe(0);
+  expect(today.taxRates.reduce((sum, row) => sum + row.taxMinor, 0)).toBe(0);
+  expect(hours.every(bucket => bucket.today.count === 0 && bucket.today.totalMinor === 0)).toBe(true);
+}, 20_000);
+
+test('the comparison range leaves refused orders out too', () => {
+  const result = salesRoom([refused('R1', new Date(2026, 9, 5, 9, 15))], { now, currency: 'USD', ...day });
+  expect(result.yesterday).toMatchObject({ count: 0, totalMinor: 0, taxMinor: 0, rejected: 1 });
+  expect(result.yesterday.byMethod.reduce((sum, tile) => sum + tile.totalMinor, 0)).toBe(0);
+  expect(result.yesterdaySoFar).toEqual({ count: 0, totalMinor: 0, averageMinor: 0, items: 0 });
+  expect(result.hours.every(bucket => bucket.yesterday.count === 0)).toBe(true);
 }, 20_000);

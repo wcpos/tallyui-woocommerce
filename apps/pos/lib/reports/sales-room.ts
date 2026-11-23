@@ -1,4 +1,4 @@
-import { daysOf, taxLinesByRate, type DatePreset, type DayRange, type PosOrder } from '@tallyui/pos';
+import { daysOf, replacedOrderIds, taxLinesByRate, type DatePreset, type DayRange, type PosOrder } from '@tallyui/pos';
 
 /** A device-local store day (`yyyy-MM-dd`) at midnight, `plus` days on. */
 const localDay = (day: string, plus = 0) => {
@@ -76,6 +76,8 @@ export function salesRoom(orders: readonly PosOrder[], options: {
   const buckets = new Map<number, HourBucket>();
   // A single day's sales as minutes of their own day, both days on one clock.
   const sold: { minute: number; index: number; totalMinor: number }[] = [];
+  // The outbox's own rule: a refused order a later sale replaced counts through that sale.
+  const replaced = replacedOrderIds(orders);
   const [today, yesterday] = ranges.map(({ startIso, endIso }, index): Period => {
     const period: Period = {
       count: 0, totalMinor: 0, taxMinor: 0, averageMinor: 0, items: 0,
@@ -86,6 +88,11 @@ export function salesRoom(orders: readonly PosOrder[], options: {
     const totals: number[] = [];
     for (const order of orders) {
       if (order.currency !== currency || order.createdAt < startIso || order.createdAt >= endIso) continue;
+      // An order the store refused is not a sale (sheet-figures.ts); only an unreplaced one is "not accepted".
+      if (order.syncStatus === 'rejected') {
+        if (!replaced.has(order.id)) period.rejected++;
+        continue;
+      }
       const items = order.lines.reduce((sum, line) => sum + line.quantity, 0);
       period.count++;
       period.totalMinor += order.totalMinor;
@@ -94,7 +101,6 @@ export function salesRoom(orders: readonly PosOrder[], options: {
       period.items += items;
       period.taxMinor += order.taxMinor;
       if (order.syncStatus === 'pending') period.pending++;
-      if (order.syncStatus === 'rejected') period.rejected++;
       if (order.payments.length > 1) period.splitCount++;
       const cashierRef = order.cashierRef ?? '';
       let cashier = period.byCashier.find(row => row.cashierRef === cashierRef);
