@@ -73,7 +73,7 @@ test.each([
   await screen.findByText('Order store ready');
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByTestId('cart-checkout'));
-  expect(screen.getByTestId('checkout-ledger-column')).not.toBeNull();
+  expect(within(screen.getByTestId('pos-cart-panel')).getByTestId('checkout-ledger-pane')).not.toBeNull();
   if (leg) takeLeg(100);
   expect(screen.getByTestId('checkout-ledger-remaining').textContent).toBe(before);
   const recordedLegs = within(screen.getByTestId('checkout-ledger')).queryAllByTestId(/^checkout-leg-/)
@@ -166,7 +166,7 @@ test.each([true, false, undefined])('uses the advertised tender UI with multiple
     takeLeg(400, 'pos_card');
   } else {
     expect(screen.getByTestId('checkout-keypad')).not.toBeNull();
-    expect(screen.queryByTestId('checkout-ledger')).toBeNull();
+    expect(within(screen.getByTestId('pos-products-panel')).queryByTestId('checkout-ledger')).toBeNull();
     await takeCash(600);
   }
   const receipt = within((await screen.findByTestId('receipt-order')).parentElement!);

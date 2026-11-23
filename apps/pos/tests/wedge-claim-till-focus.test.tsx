@@ -1,5 +1,5 @@
 import { noTaxSettings } from './fixtures/store-settings';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
@@ -122,7 +122,7 @@ test('the split-tender claim stays off while the till is hidden', async () => {
   fireEvent.click(screen.getByText('Espresso'));
   // Checkout starts the two-pane tender: its claim would push on top of the Area's here.
   fireEvent.click(screen.getByTestId('cart-checkout'));
-  expect(screen.getByTestId('checkout-ledger-column')).not.toBeNull();
+  expect(within(screen.getByTestId('pos-cart-panel')).getByTestId('checkout-ledger-pane')).not.toBeNull();
   wedge(ESPRESSO);
   expect(area.mock.calls).toEqual([[ESPRESSO]]);
   expect(screen.getByTestId('checkout-ledger-remaining').textContent).toBe('$3.00');
