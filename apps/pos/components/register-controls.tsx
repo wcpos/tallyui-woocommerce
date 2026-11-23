@@ -57,6 +57,7 @@ export function RegisterControls({ currency, storeName, locale, cartEmpty, child
     // Portal publishes to its host in an effect; print after that DOM update.
     const timer = setTimeout(() => {
       if (typeof window !== 'undefined' && typeof window.print === 'function') window.print();
+      setXPrint(0);
     }, 0);
     return () => clearTimeout(timer);
   }, [xPrint]);

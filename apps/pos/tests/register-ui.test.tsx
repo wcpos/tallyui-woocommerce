@@ -130,7 +130,8 @@ test.each([900, 390])('the switch enables the register and replaces the cart at 
 });
 
 test("the register panel is v2's right-hand sheet, names the store and opener, and prints an X-report", async () => {
-  const print = vi.fn();
+  let printed: string | null | undefined;
+  const print = vi.fn(() => { printed = screen.queryByTestId('closure-print-document')?.textContent ?? null; });
   vi.stubGlobal('print', print);
   const app = await setup();
   await toggleRegisterSessions();
@@ -147,7 +148,8 @@ test("the register panel is v2's right-hand sheet, names the store and opener, a
   expect(screen.getByTestId('register-panel-opened-by')).not.toBeNull();
   fireEvent.click(screen.getByTestId('register-panel-print'));
   await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
-  expect(screen.getByTestId('closure-print-document').textContent).toContain('X report');
+  expect(printed).toContain('X report');
+  await waitFor(() => expect(screen.queryByTestId('closure-print-document')).toBeNull());
 }, 20_000);
 
 test('open, pay out, sell, count and close, then reuse the counted float', async () => {
