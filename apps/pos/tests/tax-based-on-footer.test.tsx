@@ -1,7 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
+import { addRxPlugin, createRxDatabase } from 'rxdb';
+import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
+import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import type { StoreSettings } from '@tallyui/core';
 import { PortalHost } from '@tallyui/primitives';
@@ -14,11 +17,14 @@ import * as CatalogueContext from '../lib/catalogue/catalogue-context';
 import type { Catalogue } from '../lib/catalogue/start-catalogue';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
+import { parkedCartMigrationStrategies, parkedCartSchema, type ParkedCartCollection } from '../lib/sale/parked-carts';
+import { parkedTabs, resumeFromList } from './open-orders-helpers';
 import { noTaxSettings } from './fixtures/store-settings';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
 
 const onOpenTaxSettings = vi.fn();
+addRxPlugin(RxDBMigrationSchemaPlugin);
 
 // The shop is in California (CA Tax 10%); the table also holds GB VAT 20%, which only a GB address matches.
 const taxRateTable: NonNullable<StoreSettings['taxRateTable']> = [
@@ -173,3 +179,58 @@ test.each([
     expect(payload.meta_data).not.toContainEqual(expect.objectContaining({ key: '_woocommerce_pos_tax_based_on' }));
   }
 }, 20_000);
+
+// #623 (b): the parked cart keeps the customer's addresses, so a resumed sale is taxed and sent as it was parked.
+test.each(['the open orders list', 'a cashier switch'])('a sale parked and resumed through %s keeps its tax address', async path => {
+  vi.spyOn(CatalogueContext, 'useCatalogue').mockReturnValue({
+    catalogue: { capabilities: { orderCreate: 8 } } as Catalogue, products, status: 'ready',
+  });
+  const fetchStub = vi.fn<typeof fetch>(async input => String(input).endsWith('/site') ? Response.json({ wcpos_version: '1.10.20' }) : Response.json({
+    document: { id: 116, status: 'completed', total: '3.600000' }, currentRevision: 'r1',
+  }, { status: 201 }));
+  vi.stubGlobal('fetch', fetchStub);
+  const db = await createRxDatabase({ name: `parked_${crypto.randomUUID()}`, multiInstance: false,
+    storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }) });
+  try {
+    const { parked_carts: parkedCarts } = await db.addCollections<{ parked_carts: ParkedCartCollection }>({
+      parked_carts: { schema: parkedCartSchema, migrationStrategies: parkedCartMigrationStrategies },
+    });
+    const customers = { search: vi.fn().mockResolvedValue([{ ...customer, email: 'ann@example.invalid' }]), create: vi.fn() };
+    const storage = getRxStorageMemory();
+    const tree = (key: string) => <SessionProvider><OutboxProvider storage={storage}><OrderStoreReady />
+      <SaleScreen key={key} {...saleProps} storeSettings={taxed} capabilities={{ orderCreate: 8 }} customers={customers}
+        parkedCarts={parkedCarts} heldCartKey="held-test" cashiers={[{ uuid: 'b', name: 'Sam' }]} onSwitchCashier={async () => null} />
+      <PortalHost /></OutboxProvider></SessionProvider>;
+    const view = render(tree('first'));
+    await screen.findByText('Order store ready');
+    fireEvent.click(screen.getByTestId('cart-customer-name'));
+    fireEvent.click(await screen.findByLabelText('Ann Lee, ann@example.invalid'));
+    fireEvent.click(screen.getByText('Espresso'));
+    expect(screen.getByTestId('cart-checkout').textContent).toBe('Checkout $3.60');
+    if (path === 'a cashier switch') {
+      fireEvent.click(screen.getByTestId('register-bar-avatar'));
+      fireEvent.click(screen.getByTestId('user-sheet-user-b'));
+      fireEvent.click(screen.getByTestId('switch-confirm-confirm'));
+      await waitFor(() => expect(localStorage.getItem('held-test')).not.toBeNull());
+      // The next cashier's screen mounts and takes the held cart back.
+      view.rerender(tree('second'));
+    } else {
+      await act(async () => { fireEvent.click(screen.getByTestId('new-order-tab')); });
+      await waitFor(() => expect(parkedTabs()).toHaveLength(1));
+      await resumeFromList();
+    }
+    // Before #623 the resumed sale was taxed on the CA base: 3.00 + 0.30 = $3.30.
+    await waitFor(() => expect(screen.getByTestId('cart-checkout').textContent).toBe('Checkout $3.60'));
+    expect(await parkedCarts.find().exec()).toEqual([]);
+    fireEvent.click(screen.getByTestId('cart-checkout'));
+    await takeCash(360);
+    await screen.findByTestId('receipt-order');
+    await waitFor(() => expect(screen.queryByTestId('sync-status')).toBeNull());
+    const posts = fetchStub.mock.calls.filter(([, init]) => init?.method === 'POST');
+    expect(posts).toHaveLength(1);
+    const { payload } = JSON.parse(posts[0][1]!.body as string);
+    // The envelope's taxAddress goes out as this meta, with the customer's billing address (connector toWooOrderPayload).
+    expect(payload.meta_data).toContainEqual({ key: '_woocommerce_pos_tax_based_on', value: 'billing' });
+    expect(payload.billing).toEqual({ email: 'ann@example.invalid', country: 'GB', city: 'London', postcode: 'N1 1AA' });
+  } finally { cleanup(); await db.remove(); }
+}, 30_000);
