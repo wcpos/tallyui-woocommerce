@@ -42,6 +42,7 @@ import { refuseLockedAdd, tillLock } from '../lib/sale/till-lock';
 import { saleScanHandlers } from '../lib/scan/sale-scan';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
 import { backorderToast, entryStockDocs, evaluateStock, existingCartQuantity, lineStockDocs, stockGuardToast, stockNotLoadedToast } from '../lib/stock/stock-guard';
+import { unmetStock } from '../lib/stock/conditions';
 import { toast } from '../lib/toast/toast';
 import { showAddedToCartToast } from '../lib/toast/added-to-cart-toast';
 import type { TenderVoidCollection } from '../lib/sale/tender-voids';
@@ -73,6 +74,7 @@ import { OpenOrderTabs, stripCartIds } from './open-order-tabs';
 import { OpenOrdersList } from './open-orders-list';
 import { PanelResizeHandle } from './panel-resize-handle';
 import { CartWithSettings } from './cart-settings';
+import { CartConditionsNotice } from './cart-conditions-notice';
 import { OrderDetailsSheet } from './order-details-sheet';
 import { OpenSaleReceipt } from './open-sale-receipt';
 import { KeyboardShortcutsSheet } from './keyboard-shortcuts-sheet';
@@ -172,6 +174,9 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     [props.storeSettings, sale.taxLocation]);
   const assignCustomer = useAssignCustomer(sale);
   const inCart = useMemo(() => inCartCounts(sale.order.lineItems), [sale.order.lineItems]);
+  const unmet = useMemo(() => props.storeSettings.preventOverselling === true
+    ? unmetStock(sale.order.lineItems, props.products, connector.traits.product.getId) : [],
+    [props.storeSettings.preventOverselling, sale.order.lineItems, props.products, connector.traits.product.getId]);
   const receiptOrderId = sale.stage.kind === 'receipt' ? sale.stage.posOrder.id : null;
   const printCount = useReceiptPrintCount(receiptOrderId);
   const [receiptSettings] = useReceiptSettings();
@@ -198,6 +203,14 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     catalogueReady: props.status === 'ready', say: setMessage,
   });
   const startTender = useTenderStart(sale, { register, multiPayment: outbox.enabled && props.multiplePayments === true, say: setMessage });
+  function startTenderChecked(method: 'cash' | 'external') {
+    // v2 pay.tsx:69-74: the notice is the cashier's cue; no toast when checkout is blocked.
+    if (unmet.length > 0) {
+      cartLogger.info(`Checkout blocked, ${unmet.length} to fix`, { unmet: unmet.map(u => u.lineId) });
+      return;
+    }
+    return startTender(method);
+  }
   const [listOpen, setListOpen] = useState(false);
   // Leaving the cart stage unmounts the strip, which uncovers the cart: coming back never finds the list open (v2 cart/tabs.tsx:109-114).
   useEffect(() => { if (sale.stage.kind !== 'cart') setListOpen(false); }, [sale.stage.kind]);
@@ -216,7 +229,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   const voiding = useVoidSale(sale, { resumeCart, say: setMessage, openedAt: currentOpenedAt });
   const changeCashier = useLeaveTill(sale, { hold, unhold, onSwitchCashier: props.onSwitchCashier, onAddCashier: props.onAddCashier, say: setMessage });
   const checkout = {
-    onCheckout: () => { void startTender('cash'); },
+    onCheckout: () => { void startTenderChecked('cash'); },
     actions: [{ label: 'Order details', onPress: () => setDetailsOpen(true) }],
   };
 
@@ -386,7 +399,9 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         <>
           {/* M6's order notes can take the price-change reason via onPriceChange. */}
           {/* B7: quantity and price open keypad popovers, as v2's cart/cells/quantity-keypad.tsx and cart/cells/price.tsx do. */}
-          <CartWithSettings sale={{ ...sale, startTender, setQuantity: setQuantityChecked }} canEditPrice lineEditor="popover" taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)}
+          <CartWithSettings sale={{ ...sale, startTender: startTenderChecked, setQuantity: setQuantityChecked }} canEditPrice lineEditor="popover" taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)}
+            notice={<CartConditionsNotice unmet={unmet}
+              onReduce={u => u.fit > 0 ? sale.setQuantity(u.lineId, u.fit) : sale.remove(u.lineId)} onRemove={u => sale.remove(u.lineId)} />}
             taxLabel={taxLabel}
             afterSubtotal={couponsOffered && props.couponCollections ? <CouponRows sale={sale} /> : undefined}
             // Avoid counting itemised coupons twice, matching v2 cart/totals.tsx:121-148.
