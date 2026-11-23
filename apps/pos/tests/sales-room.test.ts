@@ -333,3 +333,13 @@ test('the comparison range leaves refused orders out too', () => {
   expect(result.yesterdaySoFar).toEqual({ count: 0, totalMinor: 0, averageMinor: 0, items: 0 });
   expect(result.hours.every(bucket => bucket.yesterday.count === 0)).toBe(true);
 }, 20_000);
+
+test('rejectedCashMinor sums the cash of the unreplaced refused orders in each range', () => {
+  const room = (list: PosOrder[]) => salesRoom(list, { now, currency: 'USD', ...day });
+  expect(room([refused('R1')]).today.rejectedCashMinor).toBe(1000);
+  const successor: PosOrder = { ...refused('S1', new Date(2026, 9, 6, 9, 30)), saleId: 'R1', syncStatus: 'applied' };
+  expect(room([refused('R1'), successor]).today.rejectedCashMinor).toBe(0);
+  const split: PosOrder = { ...refused('R2'), payments: [{ id: 'c', method: 'cash', amountMinor: 600 }, { id: 'k', method: 'external', amountMinor: 400 }] };
+  expect(room([split]).today.rejectedCashMinor).toBe(600);
+  expect(room([refused('R1', new Date(2026, 9, 5, 9, 15))]).yesterday.rejectedCashMinor).toBe(1000);
+}, 20_000);

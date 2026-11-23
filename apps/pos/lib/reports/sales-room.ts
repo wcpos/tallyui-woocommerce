@@ -31,6 +31,8 @@ export type Period = {
   /** The sum of the orders' discountMinor. */
   discountMinor: number;
   pending: number; rejected: number; splitCount: number;
+  /** The cash payments of the refused orders `rejected` counts (unreplaced only): money the drawer still holds. */
+  rejectedCashMinor: number;
   byMethod: MethodTile[]; taxRates: TaxRateRow[];
   /** Sorted by totalMinor, largest first; an order with no cashierRef counts under ''. */
   byCashier: CashierFigure[];
@@ -82,7 +84,7 @@ export function salesRoom(orders: readonly PosOrder[], options: {
     const period: Period = {
       count: 0, totalMinor: 0, taxMinor: 0, averageMinor: 0, items: 0,
       medianMinor: 0, largestMinor: null, discountMinor: 0,
-      pending: 0, rejected: 0, splitCount: 0, byMethod: [], taxRates: [],
+      pending: 0, rejected: 0, rejectedCashMinor: 0, splitCount: 0, byMethod: [], taxRates: [],
       byCashier: [],
     };
     const totals: number[] = [];
@@ -90,7 +92,9 @@ export function salesRoom(orders: readonly PosOrder[], options: {
       if (order.currency !== currency || order.createdAt < startIso || order.createdAt >= endIso) continue;
       // An order the store refused is not a sale (sheet-figures.ts); only an unreplaced one is "not accepted".
       if (order.syncStatus === 'rejected') {
-        if (!replaced.has(order.id)) period.rejected++;
+        if (replaced.has(order.id)) continue;
+        period.rejected++;
+        for (const payment of order.payments) if (payment.method === 'cash') period.rejectedCashMinor += payment.amountMinor;
         continue;
       }
       const items = order.lines.reduce((sum, line) => sum + line.quantity, 0);

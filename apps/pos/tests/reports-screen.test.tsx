@@ -318,6 +318,17 @@ test('the Top products card leaves out a sale the store refused', async () => {
   expect(text('card-products-empty')).toBe('No sales in this period');
 }, 20_000);
 
+// The drawer still holds the cash a refused order took: the hero says how much (fixture: one $3.00 Espresso, paid cash).
+test('the hero names the cash the orders the store refused took', async () => {
+  const app = await setup();
+  await payCash();
+  await waitFor(() => expect(text('card-products-figure')).toBe('1'));
+  const [{ id }] = await app.orders.find().exec();
+  await waitFor(async () => expect((await app.orders.findOne(id).exec())?.syncStatus).toBe('applied'));
+  await act(async () => { await (await app.orders.findOne(id).exec())!.incrementalPatch({ syncStatus: 'rejected' }); });
+  await waitFor(() => expect(text('hero-not-accepted')).toBe('Not accepted by the store: 1 · $3.00 cash taken'));
+}, 20_000);
+
 test("the Categories card names the synced product's category for a sale in the period", async () => {
   // The fixture's Espresso (id 80) is in Coffee (id 25); the screen must hand the synced products to the card.
   await setup({ synced: products });
