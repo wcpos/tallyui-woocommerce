@@ -252,7 +252,7 @@ v2 has all of these on `origin/main`; they are not TallyUI-only.
 | 134 | Register picker | core/pos/cart/register-picker.tsx | W/components/register-controls.tsx (`registers={[]}`) | MISSING | behaviour | M | One local register |
 | 135 | Open register with float | open-register-card.tsx | L RegisterColumn | MATCH | – | – | |
 | 136 | Paid in, paid out, no sale | movement-sheet.tsx | L/components/src/register/movement-sheet.tsx | MATCH | – | – | "Open the drawer" has nothing behind it (row 129) |
-| 137 | Register panel, X-report | register-panel.tsx | register-controls.tsx:73-83 | PARTIAL | look | S | Centred dialog, not a side panel; no Print X-report here |
+| 137 | Register panel, X-report | register-panel.tsx | W/components/register-controls.tsx | PARTIAL | look | S | Since wiring pass 5 the panel is v2's right-hand sheet (`presentation="side"`, 4.2.0) with the store and opener in its header and Print X-report in its footer. The X-report goes straight to the browser's print dialog; v2 first opens its PrintSheet preview with a print error line (register-panel.tsx:636-660). The opener shows initials, no avatar |
 | 138 | Count at close with denominations, over and short | core/components/register-count | L RegisterCount | MATCH | – | – | |
 | 139 | Manager approval over the variance threshold | register-count approval fields | register-controls (no `approve`) | MISSING | money | M | The close is refused with nowhere to approve |
 | 140 | Sessions synced to the store | register sync | C/commands/register-transport.ts | MATCH | – | – | |
