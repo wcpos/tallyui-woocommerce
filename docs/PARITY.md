@@ -159,7 +159,7 @@ pick and approval; H, safety nets; I, translations; then the periphery (customer
 | 65 | Add: increment or new line, split line | pos hooks | L use-sale.ts | MATCH | – | – | |
 | 66 | Decimal quantities | quantity keypad | L/pos/src/order/order-builder.ts:600 | MISSING | money | M | Throws "Quantity must be an integer >= 1" |
 | 67 | Stock guard (overselling) | hooks/stock-guard | W sale-screen.tsx addEntry | MISSING | behaviour | M | No check on tap or at checkout |
-| 68 | Cart columns | cart/cells | W/components/cart-settings.tsx:130 | MATCH | look | S | TallyUI's CartColumnsForm: Regular price, On sale and column order (Move up / Move down for v2's drag) since the wiring PR; Subtotal, Actions and the tax displays are not in the library |
+| 68 | Cart columns | cart/cells | W/components/cart-settings.tsx:130 | PARTIAL | look | S | No Subtotal or Actions column and no tax displays on Price, Subtotal or Total (not in the library). Regular price, On sale and column order (Move up / Move down for v2's drag) are mounted since #635 |
 | 69 | Quantity and price keypads, quick-discount keys | quantity-keypad, quick-discount-keys.tsx | L cart.tsx LinePopover | MATCH | – | – | |
 | 70 | Line edit dialog (name, SKU, regular price, tax status and class, meta) | cells/edit-line-item/form.tsx | L `updateLine` unwired | MISSING | money | M | No form in the app; library covers name, SKU, regular price only |
 | 71 | Line attributes, meta, notes | product-name | L CartLine | PARTIAL | look | S | Attributes and SKU show; meta and line notes not verified |
