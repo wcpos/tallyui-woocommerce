@@ -31,10 +31,19 @@ afterEach(() => {
 
 const gee: Customer = { id: '7', name: 'Gee Four', firstName: 'Gee', lastName: 'Four', email: 'gee@example.invalid', phone: '123', company: 'Four Co' };
 const ada: Customer = { id: '9', name: 'Ada Lovelace', firstName: 'Ada', lastName: 'Lovelace' };
+const bea: Customer = {
+  id: '11', name: 'Bea Smith', firstName: 'Bea', lastName: 'Smith', email: 'bea@example.com', phone: '0400', company: 'Bea Co',
+  billing: { firstName: 'Bea', lastName: 'Smith', company: 'Bea Co', phone: '0400', email: 'bea@example.com',
+    address1: '1 High St', city: 'Sydney', state: 'NSW', postcode: '2000', country: 'AU' },
+};
 
 function renderScreen(search = vi.fn<CustomerSource['search']>().mockResolvedValue([]), onBack = vi.fn(),
-  { create = vi.fn<CustomerSource['create']>(), createBlockedReason }: { create?: Mock<CustomerSource['create']>; createBlockedReason?: string } = {}) {
-  render(<><CustomersScreen source={{ search, create }} onBack={onBack} createBlockedReason={createBlockedReason} /><PortalHost /><Toaster /></>);
+  { create = vi.fn<CustomerSource['create']>(), createBlockedReason, get, update, canEditCustomers }: {
+    create?: Mock<CustomerSource['create']>; createBlockedReason?: string;
+    get?: CustomerSource['get']; update?: CustomerSource['update']; canEditCustomers?: boolean;
+  } = {}) {
+  render(<><CustomersScreen source={{ search, create, get, update }} onBack={onBack} createBlockedReason={createBlockedReason}
+    canEditCustomers={canEditCustomers} /><PortalHost /><Toaster /></>);
   return { search, onBack, create };
 }
 
@@ -428,10 +437,122 @@ test('found customers show how many are shown', async () => {
   expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 2');
 });
 
-test('each row has a disabled Open customer button until customers can be edited', async () => {
-  await findRows();
+test('each row has a disabled Open customer button without permission or source update', async () => {
+  stubMatchMedia({ ...FINE });
+  await findRows(undefined, { update: vi.fn() });
   const open = within(screen.getByTestId('customers-row-7')).getByRole('button', { name: 'Open customer' });
   expect(open.getAttribute('aria-disabled')).toBe('true');
+  cleanup();
+  await findRows(undefined, { canEditCustomers: true });
+  expect(within(screen.getByTestId('customers-row-7')).getByTestId('customer-open-button').getAttribute('aria-disabled')).toBe('true');
+});
+
+test('an allowed wide-table edit saves only the changed phone and closes with a success toast', async () => {
+  stubMatchMedia({ ...FINE });
+  const update = vi.fn<NonNullable<CustomerSource['update']>>().mockResolvedValue({ ...gee, phone: '456' });
+  await findRows(undefined, { update, canEditCustomers: true });
+  const open = within(screen.getByTestId('customers-row-7')).getByTestId('customer-open-button');
+  expect(open.getAttribute('aria-disabled')).not.toBe('true');
+  fireEvent.click(open);
+  const dialog = screen.getByTestId('edit-customer-dialog');
+  expect(dialog.textContent).toContain(`Edit ${gee.name}`);
+  expect((within(dialog).getByPlaceholderText('First name') as HTMLInputElement).value).toBe(gee.firstName);
+  fireEvent.change(within(dialog).getByPlaceholderText('Phone number'), { target: { value: '456' } });
+  fireEvent.click(screen.getByTestId('customer-editor-save'));
+  await waitFor(() => expect(update).toHaveBeenCalledExactlyOnceWith('7', { phone: '456' }));
+  expect(within(await screen.findByTestId('success-toast')).getByText(`${gee.name} saved`)).not.toBeNull();
+  await waitFor(() => expect(screen.queryByTestId('edit-customer-dialog')).toBeNull());
+});
+
+test('removing billing clears only its address lines', async () => {
+  stubMatchMedia({ ...FINE });
+  const update = vi.fn<NonNullable<CustomerSource['update']>>().mockResolvedValue(bea);
+  await findRows(vi.fn<CustomerSource['search']>().mockResolvedValue([bea]), { update, canEditCustomers: true });
+  fireEvent.click(screen.getByTestId('customer-open-button'));
+  fireEvent.click(screen.getByTestId('customer-editor-form-addresses-billing-remove'));
+  fireEvent.click(screen.getByTestId('customer-editor-save'));
+  await waitFor(() => expect(update).toHaveBeenCalledExactlyOnceWith('11', {
+    billing: { firstName: 'Bea', lastName: 'Smith', company: 'Bea Co', phone: '0400', email: 'bea@example.com' },
+    shipping: { firstName: 'Bea', lastName: 'Smith', company: 'Bea Co', phone: '0400' },
+  }));
+});
+
+test('removing billing and renaming keeps phone and company', async () => {
+  stubMatchMedia({ ...FINE });
+  const update = vi.fn<NonNullable<CustomerSource['update']>>().mockResolvedValue(bea);
+  await findRows(vi.fn<CustomerSource['search']>().mockResolvedValue([bea]), { update, canEditCustomers: true });
+  fireEvent.click(screen.getByTestId('customer-open-button'));
+  fireEvent.click(screen.getByTestId('customer-editor-form-addresses-billing-remove'));
+  const dialog = await screen.findByTestId('edit-customer-dialog');
+  fireEvent.change(within(dialog).getByPlaceholderText('First name'), { target: { value: 'Bee' } });
+  fireEvent.click(screen.getByTestId('customer-editor-save'));
+  await waitFor(() => expect(update).toHaveBeenCalledExactlyOnceWith('11', {
+    firstName: 'Bee',
+    billing: { firstName: 'Bee', lastName: 'Smith', company: 'Bea Co', phone: '0400', email: 'bea@example.com' },
+    shipping: { firstName: 'Bee', lastName: 'Smith', company: 'Bea Co', phone: '0400' },
+  }));
+});
+
+test('removing billing does not fill blank billing fields from the account', async () => {
+  stubMatchMedia({ ...FINE });
+  const customer: Customer = { ...bea, id: '12', billing: { ...bea.billing, email: undefined } };
+  const update = vi.fn<NonNullable<CustomerSource['update']>>().mockResolvedValue(customer);
+  await findRows(vi.fn<CustomerSource['search']>().mockResolvedValue([customer]), { update, canEditCustomers: true });
+  fireEvent.click(screen.getByTestId('customer-open-button'));
+  fireEvent.click(screen.getByTestId('customer-editor-form-addresses-billing-remove'));
+  fireEvent.click(screen.getByTestId('customer-editor-save'));
+  await waitFor(() => expect(update).toHaveBeenCalled());
+  expect(update.mock.calls[0][1].billing).not.toHaveProperty('email');
+});
+
+test('changing only the billing city keeps its phone when shipping is absent', async () => {
+  stubMatchMedia({ ...FINE });
+  const update = vi.fn<NonNullable<CustomerSource['update']>>().mockResolvedValue(bea);
+  await findRows(vi.fn<CustomerSource['search']>().mockResolvedValue([bea]), { update, canEditCustomers: true });
+  fireEvent.click(screen.getByTestId('customer-open-button'));
+  fireEvent.click(screen.getByTestId('customer-editor-form-addresses-billing-edit'));
+  fireEvent.change(screen.getByTestId('customer-editor-form-addresses-billing-city'), { target: { value: 'Melbourne' } });
+  fireEvent.click(screen.getByTestId('customer-editor-save'));
+  await waitFor(() => expect(update).toHaveBeenCalledExactlyOnceWith('11', expect.objectContaining({
+    billing: expect.objectContaining({ city: 'Melbourne', phone: '0400' }),
+  })));
+});
+
+test('opening a customer shows the fresh record', async () => {
+  stubMatchMedia({ ...FINE });
+  const get = vi.fn<NonNullable<CustomerSource['get']>>().mockResolvedValue({ ...gee, firstName: 'Fresh' });
+  await findRows(vi.fn<CustomerSource['search']>().mockResolvedValue([gee]), { get, update: vi.fn(), canEditCustomers: true });
+  fireEvent.click(screen.getByTestId('customer-open-button'));
+  const dialog = await screen.findByTestId('edit-customer-dialog');
+  expect(get).toHaveBeenCalledExactlyOnceWith('7');
+  expect((within(dialog).getByPlaceholderText('First name') as HTMLInputElement).value).toBe('Fresh');
+});
+
+test('a missing customer shows an error toast without opening the editor', async () => {
+  stubMatchMedia({ ...FINE });
+  const get = vi.fn<NonNullable<CustomerSource['get']>>().mockResolvedValue(null);
+  await findRows(vi.fn<CustomerSource['search']>().mockResolvedValue([gee]), { get, update: vi.fn(), canEditCustomers: true });
+  fireEvent.click(screen.getByTestId('customer-open-button'));
+  expect(within(await screen.findByTestId('error-toast')).getByText('Customer not found')).not.toBeNull();
+  expect(screen.queryByTestId('edit-customer-dialog')).toBeNull();
+});
+
+test('an allowed touch row opens the customer editor', async () => {
+  stubMatchMedia({ ...COARSE });
+  await findRows(undefined, { update: vi.fn(), canEditCustomers: true });
+  fireEvent.click(screen.getByTestId('customers-row-7'));
+  expect(screen.getByTestId('edit-customer-dialog')).not.toBeNull();
+});
+
+test('a failed customer edit keeps the dialog open and shows the editor error', async () => {
+  stubMatchMedia({ ...FINE });
+  const update = vi.fn<NonNullable<CustomerSource['update']>>().mockRejectedValue(new Error('nope'));
+  await findRows(undefined, { update, canEditCustomers: true });
+  fireEvent.click(within(screen.getByTestId('customers-row-7')).getByTestId('customer-open-button'));
+  fireEvent.change(screen.getByPlaceholderText('Phone number'), { target: { value: '456' } });
+  fireEvent.click(screen.getByTestId('customer-editor-save'));
+  expect(await screen.findByTestId('customer-editor-error')).not.toBeNull();
+  expect(screen.getByTestId('edit-customer-dialog')).not.toBeNull();
 });
 
 test('Add new customer opens Add Customer, requires an email and saves', async () => {
