@@ -132,7 +132,7 @@ test.each([4, 3])('the charge items are hidden when orderCreate is %s', async or
   for (const item of ['misc-product', 'fee', 'shipping']) expect(screen.queryByTestId(`cart-add-menu-${item}`)).toBeNull();
 }, 20_000);
 
-test('each charge form shows its v2 controls, with shipping No tax gated on orderCreate 6', async () => {
+test('each charge form shows its v2 controls', async () => {
   await renderTill(COUPONS);
   openAddMenuItem('fee');
   const fee = within(screen.getByRole('group', { name: 'Add fee' }));
@@ -152,9 +152,12 @@ test('each charge form shows its v2 controls, with shipping No tax gated on orde
   expect(custom.queryByRole('switch', { name: 'Amount Includes Tax' })).toBeNull();
   fireEvent.click(custom.getByRole('button', { name: '+ SKU' }));
   expect(custom.getByRole('textbox', { name: 'SKU' })).not.toBeNull();
-  cleanup();
+}, 20_000);
+
+test('Add Shipping has no No tax below orderCreate 6', async () => {
   await renderTill({ ...COUPONS, orderCreate: 5 });
   openAddMenuItem('shipping');
+  expect(within(screen.getByRole('group', { name: 'Add shipping' })).getByRole('switch', { name: 'Amount Includes Tax' })).not.toBeNull();
   expect(within(screen.getByRole('group', { name: 'Add shipping' })).queryByRole('switch', { name: 'No tax' })).toBeNull();
 }, 20_000);
 
