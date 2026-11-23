@@ -1,6 +1,6 @@
 import { setLineQuantity } from './cart-line-helpers';
 import { noTaxSettings } from './fixtures/store-settings';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
@@ -70,9 +70,9 @@ function OrderStoreReady() {
   return <span>Order store ready</span>;
 }
 
-test('Back with a cash leg asks before cancelling, and Keep taking payment returns with the leg', () => {
+test('The X with a cash leg asks before cancelling, and Keep taking payment returns with the leg', () => {
   takeLeg(200);
-  fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+  fireEvent.click(screen.getByTestId('checkout-close'));
   expect(screen.getByText('Cancel this payment?')).not.toBeNull();
   expect(screen.getByTestId('checkout-cancel-confirm').textContent).toBe('Cancel payments');
   expect(screen.getByText('Money already taken has to go back to the customer:')).not.toBeNull();
@@ -88,7 +88,7 @@ test('Cancel payments lists cash and card legs, then returns to the cart with no
   fireEvent.click(screen.getByTestId('checkout-method-pos_card'));
   fireEvent.change(screen.getByLabelText('Terminal reference'), { target: { value: 'T-1' } });
   takeLeg(100, 'pos_card');
-  fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+  fireEvent.click(screen.getByTestId('checkout-close'));
   expect(screen.queryAllByTestId(/^checkout-cancel-leg-/).map(element => element.textContent)).toEqual([
     'Return $2.00 cash to the customer', 'Void $1.00 on Card',
   ]);
@@ -100,16 +100,19 @@ test('Cancel payments lists cash and card legs, then returns to the cart with no
   expect(send).not.toHaveBeenCalled();
 }, 20_000);
 
-test('Back with no leg goes straight to the cart', () => {
-  fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+test('The X with no leg goes straight to the cart', () => {
+  fireEvent.click(screen.getByTestId('checkout-close'));
   expect(screen.queryByTestId('cancel-payment')).toBeNull();
   expect(screen.getByTestId('cart-checkout')).not.toBeNull();
   expect(screen.queryByText('Cancel this payment?')).toBeNull();
 }, 20_000);
 
-test('The Cancel payment button opens the same view', () => {
+test('The Cancel payment button sits in the title bar, before the X, and opens the same view', () => {
   expect(screen.queryByTestId('checkout-cancel-payment')).toBeNull();
   takeLeg(200);
+  const bar = screen.getByTestId('checkout-title-bar');
+  const button = within(bar).getByTestId('checkout-cancel-payment');
+  expect(button.compareDocumentPosition(within(bar).getByTestId('checkout-close')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(screen.getByTestId('checkout-cancel-payment').getAttribute('aria-disabled')).not.toBe('true');
   fireEvent.click(screen.getByTestId('checkout-cancel-payment'));
   expect(screen.getByTestId('cancel-payment')).not.toBeNull();
@@ -118,7 +121,7 @@ test('The Cancel payment button opens the same view', () => {
 
 test('A new tender after cancelling does not reopen the view', async () => {
   takeLeg(200);
-  fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+  fireEvent.click(screen.getByTestId('checkout-close'));
   fireEvent.click(screen.getByTestId('checkout-cancel-confirm'));
   fireEvent.click(await screen.findByTestId('cart-checkout'));
   takeLeg(300);
@@ -133,7 +136,7 @@ test('Cancel payment is v2\'s outline-destructive, sm beside the title on a wide
   expect(classes).not.toContain('h-10');
 }, 20_000);
 
-test('While the order saves, Cancel payment is disabled and a press opens no confirm', async () => {
+test('While the order saves, Cancel payment and the X are disabled and a press opens no confirm', async () => {
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
   const insert = orders!.insert.bind(orders!);
@@ -143,6 +146,9 @@ test('While the order saves, Cancel payment is disabled and a press opens no con
   await waitFor(() => expect(screen.getByTestId('checkout-commit').textContent).toBe('Saving order…'));
   expect(screen.getByTestId('checkout-cancel-payment').getAttribute('aria-disabled')).toBe('true');
   fireEvent.click(screen.getByTestId('checkout-cancel-payment'));
+  expect(screen.queryByTestId('cancel-payment')).toBeNull();
+  expect(screen.getByTestId('checkout-close').getAttribute('aria-disabled')).toBe('true');
+  fireEvent.click(screen.getByTestId('checkout-close'));
   expect(screen.queryByTestId('cancel-payment')).toBeNull();
   release();
   expect(await screen.findByTestId('receipt-order')).not.toBeNull();
