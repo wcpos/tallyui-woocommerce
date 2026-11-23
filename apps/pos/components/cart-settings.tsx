@@ -223,12 +223,13 @@ export type CartWithSettingsProps = ComponentProps<typeof Cart> & {
   chords?: boolean;                      // the till chords are live: Alt+D opens Add Discount
   // v2's note row sits above the foot's buttons (cart/foot.tsx:36); TallyUI's Cart has no slot there, so it goes under.
   note?: ReactNode;
+  notice?: ReactNode;
   openOrdersList?: ReactNode; // the open-orders list, slid out of the strip over the cart (v2 cart/tabs.tsx:462-481)
   listOpen?: boolean;
 };
 
 export function CartWithSettings({ position, onPositionChange, openOrders, coupons = null, couponsOffered = false, customer, customers = null,
-  createCustomersBlockedReason, chords, sale, note, openOrdersList, listOpen = false, ...cartProps }: CartWithSettingsProps): JSX.Element {
+  createCustomersBlockedReason, chords, sale, note, notice, openOrdersList, listOpen = false, ...cartProps }: CartWithSettingsProps): JSX.Element {
   const [settings, setSettings] = useCartSettings();
   // Where the strip sits in the cart pane: the list covers the cart on the far side of it (v2 cart/tabs.tsx:116,330-337).
   const [strip, setStrip] = useState({ y: 0, height: 0 });
@@ -249,6 +250,7 @@ export function CartWithSettings({ position, onPositionChange, openOrders, coupo
           customers={customers} createCustomersBlockedReason={createCustomersBlockedReason} chords={chords && !listOpen} />
         <CartSettingsDialog position={position} onPositionChange={onPositionChange} settings={settings} onSettingsChange={setSettings} />
       </View>
+      {notice}
       {/* Sort a copy for display only: the order builder's lineItems keep the add order (receipts, parking, the order). */}
       <Cart {...cartProps} quickDiscounts={settings.quickDiscounts} columns={settings.columns} sale={{ ...sale, ...withRemovedToasts(sale), order: { ...sale.order, lineItems: sortCartLines(sale.order.lineItems, settings.sortLines) } }} />
       {note}
