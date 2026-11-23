@@ -135,13 +135,12 @@ test('till not shown (searchChord false): alt+f leaves the Cart tab and is not p
   expect(paneShown('cart')).toBe(true);
 });
 
-test('wide till at checkout: alt+f is off while the catalogue stays beside the tender', () => {
+test('wide till at checkout: alt+f is off and the tender takes the catalogue column', () => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1280, height: 800, scale: 1, fontScale: 1 });
   render(<><SaleScreen {...saleProps} /><PortalHost /></>);
   fireEvent.click(screen.getByText('Espresso'));
   fireEvent.click(screen.getByTestId('cart-checkout'));
   expect(screen.queryByTestId('cart-checkout')).toBeNull();
-  expect(search()).toBeTruthy();
+  expect(screen.queryByTestId('catalogue-search')).toBeNull();
   expect(press(document.body, altF)).toBe(false);
-  expect(document.activeElement).not.toBe(search());
 });

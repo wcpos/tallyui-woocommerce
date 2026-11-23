@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { JSX } from 'react';
-import { Platform, ScrollView, View, useWindowDimensions } from 'react-native';
+import { Platform, View, useWindowDimensions } from 'react-native';
 import type { RxCollection } from 'rxdb';
-import { Button, Receipt, SyncStatus, Text } from '@tallyui/components';
+import { Receipt, SyncStatus, Text } from '@tallyui/components';
 import { catalogueEntries, saleTaxContexts, TAX_ADDRESS_ORDER_CREATE_VERSION, TaxProvider, taxProviderProps, useSale, useTax } from '@tallyui/pos';
 import { useFormatStoreMoney, useStoreMoney } from '../lib/money/store-money';
 import { StoreMoneyFor } from '../lib/money/store-money-for';
@@ -62,8 +62,8 @@ import { ReceiptStoreLine } from './receipt-store-line';
 import { ReceiptSyncOrder } from './receipt-sync-order';
 import { useReceiptSettings } from '../lib/receipts/receipt-settings';
 import { RegisterControls } from './register-controls';
-import { CancelPaymentView } from './cancel-payment-view';
-import { CheckoutTitleBar } from './checkout-title-bar';
+import { CheckoutColumn } from './checkout-column';
+import { CheckoutOrderLines } from './checkout-order-lines';
 import { CashierSheet, type CashierOption } from './cashier-sheet';
 import { CouponRows } from './coupon-entry';
 import { OpenOrderTabs, stripCartIds } from './open-order-tabs';
@@ -74,7 +74,6 @@ import { OrderDetailsSheet } from './order-details-sheet';
 import { OpenSaleReceipt } from './open-sale-receipt';
 import { KeyboardShortcutsSheet } from './keyboard-shortcuts-sheet';
 import { CartNoteRow } from './cart-note-row';
-import { TenderPane } from './tender-pane';
 import { LedgerPane } from './ledger-pane';
 import { PosPhoneTabBar } from './pos-phone-tab-bar';
 
@@ -175,10 +174,11 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   // The register panel lives in RegisterControls (the cart side); the cashier sheet's drawer door, on the bar over the
   // cart, is the one way into it (v2 register-bar.tsx: "the avatar's sheet is the one door to the panel").
   const [registerPanelOpen, setRegisterPanelOpen] = useState(false);
-  const { cancelling, voidError, requestCancel, keepPayments, confirmCancel, removeLeg } = useTenderCancel(sale, {
+  const tenderCancel = useTenderCancel(sale, {
     collection: () => (outbox.enabled && outbox.orders!.database.collections.tender_voids) as TenderVoidCollection,
     sessionId: register?.saleSession?.id, cashierRef: props.cashierRef,
   });
+  const { cancelling, requestCancel, removeLeg } = tenderCancel;
   const offlineLegs = useOfflineLegs(sale.order.id);
   // WCPOS v2 checkout-column.tsx:32-34: Escape is the tender's own Back; in the cancel view the cashier picks Keep or Cancel.
   useCheckoutBack(() => { if (outbox.enabled && props.multiplePayments === true) requestCancel(); else sale.cancelTender(); },
@@ -326,6 +326,9 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     // v2's `onTill`: Alt+F only on the till's own route, never at checkout; the phone till brings Products forward.
     searchChord={chords} onRevealSearch={phoneLayout ? () => setCartOpen(false) : undefined}
     viewState={viewState} onViewStateChange={setViewState} cashierControl={cashierControl} />;
+  // WCPOS v2's two-pane checkout: wide, the tender takes the products column and the cart column keeps the ledger.
+  const checkoutColumn = (wide: boolean) => <CheckoutColumn sale={sale} outbox={outbox.enabled} multi={props.multiplePayments === true}
+    wide={wide} cancel={tenderCancel} offlineLegs={offlineLegs} />;
   // v2's cart column paints its own surface, white in Light (pos/cart/index.tsx:75 `isColumn ? 'bg-cart'`, :187), and
   // its rows sit 8 px in (cart/foot.tsx:35 `gap-2 p-2`; cart-header.tsx:119 `px-2 py-2`).
   const cartPane = (
@@ -359,41 +362,12 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           <OpenSaleReceipt open={billOpen} onClose={() => setBillOpen(false)} side={viewState.position} order={sale.order}
             config={{ storeName: props.storeName, cashier: props.cashierName, registerName: register?.registerName ?? undefined }} />
         </>
-      ) : sale.stage.kind === 'tender' ? outbox.enabled ? (
-        // v2's tender pane is a ScrollView (checkout/tender/tender-pane.tsx:377) whose content takes a minimum height, never
-        // a height (checkout/LEDGER.md:49), so on a phone a tall pane scrolls to the commit button.
-        <ScrollView testID="checkout-scroll" className="flex-1" contentContainerClassName="grow" keyboardShouldPersistTaps="handled">
-        {props.multiplePayments === true ? (
-        cancelling && sale.order.payments.length > 0 ? (
-          <>
-            {voidError ? <Text testID="tender-void-error" accessibilityRole="alert" className="text-destructive">{voidError}</Text> : null}
-            <CancelPaymentView payments={sale.order.payments} currency={currency} onKeep={keepPayments}
-              onConfirm={confirmCancel} />
-          </>
-        ) : (
-          <>
-            <CheckoutTitleBar disabled={sale.saving} onClose={requestCancel}>
-              {/* v2's CancelPaymentButton (checkout-body-view.tsx:87-101): outline-destructive (button/index.tsx:53-54), sm beside
-                  the title when wide, default in the phone sheet (tender-checkout.tsx:129), disabled while the order saves. */}
-              {sale.order.payments.length > 0 ? <Button variant="outline" className="border-destructive bg-card" size={width < SALE_SPLIT_MIN_WIDTH ? undefined : 'sm'} disabled={sale.saving} testID="checkout-cancel-payment" onPress={requestCancel}><Text>Cancel payment</Text></Button> : null}
-            </CheckoutTitleBar>
-            {voidError ? <Text testID="tender-void-error" accessibilityRole="alert" className="text-destructive">{voidError}</Text> : null}
-            <TenderPane multi sale={sale} onRecordedOffline={offlineLegs.mark} />
-            {/* One column below 900: the legs sit under the tender (wide, the ledger has the products panel). */}
-            {width < SALE_SPLIT_MIN_WIDTH ? <LedgerPane order={sale.order} recordedOffline={offlineLegs.ids} onRemove={sale.saving ? undefined : id => { void removeLeg(id); }} /> : null}
-          </>
-        )
-      ) : <>
-        <CheckoutTitleBar disabled={sale.saving} onClose={() => sale.cancelTender()} />
-        <TenderPane sale={sale} />
-      </>}
-        </ScrollView>
-      ) : (
-        <>
-          <Text>Taking payment arrives in the next update</Text>
-          <Button onPress={() => sale.cancelTender()}><Text>Back to cart</Text></Button>
-        </>
-      ) : sale.stage.kind === 'receipt' ? (() => {
+      ) : sale.stage.kind === 'tender' ? width >= SALE_SPLIT_MIN_WIDTH ? <>
+        {/* v2's wide checkout (checkout-body-view.tsx): the cart column stills to the order's lines over the ledger. */}
+        <CheckoutOrderLines order={sale.order} />
+        <LedgerPane closing order={sale.order} recordedOffline={offlineLegs.ids}
+          onRemove={!outbox.enabled || cancelling || sale.saving ? undefined : id => { void removeLeg(id); }} />
+      </> : checkoutColumn(false) : sale.stage.kind === 'receipt' ? (() => {
         const orderId = sale.stage.posOrder.id;
         const receiptOrder = (outbox.enabled && outbox.recent.find(o => o.id === orderId)) || sale.stage.posOrder;
         const receiptCoupons = sale.stage.order.display.coupons ?? [], receiptCurrency = sale.stage.order.currency;
@@ -462,7 +436,6 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     </View>
   );
 
-  // WCPOS v2's two-pane checkout: during a multi-payment tender the ledger takes the products panel, beside the tender.
   const multiTender = outbox.enabled && props.multiplePayments === true && sale.stage.kind === 'tender';
   useWedgeScanner(onTenderScan, props.scanActive !== false && multiTender && width >= SALE_SPLIT_MIN_WIDTH);
   if (width >= SALE_SPLIT_MIN_WIDTH) {
@@ -470,9 +443,8 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     // v2 keeps no inset on the products column's edge facing the cart (pos-columns.tsx `GroundInnerEdge`, lib/ground.ts:
     // 84-110 INNER_RIGHT/INNER_LEFT `pr-0`/`pl-0`): the handle is that gutter, so the column's 12 px bleeds under it.
     const productsPanel = <View key="products" testID="pos-products-panel"
-      style={{ flexGrow: shown, flexShrink: 1, flexBasis: 0 }}>{multiTender ? <View testID="checkout-ledger-column" className="flex-1 bg-muted p-4">
-        <LedgerPane closing order={sale.order} recordedOffline={offlineLegs.ids} onRemove={cancelling || sale.saving ? undefined : id => { void removeLeg(id); }} />
-      </View> : <View testID="pos-products-bleed" className={`flex-1 ${viewState.position === 'right' ? '-ml-3' : '-mr-3'}`}>{browse}</View>}</View>;
+      style={{ flexGrow: shown, flexShrink: 1, flexBasis: 0 }}>{sale.stage.kind === 'tender' ? checkoutColumn(true)
+        : <View testID="pos-products-bleed" className={`flex-1 ${viewState.position === 'right' ? '-ml-3' : '-mr-3'}`}>{browse}</View>}</View>;
     // The bar heads the cart column on whichever side the cart sits, as v2's goes with its cart, on the cart's surface.
     const cartPanel = <View key="cart" testID="pos-cart-panel"
       style={{ flexGrow: 100 - shown, flexShrink: 1, flexBasis: 0 }}

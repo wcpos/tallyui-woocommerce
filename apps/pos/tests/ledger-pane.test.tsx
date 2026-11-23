@@ -122,7 +122,7 @@ const legs = () => screen.queryAllByTestId(/^checkout-leg-/);
 
 test('the ledger beside the tender shows the total and no payments yet', async () => {
   await renderSale();
-  expect(within(screen.getByTestId('pos-products-panel')).getByTestId('checkout-ledger')).not.toBeNull();
+  expect(within(screen.getByTestId('pos-cart-panel')).getByTestId('checkout-ledger')).not.toBeNull();
   expect(text('checkout-ledger-eyebrow')).toBe('Total');
   expect(text('checkout-ledger-balance')).toBe('$6.00');
   expect(text('checkout-ledger-empty')).toBe('No payments yet');

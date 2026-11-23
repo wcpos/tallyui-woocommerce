@@ -103,7 +103,7 @@ async function takeLeg(minor: number, offline: boolean) {
 }
 
 test.each([
-  { scenario: 'the wide ledger pane', width: 1280, pane: 'checkout-ledger-column' },
+  { scenario: 'the wide ledger pane', width: 1280, pane: 'pos-cart-panel' },
   { scenario: 'the phone ledger under the tender', width: 390, pane: 'checkout-scroll' },
 ])('a leg taken offline and confirmed shows "Recorded offline" under it: $scenario', async ({ width, pane }) => {
   await startSplit({ status: 'offline', width });
