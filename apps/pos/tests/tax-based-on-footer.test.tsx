@@ -180,6 +180,60 @@ test.each([
   }
 }, 20_000);
 
+// Money suspect S2: tax-inclusive 12.00, base GB VAT 20%, customer billing US-CA at CA Tax 10%, order.create 8.
+// The till splits 12.00 at the customer's 10% (@tallyui/pos woocommerceLine): net 10.909091 + tax 1.090909 = 12.00.
+// WooCommerce's web price (woocommerce_adjust_non_base_location_prices) would be 12.00 / 1.2 × 1.1 = 11.00.
+test('order.create 8 with inclusive prices and a non-base customer rate keeps the store total', async () => {
+  const inclusive: StoreSettings = {
+    ...taxed, pricesIncludeTax: true, taxRounding: { granularity: 'woocommerce', roundAtSubtotal: false },
+    baseTaxAddress: { country: 'GB', state: '', city: '', postcode: '' }, taxRatesPpm: { default: 200000 },
+    taxRates: { standard: [{ id: 2, code: 'GB-VAT-1', label: 'VAT', rate: '20.0000', priority: 1, compound: false, shipping: true }] },
+  };
+  const usCustomer = { id: '8', name: 'Bo Cruz', billing: { country: 'US', state: 'CA', city: 'Fresno', postcode: '93650' } };
+  const priced = products.map(p => p.name === 'Espresso' ? { ...p, price: '12.00', regular_price: '12.00' } : p);
+  vi.spyOn(CatalogueContext, 'useCatalogue').mockReturnValue({
+    catalogue: { capabilities: { orderCreate: 8 } } as Catalogue, products: priced, status: 'ready',
+  });
+  const fetchStub = vi.fn<typeof fetch>(async input => String(input).endsWith('/site') ? Response.json({ wcpos_version: '1.10.20' }) : Response.json({
+    document: { id: 117, status: 'completed', total: '12.000000' }, currentRevision: 'r1',
+  }, { status: 201 }));
+  vi.stubGlobal('fetch', fetchStub);
+  render(
+    <SessionProvider>
+      <OutboxProvider storage={getRxStorageMemory()}>
+        <OrderStoreReady />
+        <SaleScreen {...saleProps} products={priced} storeSettings={inclusive} capabilities={{ orderCreate: 8 }} defaultCustomer={usCustomer} />
+        <PortalHost />
+      </OutboxProvider>
+    </SessionProvider>,
+  );
+  await screen.findByText('Order store ready');
+  fireEvent.click(screen.getByText('Espresso'));
+  // (a) The store keeps 12.00. The forward keeps the posted line total (woocommerce/includes/rest-api/Controllers/
+  // Version2/class-wc-rest-orders-v2-controller.php:1010 overrides the adjusted wc_get_price_excluding_tax at :999,
+  // the only place woocommerce_adjust_non_base_location_prices could apply), then calculate_totals (:828) recomputes
+  // the line tax on that net at the billing rate (woocommerce-pos/includes/Orders.php:755-759 via the
+  // _woocommerce_pos_tax_based_on meta; created_via restored at woocommerce-pos/includes/API/V2/Writers/Order_Writer.php:261-268;
+  // woocommerce/includes/class-wc-order-item.php:289): 10.909091 × 10% = 1.09 (abstract-wc-order.php:2282), and
+  // abstract-wc-order.php:2436 sets total = round(10.91 + 1.09, 2) = 12.00.
+  const storeTotal = '$12.00';
+  expect(screen.getByTestId('cart-checkout').textContent).toBe(`Checkout ${storeTotal}`);
+  fireEvent.click(screen.getByTestId('cart-checkout'));
+  await takeCash(1200);
+  await screen.findByTestId('receipt-order');
+  await waitFor(() => expect(screen.queryByTestId('sync-status')).toBeNull());
+  const posts = fetchStub.mock.calls.filter(([, init]) => init?.method === 'POST');
+  expect(posts).toHaveLength(1);
+  const { payload } = JSON.parse(posts[0][1]!.body as string);
+  expect(payload.meta_data).toContainEqual({ key: '_woocommerce_pos_tax_based_on', value: 'billing' });
+  expect(payload.billing).toMatchObject({ country: 'US', state: 'CA' });
+  // (b) The server keeps the posted net; it never takes a line tax from the till (none is sent) and recomputes it.
+  expect(payload.line_items).toHaveLength(1);
+  expect(payload.line_items[0]).toMatchObject({ product_id: 80, quantity: 1, subtotal: '10.909091', total: '10.909091' });
+  expect(payload.line_items[0]).not.toHaveProperty('taxes');
+  expect(payload.line_items[0]).not.toHaveProperty('total_tax');
+}, 20_000);
+
 // #623 (b): the parked cart keeps the customer's addresses, so a resumed sale is taxed and sent as it was parked.
 test.each(['the open orders list', 'a cashier switch'])('a sale parked and resumed through %s keeps its tax address', async path => {
   vi.spyOn(CatalogueContext, 'useCatalogue').mockReturnValue({
