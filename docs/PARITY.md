@@ -174,7 +174,7 @@ pick and approval; H, safety nets; I, translations; then the periphery (customer
 | 80 | Add customer from the cart | cart/add-customer.tsx | W/components/add-customer-dialog.tsx | PARTIAL | behaviour | S | Name, email, phone; no addresses |
 | 81 | Edit the cart customer's billing and shipping | cart/edit-cart-customer.tsx | L `setAddresses` unwired | MISSING | money | M | |
 | 82 | Tax recalculated by customer address | totals hooks | W sale-screen.tsx:150-152 | PARTIAL | money | S | Only at orderCreate 8 (fork plugin); otherwise shop base |
-| 83 | Tax totals: itemised or single, rate names | cart/totals/taxes.tsx:24-52 | L CartTotal | PARTIAL | money | S | Always itemised, label "Tax n%"; `tax_total_display` is read only in settings |
+| 83 | Tax totals: itemised or single, rate names | cart/totals/taxes.tsx:24-52 | L CartTotal, W/lib/sale/tax-labels.ts | PARTIAL | money | S | Rate names ("CA Tax") are shown since wiring pass 4, for the sale's tax address; a rate shared by two names, or unnamed, reads "Tax n%". Always itemised: v2's single "Total Tax" row (`tax_total_display` single) is not in 4.2.0, and there is no incl./excl. beside the label |
 | 84 | Cart prices incl or excl tax per `tax_display_cart` | product-total.tsx:25, subtotal.tsx:27 | L order-builder.ts:71,233 | PARTIAL | money | M | Shows prices in the mode they are entered in; a store entering excl and displaying incl shows different figures |
 | 85 | Tax exempt | edit-order-meta/tax-exempt-row | none | MISSING | money | M | |
 | 86 | Order note | cart/note-row.tsx | W/components/cart-note-row.tsx | MATCH | – | – | |
