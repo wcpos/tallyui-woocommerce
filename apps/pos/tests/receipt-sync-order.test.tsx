@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
-import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
+import { createWooCommandTransport, createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import type { OrderCreateEnvelope } from '@tallyui/core';
 import type { CommandTransport, PosOrder } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
@@ -237,3 +237,53 @@ test('an order still carrying the pressed command id is not read as the outcome'
   view.rerender(<ReceiptSyncOrder posOrder={order({ commandId: 'c2' })} onRequeue={onRequeue} />);
   await vi.waitFor(() => expect(getToasts().map(t => [t.type, t.title])).toEqual([['error', 'Failed to save order']]));
 });
+
+// Money verify suspect 10 (#580): a resend mints a new commandId, so a store that committed the first create must not
+// record the sale twice. The model is WCPOS 1.10.20 push/orders, as the dev store serves it (fork overlay identical):
+// a known mutationId replays its order (Write_Controller.php:152-157), and a known recordId, the till's order id that
+// the order's _woocommerce_pos_uuid meta carries from WooCommerce's first save, returns that order (:389-404).
+// The first answer is chosen by the test (0: no answer); the order is committed before it either way.
+function wooStore(firstStatus: number) {
+  const orders: string[] = [], byMutation = new Map<string, number>(), mutations: string[] = [];
+  const fetch = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+    const { mutationId, recordId } = JSON.parse(String(init?.body)) as { mutationId: string; recordId: string };
+    mutations.push(mutationId);
+    const known = byMutation.get(mutationId) ?? (orders.includes(recordId) ? orders.indexOf(recordId) : undefined);
+    const index = known ?? orders.push(recordId) - 1;
+    byMutation.set(mutationId, index);
+    const status = mutations.length === 1 ? firstStatus : 201;
+    if (status === 0) throw new TypeError('Failed to fetch'); // the answer is lost, as for a timeout's abort
+    const body = status === 201 ? { document: { id: 305 + index, number: String(305 + index), total: '3.00' } }
+      : { code: 'woocommerce_rest_cannot_create', message: 'The order was saved, then the request failed.' };
+    return { status, json: async () => body, headers: { get: () => null } } as unknown as Response;
+  });
+  const { send } = createWooCommandTransport({ baseUrl: 'https://shop.example/wp-json/wcpos/v2', getHeaders: () => ({}),
+    fetch, ledgerPayments: false });
+  return { send, orders, mutations };
+}
+
+test('a 400 after the store committed the sale is requeueable, and Save to store finds the committed order: one order', async () => {
+  const store = wooStore(400);
+  await sellEspresso(store.send);
+  await vi.waitFor(() => expect(screen.getByTestId('receipt-store-line').textContent).toBe(NOT_SAVED));
+  fireEvent.click(screen.getByTestId(BUTTON));
+  await vi.waitFor(() => expect(getToasts().some(t => t.type === 'success' && t.title === 'Order #305 synced')).toBe(true));
+  expect(store.mutations).toHaveLength(2);
+  expect(store.mutations[1]).not.toBe(store.mutations[0]);
+  expect(store.orders).toHaveLength(1);
+}, 20_000);
+
+test('a timeout or 5xx after the store committed the sale keeps it pending under the same commandId: no button, one order', async () => {
+  for (const firstStatus of [0, 500, 502, 504]) {
+    const store = wooStore(firstStatus);
+    await sellEspresso(store.send);
+    await vi.waitFor(() => expect(store.mutations.length).toBeGreaterThan(0));
+    expect(screen.getByTestId('receipt-store-line').textContent).toBe(AWAITING);
+    expect(screen.queryByTestId(BUTTON)).toBeNull();
+    await vi.waitFor(() => expect(screen.queryByTestId('receipt-store-line')).toBeNull(), { timeout: 5_000 });
+    expect(store.mutations).toEqual([store.mutations[0], store.mutations[0]]);
+    expect(store.orders).toHaveLength(1);
+    cleanup();
+    signIn();
+  }
+}, 30_000);
