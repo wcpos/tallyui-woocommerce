@@ -164,9 +164,9 @@ pick and approval; H, safety nets; I, translations; then the periphery (customer
 | 70 | Line edit dialog (name, SKU, regular price, tax status and class, meta) | cells/edit-line-item/form.tsx | L `updateLine` unwired | MISSING | money | M | No form in the app; library covers name, SKU, regular price only |
 | 71 | Line attributes, meta, notes | product-name | L CartLine | PARTIAL | look | S | Attributes and SKU show; meta and line notes not verified |
 | 72 | Remove line with Undo | use-remove-line-item | W/lib/removed-from-cart-toast.ts:8 | MISSING | behaviour | S | Toast without Undo at 4.2.0; library main has since gained removal undo |
-| 73 | Miscellaneous product | cart/add-misc-product.tsx | W/components/cart-add-menu.tsx | PARTIAL | money | S | No SKU, virtual, downloadable, categories; needs orderCreate 5 |
-| 74 | Fee: fixed or percent, includes tax, tax class | cart/add-fee.tsx | cart-add-menu.tsx ChargeForm | PARTIAL | money | S | Add form has no percent or includes-tax switch (edit form does) |
-| 75 | Shipping: method, amount, tax | cart/add-shipping.tsx | cart-add-menu.tsx | PARTIAL | money | S | No method select; "no tax" needs orderCreate 6 |
+| 73 | Miscellaneous product | cart/add-misc-product.tsx | W/components/cart-add-menu.tsx | PARTIAL | money | S | No virtual, downloadable, categories; needs orderCreate 5. "+ SKU" is mounted since wiring pass 2 |
+| 74 | Fee: fixed or percent, includes tax, tax class | cart/add-fee.tsx | cart-add-menu.tsx ChargeForm | PARTIAL | money | S | Amount Includes Tax starts in the store's tax mode (v2: on; Desk Q4, ADR-075) and is hidden on a percent fee, which then follows the store's mode (v2 shows it). The % toggle and the switch are mounted since wiring pass 2 |
+| 75 | Shipping: method, amount, tax | cart/add-shipping.tsx | cart-add-menu.tsx | PARTIAL | money | S | No method select; Amount Includes Tax starts in the store's tax mode (v2: on). The switch and "No tax" (orderCreate 6) are mounted since wiring pass 2 |
 | 76 | Order-level discount | cart/add-discount-sheet.tsx (pos-discount coupon line) | cart-add-menu.tsx | PARTIAL | money | M | A library discount, not v2's server coupon line; reconciliation with Woo totals not traced |
 | 77 | Coupons: apply, validate, remove | cart/add-coupon.tsx | W/components/coupon-entry.tsx | PARTIAL | money | S | Validation is faithful; pick from synced coupons only, no typed code found; needs orderCreate 6 |
 | 78 | Per-line coupon discount display | cells/subtotal | – | UNVISITED | – | – | |
