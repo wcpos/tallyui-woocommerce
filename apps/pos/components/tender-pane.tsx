@@ -282,7 +282,6 @@ export function TenderPane({ sale, multi = false, onRecordedOffline }: {
         <Text className="text-center font-semibold text-primary-foreground">Continue</Text>
       </Pressable>
     </> : null}
-    <Button variant="outline" onPress={() => sale.cancelTender()}><Text>Back</Text></Button>
     {/* WCPOS v2: use-confirm.tsx:46-63; the amount is the one that will be recorded, not the keyed entry. */}
     {asking && <AlertDialog open onOpenChange={next => { if (!next) cancelOffline(); }}>
       <AlertDialogContent testID="checkout-offline-dialog">
