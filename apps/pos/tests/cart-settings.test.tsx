@@ -11,7 +11,7 @@ import type { CartColumns } from '../lib/sale/cart-settings';
 import type { PanelPosition } from '../lib/catalogue/catalogue-view-state';
 import { AppFrame, BESIDE_RAIL } from '../components/app-rail';
 import { isWideWindow } from '../lib/layout/wide';
-import { classesOf } from './classes-of';
+import { classesOf, textPropsOf } from './classes-of';
 import products from './fixtures/products.json';
 import { memoryStorage } from './memory-storage';
 
@@ -743,7 +743,7 @@ test('Price › On Sale defaults on, strikes the regular price above the price, 
   const first = renderCart();
   addColdBrew(2);
   const regular = screen.getByLabelText('Regular price $5.00');
-  expect(window.getComputedStyle(regular).textDecorationLine).toBe('line-through');
+  expect(textPropsOf(regular).classes).toContain('line-through');
   expect(follows(regular, screen.getByText('$4.00'))).toBe(true);
   fireEvent.click(screen.getByTestId('cart-settings-button'));
   expect(checked('cart-columns-price-onSale')).toBe('true');
