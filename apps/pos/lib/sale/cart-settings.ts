@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import type { CartColumnId } from '@tallyui/components';
 import type { LineItem } from '@tallyui/pos';
 
 // v2's pos-cart.sortLines (pos/cart/sort-lines.ts). Fees and shipping are not sorted: Cart always renders them
@@ -13,12 +14,12 @@ export const LINE_SORTS: readonly { id: LineSort; label: string }[] = [
 // v2's pos-cart.openOrdersPosition (pos/cart/ui-settings-form.tsx): the open-order tab strip above or below the cart.
 export type OpenOrdersPosition = 'top' | 'bottom';
 // quickDiscounts: v2's pos-cart.quickDiscounts, the percent keys on each line's price keypad.
-// columns: v2's pos-cart columns (initial-settings.json), each shown or not, with Qty's Split and Name's SKU displays.
-// Regular price, Subtotal, Actions, Price's and Total's on_sale and tax displays and drag reorder are not offered:
-// TallyUI 3.20.1's Cart has none of them (CartColumnSettings).
+// columns: v2's pos-cart columns (initial-settings.json), including Regular price, Price's On sale and column order
+// through TallyUI's CartColumnsForm. Subtotal, Actions and the tax displays are still not offered.
 export interface CartColumns {
   quantity: { show: boolean; split: boolean }; image: { show: boolean }; name: { show: boolean; sku: boolean };
-  sku: { show: boolean }; price: { show: boolean }; total: { show: boolean };
+  sku: { show: boolean }; price: { show: boolean; onSale: boolean }; regularPrice: { show: boolean };
+  total: { show: boolean }; order: CartColumnId[];
 }
 export interface CartSettings { sortLines: LineSort; openOrdersPosition: OpenOrdersPosition; quickDiscounts: number[]; columns: CartColumns }
 // Per-device, like the catalogue view. The cart side is not here: it is the catalogue view's `position`.
@@ -29,24 +30,29 @@ export const QUICK_DISCOUNT_SLOTS = 3;
 // "quickDiscounts": [5, 10, 15] and the columns: Qty (Split off), Name (SKU off), Price and Total on; Image and SKU off.
 export const CART_SETTINGS_DEFAULTS: CartSettings = { sortLines: 'newest_top', openOrdersPosition: 'bottom', quickDiscounts: [5, 10, 15], columns: {
   quantity: { show: true, split: false }, image: { show: false }, name: { show: true, sku: false },
-  sku: { show: false }, price: { show: true }, total: { show: true },
+  sku: { show: false }, price: { show: true, onSale: true }, regularPrice: { show: false }, total: { show: true },
+  order: ['quantity', 'image', 'name', 'sku', 'price', 'regularPrice', 'total'],
 } };
 
 /** Each column field on its own: a stored boolean stays, anything else gets that field's default. */
 export function normalizeCartColumns(raw: unknown): CartColumns {
-  const stored = (typeof raw === 'object' && raw !== null ? raw : {}) as { [id: string]: { [field: string]: unknown } | null | undefined };
-  const flag = (id: keyof CartColumns, field: string, fallback: boolean) => {
+  const stored = (typeof raw === 'object' && raw !== null ? raw : {}) as Partial<Record<CartColumnId, { [field: string]: unknown } | null>> & { order?: unknown };
+  const flag = (id: CartColumnId, field: string, fallback: boolean) => {
     const value = stored[id]?.[field];
     return typeof value === 'boolean' ? value : fallback;
   };
   const d = CART_SETTINGS_DEFAULTS.columns;
+  const order = Array.isArray(stored.order)
+    ? stored.order.filter((id): id is CartColumnId => typeof id === 'string' && d.order.includes(id as CartColumnId)) : [];
   return {
     quantity: { show: flag('quantity', 'show', d.quantity.show), split: flag('quantity', 'split', d.quantity.split) },
     image: { show: flag('image', 'show', d.image.show) },
     name: { show: flag('name', 'show', d.name.show), sku: flag('name', 'sku', d.name.sku) },
     sku: { show: flag('sku', 'show', d.sku.show) },
-    price: { show: flag('price', 'show', d.price.show) },
+    price: { show: flag('price', 'show', d.price.show), onSale: flag('price', 'onSale', d.price.onSale) },
+    regularPrice: { show: flag('regularPrice', 'show', d.regularPrice.show) },
     total: { show: flag('total', 'show', d.total.show) },
+    order: [...new Set([...order, ...d.order])],
   };
 }
 

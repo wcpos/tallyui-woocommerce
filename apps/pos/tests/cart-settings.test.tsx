@@ -7,6 +7,7 @@ import { catalogueEntries, TaxProvider, useSale } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
 import { CartSettingsDialog, CartWithSettings } from '../components/cart-settings';
 import { CART_SETTINGS_KEY, loadCartSettings, normalizeQuickDiscounts, saveCartSettings, sortCartLines } from '../lib/sale/cart-settings';
+import type { CartColumns } from '../lib/sale/cart-settings';
 import type { PanelPosition } from '../lib/catalogue/catalogue-view-state';
 import { AppFrame, BESIDE_RAIL } from '../components/app-rail';
 import { isWideWindow } from '../lib/layout/wide';
@@ -15,7 +16,8 @@ import products from './fixtures/products.json';
 import { memoryStorage } from './memory-storage';
 
 // v2's pos-cart columns (initial-settings.json), written out so that a wrong default fails.
-const V2_COLUMNS = { quantity: { show: true, split: false }, image: { show: false }, name: { show: true, sku: false }, sku: { show: false }, price: { show: true }, total: { show: true } };
+const V2_COLUMNS: CartColumns = { quantity: { show: true, split: false }, image: { show: false }, name: { show: true, sku: false }, sku: { show: false }, price: { show: true, onSale: true }, regularPrice: { show: false }, total: { show: true },
+  order: ['quantity', 'image', 'name', 'sku', 'price', 'regularPrice', 'total'] };
 const V2_COLUMNS_JSON = JSON.stringify(V2_COLUMNS);
 
 // No RegisterProvider here, so useRegister is null (no register switch) unless a test hands the sheet a register.
@@ -618,7 +620,7 @@ test('the Split switch in Cart Settings › Columns saves for this device and su
   const columns = screen.getByTestId('cart-setting-columns');
   expect(within(columns).getByRole('heading').textContent).toBe('Columns');
   expect(within(columns).getByText('Qty')).not.toBeNull();
-  const toggle = screen.getByRole('switch', { name: 'Show Split on Qty' });
+  const toggle = screen.getByRole('switch', { name: 'Split' });
   expect(toggle.getAttribute('aria-checked')).toBe('false');
   fireEvent.click(toggle);
   expect(JSON.parse(localStorage.getItem(CART_SETTINGS_KEY)!).columns).toEqual({ ...V2_COLUMNS, quantity: { show: true, split: true } });
@@ -627,7 +629,7 @@ test('the Split switch in Cart Settings › Columns saves for this device and su
   addColdBrew(2);
   expect(screen.getAllByTestId('cart-line-split')).toHaveLength(1);
   fireEvent.click(screen.getByTestId('cart-settings-button'));
-  expect(screen.getByRole('switch', { name: 'Show Split on Qty' }).getAttribute('aria-checked')).toBe('true');
+  expect(screen.getByRole('switch', { name: 'Split' }).getAttribute('aria-checked')).toBe('true');
   fireEvent.click(screen.getByTestId('ui-settings-restore-defaults'));
   expect(loadCartSettings().columns).toEqual(V2_COLUMNS);
   expect(screen.queryByTestId('cart-line-split')).toBeNull();
@@ -635,26 +637,33 @@ test('the Split switch in Cart Settings › Columns saves for this device and su
 
 // v2's UISettingsColumnsForm (components/ui-settings/columns-form.tsx:79, :115-143), the columns and copy of
 // initial-settings.json pos-cart and use-ui-label.ts.
-const COLUMN_IDS = ['quantity', 'image', 'name', 'sku', 'price', 'total'];
-const columnLabels = () => screen.getAllByTestId(/^cart-setting-column-[a-z]+-label$/).map(label => label.textContent);
+const COLUMN_IDS = V2_COLUMNS.order;
+const columnLabels = () => screen.getAllByTestId(/^cart-columns-[a-zA-Z]+-show$/).map(toggle => toggle.getAttribute('aria-label'));
 const checked = (testID: string) => screen.getByTestId(testID).getAttribute('aria-checked');
 const heads = () => screen.getAllByRole('columnheader').map(head => head.textContent);
 
-test('Cart Settings › Columns lists Qty, Image, Name, SKU, Price and Total in v2\'s order, each a switch, with Split and SKU nested', () => {
+test('Cart Settings › Columns lists v2\'s seven columns in order, each a switch, with Split, SKU and On Sale nested', () => {
   renderCart();
   fireEvent.click(screen.getByTestId('cart-settings-button'));
-  expect(columnLabels()).toEqual(['Qty', 'Image', 'Name', 'SKU', 'Price', 'Total']);
-  for (const id of COLUMN_IDS) expect(screen.getByTestId(`cart-setting-column-${id}`).getAttribute('role')).toBe('switch');
-  expect(screen.getByRole('switch', { name: 'Show Image column' })).not.toBeNull();
-  expect(screen.getByTestId('cart-setting-column-quantity-split-label').textContent).toBe('Split');
-  expect(screen.getByTestId('cart-setting-column-name-sku-label').textContent).toBe('SKU');
-  expect(screen.getByRole('switch', { name: 'Show SKU on Name' })).not.toBeNull();
+  expect(columnLabels()).toEqual(['Qty', 'Image', 'Name', 'SKU', 'Price', 'Regular Price', 'Total']);
+  for (const id of COLUMN_IDS) {
+    const toggle = screen.getByTestId(`cart-columns-${id}-show`);
+    expect(toggle.getAttribute('role')).toBe('switch');
+    expect(within(screen.getByTestId(`cart-columns-${id}`)).getByText(toggle.getAttribute('aria-label')!)).not.toBeNull();
+  }
+  expect(screen.getByRole('switch', { name: 'Image' })).not.toBeNull();
+  expect(within(screen.getByTestId('cart-columns-quantity')).getByText('Split')).not.toBeNull();
+  expect(within(screen.getByTestId('cart-columns-name')).getByText('SKU')).not.toBeNull();
+  expect(within(screen.getByTestId('cart-columns-name')).getByRole('switch', { name: 'SKU' })).not.toBeNull();
+  expect(screen.getByRole('switch', { name: 'On Sale' })).not.toBeNull();
   // A column's display switches show only while the column is on (columns-form.tsx:126).
-  fireEvent.click(screen.getByTestId('cart-setting-column-quantity'));
-  expect(screen.queryByTestId('cart-setting-column-quantity-split')).toBeNull();
-  fireEvent.click(screen.getByTestId('cart-setting-column-name'));
-  expect(screen.queryByTestId('cart-setting-column-name-sku')).toBeNull();
-  expect(JSON.parse(localStorage.getItem(CART_SETTINGS_KEY)!).columns).toEqual({ ...V2_COLUMNS, quantity: { show: false, split: false }, name: { show: false, sku: false } });
+  fireEvent.click(screen.getByTestId('cart-columns-quantity-show'));
+  expect(screen.queryByTestId('cart-columns-quantity-split')).toBeNull();
+  fireEvent.click(screen.getByTestId('cart-columns-name-show'));
+  expect(screen.queryByTestId('cart-columns-name-sku')).toBeNull();
+  fireEvent.click(screen.getByTestId('cart-columns-price-show'));
+  expect(screen.queryByTestId('cart-columns-price-onSale')).toBeNull();
+  expect(JSON.parse(localStorage.getItem(CART_SETTINGS_KEY)!).columns).toEqual({ ...V2_COLUMNS, quantity: { show: false, split: false }, name: { show: false, sku: false }, price: { show: false, onSale: true } });
 });
 
 test('cart column defaults are v2\'s, and a save from before the column switches keeps its Split', () => {
@@ -669,8 +678,9 @@ test('cart column defaults are v2\'s, and a save from before the column switches
   expect(loadCartSettings(storage).columns).toEqual({ ...V2_COLUMNS, total: { show: false } });
   renderCart();
   fireEvent.click(screen.getByTestId('cart-settings-button'));
-  expect(COLUMN_IDS.map(id => checked(`cart-setting-column-${id}`))).toEqual(['true', 'false', 'true', 'false', 'true', 'true']);
-  expect(checked('cart-setting-column-name-sku')).toBe('false');
+  expect(COLUMN_IDS.map(id => checked(`cart-columns-${id}-show`))).toEqual(['true', 'false', 'true', 'false', 'true', 'false', 'true']);
+  expect(checked('cart-columns-name-sku')).toBe('false');
+  expect(checked('cart-columns-price-onSale')).toBe('true');
 });
 
 test('switching Image on and Price off shows the line image, drops the Price column, and survives a remount', () => {
@@ -682,8 +692,8 @@ test('switching Image on and Price off shows the line image, drops the Price col
   expect(heads()).toContain('Price');
   expect(screen.getAllByText('$4.00')).toHaveLength(1);
   fireEvent.click(screen.getByTestId('cart-settings-button'));
-  fireEvent.click(screen.getByRole('switch', { name: 'Show Image column' }));
-  fireEvent.click(screen.getByRole('switch', { name: 'Show Price column' }));
+  fireEvent.click(screen.getByRole('switch', { name: 'Image' }));
+  fireEvent.click(screen.getByRole('switch', { name: 'Price' }));
   const after = () => {
     expect(screen.getAllByTestId('cart-line-image')).toHaveLength(1);
     expect(heads()).not.toContain('Price');
@@ -697,11 +707,77 @@ test('switching Image on and Price off shows the line image, drops the Price col
   after();
 });
 
-test('switching Name › SKU on shows the line\'s SKU under its name', () => {
-  renderCart();
+test('switching Name › SKU on shows the line\'s SKU under its name and survives a remount', () => {
+  const first = renderCart();
   addColdBrew(1);
   expect(screen.queryByTestId('cart-line-sku')).toBeNull();
   fireEvent.click(screen.getByTestId('cart-settings-button'));
-  fireEvent.click(screen.getByRole('switch', { name: 'Show SKU on Name' }));
+  fireEvent.click(within(screen.getByTestId('cart-columns-name')).getByRole('switch', { name: 'SKU' }));
   expect(screen.getByTestId('cart-line-sku').textContent).toBe('COF-CLD');
+  first.unmount();
+  renderCart();
+  addColdBrew(1);
+  expect(screen.getByTestId('cart-line-sku').textContent).toBe('COF-CLD');
+});
+
+test('Regular Price is off by default; switching it on shows its head and cell, saves and survives a remount', () => {
+  const first = renderCart();
+  addColdBrew(1);
+  expect(heads()).not.toContain('Regular Price');
+  expect(screen.queryByTestId('cart-line-regular-price')).toBeNull();
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  expect(checked('cart-columns-regularPrice-show')).toBe('false');
+  fireEvent.click(screen.getByRole('switch', { name: 'Regular Price' }));
+  expect(heads()).toContain('Regular Price');
+  expect(screen.getByTestId('cart-line-regular-price').textContent).toBe('$5.00');
+  expect(JSON.parse(localStorage.getItem(CART_SETTINGS_KEY)!).columns.regularPrice).toEqual({ show: true });
+  first.unmount();
+  renderCart();
+  addColdBrew(1);
+  expect(heads()).toContain('Regular Price');
+  expect(screen.getByTestId('cart-line-regular-price').textContent).toBe('$5.00');
+});
+
+test('Price › On Sale defaults on, strikes the regular price above the price, and saves when switched off', () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1280, height: 800, scale: 1, fontScale: 1 });
+  const first = renderCart();
+  addColdBrew(2);
+  const regular = screen.getByLabelText('Regular price $5.00');
+  expect(regular.style.textDecorationLine).toBe('line-through');
+  expect(follows(regular, screen.getByText('$4.00'))).toBe(true);
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  expect(checked('cart-columns-price-onSale')).toBe('true');
+  fireEvent.click(screen.getByRole('switch', { name: 'On Sale' }));
+  expect(screen.queryByLabelText('Regular price $5.00')).toBeNull();
+  expect(JSON.parse(localStorage.getItem(CART_SETTINGS_KEY)!).columns.price).toEqual({ show: true, onSale: false });
+  first.unmount();
+  renderCart();
+  addColdBrew(2);
+  expect(screen.queryByLabelText('Regular price $5.00')).toBeNull();
+  expect(screen.getByText('$4.00')).not.toBeNull();
+});
+
+test('Move Qty down saves quantity second, reorders the cart heads, and Restore resets the order', () => {
+  vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 1280, height: 800, scale: 1, fontScale: 1 });
+  renderCart();
+  addColdBrew(1);
+  fireEvent.click(screen.getByTestId('cart-settings-button'));
+  fireEvent.click(screen.getByRole('switch', { name: 'Image' }));
+  expect(heads()).toEqual(['Qty', '', 'Item', 'Price', 'Total']);
+  fireEvent.click(screen.getByRole('button', { name: 'Move Qty down' }));
+  expect(JSON.parse(localStorage.getItem(CART_SETTINGS_KEY)!).columns.order).toEqual(['image', 'quantity', 'name', 'sku', 'price', 'regularPrice', 'total']);
+  expect(heads()).toEqual(['', 'Qty', 'Item', 'Price', 'Total']);
+  fireEvent.click(screen.getByTestId('ui-settings-restore-defaults'));
+  expect(JSON.parse(localStorage.getItem(CART_SETTINGS_KEY)!).columns).toEqual(V2_COLUMNS);
+  expect(columnLabels()).toEqual(['Qty', 'Image', 'Name', 'SKU', 'Price', 'Regular Price', 'Total']);
+  expect(heads()).toEqual(['Qty', 'Item', 'Price', 'Total']);
+});
+
+test.each([
+  [{ quantity: { split: true } }, { ...V2_COLUMNS, quantity: { show: true, split: true } }],
+  [{ order: ['total', 'bogus', 'total', 3] }, { ...V2_COLUMNS, order: ['total', 'quantity', 'image', 'name', 'sku', 'price', 'regularPrice'] }],
+  [{ order: 'x' }, V2_COLUMNS],
+])('old or malformed columns %j load with normalized defaults and order', (columns, expected) => {
+  localStorage.setItem(CART_SETTINGS_KEY, JSON.stringify({ columns }));
+  expect(loadCartSettings().columns).toEqual(expected);
 });
