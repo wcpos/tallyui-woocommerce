@@ -20,6 +20,7 @@ import { openRegisterPanel, sessionsOff, toggleRegisterSessions } from './cart-h
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 import { REGISTER_SESSIONS_KEY } from '../lib/register/register-setting';
 import { cartPane, openCartTab, openProductsTab } from './phone-tabs-helpers';
+import { classesOf } from './classes-of';
 
 beforeEach(() => {
   vi.spyOn(ReactNative, 'useWindowDimensions').mockReturnValue({ width: 900, height: 800, scale: 1, fontScale: 1 });
@@ -127,6 +128,27 @@ test.each([900, 390])('the switch enables the register and replaces the cart at 
   expect(within(screen.getByTestId('register-bar-shell')).getByTestId('register-bar-pill').textContent).toBe('Register closed');
   expect(screen.queryByTestId('cart-checkout')).toBeNull();
 });
+
+test("the register panel is v2's right-hand sheet, names the store and opener, and prints an X-report", async () => {
+  const print = vi.fn();
+  vi.stubGlobal('print', print);
+  const app = await setup();
+  await toggleRegisterSessions();
+  fireEvent.change(await screen.findByTestId('open-register-amount'), { target: { value: '100.00' } });
+  fireEvent.click(screen.getByTestId('open-register-button'));
+  await screen.findByTestId('cart-empty');
+  await act(async () => {});
+  await waitFor(() => expect(app.register.session?.status).toBe('open'));
+  await openRegisterPanel();
+  expect(classesOf('register-panel')).toContain('right-0');
+  expect(classesOf('register-panel')).toContain('border-l');
+  expect(screen.getByTestId('register-panel-description').textContent).toContain(stores[0].name);
+  expect(screen.getByTestId('register-panel-description').textContent).toContain('Paul');
+  expect(screen.getByTestId('register-panel-opened-by')).not.toBeNull();
+  fireEvent.click(screen.getByTestId('register-panel-print'));
+  await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
+  expect(screen.getByTestId('closure-print-document').textContent).toContain('X report');
+}, 20_000);
 
 test('open, pay out, sell, count and close, then reuse the counted float', async () => {
   const app = await setup();
