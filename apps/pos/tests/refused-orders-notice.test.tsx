@@ -94,3 +94,55 @@ test('follows the collection: a refusal that is sent again leaves the band', asy
   await act(async () => { await (await orders.findOne('r1').exec())!.incrementalPatch({ syncStatus: 'pending' }); });
   await waitFor(() => expect(screen.queryByTestId('orders-attention')).toBeNull());
 });
+
+const mismatch = { code: 'total_mismatch', expectedMinor: 1099, serverMinor: 1100 } as const;
+
+test('a sale the store accepted at a different total shows both totals and opens', async () => {
+  await insertOrder('m1', { syncStatus: 'applied', serverRefs: { orderId: '1240', displayId: '1240', totalMinor: 1100 },
+    totalMinor: 1099, warnings: [mismatch] });
+  const onOpen = vi.fn();
+  render(<RefusedOrdersNotice orders={orders} onOpen={onOpen} />);
+  expect((await screen.findByTestId('orders-attention-title')).textContent).toBe('1 sale needs attention');
+  expect(screen.getByTestId('orders-attention-row-m1').textContent)
+    .toContain('The store recorded $11.00 for this sale, but the till charged $10.99.');
+  fireEvent.click(screen.getByTestId('orders-attention-open-m1'));
+  expect(onOpen).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: 'm1' }));
+});
+
+test('Handled hides the mismatch for this commandId', async () => {
+  await insertOrder('m1', { syncStatus: 'applied', serverRefs: { orderId: '1240', totalMinor: 1100 }, totalMinor: 1099, warnings: [mismatch] });
+  render(<RefusedOrdersNotice orders={orders} onOpen={vi.fn()} />);
+  fireEvent.click(await screen.findByTestId('orders-attention-handled-m1'));
+  await waitFor(() => expect(screen.queryByTestId('orders-attention-row-m1')).toBeNull());
+  const doc = (await orders.findOne('m1').exec())!;
+  expect(doc.attentionHandledFor).toBe(doc.commandId);
+});
+
+test('no warning, another warning, a malformed mismatch or a handled one stays out', async () => {
+  // m0 is the control: once its row is in, the band has read the collection, so the others' absence is real.
+  await insertOrder('m0', { syncStatus: 'applied', warnings: [mismatch] });
+  await insertOrder('a1', { syncStatus: 'applied' });
+  await insertOrder('a2', { syncStatus: 'applied', warnings: [{ code: 'insufficient_stock', variantId: 'v1', quantity: 2 }] });
+  await insertOrder('a3', { syncStatus: 'applied', warnings: [{ code: 'total_mismatch', expectedMinor: 1099 } as never] });
+  await insertOrder('a4', { syncStatus: 'applied', warnings: [mismatch], commandId: 'c4', attentionHandledFor: 'c4' });
+  render(<RefusedOrdersNotice orders={orders} onOpen={vi.fn()} />);
+  expect((await screen.findByTestId('orders-attention-title')).textContent).toBe('1 sale needs attention');
+  expect(screen.getAllByTestId(/^orders-attention-row-/).map(row => row.getAttribute('data-testid'))).toEqual(['orders-attention-row-m0']);
+});
+
+test('a handled mark for an older commandId does not hide the mismatch', async () => {
+  await insertOrder('m1', { syncStatus: 'applied', warnings: [mismatch], commandId: 'c2', attentionHandledFor: 'c1' });
+  render(<RefusedOrdersNotice orders={orders} onOpen={vi.fn()} />);
+  expect(await screen.findByTestId('orders-attention-row-m1')).not.toBeNull();
+});
+
+test('refusals and mismatches share one list, newest first; only mismatches get Handled', async () => {
+  await insertOrder('r1', { syncStatus: 'rejected', createdAt: '2026-10-07T09:00:00.000Z' });
+  await insertOrder('m1', { syncStatus: 'applied', warnings: [mismatch], createdAt: '2026-10-07T09:30:00.000Z' });
+  render(<RefusedOrdersNotice orders={orders} onOpen={vi.fn()} />);
+  await waitFor(() => expect(screen.getByTestId('orders-attention-title').textContent).toBe('2 sales need attention'));
+  expect(screen.getAllByTestId(/^orders-attention-row-/).map(row => row.getAttribute('data-testid')))
+    .toEqual(['orders-attention-row-m1', 'orders-attention-row-r1']);
+  expect(screen.queryByTestId('orders-attention-handled-r1')).toBeNull();
+  expect(screen.getByTestId('orders-attention-handled-m1')).not.toBeNull();
+});
