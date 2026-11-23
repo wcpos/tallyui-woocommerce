@@ -78,7 +78,9 @@ export function ordersTable(
   const { range, currency, money, leftOut = new Set<string>(), cashiers = [] } = options;
   const format = (minor: number) => money(minor) ?? '';
   const { startIso, endIso } = rangeBounds(range);
-  const today = orders.filter(order => order.currency === currency && order.createdAt >= startIso && order.createdAt < endIso)
+  // A refused order is no sale (sales-room.ts, sheet-figures.ts): not a row; the hero's "Not accepted" line counts it.
+  const today = orders.filter(order => order.currency === currency && order.createdAt >= startIso && order.createdAt < endIso
+    && order.syncStatus !== 'rejected')
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
   // v2 panels/specs.ts:188-222: every order in range is a row with a Counted Yes/No; the footer sums the counted ones.
   // Head :190 and total :221; the Cashier cell is the Cashiers card's label, not v2's bare "Unknown" for an unnamed id.

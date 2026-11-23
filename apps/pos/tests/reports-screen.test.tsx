@@ -305,6 +305,19 @@ test('the Top products card lists the product the sale rang up', async () => {
   expect(screen.queryByTestId('card-products-row-1')).toBeNull();
 });
 
+// A refused order is not a sale (sales-room.ts): the Products card leaves its product and amount out, as the hero does.
+test('the Top products card leaves out a sale the store refused', async () => {
+  const app = await setup();
+  await payCash();
+  await waitFor(() => expect(text('card-products-figure')).toBe('1'));
+  const [{ id }] = await app.orders.find().exec();
+  await waitFor(async () => expect((await app.orders.findOne(id).exec())?.syncStatus).toBe('applied'));
+  await act(async () => { await (await app.orders.findOne(id).exec())!.incrementalPatch({ syncStatus: 'rejected' }); });
+  await waitFor(() => expect(text('hero-total')).toBe('$0.00'));
+  expect(text('card-products-figure')).toBe('0');
+  expect(text('card-products-empty')).toBe('No sales in this period');
+}, 20_000);
+
 test("the Categories card names the synced product's category for a sale in the period", async () => {
   // The fixture's Espresso (id 80) is in Coffee (id 25); the screen must hand the synced products to the card.
   await setup({ synced: products });

@@ -62,7 +62,7 @@ const lastWeek: PosOrder[] = [
     payments: [{ id: 'w2', method: 'external', amountMinor: 950 }] },
 ];
 
-test('today totals every sync state in the store currency only', () => {
+test('today totals pending and sent orders, not refused ones, in the store currency only', () => {
   expect(salesRoom(orders, { now, currency: 'USD', ...day }).today).toMatchObject({
     count: 3, totalMinor: 2896, taxMinor: 196, averageMinor: 965, pending: 1, rejected: 1, splitCount: 1,
   });
