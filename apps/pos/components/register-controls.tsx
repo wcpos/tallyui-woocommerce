@@ -41,9 +41,9 @@ export function RegisterControls({ currency, storeName, locale, cartEmpty, child
 }) {
   const formatMoney = useFormatStoreMoney();
   const register = useRegister();
-  const { session, cashiers } = useSession();
-  const opener = register?.session?.opened_by
-    ? cashierNameFor(deviceCashiers(session, cashiers), register.session.opened_by) : undefined;
+  const auth = useSession() as ReturnType<typeof useSession> | null;
+  const opener = auth && register?.session?.opened_by
+    ? cashierNameFor(deviceCashiers(auth.session, auth.cashiers), register.session.opened_by) : undefined;
   const [ownOpen, setOwnOpen] = useState(false);
   const controlled = controlledOpen !== undefined && onPanelOpenChange !== undefined;
   const panelOpen = controlled ? controlledOpen : ownOpen;
