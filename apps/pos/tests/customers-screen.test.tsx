@@ -464,7 +464,7 @@ test('an allowed wide-table edit saves only the changed phone and closes with a 
   await waitFor(() => expect(screen.queryByTestId('edit-customer-dialog')).toBeNull());
 });
 
-test('removing billing keeps the customer phone and company', async () => {
+test('removing billing clears only its address lines', async () => {
   stubMatchMedia({ ...FINE });
   const update = vi.fn<NonNullable<CustomerSource['update']>>().mockResolvedValue(bea);
   await findRows(vi.fn<CustomerSource['search']>().mockResolvedValue([bea]), { update, canEditCustomers: true });
@@ -472,8 +472,22 @@ test('removing billing keeps the customer phone and company', async () => {
   fireEvent.click(screen.getByTestId('customer-editor-form-addresses-billing-remove'));
   fireEvent.click(screen.getByTestId('customer-editor-save'));
   await waitFor(() => expect(update).toHaveBeenCalledExactlyOnceWith('11', {
-    billing: {}, shipping: {}, phone: '0400', company: 'Bea Co',
+    billing: { firstName: 'Bea', lastName: 'Smith', company: 'Bea Co', phone: '0400', email: 'bea@example.com' },
+    shipping: { firstName: 'Bea', lastName: 'Smith', company: 'Bea Co', phone: '0400' },
   }));
+});
+
+test('changing only the billing city keeps its phone when shipping is absent', async () => {
+  stubMatchMedia({ ...FINE });
+  const update = vi.fn<NonNullable<CustomerSource['update']>>().mockResolvedValue(bea);
+  await findRows(vi.fn<CustomerSource['search']>().mockResolvedValue([bea]), { update, canEditCustomers: true });
+  fireEvent.click(screen.getByTestId('customer-open-button'));
+  fireEvent.click(screen.getByTestId('customer-editor-form-addresses-billing-edit'));
+  fireEvent.change(screen.getByTestId('customer-editor-form-addresses-billing-city'), { target: { value: 'Melbourne' } });
+  fireEvent.click(screen.getByTestId('customer-editor-save'));
+  await waitFor(() => expect(update).toHaveBeenCalledExactlyOnceWith('11', expect.objectContaining({
+    billing: expect.objectContaining({ city: 'Melbourne', phone: '0400' }),
+  })));
 });
 
 test('opening a customer shows the fresh record', async () => {

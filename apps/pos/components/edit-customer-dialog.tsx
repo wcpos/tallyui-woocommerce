@@ -1,5 +1,5 @@
 import type { JSX } from 'react';
-import type { Customer, CustomerPatch } from '@tallyui/core';
+import type { Customer, CustomerAddress, CustomerPatch } from '@tallyui/core';
 import { CustomerEditor, Dialog, DialogContent, DialogHeader, DialogTitle } from '@tallyui/components';
 import { useIsOnline } from '../lib/online/online-status';
 import { WOO_COUNTRY_OPTIONS, wooStatesFor } from '../lib/settings/woo-region-options';
@@ -16,12 +16,23 @@ export interface EditCustomerDialogProps {
 // v2 customers/edit/edit-customer.tsx:28 titles the sheet "Edit {name}"; v2 autosaves and has Delete and Sync
 // in its footer, while @tallyui 4.2.0's editor has an explicit Save.
 export function EditCustomerDialog({ customer, update, defaultCountry, onClose, onSaved }: EditCustomerDialogProps): JSX.Element {
-  // 4.2.0's billing Remove sends billing: {}; the connector then blanks billing phone and company unless the
-  // top-level fields are sent (connector toWooPatch). v2 clears only the address lines (address-rows.tsx:109-112).
-  const save = (id: string, patch: CustomerPatch) => update(id, patch.billing === undefined ? patch : {
+  // 4.2.0's address Remove sends billing: {} / shipping: {}, and the connector writes "" for every missing Woo address
+  // key (toWooAddress), names, email, phone and company included. v2 clears only the address lines
+  // (address-rows.tsx:109-112), so an emptied address keeps the person fields it had.
+  const kept = (stored: CustomerAddress | undefined, billing: boolean): CustomerAddress => {
+    const from = stored ?? {};
+    const fallback = billing ? customer : {};
+    const fields = ['firstName', 'lastName', 'company', 'phone', ...(billing ? ['email'] as const : [])] as const;
+    return Object.fromEntries(fields.flatMap(field => {
+      const value = (from as Record<string, string | undefined>)[field] ?? (fallback as Record<string, string | undefined>)[field];
+      return value ? [[field, value]] : [];
+    })) as CustomerAddress;
+  };
+  const emptied = (address: CustomerAddress | undefined) => address !== undefined && Object.keys(address).length === 0;
+  const save = (id: string, patch: CustomerPatch) => update(id, {
     ...patch,
-    ...(patch.phone === undefined ? { phone: customer.phone ?? '' } : {}),
-    ...(patch.company === undefined ? { company: customer.company ?? '' } : {}),
+    ...(emptied(patch.billing) ? { billing: kept(customer.billing, true) } : {}),
+    ...(emptied(patch.shipping) ? { shipping: kept(customer.shipping ?? customer.billing, false) } : {}),
   });
   return (
     <Dialog open onOpenChange={next => { if (!next) onClose(); }}>
