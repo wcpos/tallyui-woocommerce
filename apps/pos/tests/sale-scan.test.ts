@@ -21,7 +21,7 @@ const shirt = { ...products[2], variation_docs: variations.documents.filter(d =>
 const catalogue = [products[0], products[1], shirt];
 const alert = (type: 'warning' | 'error', title: string, description: string) => ({ id: 'pos-scan-alert', type, title, description, duration: 6000 });
 
-function deps(overrides: Partial<SaleScanDeps<(typeof catalogue)[number]>> = {}) {
+function deps(overrides: Partial<SaleScanDeps<any>> = {}) {
   return { products: catalogue, traits, currency: 'USD', add: vi.fn(() => true), ...overrides };
 }
 
