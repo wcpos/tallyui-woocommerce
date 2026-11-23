@@ -15,6 +15,7 @@ import { usePointer } from '../lib/layout/pointer';
 import { dayLabel } from '../lib/orders/order-days';
 import { useSearchTerm } from '../lib/search-term';
 import { nextSort } from '../lib/table-sort';
+import { toast } from '../lib/toast/toast';
 import { AddCustomerDialog } from './add-customer-dialog';
 import { EditCustomerDialog } from './edit-customer-dialog';
 import { AreaDisplayOptions } from './area-display-options';
@@ -142,6 +143,17 @@ export function CustomersScreen({ source, onBack, createBlockedReason, canEditCu
 
   function clear() { set(''); }
   function retry() { setAttempt(n => n + 1); }
+  // v2 edits the latest record (getLatest()); a stale search row would overwrite newer store data on Save.
+  async function openCustomer(row: Customer) {
+    if (!source?.get) { setEditing(row); return; }
+    try {
+      const fresh = await source.get(row.id);
+      if (fresh) setEditing(fresh);
+      else toast({ type: 'error', title: 'Customer not found', description: 'The store no longer has this customer.' });
+    } catch (cause) {
+      toast({ type: 'error', title: 'Could not open customer', description: searchErrorMessage(cause) });
+    }
+  }
   const shown = sortCustomers(results, sort);
   // The columns the display options leave on, in the area's order.
   const columns = visibleAreaColumns(CUSTOMERS_COLUMNS, settings);
@@ -187,7 +199,7 @@ export function CustomersScreen({ source, onBack, createBlockedReason, canEditCu
       <ScrollView testID="customers-body">
         {touchRows ? shown.map(c => (
           <Pressable key={c.id} testID={`customers-row-${c.id}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2"
-            disabled={!canOpen} onPress={() => setEditing(c)} accessibilityRole="button">
+            disabled={!canOpen} onPress={() => { void openCustomer(c); }} accessibilityRole="button">
             <Avatar size="lg" fallback={customerInitials(c)} />
             <View className="min-w-0 flex-1">
               <Text numberOfLines={1} className="text-foreground">{c.name}</Text>
@@ -202,7 +214,7 @@ export function CustomersScreen({ source, onBack, createBlockedReason, canEditCu
             {shown.map(c => <TableRow key={c.id} testID={`customers-row-${c.id}`}>
               {columns.map(({ id }) => customerCell(id, c, now))}
               <TableCell className={`${CELL} w-16 flex-none`}>
-                <IconButton testID="customer-open-button" accessibilityLabel="Open customer" variant="ghost" size="sm" disabled={!canOpen} onPress={() => setEditing(c)}><ChevronRightIcon size={16} /></IconButton>
+                <IconButton testID="customer-open-button" accessibilityLabel="Open customer" variant="ghost" size="sm" disabled={!canOpen} onPress={() => { void openCustomer(c); }}><ChevronRightIcon size={16} /></IconButton>
               </TableCell>
             </TableRow>)}
           </TableBody>

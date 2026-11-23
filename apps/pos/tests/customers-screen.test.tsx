@@ -31,13 +31,18 @@ afterEach(() => {
 
 const gee: Customer = { id: '7', name: 'Gee Four', firstName: 'Gee', lastName: 'Four', email: 'gee@example.invalid', phone: '123', company: 'Four Co' };
 const ada: Customer = { id: '9', name: 'Ada Lovelace', firstName: 'Ada', lastName: 'Lovelace' };
+const bea: Customer = {
+  id: '11', name: 'Bea Smith', firstName: 'Bea', lastName: 'Smith', email: 'bea@example.com', phone: '0400', company: 'Bea Co',
+  billing: { firstName: 'Bea', lastName: 'Smith', company: 'Bea Co', phone: '0400', email: 'bea@example.com',
+    address1: '1 High St', city: 'Sydney', state: 'NSW', postcode: '2000', country: 'AU' },
+};
 
 function renderScreen(search = vi.fn<CustomerSource['search']>().mockResolvedValue([]), onBack = vi.fn(),
-  { create = vi.fn<CustomerSource['create']>(), createBlockedReason, update, canEditCustomers }: {
+  { create = vi.fn<CustomerSource['create']>(), createBlockedReason, get, update, canEditCustomers }: {
     create?: Mock<CustomerSource['create']>; createBlockedReason?: string;
-    update?: CustomerSource['update']; canEditCustomers?: boolean;
+    get?: CustomerSource['get']; update?: CustomerSource['update']; canEditCustomers?: boolean;
   } = {}) {
-  render(<><CustomersScreen source={{ search, create, update }} onBack={onBack} createBlockedReason={createBlockedReason}
+  render(<><CustomersScreen source={{ search, create, get, update }} onBack={onBack} createBlockedReason={createBlockedReason}
     canEditCustomers={canEditCustomers} /><PortalHost /><Toaster /></>);
   return { search, onBack, create };
 }
@@ -457,6 +462,37 @@ test('an allowed wide-table edit saves only the changed phone and closes with a 
   await waitFor(() => expect(update).toHaveBeenCalledExactlyOnceWith('7', { phone: '456' }));
   expect(within(await screen.findByTestId('success-toast')).getByText(`${gee.name} saved`)).not.toBeNull();
   await waitFor(() => expect(screen.queryByTestId('edit-customer-dialog')).toBeNull());
+});
+
+test('removing billing keeps the customer phone and company', async () => {
+  stubMatchMedia({ ...FINE });
+  const update = vi.fn<NonNullable<CustomerSource['update']>>().mockResolvedValue(bea);
+  await findRows(vi.fn<CustomerSource['search']>().mockResolvedValue([bea]), { update, canEditCustomers: true });
+  fireEvent.click(screen.getByTestId('customer-open-button'));
+  fireEvent.click(screen.getByTestId('customer-editor-form-addresses-billing-remove'));
+  fireEvent.click(screen.getByTestId('customer-editor-save'));
+  await waitFor(() => expect(update).toHaveBeenCalledExactlyOnceWith('11', {
+    billing: {}, shipping: {}, phone: '0400', company: 'Bea Co',
+  }));
+});
+
+test('opening a customer shows the fresh record', async () => {
+  stubMatchMedia({ ...FINE });
+  const get = vi.fn<NonNullable<CustomerSource['get']>>().mockResolvedValue({ ...gee, firstName: 'Fresh' });
+  await findRows(vi.fn<CustomerSource['search']>().mockResolvedValue([gee]), { get, update: vi.fn(), canEditCustomers: true });
+  fireEvent.click(screen.getByTestId('customer-open-button'));
+  const dialog = await screen.findByTestId('edit-customer-dialog');
+  expect(get).toHaveBeenCalledExactlyOnceWith('7');
+  expect((within(dialog).getByPlaceholderText('First name') as HTMLInputElement).value).toBe('Fresh');
+});
+
+test('a missing customer shows an error toast without opening the editor', async () => {
+  stubMatchMedia({ ...FINE });
+  const get = vi.fn<NonNullable<CustomerSource['get']>>().mockResolvedValue(null);
+  await findRows(vi.fn<CustomerSource['search']>().mockResolvedValue([gee]), { get, update: vi.fn(), canEditCustomers: true });
+  fireEvent.click(screen.getByTestId('customer-open-button'));
+  expect(within(await screen.findByTestId('error-toast')).getByText('Customer not found')).not.toBeNull();
+  expect(screen.queryByTestId('edit-customer-dialog')).toBeNull();
 });
 
 test('an allowed touch row opens the customer editor', async () => {
