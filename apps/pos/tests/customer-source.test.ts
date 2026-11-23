@@ -54,3 +54,17 @@ test('no searchPage when the connector cannot count', () => {
   const source = customerSource({ ...createWooCommerceConnector(), searchCustomersPage: undefined }, () => context)!;
   expect(source.searchPage).toBeUndefined();
 });
+
+test('update forwards the context, id and patch and returns the saved customer', async () => {
+  const updateCustomer = vi.fn<NonNullable<TallyConnector['updateCustomer']>>().mockResolvedValue(customer);
+  const source = customerSource({ ...createWooCommerceConnector(), updateCustomer }, () => context)!;
+  expect(source.update).toBeTypeOf('function');
+  const patch = { phone: '456' };
+  await expect(source.update!('7', patch)).resolves.toBe(customer);
+  expect(updateCustomer).toHaveBeenCalledExactlyOnceWith(context, '7', patch);
+});
+
+test('no update when the connector cannot update customers', () => {
+  const source = customerSource({ ...createWooCommerceConnector(), updateCustomer: undefined }, () => context)!;
+  expect(source).not.toHaveProperty('update');
+});

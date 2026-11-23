@@ -16,6 +16,7 @@ import { dayLabel } from '../lib/orders/order-days';
 import { useSearchTerm } from '../lib/search-term';
 import { nextSort } from '../lib/table-sort';
 import { AddCustomerDialog } from './add-customer-dialog';
+import { EditCustomerDialog } from './edit-customer-dialog';
 import { AreaDisplayOptions } from './area-display-options';
 import { AreaToolbar, useAreaGutter } from './area-header';
 import { EmptyState } from './empty-state';
@@ -85,6 +86,10 @@ export interface CustomersScreenProps {
   onBack(): void;
   /** Why this cashier cannot add customers; undefined when they can (lib/auth/capabilities.ts). */
   createBlockedReason: string | undefined;
+  /** The cashier has edit_users (lib/auth/capabilities.ts); defaults to false. */
+  canEditCustomers?: boolean;
+  /** The store's base country, where a new address starts. */
+  defaultCountry?: string;
 }
 
 function searchErrorMessage(cause: unknown): string {
@@ -93,7 +98,7 @@ function searchErrorMessage(cause: unknown): string {
     : `Could not reach the store's customers: ${(cause as Error).message}`;
 }
 
-export function CustomersScreen({ source, onBack, createBlockedReason }: CustomersScreenProps): JSX.Element {
+export function CustomersScreen({ source, onBack, createBlockedReason, canEditCustomers = false, defaultCountry }: CustomersScreenProps): JSX.Element {
   const { term, query, type, set } = useSearchTerm();
   const [results, setResults] = useState<Customer[]>([]);
   const [total, setTotal] = useState<number | null>(null);
@@ -102,6 +107,8 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
   const [attempt, setAttempt] = useState(0);
   const [sort, setSort] = useState<CustomerSort>(DEFAULT_CUSTOMER_SORT);
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<Customer | null>(null);
+  const canOpen = canEditCustomers === true && source?.update !== undefined;
   const [settings, setSettings] = useAreaColumns('customers', CUSTOMERS_COLUMNS);
   const request = useRef(0);
   const { width } = useWindowDimensions();
@@ -179,22 +186,23 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
       // A phone row is v2's ListRow (list-row/index.tsx:31,54-65): min-h-14 px-3 py-2, a min-w-0 body, a one-line regular-weight name over a text-sm email.
       <ScrollView testID="customers-body">
         {touchRows ? shown.map(c => (
-          <View key={c.id} testID={`customers-row-${c.id}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2">
+          <Pressable key={c.id} testID={`customers-row-${c.id}`} className="min-h-14 flex-row items-center gap-3 border-b border-border px-3 py-2"
+            disabled={!canOpen} onPress={() => setEditing(c)} accessibilityRole="button">
             <Avatar size="lg" fallback={customerInitials(c)} />
             <View className="min-w-0 flex-1">
               <Text numberOfLines={1} className="text-foreground">{c.name}</Text>
               {c.email ? <Text testID={`customer-email-${c.email}`} numberOfLines={1} className="text-sm text-muted-foreground">{c.email}</Text> : null}
             </View>
-            {/* v2 customers/row.tsx:50 ends the row in chevronRight; city and country wait on the connector. */}
+            {/* v2 customers/row.tsx:27-35,50: the row opens the customer and ends in chevronRight. */}
             <ChevronRightIcon testID={`customers-row-chevron-${c.id}`} size={16} className="text-muted-foreground" />
-          </View>
+          </Pressable>
         )) : <Table>
           {header}
           <TableBody>
             {shown.map(c => <TableRow key={c.id} testID={`customers-row-${c.id}`}>
               {columns.map(({ id }) => customerCell(id, c, now))}
               <TableCell className={`${CELL} w-16 flex-none`}>
-                <IconButton testID="customer-open-button" accessibilityLabel="Open customer" variant="ghost" size="sm" disabled><ChevronRightIcon size={16} /></IconButton>
+                <IconButton testID="customer-open-button" accessibilityLabel="Open customer" variant="ghost" size="sm" disabled={!canOpen} onPress={() => setEditing(c)}><ChevronRightIcon size={16} /></IconButton>
               </TableCell>
             </TableRow>)}
           </TableBody>
@@ -228,6 +236,8 @@ export function CustomersScreen({ source, onBack, createBlockedReason }: Custome
         {/* The store's count of every match, when it gives one (v2 data-table/footer.tsx:58-63). */}
         {listing ? <CaptionRowInset><TableCount shown={shown.length} total={total} active={searching} onSync={retry} /></CaptionRowInset> : null}
         {adding ? <AddCustomerDialog source={source} onClose={() => { setAdding(false); retry(); }} /> : null}
+        {editing && source?.update ? <EditCustomerDialog customer={editing} update={source.update} defaultCountry={defaultCountry}
+          onClose={() => setEditing(null)} onSaved={saved => setResults(rows => rows.map(row => row.id === saved.id ? saved : row))} /> : null}
       </> : <Text testID="customers-unavailable" className={`py-4 text-muted-foreground ${gutter}`}>Customers show once the store is connected.</Text>}
     </View>
   );

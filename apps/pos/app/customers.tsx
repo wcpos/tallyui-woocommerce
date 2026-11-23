@@ -3,7 +3,7 @@ import { Redirect, useRouter } from 'expo-router';
 import { CatalogueUnavailable } from '../components/catalogue-unavailable';
 import { CustomersScreen } from '../components/customers-screen';
 import { SessionHoldBanner } from '../components/session-hold-banner';
-import { createCustomersBlockedReason } from '../lib/auth/capabilities';
+import { createCustomersBlockedReason, deriveUserCapabilities } from '../lib/auth/capabilities';
 import { useSession } from '../lib/auth/session-context';
 import { useRequestContext } from '../lib/auth/request-context';
 import { useCatalogue } from '../lib/catalogue/catalogue-context';
@@ -25,5 +25,6 @@ export default function Customers() {
     </>
   );
   return <><SessionHoldBanner /><CustomersScreen source={customers} onBack={() => { router.canGoBack() ? router.back() : router.replace('/catalogue'); }}
+    canEditCustomers={deriveUserCapabilities(catalogue.cashier).canEditCustomers} defaultCountry={catalogue.store.address?.country}
     createBlockedReason={createCustomersBlockedReason(catalogue.cashier, session.site.home)} /></>;
 }

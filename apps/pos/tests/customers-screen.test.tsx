@@ -33,8 +33,12 @@ const gee: Customer = { id: '7', name: 'Gee Four', firstName: 'Gee', lastName: '
 const ada: Customer = { id: '9', name: 'Ada Lovelace', firstName: 'Ada', lastName: 'Lovelace' };
 
 function renderScreen(search = vi.fn<CustomerSource['search']>().mockResolvedValue([]), onBack = vi.fn(),
-  { create = vi.fn<CustomerSource['create']>(), createBlockedReason }: { create?: Mock<CustomerSource['create']>; createBlockedReason?: string } = {}) {
-  render(<><CustomersScreen source={{ search, create }} onBack={onBack} createBlockedReason={createBlockedReason} /><PortalHost /><Toaster /></>);
+  { create = vi.fn<CustomerSource['create']>(), createBlockedReason, update, canEditCustomers }: {
+    create?: Mock<CustomerSource['create']>; createBlockedReason?: string;
+    update?: CustomerSource['update']; canEditCustomers?: boolean;
+  } = {}) {
+  render(<><CustomersScreen source={{ search, create, update }} onBack={onBack} createBlockedReason={createBlockedReason}
+    canEditCustomers={canEditCustomers} /><PortalHost /><Toaster /></>);
   return { search, onBack, create };
 }
 
@@ -428,10 +432,49 @@ test('found customers show how many are shown', async () => {
   expect(screen.getByTestId('data-table-count').textContent).toBe('Showing 2');
 });
 
-test('each row has a disabled Open customer button until customers can be edited', async () => {
-  await findRows();
+test('each row has a disabled Open customer button without permission or source update', async () => {
+  stubMatchMedia({ ...FINE });
+  await findRows(undefined, { update: vi.fn() });
   const open = within(screen.getByTestId('customers-row-7')).getByRole('button', { name: 'Open customer' });
   expect(open.getAttribute('aria-disabled')).toBe('true');
+  cleanup();
+  await findRows(undefined, { canEditCustomers: true });
+  expect(within(screen.getByTestId('customers-row-7')).getByTestId('customer-open-button').getAttribute('aria-disabled')).toBe('true');
+});
+
+test('an allowed wide-table edit saves only the changed phone and closes with a success toast', async () => {
+  stubMatchMedia({ ...FINE });
+  const update = vi.fn<NonNullable<CustomerSource['update']>>().mockResolvedValue({ ...gee, phone: '456' });
+  await findRows(undefined, { update, canEditCustomers: true });
+  const open = within(screen.getByTestId('customers-row-7')).getByTestId('customer-open-button');
+  expect(open.getAttribute('aria-disabled')).not.toBe('true');
+  fireEvent.click(open);
+  const dialog = screen.getByTestId('edit-customer-dialog');
+  expect(dialog.textContent).toContain(`Edit ${gee.name}`);
+  expect((within(dialog).getByPlaceholderText('First name') as HTMLInputElement).value).toBe(gee.firstName);
+  fireEvent.change(within(dialog).getByPlaceholderText('Phone number'), { target: { value: '456' } });
+  fireEvent.click(screen.getByTestId('customer-editor-save'));
+  await waitFor(() => expect(update).toHaveBeenCalledExactlyOnceWith('7', { phone: '456' }));
+  expect(within(await screen.findByTestId('success-toast')).getByText(`${gee.name} saved`)).not.toBeNull();
+  await waitFor(() => expect(screen.queryByTestId('edit-customer-dialog')).toBeNull());
+});
+
+test('an allowed touch row opens the customer editor', async () => {
+  stubMatchMedia({ ...COARSE });
+  await findRows(undefined, { update: vi.fn(), canEditCustomers: true });
+  fireEvent.click(screen.getByTestId('customers-row-7'));
+  expect(screen.getByTestId('edit-customer-dialog')).not.toBeNull();
+});
+
+test('a failed customer edit keeps the dialog open and shows the editor error', async () => {
+  stubMatchMedia({ ...FINE });
+  const update = vi.fn<NonNullable<CustomerSource['update']>>().mockRejectedValue(new Error('nope'));
+  await findRows(undefined, { update, canEditCustomers: true });
+  fireEvent.click(within(screen.getByTestId('customers-row-7')).getByTestId('customer-open-button'));
+  fireEvent.change(screen.getByPlaceholderText('Phone number'), { target: { value: '456' } });
+  fireEvent.click(screen.getByTestId('customer-editor-save'));
+  expect(await screen.findByTestId('customer-editor-error')).not.toBeNull();
+  expect(screen.getByTestId('edit-customer-dialog')).not.toBeNull();
 });
 
 test('Add new customer opens Add Customer, requires an email and saves', async () => {
