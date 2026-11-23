@@ -5,6 +5,8 @@
 // calculate_totals:2436 total rounded at $price_decimals), so 9.99 + 10% stores tax "1" and total "11".
 // The bar: the till refuses to sell on this store, or it completes at the total Woo stores. Built like
 // inclusive-order-matrix.test.ts: the TallyUI functions useSale calls, the app's real orderTransport, fetch stubbed.
+// The bar is now met by the app's block: store-settings-gate refuses a store whose storeDecimalsMismatch is not null;
+// the sale path below runs only if that check lets this store through, and then still fails as before.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { ServerCapabilities, StoreSettings, SyncContext } from '@tallyui/core';
 import {
@@ -14,6 +16,7 @@ import {
 import { createWooCommerceConnector, wooStoreSettings } from '@tallyui/connector-woocommerce';
 import type { Session } from '../lib/auth/session';
 import { orderTransport } from '../lib/sale/order-transport';
+import { storeDecimalsMismatch } from '../lib/sale/store-decimals';
 import fixture from './fixtures/inclusive-matrix/store.json';
 
 const WOO_TOTAL = '11'; // what WooCommerce stores for this basket at 0 decimals (see the header)
@@ -36,6 +39,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 function respond(wcposVersion: string) {
@@ -60,10 +64,14 @@ test.each([['single-payment push (1.10.20)', '1.10.20'], ['ledger push (2.0.3)',
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const context: SyncContext = { connectorId: 'woocommerce', baseUrl: session.site.wcposApiUrl, headers: {} };
     // useStoreSettings puts the capabilities' taxRounding onto the connector's settings.
-    const read = await wooStoreSettings(context).then(s => s, () => null);
-    if (read === null) return; // the till refuses to sell on this store: the bar is met
+    const read = await wooStoreSettings(context);
     const settings: StoreSettings = { ...read, taxRounding: capabilities.taxRounding };
     expect(settings.pricesIncludeTax).toBe(false);
+    const mismatch = storeDecimalsMismatch(settings);
+    if (mismatch !== null) {
+      expect(mismatch).toEqual({ storeDecimals: 0, currencyDigits: 2 });
+      return; // the till refuses to sell on this store (store-settings-gate): the bar is met
+    }
 
     const connector = createWooCommerceConnector();
     const builder = createOrderBuilder({ currency: 'USD', taxContext: createTaxContext(taxProviderProps(settings)) });
