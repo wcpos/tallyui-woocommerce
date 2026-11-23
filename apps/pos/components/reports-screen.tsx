@@ -251,7 +251,8 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
           chart={<HourlyBars hours={room.hours} money={minor => money(minor) ?? ''} comparisonName={chartName}
             nowKey={nowKey} live={live} view={chartView} />}>
           {room.today.pending > 0 && <Text>{`Waiting to sync: ${room.today.pending}`}</Text>}
-          {room.today.rejected > 0 && <Text>{`Not accepted by the store: ${room.today.rejected}`}</Text>}
+          {room.today.rejected > 0 && <Text testID="hero-not-accepted">{`Not accepted by the store: ${room.today.rejected}${
+            room.today.rejectedCashMinor > 0 ? ` · ${money(room.today.rejectedCashMinor) ?? ''} cash taken` : ''}`}</Text>}
           {room.today.count === 0 && <Text>{preset === 'today' ? 'No sales yet today.' : 'No sales in this period.'}</Text>}
         </ReportsHero>
         <ReportCards period={room.today} money={minor => money(minor) ?? ''} moneyWhole={moneyWhole} onOpenTable={setOpenTable} cashiers={reportCashierRows} products={products}

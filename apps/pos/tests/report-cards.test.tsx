@@ -16,6 +16,7 @@ const moneyWhole = (minor: number) => `$${Math.round(minor / 100).toLocaleString
 const empty: Period = {
   count: 0, totalMinor: 0, taxMinor: 0, averageMinor: 0, items: 0, medianMinor: 0, largestMinor: null, discountMinor: 0,
   pending: 0, rejected: 0, splitCount: 0, byMethod: [], taxRates: [],
+  rejectedCashMinor: 0,
   byCashier: [],
 };
 const period: Period = {
