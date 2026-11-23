@@ -12,6 +12,15 @@ export function entryStockDocs(entry: CatalogueEntry<any>): { product: StockDoc;
   return { product, variation };
 }
 
+// v2 pos/hooks/stock-guard-hook.ts:139-165: resolve the edited line's product and variation.
+export function lineStockDocs(products: readonly any[], getId: (doc: any) => string, line: { productId: string; variantId?: string }): { product: StockDoc; variation?: StockDoc } | undefined {
+  const product = products.find(doc => getId(doc) === line.productId);
+  if (!product) return undefined;
+  const variation = product.type === 'variable'
+    ? product.variation_docs?.find((doc: StockDoc) => String(doc.id) === line.variantId) : undefined;
+  return { product, variation };
+}
+
 // v2 pos/hooks/stock-guard.ts:73-97; kept store lines stand in for its reduced-stock netting.
 export function existingCartQuantity(
   lines: readonly Pick<LineItem, 'productId' | 'variantId' | 'quantity' | 'custom' | 'storeLineId'>[],
