@@ -477,6 +477,18 @@ test('removing billing clears only its address lines', async () => {
   }));
 });
 
+test('removing billing does not fill blank billing fields from the account', async () => {
+  stubMatchMedia({ ...FINE });
+  const customer: Customer = { ...bea, id: '12', billing: { ...bea.billing, email: undefined } };
+  const update = vi.fn<NonNullable<CustomerSource['update']>>().mockResolvedValue(customer);
+  await findRows(vi.fn<CustomerSource['search']>().mockResolvedValue([customer]), { update, canEditCustomers: true });
+  fireEvent.click(screen.getByTestId('customer-open-button'));
+  fireEvent.click(screen.getByTestId('customer-editor-form-addresses-billing-remove'));
+  fireEvent.click(screen.getByTestId('customer-editor-save'));
+  await waitFor(() => expect(update).toHaveBeenCalled());
+  expect(update.mock.calls[0][1].billing).not.toHaveProperty('email');
+});
+
 test('changing only the billing city keeps its phone when shipping is absent', async () => {
   stubMatchMedia({ ...FINE });
   const update = vi.fn<NonNullable<CustomerSource['update']>>().mockResolvedValue(bea);

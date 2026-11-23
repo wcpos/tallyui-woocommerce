@@ -21,10 +21,9 @@ export function EditCustomerDialog({ customer, update, defaultCountry, onClose, 
   // (address-rows.tsx:109-112), so an emptied address keeps the person fields it had.
   const kept = (stored: CustomerAddress | undefined, billing: boolean): CustomerAddress => {
     const from = stored ?? {};
-    const fallback = billing ? customer : {};
     const fields = ['firstName', 'lastName', 'company', 'phone', ...(billing ? ['email'] as const : [])] as const;
     return Object.fromEntries(fields.flatMap(field => {
-      const value = (from as Record<string, string | undefined>)[field] ?? (fallback as Record<string, string | undefined>)[field];
+      const value = (from as Record<string, string | undefined>)[field];
       return value ? [[field, value]] : [];
     })) as CustomerAddress;
   };
