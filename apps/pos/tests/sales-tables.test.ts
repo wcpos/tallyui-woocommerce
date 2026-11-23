@@ -64,21 +64,21 @@ const today = salesRoom(orders, { now, currency: 'USD', ...day }).today;
 test('payments table sorts by amount and shares the period total', () => {
   const table = paymentsTable(today, money);
   expect(table.rows.map(row => row.cells)).toEqual([
-    ['Card terminal', '2', '$22.38', '74.7%'], ['Cash', '3', '$7.58', '25.3%'],
+    ['Card terminal', '2', '$22.38', '77.3%'], ['Cash', '2', '$6.58', '22.7%'],
   ]);
-  expect(table.total).toEqual(['Total', '4', '$29.96', '']);
-  expect(table.status).toBe('4 orders · $29.96');
+  expect(table.total).toEqual(['Total', '3', '$28.96', '']);
+  expect(table.status).toBe('3 orders · $28.96');
   expect(table.title).toBe('Sales by payment method');
 }, 20_000);
 
 test("where sold table is one In store row with the period's orders and total", () => {
   const table = whereSoldTable(today, money);
-  expect(table.rows.map(row => row.cells)).toEqual([['In store', '4', '$29.96', '100.0%']]);
+  expect(table.rows.map(row => row.cells)).toEqual([['In store', '3', '$28.96', '100.0%']]);
   expect(table.rows[0].key).toBe('store');
-  expect(table.total).toEqual(['Total', '4', '$29.96', '100.0%']);
+  expect(table.total).toEqual(['Total', '3', '$28.96', '100.0%']);
   expect(table.head).toEqual(['Channel', 'Orders', 'Amount', 'Share']);
   expect(table.title).toBe('Channels');
-  expect(table.status).toBe('4 orders · $29.96');
+  expect(table.status).toBe('3 orders · $28.96');
 }, 20_000);
 
 test('where sold table has no rows in an empty period', () => {
@@ -101,7 +101,7 @@ test('taxes table lists rates ascending and totals the period, not the rows', ()
   expect(table.rows.map(row => row.cells)).toEqual([
     ['Tax 1.375%', '$16.00', '$0.22', '$16.22'], ['Tax 7.25%', '$24.00', '$1.74', '$25.74'],
   ]);
-  expect(table.total).toEqual(['Total', '$28.00', '$1.96', '$29.96']);
+  expect(table.total).toEqual(['Total', '$27.00', '$1.96', '$28.96']);
   expect(table.title).toBe('Taxes collected');
 }, 20_000);
 
@@ -134,13 +134,12 @@ test('heads and alignment', () => {
 test("orders table lists today's orders newest first in the store currency", () => {
   const table = ordersTable(orders, { range: day.range, currency: 'USD', money });
   expect(table.rows.map(row => row.cells)).toEqual([
-    ['T4', '13:50', 'Unknown', 'Cash', '$1.00', 'Yes'],
     ['T3', '13:05', 'Unknown', 'Card terminal', '$17.38', 'Yes'],
     ['T2', '09:40', 'Unknown', 'Cash + Card terminal', '$8.58', 'Yes'],
     ['T1', '09:15', 'Unknown', 'Cash', '$3.00', 'Yes'],
   ]);
-  expect(table.total).toEqual(['Counted', '', '', '', '$29.96', '']);
-  expect(table.status).toBe('4 of 4 counted');
+  expect(table.total).toEqual(['Counted', '', '', '', '$28.96', '']);
+  expect(table.status).toBe('3 of 3 counted');
   expect(table.title).toBe('Orders');
 }, 20_000);
 
@@ -153,10 +152,10 @@ test("orders table head reads v2's Order, Time, Cashier, Paid by, Total, Counted
 
 test("orders table names each order's cashier as the Cashiers table does", () => {
   const cashiers = [{ id: '2', name: 'Paul' }];
-  const named = orders.map(order => order.id === 'T4' ? { ...order, cashierRef: '2' } : order.id === 'T3' ? { ...order, cashierRef: '9' } : order);
+  const named = orders.map(order => order.id === 'T2' ? { ...order, cashierRef: '2' } : order.id === 'T3' ? { ...order, cashierRef: '9' } : order);
   const table = ordersTable(named, { range: day.range, currency: 'USD', money, cashiers });
   const cashier = table.head.indexOf('Cashier');
-  expect(table.rows.map(row => [row.key, row.cells[cashier]])).toEqual([['T4', 'Paul'], ['T3', 'Cashier #9'], ['T2', 'Unknown'], ['T1', 'Unknown']]);
+  expect(table.rows.map(row => [row.key, row.cells[cashier]])).toEqual([['T3', 'Cashier #9'], ['T2', 'Paul'], ['T1', 'Unknown']]);
   for (const row of table.rows) {
     expect(row.cells[cashier]).toBe(cashierLabel(cashiers, named.find(order => order.id === row.key)?.cashierRef ?? ''));
   }
@@ -165,21 +164,21 @@ test("orders table names each order's cashier as the Cashiers table does", () =>
 // v2 panels/specs.ts:221: the footer's amount sits under Total; Counted stays last so the ticks replace it on screen.
 test('orders table total keeps Total under Total and Counted last', () => {
   const table = ordersTable(orders, { range: day.range, currency: 'USD', money });
-  expect(table.total).toEqual(['Counted', '', '', '', '$29.96', '']);
+  expect(table.total).toEqual(['Counted', '', '', '', '$28.96', '']);
   expect(table.total).toHaveLength(table.head.length);
-  expect(table.total.indexOf('$29.96')).toBe(table.head.indexOf('Total'));
+  expect(table.total.indexOf('$28.96')).toBe(table.head.indexOf('Total'));
   expect(table.head.at(-1)).toBe('Counted');
 }, 20_000);
 
 // v2 panels/specs.ts:188-222 and panel.tsx:254-259: a left-out order stays a row, Counted "No", out of the footer sum.
 test('orders table keeps a left-out order as a row with Counted No and sums only the counted ones', () => {
   const table = ordersTable(orders, { range: day.range, currency: 'USD', money, leftOut: new Set(['T3', 'elsewhere']) });
-  expect(table.rows.map(row => [row.key, row.cells[5]])).toEqual([['T4', 'Yes'], ['T3', 'No'], ['T2', 'Yes'], ['T1', 'Yes']]);
-  expect(table.total).toEqual(['Counted', '', '', '', '$12.58', '']);
-  expect(table.status).toBe('3 of 4 counted · the numbers follow');
+  expect(table.rows.map(row => [row.key, row.cells[5]])).toEqual([['T3', 'No'], ['T2', 'Yes'], ['T1', 'Yes']]);
+  expect(table.total).toEqual(['Counted', '', '', '', '$11.58', '']);
+  expect(table.status).toBe('2 of 3 counted · the numbers follow');
   const csv = salesTableCsv(table).split('\r\n');
   expect(csv[0]).toBe('"Order","Time","Cashier","Paid by","Total","Counted"');
-  expect(csv[2]).toBe('"T3","13:05","Unknown","Card terminal","$17.38","No"');
+  expect(csv[1]).toBe('"T3","13:05","Unknown","Card terminal","$17.38","No"');
 }, 20_000);
 
 test('orders table names a method once however many legs it has', () => {
@@ -204,6 +203,19 @@ test('orders table with no orders today', () => {
   expect(table.status).toBe('0 of 0 counted');
 }, 20_000);
 
+// A refused order is not a sale (sales-room.ts, sheet-figures.ts): not a row; the hero's "Not accepted" line counts it.
+test('orders table leaves a refused order out of its rows and its footer', () => {
+  const pay = (id: string, amountMinor: number) => [{ id, method: 'cash' as const, amountMinor }];
+  const refused: PosOrder = { ...base, id: 'R1', createdAt: new Date(2026, 9, 6, 12, 0).toISOString(),
+    totalMinor: 1000, syncStatus: 'rejected', payments: pay('r1', 1000) };
+  const sent: PosOrder = { ...base, id: 'S1', createdAt: new Date(2026, 9, 6, 11, 0).toISOString(),
+    totalMinor: 500, syncStatus: 'applied', payments: pay('s1', 500) };
+  const table = ordersTable([refused, sent], { range: day.range, currency: 'USD', money });
+  expect(table.rows.map(row => [row.key, row.cells[5]])).toEqual([['S1', 'Yes']]);
+  expect(table.total).toEqual(['Counted', '', '', '', '$5.00', '']);
+  expect(table.status).toBe('1 of 1 counted');
+}, 20_000);
+
 test('products table lists every product with its units and an All products total', () => {
   const table = productsTable(today, productFigures(orders, { currency: 'USD', range: day.range }), money);
   expect(table.title).toBe('Top products');
@@ -214,7 +226,7 @@ test('products table lists every product with its units and an All products tota
   ]);
   // v2 specs.ts:244: the rows carry line totals, so the total is theirs, not the orders'.
   expect(table.total).toEqual(['All products', '2', '$25.96']);
-  expect(table.status).toBe('4 orders · $29.96');
+  expect(table.status).toBe('3 orders · $28.96');
   expect(table.empty).toBe('No sales in this period');
 }, 20_000);
 
@@ -227,12 +239,12 @@ test('categories table shares the period total and totals the parts', () => {
   expect(table.title).toBe('Sales by category');
   expect(table.head).toEqual(['Category', 'Qty', 'Amount', 'Share']);
   expect(table.align).toEqual(['left', 'right', 'right', 'right']);
-  // v2 cards/aggregate.ts categories: a part's share is of the period's total ($29.96), as on the card's donut.
+  // v2 cards/aggregate.ts categories: a part's share is of the period's total ($28.96), as on the card's donut.
   expect(table.rows.map(row => [row.key, ...row.cells])).toEqual([
-    ['25', 'Coffee', '2', '$17.38', '58.0%'], ['unknown', 'Unknown product', '1', '$8.58', '28.6%'],
+    ['25', 'Coffee', '2', '$17.38', '60.0%'], ['unknown', 'Unknown product', '1', '$8.58', '29.6%'],
   ]);
   expect(table.total).toEqual(['Total', '3', '$25.96', '']);
-  expect(table.status).toBe('4 orders · $29.96');
+  expect(table.status).toBe('3 orders · $28.96');
   expect(categoriesTable({ ...today, totalMinor: 0 }, categories, money).rows[0].cells[3]).toBe('—');
 }, 20_000);
 

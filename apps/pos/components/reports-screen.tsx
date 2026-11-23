@@ -128,9 +128,11 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const printButton = <PrintSummaryButton wide={wide} onPress={printSummary} />;
   // The donut centres read whole currency units: the amount rounded to whole units, shown with no decimals.
   const moneyWhole = (minor: number) => wholeMoney(minor, currency, locale, storeMoney);
-  // One set of figures feeds each card and its table, so the two never disagree.
-  const products = productFigures(counted, { currency, range });
-  const categories = categoryFigures(counted, catalogueProducts, { currency, range });
+  // One set of figures feeds each card and its table, so the two never disagree. A refused order is no sale
+  // (sales-room.ts); salesRoom keeps `counted` whole, since it counts the refusals for "Not accepted".
+  const sold = counted.filter(order => order.syncStatus !== 'rejected');
+  const products = productFigures(sold, { currency, range });
+  const categories = categoryFigures(sold, catalogueProducts, { currency, range });
   // v2 panel.tsx:78-98: the Products panel's category filter, 'all' until a category is chosen; closing resets it.
   const categoryChoices = productCategoryChoices(products, catalogueProducts);
   const categoryLabel = openTable === 'products' && productCategory !== 'all'
