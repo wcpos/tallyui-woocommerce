@@ -12,12 +12,13 @@ export function entryStockDocs(entry: CatalogueEntry<any>): { product: StockDoc;
   return { product, variation };
 }
 
-// v2 pos/hooks/stock-guard-hook.ts:139-165: resolve the edited line's product and variation.
+// v2 pos/hooks/stock-guard-hook.ts:34-36: refuse when the product or required variation is not loaded.
 export function lineStockDocs(products: readonly any[], getId: (doc: any) => string, line: { productId: string; variantId?: string }): { product: StockDoc; variation?: StockDoc } | undefined {
   const product = products.find(doc => getId(doc) === line.productId);
   if (!product) return undefined;
   const variation = product.type === 'variable'
     ? product.variation_docs?.find((doc: StockDoc) => String(doc.id) === line.variantId) : undefined;
+  if (product.type === 'variable' && !variation) return undefined;
   return { product, variation };
 }
 
@@ -61,4 +62,9 @@ export function stockGuardToast(result: ReturnType<typeof evaluateStock>, name: 
 // v2 pos/hooks/stock-guard-hook.ts:103-108 (en core.json pos_cart.will_be_backordered).
 export function backorderToast(name: string): string {
   return `${name} will be backordered`;
+}
+
+// v2 en core.json pos_cart.stock_not_loaded.
+export function stockNotLoadedToast(name: string): string {
+  return `Stock for ${name} hasn't loaded on this device yet. Try again in a moment.`;
 }

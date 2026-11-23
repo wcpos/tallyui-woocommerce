@@ -55,6 +55,29 @@ test('with prevent overselling on, raising a line past stock is refused with Onl
   expect(getToasts()).toEqual([expect.objectContaining({ type: 'warning', title: 'Only 1 available for Espresso' })]);
 });
 
+test('raising a line whose product left the device is refused as not loaded', () => {
+  const view = render(<SaleScreen {...props} />);
+  fireEvent.click(screen.getByText('Espresso'));
+  view.rerender(<SaleScreen {...props} products={[]} />);
+  act(() => dismissToast());
+  setLineQuantity('Espresso', 2);
+  expect(screen.getByLabelText('Edit quantity of Espresso').textContent).toBe('1');
+  expect(getToasts()).toEqual([expect.objectContaining({
+    type: 'warning', title: "Stock for Espresso hasn't loaded on this device yet. Try again in a moment.",
+  })]);
+});
+
+test('lowering a line whose product left the device is not checked', () => {
+  const view = render(<SaleScreen {...props} products={[{ ...products[0], stock_quantity: 2 }]} />);
+  for (let i = 0; i < 2; i++) fireEvent.click(screen.getByTestId('product-tile-80'));
+  expect(screen.getByLabelText('Edit quantity of Espresso').textContent).toBe('2');
+  view.rerender(<SaleScreen {...props} products={[]} />);
+  act(() => dismissToast());
+  setLineQuantity('Espresso', 1);
+  expect(screen.getByLabelText('Edit quantity of Espresso').textContent).toBe('1');
+  expect(getToasts()).toEqual([]);
+});
+
 test('with prevent overselling off, a line can be raised past stock', () => {
   render(<SaleScreen {...props} storeSettings={{ ...noTaxSettings, preventOverselling: false }} />);
   fireEvent.click(screen.getByText('Espresso'));

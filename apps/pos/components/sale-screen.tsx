@@ -41,7 +41,7 @@ import { taxRateLabel } from '../lib/sale/tax-labels';
 import { refuseLockedAdd, tillLock } from '../lib/sale/till-lock';
 import { saleScanHandlers } from '../lib/scan/sale-scan';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
-import { backorderToast, entryStockDocs, evaluateStock, existingCartQuantity, lineStockDocs, stockGuardToast } from '../lib/stock/stock-guard';
+import { backorderToast, entryStockDocs, evaluateStock, existingCartQuantity, lineStockDocs, stockGuardToast, stockNotLoadedToast } from '../lib/stock/stock-guard';
 import { toast } from '../lib/toast/toast';
 import { showAddedToCartToast } from '../lib/toast/added-to-cart-toast';
 import type { TenderVoidCollection } from '../lib/sale/tender-voids';
@@ -313,7 +313,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     }
     const docs = lineStockDocs(props.products, connector.traits.product.getId, line);
     if (!docs) {
-      sale.setQuantity(lineId, quantity);
+      toast({ title: stockNotLoadedToast(line.name), type: 'warning' });
       return;
     }
     const existing = existingCartQuantity(sale.order.lineItems.filter(item => item.id !== lineId), line.productId, line.variantId, docs);

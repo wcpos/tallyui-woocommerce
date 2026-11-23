@@ -68,6 +68,14 @@ test('lineStockDocs finds the product, and the variation of a variable product',
   expect(lineStockDocs([{ ...shirt, type: 'simple' }], getId, { productId: getId(shirt), variantId: '104' })?.variation).toBeUndefined();
 });
 
+test('lineStockDocs is undefined for a missing product or a missing variation', () => {
+  const shirt = { ...products[2], variation_docs: variations.documents.filter(doc => doc.parent_id === products[2].id).map(doc => doc.payload) };
+  const getId = createWooCommerceConnector().traits.product.getId;
+  expect(lineStockDocs([], getId, { productId: getId(products[0]) })).toBeUndefined();
+  expect(lineStockDocs([shirt], getId, { productId: getId(shirt), variantId: 'missing' })).toBeUndefined();
+  expect(lineStockDocs([{ ...shirt, variation_docs: undefined }], getId, { productId: getId(shirt), variantId: '104' })).toBeUndefined();
+});
+
 test('parent-managed stock counts every line of the product', () => {
   const docs = { product, variation: { manage_stock: 'parent' as const, stock_quantity: 99 } };
   expect(existingCartQuantity(lines, '102', '104', docs)).toBe(5);
