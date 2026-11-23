@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { catalogueEntries } from '@tallyui/pos';
-import { backorderToast, entryStockDocs, evaluateStock, existingCartQuantity, stockGuardToast } from '../lib/stock/stock-guard';
+import { backorderToast, entryStockDocs, evaluateStock, existingCartQuantity, lineStockDocs, stockGuardToast } from '../lib/stock/stock-guard';
 import products from './fixtures/products.json';
 import variations from './fixtures/variations.json';
 
@@ -53,6 +53,27 @@ test('a variation that owns its stock counts only its own lines', () => {
   expect(existingCartQuantity(lines, '102', '104', docs)).toBe(2);
   expect(evaluateStock(docs, 2, 1)).toEqual({ allowed: false, warning: null, available: 2 });
   expect(entryStockDocs({ ...entry, product: { ...shirt, type: 'simple' } }).variation).toBeUndefined();
+});
+
+test('lineStockDocs finds the product, and the variation of a variable product', () => {
+  const shirt = { ...products[2], variation_docs: variations.documents.filter(doc => doc.parent_id === products[2].id).map(doc => doc.payload) };
+  const getId = createWooCommerceConnector().traits.product.getId;
+  const docs = [products[0], shirt];
+  expect(lineStockDocs(docs, getId, { productId: getId(products[0]) })).toEqual({ product: products[0], variation: undefined });
+  const found = lineStockDocs(docs, getId, { productId: getId(shirt), variantId: '104' });
+  expect(found?.product).toBe(shirt);
+  expect(found?.variation).toBe(shirt.variation_docs.find(doc => doc.id === 104));
+  expect(lineStockDocs(docs, getId, { productId: getId(shirt), variantId: 'missing' })?.variation).toBeUndefined();
+  expect(lineStockDocs(docs, getId, { productId: 'missing' })).toBeUndefined();
+  expect(lineStockDocs([{ ...shirt, type: 'simple' }], getId, { productId: getId(shirt), variantId: '104' })?.variation).toBeUndefined();
+});
+
+test('lineStockDocs is undefined for a missing product or a missing variation', () => {
+  const shirt = { ...products[2], variation_docs: variations.documents.filter(doc => doc.parent_id === products[2].id).map(doc => doc.payload) };
+  const getId = createWooCommerceConnector().traits.product.getId;
+  expect(lineStockDocs([], getId, { productId: getId(products[0]) })).toBeUndefined();
+  expect(lineStockDocs([shirt], getId, { productId: getId(shirt), variantId: 'missing' })).toBeUndefined();
+  expect(lineStockDocs([{ ...shirt, variation_docs: undefined }], getId, { productId: getId(shirt), variantId: '104' })).toBeUndefined();
 });
 
 test('parent-managed stock counts every line of the product', () => {

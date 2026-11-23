@@ -41,7 +41,7 @@ import { taxRateLabel } from '../lib/sale/tax-labels';
 import { refuseLockedAdd, tillLock } from '../lib/sale/till-lock';
 import { saleScanHandlers } from '../lib/scan/sale-scan';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
-import { backorderToast, entryStockDocs, evaluateStock, existingCartQuantity, stockGuardToast } from '../lib/stock/stock-guard';
+import { backorderToast, entryStockDocs, evaluateStock, existingCartQuantity, lineStockDocs, stockGuardToast, stockNotLoadedToast } from '../lib/stock/stock-guard';
 import { toast } from '../lib/toast/toast';
 import { showAddedToCartToast } from '../lib/toast/added-to-cart-toast';
 import type { TenderVoidCollection } from '../lib/sale/tender-voids';
@@ -303,6 +303,29 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     }
   }
 
+  // v2 pos/hooks/stock-guard-hook.ts:139-165: guard raises with the edited line excluded.
+  function setQuantityChecked(lineId: string, quantity: number): void {
+    const line = sale.order.lineItems.find(item => item.id === lineId);
+    // Reopened store lines are not re-guarded until the till carries `_reduced_stock`.
+    if (props.storeSettings.preventOverselling !== true || !line || line.custom || line.storeLineId !== undefined || quantity <= line.quantity) {
+      sale.setQuantity(lineId, quantity);
+      return;
+    }
+    const docs = lineStockDocs(props.products, connector.traits.product.getId, line);
+    if (!docs) {
+      toast({ title: stockNotLoadedToast(line.name), type: 'warning' });
+      return;
+    }
+    const existing = existingCartQuantity(sale.order.lineItems.filter(item => item.id !== lineId), line.productId, line.variantId, docs);
+    const result = evaluateStock(docs, existing, quantity);
+    if (!result.allowed) {
+      toast({ title: stockGuardToast(result, line.name)!, type: 'warning' });
+      return;
+    }
+    sale.setQuantity(lineId, quantity);
+    if (result.warning === 'backorder') toast({ title: backorderToast(line.name), type: 'warning' });
+  }
+
   function addEntry(entry: CatalogueEntry<any>): boolean {
     return addChecked(entry) === true;
   }
@@ -363,7 +386,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         <>
           {/* M6's order notes can take the price-change reason via onPriceChange. */}
           {/* B7: quantity and price open keypad popovers, as v2's cart/cells/quantity-keypad.tsx and cart/cells/price.tsx do. */}
-          <CartWithSettings sale={{ ...sale, startTender: startTender }} canEditPrice lineEditor="popover" taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)}
+          <CartWithSettings sale={{ ...sale, startTender, setQuantity: setQuantityChecked }} canEditPrice lineEditor="popover" taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)}
             taxLabel={taxLabel}
             afterSubtotal={couponsOffered && props.couponCollections ? <CouponRows sale={sale} /> : undefined}
             // Avoid counting itemised coupons twice, matching v2 cart/totals.tsx:121-148.
