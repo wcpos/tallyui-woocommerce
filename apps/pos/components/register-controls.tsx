@@ -94,7 +94,9 @@ export function RegisterControls({ currency, storeName, locale, cartEmpty, child
       <RegisterPanel register={register} currency={currency} open={panelOpen} onOpenChange={setPanelOpen}
         presentation="side" storeName={storeName} onPrintXReport={printXReport} openedBy={opener ? { name: opener } : undefined} />
       {!showClosure && xPrint > 0 && register.session && <Portal name="x-report-print">
-        <ClosurePrint kind="x" closure={register.session} expected={register.expected} storeName={storeName} currency={currency} locale={locale} />
+        <ClosurePrint kind="x" closure={register.session} expected={register.expected} storeName={storeName} currency={currency} locale={locale}
+          registerName={register.registerName ?? 'This till'}
+          resolveCashierName={id => cashierNameFor(deviceCashiers(auth?.session ?? null, auth?.cashiers ?? []), id)} />
       </Portal>}
       {showClosure && register.lastClosure && <>
         <ClosureSheet register={register} currency={currency} onDone={() => setShowClosure(false)} onPrint={() => {

@@ -149,6 +149,7 @@ test("the register panel is v2's right-hand sheet, names the store and opener, a
   fireEvent.click(screen.getByTestId('register-panel-print'));
   await waitFor(() => expect(print).toHaveBeenCalledTimes(1));
   expect(printed).toContain('X report');
+  expect(printed).toContain('Paul');
   await waitFor(() => expect(screen.queryByTestId('closure-print-document')).toBeNull());
 }, 20_000);
 
