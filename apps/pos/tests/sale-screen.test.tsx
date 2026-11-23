@@ -280,6 +280,70 @@ test('tapping tiles shows one added-to-cart toast that counts quick adds', () =>
   expect(within(screen.getByTestId('success-toast')).getByText('3 items added to cart')).not.toBeNull();
 });
 
+test('with prevent overselling on, a second tap past stock is refused with Only 1 available', () => {
+  render(<SaleScreen {...props} storeSettings={{ ...noTaxSettings, preventOverselling: true }}
+    products={[{ ...products[0], stock_quantity: 1 }]} />);
+  fireEvent.click(productsPane().getByText('Espresso'));
+  expect(cartTabCount()).toBe('1');
+  act(() => dismissToast());
+  fireEvent.click(productsPane().getByText('Espresso'));
+  expect(cartTabCount()).toBe('1');
+  expect(getToasts()).toEqual([expect.objectContaining({ type: 'warning', title: 'Only 1 available for Espresso' })]);
+});
+
+test('with prevent overselling on, a variation that owns its stock is refused past its own quantity', () => {
+  render(<SaleScreen {...props} storeSettings={{ ...noTaxSettings, preventOverselling: true }}
+    products={[{ ...shirt, variation_docs: [{ ...shirt.variation_docs[2], manage_stock: true, stock_quantity: 1 }] }]} />);
+  fireEvent.click(productsPane().getByText('T-Shirt'));
+  expect(cartTabCount()).toBe('1');
+  act(() => dismissToast());
+  fireEvent.click(productsPane().getByText('T-Shirt'));
+  expect(cartTabCount()).toBe('1');
+  openCartTab();
+  expect(cartLine('T-Shirt · M / Black').quantity).toBe('1');
+  expect(getToasts()).toEqual([expect.objectContaining({ type: 'warning', title: 'Only 1 available for T-Shirt · M / Black' })]);
+});
+
+test('with prevent overselling off, taps past stock still add', () => {
+  render(<SaleScreen {...props} storeSettings={{ ...noTaxSettings, preventOverselling: false }}
+    products={[{ ...products[0], stock_quantity: 1 }]} />);
+  fireEvent.click(productsPane().getByText('Espresso'));
+  fireEvent.click(productsPane().getByText('Espresso'));
+  expect(cartTabCount()).toBe('2');
+  expect(getToasts()).toEqual([expect.objectContaining({ type: 'success', title: '2 items added to cart' })]);
+});
+
+test('a backorder-notify product adds and warns it will be backordered', () => {
+  localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all', showOutOfStock: true }));
+  render(<SaleScreen {...props} storeSettings={{ ...noTaxSettings, preventOverselling: true }}
+    products={[{ ...products[0], stock_quantity: 0, stock_status: 'onbackorder', backorders: 'notify' }]} />);
+  fireEvent.click(productsPane().getByText('Espresso'));
+  expect(cartTabCount()).toBe('1');
+  expect(getToasts()).toEqual(expect.arrayContaining([
+    expect.objectContaining({ type: 'warning', title: 'Espresso will be backordered' }),
+  ]));
+});
+
+test('a repeated scan past stock shows only the guard warning', () => {
+  render(<SaleScreen {...props} storeSettings={{ ...noTaxSettings, preventOverselling: true }}
+    products={[{ ...products[0], stock_quantity: 1 }]} />);
+  const input = screen.getByPlaceholderText('Search products') as HTMLInputElement;
+  scanInto(input, '2000000000015');
+  act(() => dismissToast());
+  scanInto(input, '2000000000015');
+  expect(cartTabCount()).toBe('1');
+  expect(input.value).toBe('2000000000015');
+  expect(getToasts()).toEqual([expect.objectContaining({ type: 'warning', title: 'Only 1 available for Espresso' })]);
+});
+
+test('the sale passes show out-of-stock products to its scan handler', () => {
+  localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ browseBy: 'all', showOutOfStock: true }));
+  render(<SaleScreen {...props} products={[{ ...products[0], stock_quantity: 0, stock_status: 'outofstock' }]} />);
+  scanInto(screen.getByPlaceholderText('Search products'), '2000000000015');
+  expect(cartTabCount()).toBe('1');
+  expect(getToasts()).toEqual([expect.objectContaining({ type: 'success', title: 'Espresso added to cart' })]);
+});
+
 test('a variant added from a tap is named by its parent product', () => {
   render(<><SaleScreen {...props} products={[{ ...shirt, variation_docs: shirt.variation_docs.slice(2) }]} /><Toaster /></>);
   fireEvent.click(screen.getByText('T-Shirt'));

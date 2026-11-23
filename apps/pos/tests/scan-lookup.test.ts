@@ -69,6 +69,15 @@ test('scan outcome returns none for an unmatched code', () => {
 });
 
 test('scan outcome rejects out-of-stock Espresso', () => {
-  const outOfStock = [{ ...catalogue[0], stock_status: 'outofstock' }, ...catalogue.slice(1)];
+  const outOfStock = [{ ...catalogue[0], stock_status: 'outofstock', stock_quantity: 0 }, ...catalogue.slice(1)];
   expect(scanOutcome(outOfStock, traits, '2000000000015', context)).toEqual({ kind: 'out-of-stock', label: 'Espresso' });
+});
+
+test('a variation scan resolves its own stock record', () => {
+  const outOfStock = { ...shirt, stock_status: 'instock', variation_docs: shirt.variation_docs.map(doc =>
+    ({ ...doc, manage_stock: true, stock_quantity: 0, stock_status: 'instock' })) };
+  expect(scanOutcome([outOfStock], traits, '2000000000138', context).kind).toBe('out-of-stock');
+  const backordered = { ...outOfStock, stock_status: 'outofstock', variation_docs: outOfStock.variation_docs.map(doc =>
+    ({ ...doc, backorders: 'notify', stock_status: 'outofstock' })) };
+  expect(scanOutcome([backordered], traits, '2000000000138', context).kind).toBe('add');
 });

@@ -18,8 +18,9 @@ export interface SaleScanDeps<Doc> {
   products: Doc[];
   traits: ProductTraits<Doc>;
   currency: string;
-  /** Adds the entry to the sale; false when the sale refused it. */
-  add(entry: CatalogueEntry<Doc>): boolean;
+  showOutOfStock?: boolean;
+  /** Adds the entry; 'refused' means the stock guard already presented its warning. */
+  add(entry: CatalogueEntry<Doc>): boolean | 'refused';
 }
 export interface SaleScanHandlers {
   onScan(code: string): 'clear' | 'search' | 'keep';
@@ -30,7 +31,7 @@ export interface SaleScanHandlers {
 export function saleScanHandlers<Doc>(deps: SaleScanDeps<Doc>): SaleScanHandlers {
   function scan(code: string): 'clear' | 'search' | 'keep' {
     try {
-      const result = scanOutcome(deps.products, deps.traits, code, { currency: deps.currency });
+      const result = scanOutcome(deps.products, deps.traits, code, { currency: deps.currency }, { showOutOfStock: deps.showOutOfStock });
       if (result.kind === 'add' || result.kind === 'out-of-stock') {
         const { label } = result;
         if (result.kind === 'out-of-stock') {
@@ -39,7 +40,13 @@ export function saleScanHandlers<Doc>(deps: SaleScanDeps<Doc>): SaleScanHandlers
           scanLogger.info('Barcode scan matched an out-of-stock product', { barcode: code, productName: label });
           return 'keep';
         }
-        if (deps.add(result.entry)) {
+        const added = deps.add(result.entry);
+        if (added === 'refused') {
+          // v2 use-barcode.ts:497-504 returns with no tone and the code left in search; the guard's toast is the only feedback.
+          scanLogger.info('Barcode scan refused by the stock guard', { barcode: code, productName: label });
+          return 'keep';
+        }
+        if (added) {
           scanFeedback('success');
           scanLogger.info(`Barcode scanned: ${code}`, { barcode: code, productName: label });
           showAddedToCartToast(label);

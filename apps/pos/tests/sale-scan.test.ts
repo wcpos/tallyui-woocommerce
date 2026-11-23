@@ -21,7 +21,7 @@ const shirt = { ...products[2], variation_docs: variations.documents.filter(d =>
 const catalogue = [products[0], products[1], shirt];
 const alert = (type: 'warning' | 'error', title: string, description: string) => ({ id: 'pos-scan-alert', type, title, description, duration: 6000 });
 
-function deps(overrides: Partial<SaleScanDeps<(typeof catalogue)[number]>> = {}) {
+function deps(overrides: Partial<SaleScanDeps<any>> = {}) {
   return { products: catalogue, traits, currency: 'USD', add: vi.fn(() => true), ...overrides };
 }
 
@@ -50,7 +50,7 @@ test('onScan warns with an error toast when the sale refuses Espresso', () => {
 });
 
 test('onScan keeps an out-of-stock code and warns with a toast', () => {
-  const d = deps({ products: [{ ...catalogue[0], stock_status: 'outofstock' }, ...catalogue.slice(1)] });
+  const d = deps({ products: [{ ...catalogue[0], stock_status: 'outofstock', stock_quantity: 0 }, ...catalogue.slice(1)] });
   expect(saleScanHandlers(d).onScan('2000000000015')).toBe('keep');
   expect(scanFeedback).toHaveBeenCalledWith('failure');
   expect(d.add).not.toHaveBeenCalled();
@@ -117,7 +117,7 @@ test('onTenderScan warns with an error toast when the sale refuses Espresso', ()
 });
 
 test('onTenderScan warns about out-of-stock Espresso', () => {
-  const d = deps({ products: [{ ...catalogue[0], stock_status: 'outofstock' }, ...catalogue.slice(1)] });
+  const d = deps({ products: [{ ...catalogue[0], stock_status: 'outofstock', stock_quantity: 0 }, ...catalogue.slice(1)] });
   saleScanHandlers(d).onTenderScan('2000000000015');
   expect(scanFeedback).toHaveBeenCalledWith('failure');
   expect(toast).toHaveBeenCalledTimes(1);
@@ -187,9 +187,39 @@ test('a scan the sale refuses logs nothing', () => {
 
 test('an out-of-stock scan logs the product', () => {
   const { info, warn } = logSpies();
-  saleScanHandlers(deps({ products: [{ ...catalogue[0], stock_status: 'outofstock' }, ...catalogue.slice(1)] })).onScan('2000000000015');
+  saleScanHandlers(deps({ products: [{ ...catalogue[0], stock_status: 'outofstock', stock_quantity: 0 }, ...catalogue.slice(1)] })).onScan('2000000000015');
   expect(info.mock.calls).toEqual([['Barcode scan matched an out-of-stock product', { barcode: '2000000000015', productName: 'Espresso' }]]);
   expect(warn).not.toHaveBeenCalled();
+});
+
+test('an out-of-stock scan adds when out-of-stock products are shown', () => {
+  const d = deps({ products: [{ ...catalogue[0], stock_status: 'outofstock', stock_quantity: 0 }], showOutOfStock: true });
+  expect(saleScanHandlers(d).onScan('2000000000015')).toBe('clear');
+  expect(d.add).toHaveBeenCalledTimes(1);
+  expect(scanFeedback).toHaveBeenCalledWith('success');
+  expect(toast).not.toHaveBeenCalled();
+});
+
+test('a managed product at zero that allows backorders scans as sellable', () => {
+  for (const backorders of ['yes', 'notify']) {
+    const backordered = { ...catalogue[0], stock_status: 'outofstock', stock_quantity: 0, backorders };
+    const d = deps({ products: [backordered] });
+    expect(saleScanHandlers(d).onScan('2000000000015')).toBe('clear');
+    expect(d.add).toHaveBeenCalledTimes(1);
+  }
+  expect(scanFeedback).not.toHaveBeenCalledWith('failure');
+  expect(toast).not.toHaveBeenCalled();
+});
+
+test('a scan the stock guard refuses plays no tone, keeps the code and shows no second toast', () => {
+  const { info } = logSpies();
+  const d = deps({ add: vi.fn(() => 'refused' as const) });
+  expect(saleScanHandlers(d).onScan('2000000000015')).toBe('keep');
+  expect(d.add).toHaveBeenCalledTimes(1);
+  expect(scanFeedback).not.toHaveBeenCalled();
+  expect(info).toHaveBeenCalledWith('Barcode scan refused by the stock guard', { barcode: '2000000000015', productName: 'Espresso' });
+  expect(toast).not.toHaveBeenCalled();
+  expect(showAddedToCartToast).not.toHaveBeenCalled();
 });
 
 test('an unknown code logs that it matched no product', () => {

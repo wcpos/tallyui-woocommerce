@@ -1,5 +1,14 @@
 import { expect, test } from 'vitest';
-import { resolveStock, STOCK_LABEL } from '../lib/products/resolve-stock';
+import { backordersAllowed, resolveStock, STOCK_LABEL } from '../lib/products/resolve-stock';
+
+test('a managed product at zero with backorders allowed is on backorder', () => {
+  for (const backorders of ['yes', 'notify']) {
+    expect(resolveStock({ manage_stock: true, stock_quantity: 0, stock_status: 'outofstock', backorders })).toBe('onbackorder');
+    expect(resolveStock({ manage_stock: true, stock_quantity: -2, backorders })).toBe('onbackorder');
+    expect(backordersAllowed(backorders)).toBe(true);
+  }
+  for (const backorders of [undefined, 'no', 'unknown']) expect(backordersAllowed(backorders)).toBe(false);
+});
 
 test('managed stock with a quantity: above zero is in stock, zero or below is out of stock', () => {
   expect(resolveStock({ manage_stock: true, stock_quantity: 5, stock_status: 'outofstock' })).toBe('instock');

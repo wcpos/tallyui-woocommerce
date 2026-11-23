@@ -14,7 +14,7 @@ against TallyUI 3.10 to 3.19 and the monorepo's old `next` lane. Those versions 
 - **The pin:** the till pins `@tallyui/*` 4.2.0. The library has moved on since (cash rounding ADR-094, cart hover
   peek, later removal undo rules); none of that is in the till until a release is bumped.
 
-**Where it stands: 51 of 176 judged rows match (29%); 78 partial, 47 missing, 5 not reached.** The frame is v2's:
+**Where it stands: 52 of 176 judged rows match (30%); 79 partial, 45 missing, 5 not reached.** The frame is v2's:
 rail, sale screen, cash tender, register and browse screens. Most of what a v2 cashier does beyond a plain cash sale
 is not there yet.
 
@@ -149,7 +149,7 @@ pick and approval; H, safety nets; I, translations; then the periphery (customer
 | 60 | Scanner transports | hid, serial, BLE, camera | L app-scan-hub, camera scan | PARTIAL | behaviour | S | No BLE (iOS) |
 | 61 | Scan: local lookup, not found, several matches | use-barcode.ts | L scan/lookup.ts, sale-scan.ts | MATCH | – | – | |
 | 62 | Scan of a variable parent goes to search | use-barcode.ts | L sale-scan.ts | MATCH | – | – | |
-| 63 | Scan of an out-of-stock item | use-barcode.ts | L scanOutcome | PARTIAL | behaviour | S | Always refused; v2 refuses only when out-of-stock is hidden and treats backorder as sellable |
+| 63 | Scan of an out-of-stock item | use-barcode.ts | L scanOutcome | MATCH | – | – | Refused only when out-of-stock is hidden and the item cannot be sold; backorder is sellable (#642) |
 | 64 | Scan while a dialog is open | `posSectionActive` | – | UNVISITED | – | – | |
 
 ### Cart: lines, fees, shipping, discounts, customer, tax, park
@@ -158,7 +158,7 @@ pick and approval; H, safety nets; I, translations; then the periphery (customer
 |---|---|---|---|---|---|---|---|
 | 65 | Add: increment or new line, split line | pos hooks | L use-sale.ts | MATCH | – | – | |
 | 66 | Decimal quantities | quantity keypad | L/pos/src/order/order-builder.ts:600 | MISSING | money | M | Throws "Quantity must be an integer >= 1" |
-| 67 | Stock guard (overselling) | hooks/stock-guard | W sale-screen.tsx addEntry | MISSING | behaviour | M | No check on tap or at checkout |
+| 67 | Stock guard (overselling) | hooks/stock-guard | W sale-screen.tsx addEntry | PARTIAL | behaviour | M | Add (tap, chooser, scan) guarded with v2's rules and toasts (#642); quantity raise in the cart and the pay-time gate missing |
 | 68 | Cart columns | cart/cells | W/components/cart-settings.tsx:130 | PARTIAL | look | S | No Subtotal or Actions column and no tax displays on Price, Subtotal or Total (not in the library). Regular price, On sale and column order (Move up / Move down for v2's drag) are mounted since #635 |
 | 69 | Quantity and price keypads, quick-discount keys | quantity-keypad, quick-discount-keys.tsx | L cart.tsx LinePopover | MATCH | – | – | |
 | 70 | Line edit dialog (name, SKU, regular price, tax status and class, meta) | cells/edit-line-item/form.tsx | L `updateLine` unwired | MISSING | money | M | No form in the app; library covers name, SKU, regular price only |
