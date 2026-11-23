@@ -33,6 +33,10 @@ export function EditCustomerDialog({ customer, update, defaultCountry, onClose, 
       !((k === 'firstName' || k === 'lastName' || k === 'email') && address[k] === patch[k]));
     return rest.length === 0;
   };
+  // An emptied shipping falls back to billing's person fields only when it is linked: v2 writes the stored shipping as
+  // billing's copy in the same patch while the row reads "Same as billing" (customers/edit/form.tsx:56-62, rule 5),
+  // and its clear keeps billing's person fields (address-rows.tsx:103-108). 4.2.0 sends shipping: {} only as that
+  // link (toCustomerPatch: no own shipping left, so it copies the emptied billing); with no stored billing it stays {}.
   const save = (id: string, patch: CustomerPatch) => update(id, {
     ...patch,
     ...(emptied(patch.billing, patch) ? { billing: { ...kept(customer.billing, true), ...patch.billing } } : {}),
