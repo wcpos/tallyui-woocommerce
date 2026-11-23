@@ -41,6 +41,8 @@ import { taxRateLabel } from '../lib/sale/tax-labels';
 import { refuseLockedAdd, tillLock } from '../lib/sale/till-lock';
 import { saleScanHandlers } from '../lib/scan/sale-scan';
 import { useWedgeScanner } from '../lib/scan/use-wedge-scanner';
+import { backorderToast, entryStockDocs, evaluateStock, existingCartQuantity, stockGuardToast } from '../lib/stock/stock-guard';
+import { toast } from '../lib/toast/toast';
 import { showAddedToCartToast } from '../lib/toast/added-to-cart-toast';
 import type { TenderVoidCollection } from '../lib/sale/tender-voids';
 import type { ParkedCartCollection } from '../lib/sale/parked-carts';
@@ -272,11 +274,24 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
 
   // v2 use-add-product.ts:77-85 / use-add-variation.ts: a closed or counting register refuses every add, and says so.
   const lock = tillLock(register);
-  function addEntry(entry: CatalogueEntry<any>): boolean {
+  function addChecked(entry: CatalogueEntry<any>): boolean | 'refused' {
     if (refuseLockedAdd(lock)) return false;
     try {
+      const productName = connector.traits.product.getName(entry.product);
+      const name = entry.variant.title ? `${productName} · ${entry.variant.title}` : productName;
+      let stock: ReturnType<typeof evaluateStock> | undefined;
+      if (props.storeSettings.preventOverselling === true) {
+        const docs = entryStockDocs(entry);
+        const existing = existingCartQuantity(sale.order.lineItems, connector.traits.product.getId(entry.product), entry.variant.id, docs);
+        stock = evaluateStock(docs, existing, 1);
+        if (!stock.allowed) {
+          toast({ title: stockGuardToast(stock, name)!, type: 'warning' });
+          return 'refused';
+        }
+      }
       const result = sale.add(entry, connector.traits.product);
       if (typeof result !== 'string') cartLogger.info(`${connector.traits.product.getName(entry.product)} added to cart`, { variantId: entry.variant.id });
+      if (typeof result !== 'string' && stock?.warning === 'backorder') toast({ title: backorderToast(name), type: 'warning' });
       setVariants(undefined);
       setMessage(undefined);
       return true;
@@ -286,6 +301,10 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     }
   }
 
+  function addEntry(entry: CatalogueEntry<any>): boolean {
+    return addChecked(entry) === true;
+  }
+
   function onAdd(entry: CatalogueEntry<any>): boolean {
     const added = addEntry(entry);
     if (added) showAddedToCartToast(connector.traits.product.getName(entry.product));
@@ -293,7 +312,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   }
 
   const { onScan: scanAdd, onTenderScan } = saleScanHandlers({
-    products: props.products, traits: connector.traits.product, currency, add: addEntry,
+    products: props.products, traits: connector.traits.product, currency, add: addChecked, showOutOfStock: viewState.showOutOfStock,
   });
   // v2 use-barcode.ts:173-181: refused before the lookup, so a locked till never reads a scan as "not found".
   const onScan = (code: string) => refuseLockedAdd(lock) ? 'keep' as const : scanAdd(code);

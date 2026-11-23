@@ -1,6 +1,8 @@
 import type { ProductTraits, TraitContext } from '@tallyui/core';
 import { catalogueEntries } from '@tallyui/pos';
 import type { CatalogueEntry } from '@tallyui/pos';
+import { resolveStock } from '../products/resolve-stock';
+import { entryStockDocs } from '../stock/stock-guard';
 
 export type CodeLookup<Doc> =
   | { kind: 'entry'; entry: CatalogueEntry<Doc> }
@@ -33,13 +35,14 @@ export type ScanOutcome<Doc> =
   | { kind: 'several'; count: number }
   | { kind: 'none' };
 
-export function scanOutcome<Doc>(products: Doc[], traits: ProductTraits<Doc>, code: string, context?: TraitContext): ScanOutcome<Doc> {
+export function scanOutcome<Doc>(products: Doc[], traits: ProductTraits<Doc>, code: string, context?: TraitContext, options?: { showOutOfStock?: boolean }): ScanOutcome<Doc> {
   const result = lookupCode(products, traits, code, context);
   if (result.kind === 'entry') {
     const { product, variant } = result.entry;
     const name = traits.getName(product);
     const label = variant.title ? `${name} · ${variant.title}` : name;
-    if (variant.stock.status === 'out_of_stock') return { kind: 'out-of-stock', label };
+    const docs = entryStockDocs(result.entry);
+    if (!options?.showOutOfStock && resolveStock(docs.variation ?? docs.product) === 'outofstock') return { kind: 'out-of-stock', label };
     return { kind: 'add', entry: result.entry, label };
   }
   if (result.kind === 'product') return { kind: 'choose', product: result.product };
