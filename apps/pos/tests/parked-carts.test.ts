@@ -8,9 +8,11 @@ import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
-import { catalogueEntries, createOrderBuilder, TaxProvider, useSale } from '@tallyui/pos';
+import type { StoreSettings } from '@tallyui/core';
+import { catalogueEntries, createOrderBuilder, saleTaxContexts, TaxProvider, useSale } from '@tallyui/pos';
 import { parkCart, parkedCartSchema, parkedCartMigrationStrategies, restoreCart } from '../lib/sale/parked-carts';
 import type { ParkedCart } from '../lib/sale/parked-carts';
+import { noTaxSettings } from './fixtures/store-settings';
 import products from './fixtures/products.json';
 import variations from './fixtures/variations.json';
 
@@ -18,6 +20,9 @@ const traits = createWooCommerceConnector().traits.product;
 const lineDiscount = { type: 'fixed' as const, value: 50, label: 'Staff', couponCode: 'STAFF' };
 const orderDiscount = { type: 'percentage' as const, value: 10, label: 'Ten percent' };
 const gee = { id: '7', name: 'Gee Four', email: 'gee@example.invalid' };
+const billing = { firstName: 'Gee', lastName: 'Four', company: 'G4', address1: '1 High St', address2: 'Flat 2', city: 'London',
+  state: '', postcode: 'N1 1AA', country: 'GB', phone: '020 7946 0000', email: 'gee@example.invalid' };
+const shipping = { address1: '9 Dock Rd', city: 'Portland', state: 'OR', postcode: '97201', country: 'US' };
 
 addRxPlugin(RxDBMigrationSchemaPlugin);
 
@@ -38,9 +43,9 @@ function orderFixture(withOrderDiscount = false) {
   return builder.getSnapshot();
 }
 
-function restore(parked: ParkedCart, catalogue = products, orderCreate: 1 | 2 | 5 = 2, customer?: ParkedCart['customer']) {
+function restore(parked: ParkedCart, catalogue = products, orderCreate = 2, customer?: ParkedCart['customer'], taxContextFor?: ReturnType<typeof saleTaxContexts>) {
   const { result } = renderHook(() => useSale({ currency: 'USD' }, {
-    registerId: 'web', cashierRef: '2', capabilities: { orderCreate },
+    registerId: 'web', cashierRef: '2', capabilities: { orderCreate }, taxContextFor,
   }), {
     wrapper: ({ children }: { children: ReactNode }) => createElement(TaxProvider, {
       ratesPpm: {}, pricesIncludeTax: false, children,
@@ -56,7 +61,7 @@ function restore(parked: ParkedCart, catalogue = products, orderCreate: 1 | 2 | 
       if (step.done) { done = true; problems = step.value; }
     });
   }
-  return { order: result.current.order, problems };
+  return { order: result.current.order, problems, taxLocation: result.current.taxLocation };
 }
 
 test('parkCart keeps openedAt as parkedAt; without it parkedAt is now', () => {
@@ -91,13 +96,19 @@ test('parks the customer summary and omits the customer key for guests', () => {
   expect(parkCart(order)).not.toHaveProperty('customer');
 });
 
-test.each([undefined, gee])('the v3 schema stores a real parked cart with optional customer %j, variants and discount fields', async customer => {
+test("parkCart keeps the customer's billing and shipping whole, and neither key without them", () => {
+  expect(parkCart({ ...orderFixture(), customer: { ...gee, billing, shipping } }).customer).toEqual({ ...gee, billing, shipping });
+  expect(parkCart({ ...orderFixture(), customer: { ...gee, billing: { country: 'GB', city: undefined } } }).customer!.billing).toStrictEqual({ country: 'GB' });
+  expect(Object.keys(parkCart({ ...orderFixture(), customer: gee }).customer!)).toEqual(['id', 'name', 'email']);
+});
+
+test.each([undefined, gee, { ...gee, billing, shipping }])('the v4 schema stores a real parked cart with optional customer %j, variants and discount fields', async customer => {
   const db = await createRxDatabase({
     name: `parked_${crypto.randomUUID()}`, multiInstance: false,
     storage: wrappedValidateAjvStorage({ storage: getRxStorageMemory() }),
   });
   try {
-    expect(parkedCartSchema.version).toBe(3);
+    expect(parkedCartSchema.version).toBe(4);
     const { parked_carts } = await db.addCollections({
       parked_carts: { schema: parkedCartSchema, migrationStrategies: parkedCartMigrationStrategies },
     });
@@ -161,6 +172,40 @@ test('a v2 parked cart migrates to v3 unchanged', async () => {
     expect(carts).toHaveLength(1);
     expect(carts[0].toJSON()).toEqual(parked);
     expect(carts[0].toJSON()).not.toHaveProperty('coupons');
+  } finally {
+    await db.remove();
+  }
+});
+
+test('a v3 parked cart with a customer and no addresses migrates to v4 unchanged and resumes taxed on the base', async () => {
+  const v3Customer = { ...parkedCartSchema.properties.customer, properties: { id: { type: 'string' }, name: { type: 'string' }, email: { type: 'string' } } };
+  const v3Schema = { ...parkedCartSchema, version: 3, properties: { ...parkedCartSchema.properties, customer: v3Customer } } as RxJsonSchema<ParkedCart>;
+  const storage = wrappedValidateAjvStorage({ storage: getRxStorageMemory() });
+  const options = { name: 'parked_addresses_migration', multiInstance: false, storage };
+  const parked = { ...parkCart(orderFixture()), customer: gee };
+  const oldDb = await createRxDatabase(options);
+  const old = await oldDb.addCollections({
+    parked_carts: { schema: v3Schema, migrationStrategies: { 1: (doc: any) => doc, 2: (doc: any) => doc, 3: (doc: any) => doc } },
+  });
+  await old.parked_carts.insert(parked);
+  await oldDb.close();
+  const db = await createRxDatabase(options);
+  try {
+    const { parked_carts } = await db.addCollections({
+      parked_carts: { schema: parkedCartSchema, migrationStrategies: parkedCartMigrationStrategies },
+    });
+    const carts = await parked_carts.find().exec();
+    expect(carts).toHaveLength(1);
+    expect(carts[0].toJSON()).toEqual(parked);
+    // The shop is in California (10%). finalize stores a taxAddress only for a billing or shipping tax location.
+    const settings = { ...noTaxSettings, taxBasedOn: 'billing', baseTaxAddress: { country: 'US', state: 'CA', city: '', postcode: '' },
+      taxRateTable: [{ id: 1, country: 'US', state: 'CA', postcode: '', city: '', postcodes: [], cities: [], rate: '10.0000',
+        name: 'CA Tax', class: 'standard', priority: 1, compound: false, shipping: true, order: 0 }] } as StoreSettings;
+    const { order, problems, taxLocation } = restore(carts[0].toJSON(), products, 8, undefined, saleTaxContexts(settings, { orderCreateVersion: 8 }));
+    expect(problems).toEqual([]);
+    expect(order.customer).toEqual(gee);
+    expect(taxLocation).toMatchObject({ addressUsed: 'base', location: { country: 'US', state: 'CA' } });
+    expect(order.totalMinor).toBe(1045); // 6.00 - 0.50 + 4.00 = 9.50, plus CA Tax 10% (0.95)
   } finally {
     await db.remove();
   }

@@ -1,4 +1,4 @@
-import type { ProductTraits } from '@tallyui/core';
+import type { CustomerAddress, ProductTraits } from '@tallyui/core';
 import type { Discount, Order, useSale } from '@tallyui/pos';
 import type { RxCollection, RxJsonSchema } from 'rxdb';
 import { catalogueEntries } from '@tallyui/pos';
@@ -12,20 +12,22 @@ export interface ParkedCharge {
 }
 export interface ParkedCart {
   id: string; parkedAt: string; lines: ParkedLine[]; orderDiscounts: Discount[]; itemCount: number; totalMinor: number;
-  customer?: { id: string; name: string; email?: string };
+  customer?: { id: string; name: string; email?: string; billing?: CustomerAddress; shipping?: CustomerAddress };
   fees?: ParkedCharge[]; shipping?: Array<ParkedCharge & { methodId?: string }>;
   coupons?: string[];
 }
 
 export type ParkedCartCollection = RxCollection<ParkedCart>;
+const addressSchema = { type: 'object', additionalProperties: false, properties: Object.fromEntries(['firstName', 'lastName',
+  'company', 'address1', 'address2', 'city', 'state', 'postcode', 'country', 'phone', 'email'].map(key => [key, { type: 'string' }])) };
 export const parkedCartSchema: RxJsonSchema<ParkedCart> = {
-  version: 3, primaryKey: 'id', type: 'object',
+  version: 4, primaryKey: 'id', type: 'object',
   properties: {
     id: { type: 'string', maxLength: 64 },
     parkedAt: { type: 'string', maxLength: 32 },
     customer: {
       type: 'object', properties: {
-        id: { type: 'string' }, name: { type: 'string' }, email: { type: 'string' },
+        id: { type: 'string' }, name: { type: 'string' }, email: { type: 'string' }, billing: addressSchema, shipping: addressSchema,
       }, required: ['id', 'name'], additionalProperties: false,
     },
     lines: { type: 'array', items: {
@@ -72,11 +74,15 @@ export const parkedCartSchema: RxJsonSchema<ParkedCart> = {
 // v0 carts have no customer, and they restore as guest carts.
 // v1 carts have no charges or custom lines.
 // v2 carts have no coupons.
-export const parkedCartMigrationStrategies = { 1: (doc: any) => doc, 2: (doc: any) => doc, 3: (doc: any) => doc };
+// v3 customers have no addresses, and they restore taxed on the shop base.
+export const parkedCartMigrationStrategies = { 1: (doc: any) => doc, 2: (doc: any) => doc, 3: (doc: any) => doc, 4: (doc: any) => doc };
 
 function discountFields({ type, value, label, couponCode }: Discount): Discount {
   return { type, value, ...(label !== undefined ? { label } : {}), ...(couponCode !== undefined ? { couponCode } : {}) };
 }
+
+// RxDB refuses undefined values.
+const definedFields = (address: CustomerAddress): CustomerAddress => Object.fromEntries(Object.entries(address).filter(([, value]) => value !== undefined));
 
 // A cart keeps its first parking time as its place in the strip (v2 sorts open orders by date_created).
 export function parkCart(order: Order, now = new Date(), openedAt?: string): ParkedCart {
@@ -85,6 +91,9 @@ export function parkCart(order: Order, now = new Date(), openedAt?: string): Par
     ...(order.customer ? { customer: {
       id: order.customer.id, name: order.customer.name,
       ...(order.customer.email ? { email: order.customer.email } : {}),
+      // Whole, as the sale holds them: order.create 8 sends every address field with taxAddress (#623).
+      ...(order.customer.billing ? { billing: definedFields(order.customer.billing) } : {}),
+      ...(order.customer.shipping ? { shipping: definedFields(order.customer.shipping) } : {}),
     } } : {}),
     lines: order.lineItems.map(({ productId, variantId, quantity, name, discounts, custom, unitPriceMinor, sku, taxClass, taxStatus }) => ({
       productId, ...(custom ? { custom: {
@@ -113,6 +122,8 @@ export function* restoreCart(
 ): Generator<void, string[], RestoreSale> {
   const problems: string[] = [];
   sale.setCustomer(parked.customer ?? null);
+  // A customer whose addresses change the tax context rebuilds the sale's builder; add lines after that render (#623).
+  if (parked.customer) sale = yield;
   for (const line of parked.lines) {
     if (line.custom) {
       const added = sale.addCustomLine({ name: line.name, quantity: line.quantity, ...line.custom });
