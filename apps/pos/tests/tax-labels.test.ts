@@ -18,6 +18,12 @@ test('different labels at the same ppm use the default label', () => {
   } })(100000)).toBe('Tax 10%');
 });
 
+test('a blank-named rate beside a named one at the same ppm uses the default label', () => {
+  expect(taxRateLabel({ taxRates: {
+    standard: [caTax], reduced: [{ ...caTax, id: 2, label: '' }],
+  } })(100000)).toBe('Tax 10%');
+});
+
 test('the same label in two classes stays named', () => {
   expect(taxRateLabel({ taxRates: {
     standard: [caTax], reduced: [{ ...caTax, id: 2 }],

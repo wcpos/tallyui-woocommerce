@@ -6,7 +6,6 @@ export function taxRateLabel(settings: Pick<StoreSettings, 'taxRates'>): (ratePp
   for (const rates of Object.values(settings.taxRates ?? {})) {
     for (const rate of rates) {
       const label = rate.label.trim();
-      if (!label) continue;
       const ppm = Math.round(Number(rate.rate) * 10_000);
       const names = labels.get(ppm) ?? new Set<string>();
       names.add(label);
@@ -15,6 +14,7 @@ export function taxRateLabel(settings: Pick<StoreSettings, 'taxRates'>): (ratePp
   }
   return ratePpm => {
     const names = labels.get(ratePpm);
-    return names?.size === 1 ? [...names][0] : `Tax ${ratePpm / 1e4}%`;
+    const label = names?.size === 1 ? [...names][0] : '';
+    return label || `Tax ${ratePpm / 1e4}%`;
   };
 }
