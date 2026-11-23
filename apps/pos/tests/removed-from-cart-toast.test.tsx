@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { ServerCapabilities } from '@tallyui/core';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
-import { catalogueEntries, SALE_SAVING, TaxProvider, useSale } from '@tallyui/pos';
+import { catalogueEntries, RESTORE_STALE, SALE_SAVING, TaxProvider, useSale } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
 import { CartWithSettings } from '../components/cart-settings';
 import { withRemovedToasts } from '../lib/toast/removed-from-cart-toast';
@@ -75,8 +75,61 @@ test('removing a discount toasts "Discount removed" as info', () => {
   act(() => { latest.applyDiscount(null, { type: 'percentage', value: 10 }); });
   fireEvent.click(screen.getByRole('button', { name: /^Remove discount/ }));
   expect(getToasts()).toEqual([expect.objectContaining({ type: 'info', title: 'Discount removed' })]);
+  expect(getToasts()[0].action).toBeUndefined();
   expect(getToasts().some(item => item.title.endsWith('removed from cart'))).toBe(false);
   expect(latest.order.discounts).toHaveLength(0);
+});
+
+test('Undo puts a product line back where it was', () => {
+  renderCart();
+  addProduct();
+  act(() => { latest.addCustomLine({ name: 'Gift wrap', priceMinor: 300 }); });
+  const ids = latest.order.lineItems.map(line => line.id);
+  fireEvent.click(screen.getByRole('button', { name: `Remove ${product.name}` }));
+  const action = getToasts()[0].action!;
+  expect(action.label).toBe('Undo');
+  act(() => action.onPress());
+  expect(latest.order.lineItems.map(line => line.id)).toEqual(ids);
+});
+
+test('Undo puts back a fee', () => {
+  renderCart();
+  act(() => { latest.addFee({ name: 'Bag', amountMinor: 20 }); });
+  fireEvent.click(screen.getByRole('button', { name: 'Edit total of Bag' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Remove Bag' }));
+  act(() => getToasts()[0].action!.onPress());
+  expect(latest.order.fees).toContainEqual(expect.objectContaining({ name: 'Bag' }));
+});
+
+test('Undo puts back a shipping line', () => {
+  renderCart();
+  act(() => { latest.addShipping({ name: 'Flat rate', amountMinor: 500 }); });
+  fireEvent.click(screen.getByRole('button', { name: 'Edit total of Flat rate' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Remove Flat rate' }));
+  act(() => getToasts()[0].action!.onPress());
+  expect(latest.order.shipping).toContainEqual(expect.objectContaining({ name: 'Flat rate' }));
+});
+
+test('a stale Undo says so and changes nothing', () => {
+  renderCart();
+  addProduct();
+  fireEvent.click(screen.getByRole('button', { name: `Remove ${product.name}` }));
+  const action = getToasts()[0].action!;
+  act(() => latest.newSale());
+  act(() => action.onPress());
+  expect(latest.order.lineItems).toHaveLength(0);
+  expect(getToasts()).toContainEqual(expect.objectContaining({ type: 'error', title: RESTORE_STALE }));
+});
+
+test('a second Undo is refused', () => {
+  renderCart();
+  addProduct();
+  fireEvent.click(screen.getByRole('button', { name: `Remove ${product.name}` }));
+  const action = getToasts()[0].action!;
+  act(() => action.onPress());
+  act(() => action.onPress());
+  expect(latest.order.lineItems).toHaveLength(1);
+  expect(getToasts()).toContainEqual(expect.objectContaining({ type: 'error', title: RESTORE_STALE }));
 });
 
 test('starting a new sale or closing the sale does not toast a removal', () => {
@@ -101,6 +154,7 @@ test('each name is read before the line is removed', () => {
   };
   const sale = {
     order,
+    removal: () => null,
     remove(id: string) { order.lineItems = order.lineItems.filter(line => line.id !== id); },
     removeFee(id: string) { order.fees = order.fees.filter(line => line.id !== id); return null; },
     removeShipping(id: string) { order.shipping = order.shipping.filter(line => line.id !== id); return null; },
@@ -124,7 +178,7 @@ test('each name is read before the line is removed', () => {
 // The refusal is whatever the real useSale().removeFee / removeShipping returns besides null.
 function refusingSale(refusal: ReturnType<ReturnType<typeof useSale>['removeFee']>) {
   const order = { lineItems: [], fees: [{ id: 'f1', name: 'Bag' }], shipping: [{ id: 's1', name: 'Flat rate' }] };
-  const sale = { order, remove() {}, removeFee: () => refusal, removeShipping: () => refusal, removeDiscount() {} };
+  const sale = { order, removal: () => null, remove() {}, removeFee: () => refusal, removeShipping: () => refusal, removeDiscount() {} };
   return { order, wrapped: withRemovedToasts(sale as unknown as Parameters<typeof withRemovedToasts>[0]) };
 }
 
