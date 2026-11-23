@@ -45,8 +45,13 @@ catch a resend. Two things keep it to one order:
   answers a second create for it with the order it already has.
 
 A refusal can still follow a commit: a 400 or 422 after WooCommerce's first save. The resend then returns that order.
-Pinned by the two suspect 10 tests in `apps/pos/tests/receipt-sync-order.test.tsx`. Not checked: on a WCPOS 2.0
-(ledger) store, the resend also sends the payment commands again, and whether its payment route dedupes them is open.
+Pinned by the two suspect 10 tests in `apps/pos/tests/receipt-sync-order.test.tsx`. Not checked:
+
+- On a WCPOS 2.0 (ledger) store, the resend also sends the payment commands again. Whether its payment route dedupes
+  them is open.
+- If WooCommerce fails after its first save, it leaves a pending or `checkout-draft` order that carries the till's id.
+  The guard returns that order as it is (`Order_Writer.php:107-119` only stamps audit meta), so Save to store marks
+  the sale applied against an order that may be unpaid. That is not a duplicate, but it is its own suspect.
 
 ## Any case left: the order shows in Orders
 
