@@ -68,7 +68,7 @@ async function renderTill(preventOverselling = true) {
   for (let i = 0; i < 3; i++) fireEvent.click(screen.getByTestId('product-tile-80'));
   expect(screen.getByLabelText('Edit quantity of Espresso').textContent).toBe('3');
   act(() => dismissToast());
-  return { send, drop: (doc = { ...products[0], stock_quantity: 1 }) => view.rerender(till([doc])) };
+  return { send, drop: (doc: SaleScreenProps['products'][number] = { ...products[0], stock_quantity: 1 }) => view.rerender(till([doc])) };
 }
 
 const checkoutButton = () => screen.getByTestId('cart-checkout');
@@ -107,6 +107,7 @@ test('Remove takes an out-of-stock line out of the cart', async () => {
   expect(within(row).getByText('Espresso out of stock')).not.toBeNull();
   expect(within(row).getByText('Remove')).not.toBeNull();
   fireEvent.click(row);
+  expect(getToasts()).toEqual([expect.objectContaining({ type: 'success', title: 'Espresso removed from cart', action: expect.objectContaining({ label: 'Undo' }) })]);
   expect(screen.queryByLabelText('Edit quantity of Espresso')).toBeNull();
   expect(screen.queryByTestId('cart-checkout')).toBeNull();
   expect(screen.queryByTestId('cart-conditions-notice')).toBeNull();

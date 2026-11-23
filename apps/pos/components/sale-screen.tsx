@@ -45,6 +45,7 @@ import { backorderToast, entryStockDocs, evaluateStock, existingCartQuantity, li
 import { unmetStock } from '../lib/stock/conditions';
 import { toast } from '../lib/toast/toast';
 import { showAddedToCartToast } from '../lib/toast/added-to-cart-toast';
+import { withRemovedToasts } from '../lib/toast/removed-from-cart-toast';
 import type { TenderVoidCollection } from '../lib/sale/tender-voids';
 import type { ParkedCartCollection } from '../lib/sale/parked-carts';
 import { VariantChooser } from './variant-chooser';
@@ -401,7 +402,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
           {/* B7: quantity and price open keypad popovers, as v2's cart/cells/quantity-keypad.tsx and cart/cells/price.tsx do. */}
           <CartWithSettings sale={{ ...sale, startTender: startTenderChecked, setQuantity: setQuantityChecked }} canEditPrice lineEditor="popover" taxClasses={taxClassOptions(props.storeSettings.taxClassSlugs)}
             notice={<CartConditionsNotice unmet={unmet}
-              onReduce={u => u.fit > 0 ? sale.setQuantity(u.lineId, u.fit) : sale.remove(u.lineId)} onRemove={u => sale.remove(u.lineId)} />}
+              onReduce={u => u.fit > 0 ? sale.setQuantity(u.lineId, u.fit) : withRemovedToasts(sale).remove(u.lineId)} onRemove={u => withRemovedToasts(sale).remove(u.lineId)} />}
             taxLabel={taxLabel}
             afterSubtotal={couponsOffered && props.couponCollections ? <CouponRows sale={sale} /> : undefined}
             // Avoid counting itemised coupons twice, matching v2 cart/totals.tsx:121-148.
