@@ -16,9 +16,9 @@ export interface EditCustomerDialogProps {
 // v2 customers/edit/edit-customer.tsx:28 titles the sheet "Edit {name}"; v2 autosaves and has Delete and Sync
 // in its footer, while @tallyui 4.2.0's editor has an explicit Save.
 export function EditCustomerDialog({ customer, update, defaultCountry, onClose, onSaved }: EditCustomerDialogProps): JSX.Element {
-  // 4.2.0's address Remove sends billing: {} / shipping: {}, and the connector writes "" for every missing Woo address
-  // key (toWooAddress), names, email, phone and company included. v2 clears only the address lines
-  // (address-rows.tsx:109-112), so an emptied address keeps the person fields it had.
+  // 4.2.0's address Remove may carry identity values toCustomerPatch copied from changed top-level fields.
+  // The connector writes "" for every missing Woo address key (toWooAddress), including person fields.
+  // v2 clears only address lines (address-rows.tsx:109-112), so an emptied address keeps its person fields.
   const kept = (stored: CustomerAddress | undefined, billing: boolean): CustomerAddress => {
     const from = stored ?? {};
     const fields = ['firstName', 'lastName', 'company', 'phone', ...(billing ? ['email'] as const : [])] as const;
@@ -27,11 +27,16 @@ export function EditCustomerDialog({ customer, update, defaultCountry, onClose, 
       return value ? [[field, value]] : [];
     })) as CustomerAddress;
   };
-  const emptied = (address: CustomerAddress | undefined) => address !== undefined && Object.keys(address).length === 0;
+  const emptied = (address: CustomerAddress | undefined, patch: CustomerPatch) => {
+    if (address === undefined) return false;
+    const rest = Object.keys(address).filter(k =>
+      !((k === 'firstName' || k === 'lastName' || k === 'email') && address[k] === patch[k]));
+    return rest.length === 0;
+  };
   const save = (id: string, patch: CustomerPatch) => update(id, {
     ...patch,
-    ...(emptied(patch.billing) ? { billing: kept(customer.billing, true) } : {}),
-    ...(emptied(patch.shipping) ? { shipping: kept(customer.shipping ?? customer.billing, false) } : {}),
+    ...(emptied(patch.billing, patch) ? { billing: { ...kept(customer.billing, true), ...patch.billing } } : {}),
+    ...(emptied(patch.shipping, patch) ? { shipping: { ...kept(customer.shipping ?? customer.billing, false), ...patch.shipping } } : {}),
   });
   return (
     <Dialog open onOpenChange={next => { if (!next) onClose(); }}>

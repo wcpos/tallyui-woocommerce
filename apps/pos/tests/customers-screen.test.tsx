@@ -477,6 +477,22 @@ test('removing billing clears only its address lines', async () => {
   }));
 });
 
+test('removing billing and renaming keeps phone and company', async () => {
+  stubMatchMedia({ ...FINE });
+  const update = vi.fn<NonNullable<CustomerSource['update']>>().mockResolvedValue(bea);
+  await findRows(vi.fn<CustomerSource['search']>().mockResolvedValue([bea]), { update, canEditCustomers: true });
+  fireEvent.click(screen.getByTestId('customer-open-button'));
+  fireEvent.click(screen.getByTestId('customer-editor-form-addresses-billing-remove'));
+  const dialog = await screen.findByTestId('edit-customer-dialog');
+  fireEvent.change(within(dialog).getByPlaceholderText('First name'), { target: { value: 'Bee' } });
+  fireEvent.click(screen.getByTestId('customer-editor-save'));
+  await waitFor(() => expect(update).toHaveBeenCalledExactlyOnceWith('11', {
+    firstName: 'Bee',
+    billing: { firstName: 'Bee', lastName: 'Smith', company: 'Bea Co', phone: '0400', email: 'bea@example.com' },
+    shipping: { firstName: 'Bee', lastName: 'Smith', company: 'Bea Co', phone: '0400' },
+  }));
+});
+
 test('removing billing does not fill blank billing fields from the account', async () => {
   stubMatchMedia({ ...FINE });
   const customer: Customer = { ...bea, id: '12', billing: { ...bea.billing, email: undefined } };
