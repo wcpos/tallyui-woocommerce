@@ -743,7 +743,7 @@ test('Price › On Sale defaults on, strikes the regular price above the price, 
   const first = renderCart();
   addColdBrew(2);
   const regular = screen.getByLabelText('Regular price $5.00');
-  expect(regular.style.textDecorationLine).toBe('line-through');
+  expect(window.getComputedStyle(regular).textDecorationLine).toBe('line-through');
   expect(follows(regular, screen.getByText('$4.00'))).toBe(true);
   fireEvent.click(screen.getByTestId('cart-settings-button'));
   expect(checked('cart-columns-price-onSale')).toBe('true');
