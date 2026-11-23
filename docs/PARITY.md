@@ -295,8 +295,8 @@ v2 has all of these on `origin/main`; they are not TallyUI-only.
 | 167 | Customers columns | initial-settings.json | W/components/customers-screen.tsx | PARTIAL | look | S | No role, username, shipping, modified |
 | 168 | Customers paging | data-table | customers-screen.tsx; C/customers.ts:120-136 | PARTIAL | behaviour | M | One server page only, though the connector can page |
 | 169 | Customers search | local query | customers-screen.tsx | PARTIAL | behaviour | S | Server search; sort applies to loaded rows only |
-| 170 | Open and edit a customer | core/customers/edit/form.tsx | customers-screen.tsx:197 (button disabled) | MISSING | behaviour | L | Rows cannot be opened |
-| 171 | Add customer (full form) | core/customers/add.tsx | W/components/add-customer-dialog.tsx | PARTIAL | behaviour | M | Four fields; no addresses, company, role, tax IDs |
+| 170 | Open and edit a customer | core/customers/edit/form.tsx | W/components/edit-customer-dialog.tsx | PARTIAL | behaviour | L | Since wiring pass 6 the caret (table) or the row (phone) opens "Edit {name}" in a right sheet with name, email, phone, company, billing and shipping (CustomerEditor, 4.2.0), gated on edit_users. v2 autosaves and has Delete and Sync in the footer; here an explicit Save. No username, role, tax ID or custom-field rows |
+| 171 | Add customer (full form) | core/customers/add.tsx | W/components/add-customer-dialog.tsx | PARTIAL | behaviour | M | Four fields; no addresses, company, username, password or tax IDs (v2's add form has no Role). Blocked: 4.2.0's createCustomer drops billing address parts, shipping and tax IDs |
 | 172 | Coupons list, columns, sort | core/coupons | W/components/coupons-screen.tsx | MATCH | – | – | |
 | 173 | Coupons filters | coupons/filter-bar.tsx | coupons-screen.tsx | MATCH | – | – | |
 | 174 | Coupons inline edit | coupons/cells | coupons-screen.tsx ("no inline editing") | MISSING | money | M | |
