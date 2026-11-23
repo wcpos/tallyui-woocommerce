@@ -12,7 +12,7 @@ against TallyUI 3.10 to 3.19 and the monorepo's old `next` lane. Those versions 
   controls were read; spacing, colour and motion were not. The last pixel round (12 Nov, TallyUI 3.19.0) scored 8 of
   45 screens as matching, so "looks like" is lower than the figure below.
 - **The pin:** the till pins `@tallyui/*` 4.2.0. The library has moved on since (cash rounding ADR-094, cart hover
-  peek, removal undo rules); none of that is in the till until a release is bumped.
+  peek, later removal undo rules); none of that is in the till until a release is bumped.
 
 **Where it stands: 51 of 176 judged rows match (29%); 78 partial, 47 missing, 5 not reached.** The frame is v2's:
 rail, sale screen, cash tender, register and browse screens. Most of what a v2 cashier does beyond a plain cash sale
@@ -163,7 +163,7 @@ pick and approval; H, safety nets; I, translations; then the periphery (customer
 | 69 | Quantity and price keypads, quick-discount keys | quantity-keypad, quick-discount-keys.tsx | L cart.tsx LinePopover | MATCH | – | – | |
 | 70 | Line edit dialog (name, SKU, regular price, tax status and class, meta) | cells/edit-line-item/form.tsx | L `updateLine` unwired | MISSING | money | M | No form in the app; library covers name, SKU, regular price only |
 | 71 | Line attributes, meta, notes | product-name | L CartLine | PARTIAL | look | S | Attributes and SKU show; meta and line notes not verified |
-| 72 | Remove line with Undo | use-remove-line-item | W/lib/toast/removed-from-cart-toast.ts | PARTIAL | behaviour | S | Undo is mounted since wiring pass 3 (`useSale().removal/restore`, 4.2.0) for product, fee and shipping lines. Once the sale is parked, finished or replaced, Undo says "This item can no longer be put back. Add it again."; v2 puts the line back into the order it left (use-remove-line-item.ts:36-40) |
+| 72 | Remove line with Undo | use-remove-line-item | W/lib/toast/removed-from-cart-toast.ts | PARTIAL | behaviour | S | Undo is mounted since wiring pass 3 (`useSale().removal/restore`, 4.2.0) for product, fee and shipping lines. Once the sale is parked, finished or replaced, Undo says "This item can no longer be put back. Add it again."; v2 puts the line back into the order it left (use-remove-line-item.ts:36-40). v2 re-adds the line at the end through `cart.line.add`, so its stock guard runs again (:75-78); TallyUI puts it back at its old index with no stock check, and a second Undo is refused where v2 quietly replaces the line |
 | 73 | Miscellaneous product | cart/add-misc-product.tsx | W/components/cart-add-menu.tsx | PARTIAL | money | S | No virtual, downloadable, categories; needs orderCreate 5. "+ SKU" is mounted since wiring pass 2 |
 | 74 | Fee: fixed or percent, includes tax, tax class | cart/add-fee.tsx | cart-add-menu.tsx ChargeForm | PARTIAL | money | S | Amount Includes Tax starts in the store's tax mode (v2: on; Desk Q4, ADR-075) and is hidden on a percent fee, which then follows the store's mode (v2 shows it). The % toggle and the switch are mounted since wiring pass 2 |
 | 75 | Shipping: method, amount, tax | cart/add-shipping.tsx | cart-add-menu.tsx | PARTIAL | money | S | No method select; Amount Includes Tax starts in the store's tax mode (v2: on). The switch and "No tax" (orderCreate 6) are mounted since wiring pass 2 |
