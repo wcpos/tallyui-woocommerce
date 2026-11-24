@@ -255,7 +255,7 @@ export function TaxesCard({ period, money, onOpen }: Omit<CardProps, 'moneyWhole
             <View testID={`card-taxes-rate-${row.ratePpm}-swatch`} className={`size-2.5 ${TAX_COLORS[index % 5]}`} />
             <Text>{row.label}</Text>
             <Text className="font-semibold tabular-nums">{money(row.taxMinor)}</Text>
-            <Text className="text-sm text-muted-foreground">{`on ${money(row.netMinor)}`}</Text>
+            {row.netMinor !== null && <Text className="text-sm text-muted-foreground">{`on ${money(row.netMinor)}`}</Text>}
           </View>
         ))}
       </View>}
