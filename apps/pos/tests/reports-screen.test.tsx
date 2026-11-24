@@ -1757,3 +1757,21 @@ test('the progress line shows while the store is read', async () => {
   await setup({ connector: storeConnector(listOrders) });
   await waitFor(() => expect(text('hero-store-line')).toBe('Reading store orders 0'));
 }, 20_000);
+
+test('under Store, an order left out in the Orders table leaves the store figures, and the table names this till', async () => {
+  const listOrders = vi.fn<NonNullable<TallyConnector['listOrders']>>(async () => ({ orders: [storeOrder({
+    id: '900', totalMinor: 2500, payments: [{ method: 'pos_cash', kind: 'cash', amountMinor: 2500 }],
+    refunds: [{ id: 'r1', amountMinor: 500 }],
+  })], hasMore: false, total: 1 }));
+  const app = await setup({ connector: storeConnector(listOrders) });
+  await waitFor(() => expect(text('hero-total')).toBe('$25.00'));
+  await payCash();
+  await waitFor(() => expect(text('hero-total')).toBe('$28.00'));
+  fireEvent.click(screen.getByTestId('sales-room-orders-open'));
+  await screen.findByTestId('sales-table');
+  expect(text('sales-table-scope')).toBe(`Today · ${app.register.registerName}`);
+  const id = (await app.orders.find().exec())[0].id;
+  fireEvent.click(screen.getByTestId(`orders-panel-tick-${id}`));
+  await waitFor(() => expect(text('hero-total')).toBe('$25.00'));
+  expect(text('hero-orders')).toBe('1');
+}, 20_000);
