@@ -141,3 +141,20 @@ test("an on-hold or cancelled store order's refund counts in both modes, though 
     count: 1, totalMinor: 3000, refundedMinor: 1200, refundedOrders: 2,
   });
 });
+
+test('an Unpaid remainder is not a split tender', () => {
+  const U: StoreOrder = {
+    ...storeBase, id: 'U', status: 'completed', placedAt: ts(13, 0), totalMinor: 3000,
+    payments: [{ method: 'pos_cash', kind: 'cash', amountMinor: 1000 }],
+  };
+  const room = salesRoomOf(mergeRoomOrders([U], [], 'done'), { now, currency: 'USD', ...day });
+  expect(room.today.splitCount).toBe(0);
+  expect(room.today.byMethod.map(row => row.method)).toEqual(['cash', 'unpaid']);
+});
+
+test('an order with an unreadable time is in no range', () => {
+  const order: StoreOrder = { ...storeBase, id: 'invalid', status: 'completed', placedAt: 'not a date', totalMinor: 1000 };
+  const room = salesRoomOf(mergeRoomOrders([order], [], 'done'), { now, currency: 'USD', ...day });
+  expect(room.today.count).toBe(0);
+  expect(room.yesterday.count).toBe(0);
+});

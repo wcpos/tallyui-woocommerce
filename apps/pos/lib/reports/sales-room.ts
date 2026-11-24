@@ -96,7 +96,8 @@ export function salesRoomOf(orders: readonly RoomOrder[], options: SalesRoomOpti
     };
     const totals: number[] = [];
     for (const order of orders) {
-      if (order.currency !== currency || order.at.getTime() < Date.parse(startIso) || order.at.getTime() >= Date.parse(endIso)) continue;
+      const t = order.at.getTime();
+      if (order.currency !== currency || !(t >= Date.parse(startIso) && t < Date.parse(endIso))) continue;
       // An order the store refused is not a sale (sheet-figures.ts); only an unreplaced one is "not accepted".
       if (order.state === 'rejected') {
         period.rejected++;
@@ -114,7 +115,8 @@ export function salesRoomOf(orders: readonly RoomOrder[], options: SalesRoomOpti
       period.items += items;
       period.taxMinor += order.taxMinor;
       if (order.state === 'pending') period.pending++;
-      if (order.payments.length > 1) period.splitCount++;
+      // The Unpaid leg is what the order still owes, not a tender.
+      if (order.payments.filter(payment => payment.method !== 'unpaid').length > 1) period.splitCount++;
       const cashierRef = order.cashierRef ?? '';
       let cashier = period.byCashier.find(row => row.cashierRef === cashierRef);
       if (!cashier) {
