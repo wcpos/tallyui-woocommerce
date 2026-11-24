@@ -48,7 +48,11 @@ test("the store receipt prints the store's tax display, single and incl, and hid
   expect(renderTax({ taxTotalDisplay: 'itemized', taxDisplayCart: 'excl', calcTaxes: false })).toContain('TAX:hidden:excl');
   expect(renderTax(undefined)).toContain('TAX:itemized:excl');
   expect(renderTax({})).toContain('TAX:itemized:excl');
-  expect(receiptStoreTax({ taxTotalDisplay: undefined, calcTaxes: false })).toEqual({ calcTaxes: false });
+  expect(receiptStoreTax({ taxTotalDisplay: undefined, calcTaxes: false })).toStrictEqual({ calcTaxes: false });
+  expect(renderedStoreReceipt(
+    { status: 'ready', templates: [t] }, { kind: 'pos', order },
+    { ...context, pricesIncludeTax: true, store: receiptStoreTax({ taxTotalDisplay: 'single' }) },
+  )).toContain('TAX:single:incl');
 });
 
 test('pickReceiptTemplate takes the selected template, else the first in the connector order, or none', () => {
