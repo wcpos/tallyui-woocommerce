@@ -74,3 +74,22 @@ test('orders show items sold as a count and average order as an amount without a
     { key: 'average', cells: ['Average order', '', '$3.00'] },
   ], subtotal: null });
 });
+
+test('the Refunded row shows a refund as a negative between tax and discounts', () => {
+  const rows = salesSummary({ ...period, refundedMinor: 250, refundedOrders: 1 }, fmt).groups[0].rows;
+  expect(rows.map(row => row.key)).toEqual(['orders', 'net', 'tax', 'refunds', 'discounts']);
+  expect(rows.find(row => row.key === 'refunds')?.cells).toEqual(['Refunded', '', '$-2.50']);
+  expect(salesSummary({ ...period, refundedMinor: 0 }, fmt).groups[0].rows.some(row => row.key === 'refunds')).toBe(false);
+});
+
+test('Taken leaves out what orders still owe', () => {
+  const payments = salesSummary({ ...period, byMethod: [
+    { method: 'cash', label: 'Cash', count: 1, totalMinor: 400 },
+    { method: 'unpaid', label: 'Unpaid', count: 1, totalMinor: 200 },
+  ] }, fmt).groups[1];
+  expect(payments.rows).toEqual([
+    { key: 'cash', cells: ['Cash', '', '$4.00'] },
+    { key: 'unpaid', cells: ['Unpaid', '', '$2.00'] },
+  ]);
+  expect(payments.subtotal?.cells).toEqual(['Taken', '', '$4.00']);
+});

@@ -4,7 +4,7 @@ export type SummaryRow = { key: string; cells: [string, string, string] };
 export type SummaryGroup = { key: string; label: string; rows: SummaryRow[]; subtotal: SummaryRow | null };
 export type SalesSummary = { head: [string, string, string]; groups: SummaryGroup[]; total: SummaryRow };
 
-/** v2 packages/core/src/screens/main/reports/report/summary.ts; Refunded, Shipping and Registers are omitted because Period has no such data. */
+/** v2 packages/core/src/screens/main/reports/report/summary.ts; Shipping and Registers are omitted because Period has no such data. */
 export function salesSummary(period: Period, fmt: { money(minor: number): string; number(n: number): string; cashierName(ref: string): string }): SalesSummary {
   const { money, number, cashierName } = fmt;
   const groups: SummaryGroup[] = [
@@ -12,11 +12,13 @@ export function salesSummary(period: Period, fmt: { money(minor: number): string
       { key: 'orders', cells: ['Orders', number(period.count), ''] },
       { key: 'net', cells: ['Net sales', '', money(period.totalMinor - period.taxMinor)] },
       { key: 'tax', cells: ['Tax', '', money(period.taxMinor)] },
+      ...(period.refundedMinor > 0 ? [{ key: 'refunds', cells: ['Refunded', '', money(-period.refundedMinor)] } satisfies SummaryRow] : []),
       { key: 'discounts', cells: ['Discounts', '', money(period.discountMinor)] },
     ], subtotal: { key: 'total', cells: ['Total sales', '', money(period.totalMinor)] } },
     { key: 'payments', label: 'Payment Methods',
       rows: period.byMethod.map(row => ({ key: row.method, cells: [row.label, '', money(row.totalMinor)] })),
-      subtotal: { key: 'total', cells: ['Taken', '', money(period.byMethod.reduce((sum, row) => sum + row.totalMinor, 0))] } },
+      // v2 summary.ts:62-70: Taken is money taken; what an order still owes is not in it.
+      subtotal: { key: 'total', cells: ['Taken', '', money(period.byMethod.filter(row => row.method !== 'unpaid').reduce((sum, row) => sum + row.totalMinor, 0))] } },
   ];
   if (period.taxMinor !== 0) groups.push({ key: 'taxes', label: 'Taxes',
     rows: period.taxRates.map(row => ({ key: String(row.ratePpm), cells: [row.label || 'Tax', '', money(row.taxMinor)] })),
