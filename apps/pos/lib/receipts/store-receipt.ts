@@ -1,7 +1,19 @@
 import type { ReceiptTemplate } from '@tallyui/core';
 import { renderStoreReceiptTemplate, type PrintableSale, type StoreTemplateContext } from '@tallyui/pos';
+import type { StoreInfo } from '../catalogue/store-info';
 import type { StoreTemplatesState } from './use-store-templates';
 import { RECEIPT_PAPER_WIDTH, type ReceiptPaperWidth } from './print-receipt';
+
+export type StoreReceiptTax = Pick<StoreInfo, 'taxTotalDisplay' | 'taxDisplayCart' | 'calcTaxes'>;
+
+// v2 cart/totals/taxes.tsx:24 and build-receipt-data.ts; omit undefined keys because the library spreads the override over its stand-ins.
+export function receiptStoreTax(tax: StoreReceiptTax | undefined): StoreTemplateContext['store'] {
+  return {
+    ...(tax?.taxTotalDisplay !== undefined ? { taxTotalDisplay: tax.taxTotalDisplay } : {}),
+    ...(tax?.taxDisplayCart !== undefined ? { taxDisplayCart: tax.taxDisplayCart } : {}),
+    ...(tax?.calcTaxes !== undefined ? { calcTaxes: tax.calcTaxes } : {}),
+  };
+}
 
 // v2 takes Pro's active template, else the lowest menu_order; the connector exposes neither, so its order stands.
 // The cashier's pick (v2's template switcher) wins while it names a served template.

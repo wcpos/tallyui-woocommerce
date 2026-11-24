@@ -50,6 +50,7 @@ export default function Catalogue() {
     <SessionHoldBanner />
     <StoreSettingsGate store={store}>{(settings) => <SaleScreen
       storeSettings={settings}
+      storeTax={catalogue.store}
       connector={catalogue.connector}
       customers={customers}
       defaultCustomer={defaultCustomer}

@@ -21,7 +21,7 @@ import { useRegister } from '../lib/register/register-context';
 import { REGISTER_ID } from '../lib/register/register-id';
 import { buildReceiptIdentity } from '../lib/receipts/receipt-identity';
 import { useReceiptPrintCount } from '../lib/receipts/use-receipt-print-count';
-import { pickReceiptTemplate, receiptPaperWidth, receiptTemplateIdFor, renderedStoreReceipt } from '../lib/receipts/store-receipt';
+import { pickReceiptTemplate, receiptPaperWidth, receiptStoreTax, receiptTemplateIdFor, renderedStoreReceipt, type StoreReceiptTax } from '../lib/receipts/store-receipt';
 import { useStoreTemplates } from '../lib/receipts/use-store-templates';
 import { useOutbox } from '../lib/sale/outbox-context';
 import { cartLogger, useAssignCustomer } from '../lib/sale/cart-log';
@@ -87,6 +87,7 @@ import { PosPhoneTabBar } from './pos-phone-tab-bar';
 const DEFAULT_CAPABILITIES = { orderCreate: 3 } as const;
 
 export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | 'message' | 'onScan' | 'locked'> {
+  storeTax?: StoreReceiptTax;
   productsLoaded?: boolean;
   cashierRef: string; parkedCarts?: ParkedCartCollection; customers?: CustomerSource | null;
   mailer?: ReceiptMailer | null; receiptEmails?: ReceiptEmailCollection;
@@ -448,6 +449,7 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
         const storeHtml = Platform.OS === 'web' ? renderedStoreReceipt(storeTemplates, { kind: 'pos', order: receiptOrder }, {
           config: { storeName: props.storeName, cashier: props.cashierName, registerName: register?.registerName ?? undefined },
           pricesIncludeTax: props.storeSettings.pricesIncludeTax,
+          store: receiptStoreTax(props.storeTax),
         }, templateId) : null;
         const shownTemplate = storeTemplates.status === 'ready' ? pickReceiptTemplate(storeTemplates.templates, templateId) : null;
         // v2 previews and prints at the shown template's paper (use-receipt-document.ts:214-220); the built-in receipt at 80 mm.
