@@ -30,6 +30,12 @@ test('a line past managed stock is unmet with Only n available and fits what the
   expect(unmetText(unmet[0])).toBe('Only 3 available for T-Shirt · S / Black');
 });
 
+test('fit is rounded so float quantities do not leak noise', () => {
+  const lines = [{ ...line, id: 'a', quantity: 0.9 }, { ...line, id: 'b', quantity: 0.2 }];
+  const unmet = unmetStock(lines, [{ ...products[0], stock_quantity: 1 }], getId);
+  expect(unmet[1]).toEqual({ lineId: 'b', name: 'Espresso', available: 1, fit: 0.1, fix: 'reduce' });
+});
+
 test('an out-of-stock or missing record is unmet as out of stock with remove', () => {
   for (const docs of [[{ ...products[0], manage_stock: false, stock_status: 'outofstock' }], []]) {
     const unmet = unmetStock([line], docs, getId);

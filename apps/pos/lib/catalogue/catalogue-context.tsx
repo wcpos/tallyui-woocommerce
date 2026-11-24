@@ -9,16 +9,17 @@ import type { Catalogue } from './start-catalogue';
 interface CatalogueContextValue {
   catalogue: Catalogue | null;
   products: any[];
+  productsLoaded?: boolean;
   status: 'idle' | 'starting' | 'syncing' | 'ready' | 'error';
   notice?: { code: string; message?: string; fixedBy?: 'till' | 'store' };
   error?: string;
 }
 
-export const CatalogueContext = createContext<CatalogueContextValue>({ catalogue: null, products: [], status: 'idle' });
+export const CatalogueContext = createContext<CatalogueContextValue>({ catalogue: null, products: [], productsLoaded: false, status: 'idle' });
 
 export function CatalogueProvider({ children }: { children: ReactNode }): JSX.Element {
   const { session, hold, ready } = useSession();
-  const [value, setValue] = useState<CatalogueContextValue>({ catalogue: null, products: [], status: 'idle' });
+  const [value, setValue] = useState<CatalogueContextValue>({ catalogue: null, products: [], productsLoaded: false, status: 'idle' });
   const latestSession = useRef(session);
   const latestHold = useRef(hold);
   const active = useRef<{ catalogue: Catalogue; token: string } | null>(null);
@@ -32,24 +33,24 @@ export function CatalogueProvider({ children }: { children: ReactNode }): JSX.El
     const initialSession = latestSession.current;
     // Start only after the first refresh settles, so a start never runs on a token that refresh is replacing.
     if (!initialSession || !ready) {
-      setValue({ catalogue: null, products: [], status: 'idle' });
+      setValue({ catalogue: null, products: [], productsLoaded: false, status: 'idle' });
       return;
     }
     let disposed = false;
     let catalogue: Catalogue | undefined;
     const subscriptions: { unsubscribe(): void }[] = [];
-    setValue({ catalogue: null, products: [], status: 'starting' });
+    setValue({ catalogue: null, products: [], productsLoaded: false, status: 'starting' });
     void (async () => {
       try {
         const started = await startCatalogue(initialSession);
         if (disposed) { await started.stop(); return; }
         catalogue = started;
         active.current = { catalogue: started, token: initialSession.tokens.accessToken };
-        setValue({ catalogue: started, products: [], status: 'syncing' });
+        setValue({ catalogue: started, products: [], productsLoaded: false, status: 'syncing' });
         // The WooCommerce schema does not index name, so sort the plain documents here.
         subscriptions.push(started.db.products.find({ selector: {} }).$.subscribe(docs => {
           const products = docs.map(doc => doc.toJSON()).sort((a, b) => a.name.localeCompare(b.name));
-          setValue(previous => ({ ...previous, products }));
+          setValue(previous => ({ ...previous, products, productsLoaded: true }));
         }));
         subscriptions.push(started.replication.notice$.subscribe(notice => {
           setValue(previous => ({ ...previous, notice }));
