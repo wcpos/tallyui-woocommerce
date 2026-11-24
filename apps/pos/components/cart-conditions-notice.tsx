@@ -12,9 +12,9 @@ export function CartConditionsNotice({ unmet, onReduce, onRemove }: {
     <ScrollView>
       {unmet.map((u, index) => <Pressable key={u.lineId} testID={`cart-condition-row-${u.lineId}`} accessibilityRole="button"
         className={`min-h-11 flex-row items-center gap-2${index > 0 ? ' border-t border-warning/30' : ''}`}
-        onPress={() => u.fix === 'reduce' ? onReduce(u) : onRemove(u)}>
+        onPress={() => u.fix === 'reduce' && u.fit > 0 ? onReduce(u) : onRemove(u)}>
         <Text className="flex-1 text-foreground" numberOfLines={1}>{unmetText(u)}</Text>
-        <Text className="text-primary">{u.fix === 'reduce' ? 'Reduce' : 'Remove'}</Text>
+        <Text className="text-primary">{u.fix === 'reduce' && u.fit > 0 ? 'Reduce' : 'Remove'}</Text>
       </Pressable>)}
     </ScrollView>
   </View>;

@@ -23,7 +23,7 @@ const HELD_CART_PREFIX = 'tallywoo.held-cart.';
 export default function Catalogue() {
   const { session, ready, signOut, cashiers, switchCashier, removeCashier, startAddCashier } = useSession();
   const store = useTillStoreSettingsState();
-  const { catalogue, products, status, notice, error } = useCatalogue();
+  const { catalogue, products, productsLoaded, status, notice, error } = useCatalogue();
   const router = useRouter();
   // The web stack keeps the till mounted under a pushed screen (display none): its Alt+F and its wedge claim are live
   // only while it shows.
@@ -63,6 +63,7 @@ export default function Catalogue() {
       couponCollections={couponCollections}
       cashier={catalogue.cashier}
       products={products}
+      productsLoaded={productsLoaded}
       storeName={catalogue.store.name}
       adminUrl={`${session.site.home}/wp-admin`}
       siteHome={session.site.home}

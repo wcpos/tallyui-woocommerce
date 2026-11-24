@@ -87,6 +87,7 @@ import { PosPhoneTabBar } from './pos-phone-tab-bar';
 const DEFAULT_CAPABILITIES = { orderCreate: 3 } as const;
 
 export interface SaleScreenProps extends Omit<CatalogueViewProps, 'onSelect' | 'message' | 'onScan' | 'locked'> {
+  productsLoaded?: boolean;
   cashierRef: string; parkedCarts?: ParkedCartCollection; customers?: CustomerSource | null;
   mailer?: ReceiptMailer | null; receiptEmails?: ReceiptEmailCollection;
   storeSettings: StoreSettings; locale?: string;
@@ -175,9 +176,9 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     [props.storeSettings, sale.taxLocation]);
   const assignCustomer = useAssignCustomer(sale);
   const inCart = useMemo(() => inCartCounts(sale.order.lineItems), [sale.order.lineItems]);
-  const unmet = useMemo(() => props.storeSettings.preventOverselling === true
+  const unmet = useMemo(() => props.storeSettings.preventOverselling === true && props.productsLoaded !== false
     ? unmetStock(sale.order.lineItems, props.products, connector.traits.product.getId) : [],
-    [props.storeSettings.preventOverselling, sale.order.lineItems, props.products, connector.traits.product.getId]);
+    [props.storeSettings.preventOverselling, props.productsLoaded, sale.order.lineItems, props.products, connector.traits.product.getId]);
   const receiptOrderId = sale.stage.kind === 'receipt' ? sale.stage.posOrder.id : null;
   const printCount = useReceiptPrintCount(receiptOrderId);
   const [receiptSettings] = useReceiptSettings();
@@ -205,6 +206,11 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
   });
   const startTender = useTenderStart(sale, { register, multiPayment: outbox.enabled && props.multiplePayments === true, say: setMessage });
   function startTenderChecked(method: 'cash' | 'external') {
+    // The catalogue has not emitted yet, so stock cannot be checked.
+    if (props.storeSettings.preventOverselling === true && props.productsLoaded === false) {
+      cartLogger.info('Checkout blocked, stock not loaded');
+      return;
+    }
     // v2 pay.tsx:69-74: the notice is the cashier's cue; no toast when checkout is blocked.
     if (unmet.length > 0) {
       cartLogger.info(`Checkout blocked, ${unmet.length} to fix`, { unmet: unmet.map(u => u.lineId) });

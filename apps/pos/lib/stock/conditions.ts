@@ -18,7 +18,7 @@ export function unmetStock(lines: readonly LineItem[], products: readonly any[],
     if (result.allowed) continue;
     const available = result.available;
     const counted = available !== null && available > 0;
-    unmet.push({ lineId: line.id, name: line.name, available, fit: counted ? Math.max(0, available - existing) : 0, fix: counted ? 'reduce' : 'remove' });
+    unmet.push({ lineId: line.id, name: line.name, available, fit: counted ? Math.max(0, Number((available - existing).toFixed(12))) : 0, fix: counted ? 'reduce' : 'remove' });
   }
   return unmet;
 }

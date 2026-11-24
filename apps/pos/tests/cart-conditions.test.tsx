@@ -7,6 +7,8 @@ import * as ReactNative from 'react-native';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { PortalHost } from '@tallyui/primitives';
 import { SaleScreen, type SaleScreenProps } from '../components/sale-screen';
+import { CartConditionsNotice } from '../components/cart-conditions-notice';
+import type { UnmetStock } from '../lib/stock/conditions';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
@@ -56,10 +58,10 @@ function OrderStoreReady() {
 async function renderTill(preventOverselling = true) {
   const send = vi.fn(async () => ({ kind: 'results' as const, results: [] }));
   const storage = getRxStorageMemory();
-  const till = (docs: SaleScreenProps['products']) => <SessionProvider>
+  const till = (docs: SaleScreenProps['products'], productsLoaded?: boolean) => <SessionProvider>
     <OutboxProvider transportFor={() => ({ send })} storage={storage}>
       <OrderStoreReady />
-      <SaleScreen {...props} products={docs} storeSettings={{ ...noTaxSettings, preventOverselling }} />
+      <SaleScreen {...props} products={docs} productsLoaded={productsLoaded} storeSettings={{ ...noTaxSettings, preventOverselling }} />
       <PortalHost />
     </OutboxProvider>
   </SessionProvider>;
@@ -68,10 +70,37 @@ async function renderTill(preventOverselling = true) {
   for (let i = 0; i < 3; i++) fireEvent.click(screen.getByTestId('product-tile-80'));
   expect(screen.getByLabelText('Edit quantity of Espresso').textContent).toBe('3');
   act(() => dismissToast());
-  return { send, drop: (doc: SaleScreenProps['products'][number] = { ...products[0], stock_quantity: 1 }) => view.rerender(till([doc])) };
+  return { send, drop: (doc: SaleScreenProps['products'][number] = { ...products[0], stock_quantity: 1 }) => view.rerender(till([doc])),
+    rerender: (docs: SaleScreenProps['products'], productsLoaded?: boolean) => view.rerender(till(docs, productsLoaded)) };
 }
 
 const checkoutButton = () => screen.getByTestId('cart-checkout');
+
+test('before the catalogue loads, no notice shows and Checkout stays on the cart', async () => {
+  const app = await renderTill();
+  app.rerender([], false);
+  expect(screen.queryByTestId('cart-conditions-notice')).toBeNull();
+  expect(screen.getByLabelText('Edit quantity of Espresso').textContent).toBe('3');
+  fireEvent.click(checkoutButton());
+  expect(checkoutButton()).not.toBeNull();
+  expect(screen.queryByTestId('checkout-keypad')).toBeNull();
+  app.rerender(props.products, true);
+  fireEvent.click(checkoutButton());
+  expect(await screen.findByTestId('checkout-keypad')).not.toBeNull();
+}, 20_000);
+
+test('a row whose stock is all taken by other lines offers Remove', () => {
+  const entry: UnmetStock = { lineId: 'a', name: 'Espresso', available: 2, fit: 0, fix: 'reduce' };
+  const onReduce = vi.fn();
+  const onRemove = vi.fn();
+  render(<CartConditionsNotice unmet={[entry]} onReduce={onReduce} onRemove={onRemove} />);
+  const row = screen.getByTestId('cart-condition-row-a');
+  expect(within(row).getByText('Only 2 available for Espresso')).not.toBeNull();
+  expect(within(row).getByText('Remove')).not.toBeNull();
+  fireEvent.click(row);
+  expect(onRemove).toHaveBeenCalledWith(entry);
+  expect(onReduce).not.toHaveBeenCalled();
+});
 
 test('stock dropping under a cart line shows the notice, and Checkout stays on the cart', async () => {
   const app = await renderTill();
