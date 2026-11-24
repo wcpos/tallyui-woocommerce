@@ -134,9 +134,13 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
     (cashierId === null || order.cashierRef === cashierId) && !leftOutNow.has(order.key));
   const roomOptions = { now, currency, range, preset, comparison };
   const room = storeOrders ? salesRoomOf(storeOrders, roomOptions) : salesRoom(counted, roomOptions);
-  const figuresName = storeOrders ? storeName : registerName;
+  // Products and categories are this till's lines until the store read carries lines (plan PR 4), so their totals,
+  // shares and names are this till's too.
+  const tillPeriod = storeOrders ? salesRoom(counted, roomOptions).today : room.today;
+  // A store order with no copy on this till has no cashier (gap G1), so a chosen cashier's figures are this till's.
+  const figuresName = storeOrders && cashierId === null ? storeName : registerName;
   // v2 `reports.panel_scope`: "{period} · {register}", on the table dialog and its printed report.
-  const tableScope = `${periodName} · ${openTable === 'orders' ? registerName : figuresName}`;
+  const tableScope = `${periodName} · ${openTable === 'orders' || openTable === 'products' || openTable === 'categories' ? registerName : figuresName}`;
   const periodButton = <ReportsPeriod preset={preset ?? 'custom'} range={range} locale={locale} now={opened} onPreset={setPeriod} onCustom={setPeriod} />;
   const chips = <ReportChips cashiers={reportCashierRows} cashierId={cashierId} onCashier={setCashierId}>
     <MenuChip name="scope" value={scope} defaultValue="store"
@@ -159,9 +163,9 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const panelScope = categoryLabel ? `${tableScope} · ${categoryLabel}` : tableScope;
   const closeTable = () => { setOpenTable(null); setProductCategory('all'); };
   const table = openTable === 'payments' ? paymentsTable(room.today, money)
-    : openTable === 'products' ? productsTable(room.today, categoryLabel
+    : openTable === 'products' ? productsTable(tillPeriod, categoryLabel
       ? productsInCategory(products, catalogueProducts, productCategory) : products, money, !!categoryLabel)
-    : openTable === 'categories' ? categoriesTable(room.today, categories, money)
+    : openTable === 'categories' ? categoriesTable(tillPeriod, categories, money)
     : openTable === 'cashiers' ? cashiersTable(room.today, reportCashierRows, money)
     : openTable === 'taxes' ? taxesTable(room.today, money)
     : openTable === 'where-sold' ? whereSoldTable(room.today, money)
@@ -278,7 +282,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
             room.today.rejectedCashMinor > 0 ? ` · ${money(room.today.rejectedCashMinor) ?? ''} cash taken` : ''}`}</Text>}
           {room.today.count === 0 && <Text>{preset === 'today' ? 'No sales yet today.' : 'No sales in this period.'}</Text>}
         </ReportsHero>
-        <ReportCards period={room.today} money={minor => money(minor) ?? ''} moneyWhole={moneyWhole} onOpenTable={setOpenTable} cashiers={reportCashierRows} products={products}
+        <ReportCards period={room.today} linePeriod={tillPeriod} money={minor => money(minor) ?? ''} moneyWhole={moneyWhole} onOpenTable={setOpenTable} cashiers={reportCashierRows} products={products}
           categories={categories} allLeftOut={ordersView.rows.length > 0 && leftOutNow.size === ordersView.rows.length} />
         {openTable && table && <SalesTable table={table} scope={panelScope} onClose={closeTable} onPrint={printTable}
           filters={openTable === 'products' && categoryChoices.length > 0 && <MenuChip testID="detail-panel-category" name="category"

@@ -1710,8 +1710,9 @@ test("Store scope counts the store's POS orders once the read lands, as v2 does"
   expect(text('hero-orders')).toBe('1');
   expect(screen.queryByTestId('hero-store-line')).toBeNull();
   expect(text('hero-refunded')).toBe("Refunded: $5.00 · counted on each order's day");
+  const at = new Date(); const [y, m, d] = [at.getFullYear(), at.getMonth(), at.getDate()];
   expect(listOrders.mock.calls[0][1]).toMatchObject({
-    createdVia: 'woocommerce-pos', dateRange: { after: expect.any(String), before: expect.any(String) },
+    createdVia: 'woocommerce-pos', dateRange: { after: new Date(y, m, d - 1).toISOString(), before: new Date(y, m, d + 1).toISOString() },
   });
   expect(listOrders.mock.calls[0][1]).not.toHaveProperty('status');
   await payCash();
@@ -1774,4 +1775,25 @@ test('under Store, an order left out in the Orders table leaves the store figure
   fireEvent.click(screen.getByTestId(`orders-panel-tick-${id}`));
   await waitFor(() => expect(text('hero-total')).toBe('$25.00'));
   expect(text('hero-orders')).toBe('1');
+}, 20_000);
+
+test("under Store, products and categories keep this till's totals and name, and a chosen cashier's print names this till", async () => {
+  const listOrders = vi.fn<NonNullable<TallyConnector['listOrders']>>(async () => ({ orders: [storeOrder({
+    id: '900', totalMinor: 2500, payments: [{ method: 'pos_cash', kind: 'cash', amountMinor: 2500 }],
+    refunds: [{ id: 'r1', amountMinor: 500 }],
+  })], hasMore: false, total: 1 }));
+  const app = await setup({ connector: storeConnector(listOrders) });
+  await waitFor(() => expect(text('hero-total')).toBe('$25.00'));
+  await payCash();
+  await waitFor(() => expect(text('hero-total')).toBe('$28.00'));
+  expect(text('card-categories-figure')).toBe('$3.00');
+  fireEvent.click(screen.getByTestId('card-categories-open'));
+  await screen.findByTestId('sales-table');
+  expect(text('sales-table-scope')).toBe(`Today · ${app.register.registerName}`);
+  fireEvent.click(screen.getByTestId('sales-table-close'));
+  await waitFor(() => expect(screen.queryByTestId('sales-table')).toBeNull());
+  await choose('cashier', '2');
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+  await printSummary();
+  expect(text('sales-summary-scope')).toBe(`Today · ${app.register.registerName} · Paul`);
 }, 20_000);

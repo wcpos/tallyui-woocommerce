@@ -273,8 +273,10 @@ const THREE_COLUMNS_MIN_WIDTH = 1000;
 const TWO_COLUMNS_MIN_WIDTH = 600;
 
 /** v2 reports/cards/index.tsx PeriodSection: Orders, Payments, Where sold, Top products, Categories, Cashiers and Taxes in columns that follow the measured width. */
-export function ReportCards({ period, money, moneyWhole, onOpenTable, cashiers = [], products = [],
+export function ReportCards({ period, linePeriod, money, moneyWhole, onOpenTable, cashiers = [], products = [],
   categories = { parts: [], unknownLines: 0, totalLines: 0 }, allLeftOut }: CardProps & {
+  /** The period the product and category rows were counted from; defaults to period. */
+  linePeriod?: Period;
   onOpenTable(table: ReportTable): void; cashiers?: readonly ReportCashier[]; products?: readonly ProductFigure[];
   categories?: CategoryFigures; allLeftOut?: boolean;
 }) {
@@ -284,8 +286,8 @@ export function ReportCards({ period, money, moneyWhole, onOpenTable, cashiers =
     <OrdersCard key="orders" period={period} money={money} allLeftOut={allLeftOut} onOpen={() => onOpenTable('orders')} />,
     <PaymentsCard key="payments" period={period} money={money} moneyWhole={moneyWhole} onOpen={() => onOpenTable('payments')} />,
     <WhereSoldCard key="where-sold" period={period} money={money} moneyWhole={moneyWhole} onOpen={() => onOpenTable('where-sold')} />,
-    <TopProductsCard key="products" period={period} money={money} products={products} onOpen={() => onOpenTable('products')} />,
-    <CategoriesCard key="categories" period={period} money={money} moneyWhole={moneyWhole} categories={categories} onOpen={() => onOpenTable('categories')} />,
+    <TopProductsCard key="products" period={linePeriod ?? period} money={money} products={products} onOpen={() => onOpenTable('products')} />,
+    <CategoriesCard key="categories" period={linePeriod ?? period} money={money} moneyWhole={moneyWhole} categories={categories} onOpen={() => onOpenTable('categories')} />,
     <CashiersCard key="cashiers" period={period} money={money} moneyWhole={moneyWhole} cashiers={cashiers} onOpen={() => onOpenTable('cashiers')} />,
     <TaxesCard key="taxes" period={period} money={money} onOpen={() => onOpenTable('taxes')} />,
   ];
