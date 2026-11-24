@@ -8,7 +8,7 @@ import * as ReactNative from 'react-native';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
 import { orderReference } from '@tallyui/components';
-import type { OrderCreateEnvelope, StoreSettings } from '@tallyui/core';
+import type { OrderCreateEnvelope, StoreOrder, StoreSettings, TallyConnector } from '@tallyui/core';
 import { formatClosureDate, presetRange, type Closure, type CommandTransport } from '@tallyui/pos';
 import { PortalHost } from '@tallyui/primitives';
 import { AppRailShown } from '../components/app-rail';
@@ -53,14 +53,14 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 const text = (testID: string) => screen.getByTestId(testID).textContent;
 
 /** Opens a Reports menu chip and picks one of its rows. */
-async function choose(name: 'cashier' | 'compare', value: string) {
+async function choose(name: 'cashier' | 'compare' | 'scope', value: string) {
   fireEvent.click(screen.getByTestId(`hero-chip-${name}`));
   fireEvent.click(within(await screen.findByTestId(`hero-${name}-menu`)).getByTestId(`hero-${name}-${value}`));
   expect(screen.queryByTestId(`hero-${name}-menu`)).toBeNull();
 }
 
 /** `synced` stands in for the catalogue's synced products; without it ReportsScreen reads the default empty catalogue. */
-async function setup({ multiplePayments, storeSettings = noTaxSettings, rail = false, synced }: { multiplePayments?: boolean; storeSettings?: StoreSettings; rail?: boolean; synced?: any[] } = {}) {
+async function setup({ multiplePayments, storeSettings = noTaxSettings, rail = false, synced, connector }: { multiplePayments?: boolean; storeSettings?: StoreSettings; rail?: boolean; synced?: any[]; connector?: TallyConnector } = {}) {
   let register!: ReturnType<typeof useRegister>;
   let outbox!: ReturnType<typeof useOutbox>;
   function Probe() { register = useRegister(); outbox = useOutbox(); return null; }
@@ -78,7 +78,9 @@ async function setup({ multiplePayments, storeSettings = noTaxSettings, rail = f
             storeName={stores[0].name} locale={stores[0].locale} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}}
             onSwitchCashier={async () => null} cashiers={[]} />
           <AppRailShown.Provider value={rail}>
-            {synced
+            {connector
+              ? <CatalogueContext.Provider value={{ catalogue: { connector } as never, products: synced ?? [], productsLoaded: true, status: 'ready' }}>{reports}</CatalogueContext.Provider>
+              : synced
               ? <CatalogueContext.Provider value={{ catalogue: null, products: synced, status: 'ready' }}>{reports}</CatalogueContext.Provider>
               : reports}
           </AppRailShown.Provider>
@@ -1687,3 +1689,71 @@ test('Sales shows the picked custom dates without a preset separator', async () 
     vi.useRealTimers();
   }
 }, 40_000);
+
+function storeConnector(listOrders: TallyConnector['listOrders']) {
+  return Object.assign(createWooCommerceConnector(), { listOrders });
+}
+
+function storeOrder(over: Partial<StoreOrder>): StoreOrder {
+  return { reference: 'store-order', pricesIncludeTax: false, customer: null, lines: [], fees: [], shipping: [],
+    coupons: [], taxLines: [], discountMinor: 0, discountTaxMinor: 0, taxMinor: 0, payments: [], refunds: [],
+    currency: stores[0].currency, status: 'completed', placedAt: new Date().toISOString(), id: '900', totalMinor: 0, ...over };
+}
+
+test("Store scope counts the store's POS orders once the read lands, as v2 does", async () => {
+  const listOrders = vi.fn<NonNullable<TallyConnector['listOrders']>>(async () => ({ orders: [storeOrder({
+    id: '900', totalMinor: 2500, payments: [{ method: 'pos_cash', kind: 'cash', amountMinor: 2500 }],
+    refunds: [{ id: 'r1', amountMinor: 500 }],
+  })], hasMore: false, total: 1 }));
+  await setup({ connector: storeConnector(listOrders) });
+  await waitFor(() => expect(text('hero-total')).toBe('$25.00'));
+  expect(text('hero-orders')).toBe('1');
+  expect(screen.queryByTestId('hero-store-line')).toBeNull();
+  expect(text('hero-refunded')).toBe("Refunded: $5.00 · counted on each order's day");
+  expect(listOrders.mock.calls[0][1]).toMatchObject({
+    createdVia: 'woocommerce-pos', dateRange: { after: expect.any(String), before: expect.any(String) },
+  });
+  expect(listOrders.mock.calls[0][1]).not.toHaveProperty('status');
+  await payCash();
+  await waitFor(() => expect(text('hero-total')).toBe('$28.00'));
+  expect(text('hero-orders')).toBe('2');
+  await printSummary();
+  expect(text('sales-summary-scope')).toBe(`Today · ${stores[0].name} · Everyone`);
+  expect(text('sales-summary-sales-row-refunds')).toContain('Refunded');
+  expect(text('sales-summary-sales-row-refunds')).toContain('5.00');
+  await choose('cashier', '2');
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+}, 20_000);
+
+test("This till shows the till's own sales and no store line", async () => {
+  const listOrders = vi.fn<NonNullable<TallyConnector['listOrders']>>(async () => ({ orders: [storeOrder({
+    id: '900', totalMinor: 2500, payments: [{ method: 'pos_cash', kind: 'cash', amountMinor: 2500 }],
+    refunds: [{ id: 'r1', amountMinor: 500 }],
+  })], hasMore: false, total: 1 }));
+  const app = await setup({ connector: storeConnector(listOrders) });
+  await waitFor(() => expect(text('hero-total')).toBe('$25.00'));
+  await choose('scope', 'till');
+  await waitFor(() => expect(within(screen.getByTestId('reports-hero')).getByText('No sales yet today.')).not.toBeNull());
+  expect(screen.queryByTestId('hero-store-line')).toBeNull();
+  expect(screen.queryByTestId('hero-refunded')).toBeNull();
+  await payCash();
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+  await printSummary();
+  expect(text('sales-summary-scope')).toBe(`Today · ${app.register.registerName} · Everyone`);
+}, 20_000);
+
+test("a store read that fails keeps the till's figures under a line", async () => {
+  const listOrders = vi.fn(async () => { throw new Error('offline'); });
+  const app = await setup({ connector: storeConnector(listOrders) });
+  await waitFor(() => expect(text('hero-store-line')).toBe("Store unreachable: this till's sales only"));
+  await payCash();
+  await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
+  await printSummary();
+  expect(text('sales-summary-scope')).toBe(`Today · ${app.register.registerName} · Everyone`);
+}, 20_000);
+
+test('the progress line shows while the store is read', async () => {
+  const listOrders = vi.fn(() => new Promise<never>(() => {}));
+  await setup({ connector: storeConnector(listOrders) });
+  await waitFor(() => expect(text('hero-store-line')).toBe('Reading store orders 0'));
+}, 20_000);

@@ -5,7 +5,7 @@ import { Path } from 'react-native-svg';
 import { createSvgIcon, IconButton, Text } from '@tallyui/components';
 import { useFormatStoreMoney, useStoreMoney } from '../lib/money/store-money';
 import {
-  formatClosureDate, presetRange, type Closure, type DatePreset, type DayRange, type PosOrder,
+  formatClosureDate, presetRange, useStoreOrdersInRange, type Closure, type DatePreset, type DayRange, type PosOrder,
 } from '@tallyui/pos';
 import { Portal } from '@tallyui/primitives';
 import { cashierNameFor, deviceCashiers } from '../lib/auth/cashier-name';
@@ -17,7 +17,8 @@ import { categoryFigures, productCategoryChoices, productsInCategory } from '../
 import { productFigures } from '../lib/reports/product-figures';
 import { useLeftOut } from '../lib/reports/left-out';
 import { closuresScope, periodNow, salesPeriod } from '../lib/reports/report-scope';
-import { rangeBounds, salesRoom, type Compare } from '../lib/reports/sales-room';
+import { rangeBounds, salesRoom, salesRoomOf, type Compare } from '../lib/reports/sales-room';
+import { storeRoom, useReportContext, type ReportScope } from '../lib/reports/store-read';
 import { salesTableCsv } from '../lib/reports/sales-table-csv';
 import { cashiersTable, categoriesTable, ordersTable, paymentsTable, productsTable, taxesTable, whereSoldTable } from '../lib/reports/sales-tables';
 import { useMinuteClock } from '../lib/reports/use-minute-clock';
@@ -60,7 +61,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const outbox = useOutbox();
   const orders = outbox.enabled ? outbox.orders : null;
   const { session, cashiers } = useSession();
-  const { products: catalogueProducts } = useCatalogue();
+  const { products: catalogueProducts, catalogue } = useCatalogue();
   const user = session?.tokens.user;
   const register = useRegister();
   // The presets are read from the day the screen opened, as today's range was.
@@ -69,6 +70,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const preset = typeof period === 'string' ? period : undefined;
   const [compare, setCompare] = useState<Compare>('yesterday');
   const [cashierId, setCashierId] = useState<string | null>(null);
+  const [scope, setScope] = useState<ReportScope>('store');
   const { leftOut, include: includeOrders, clear: clearLeftOut } = useLeftOut();
   const now = useMinuteClock();
   const [sales, setSales] = useState<PosOrder[]>([]);
@@ -91,6 +93,12 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   locale = locale.replaceAll('_', '-');
   const { range, multiDay, comparison, bounds, since, weekday, comparisonName, chartName } = useMemo(
     () => salesPeriod(period, compare, opened, locale), [period, compare, opened, locale]);
+  const connector = catalogue?.connector;
+  const readContext = useReportContext(connector, session);
+  // v2 reads every status and filters on the device (context.tsx:174-177); the POS's own orders, created in the range.
+  const storeQuery = useMemo(() => scope === 'store'
+    ? { createdVia: 'woocommerce-pos', dateRange: { after: since, before: bounds.endIso } } : null, [scope, since, bounds.endIso]);
+  const storeRead = useStoreOrdersInRange(connector ?? null, readContext, storeQuery);
   const shown = cashierId === null ? sales : sales.filter(order => order.cashierRef === cashierId);
   const { label, dates } = periodLabel(range, preset ?? 'custom', locale);
   const periodName = label ?? dates;
@@ -112,17 +120,28 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   // v2 scope.tsx `registerLabel` names the register on every print scope; Tally's reports are this device's sales, so "This till" with none.
   const registerName = register.registerName ?? 'This till';
   const scopeTitle = `${storeName} · ${registerName}`;
-  // v2 `reports.panel_scope`: "{period} · {register}", on the table dialog and its printed report.
-  const tableScope = `${periodName} · ${registerName}`;
   const printDate = (day: string) => formatClosureDate(rangeBounds({ from: day, to: day }).startIso, { timezone: 'device', locale }).date;
   const money = (amount: number) => formatMoney({ amount, currency }, locale);
   // v2 reports/context.tsx:264-288: unticked orders in the period drop out of every figure; the comparison is untouched.
   const ordersView = ordersTable(shown, { range, currency, money, leftOut, cashiers: reportCashierRows });
   const leftOutNow = new Set(ordersView.rows.filter(row => leftOut.has(row.key)).map(row => row.key));
   const counted = leftOutNow.size === 0 ? shown : shown.filter(order => !leftOutNow.has(order.id));
-  const room = salesRoom(counted, { now, currency, range, preset, comparison });
+  // PARITY 176/177: under Store, the store's POS orders joined to this till's by clientOrderId, once the whole read
+  // lands (store-read.ts); otherwise this till's figures stand under the line. A store order with no copy on this till
+  // has no cashier (gap G1), so a chosen cashier counts only this till's orders until the read takes cashierId.
+  const store = useMemo(() => scope === 'store' ? storeRoom(storeRead, sales) : { orders: null, line: null }, [scope, storeRead, sales]);
+  const storeOrders = store.orders?.filter(order =>
+    (cashierId === null || order.cashierRef === cashierId) && !leftOutNow.has(order.key));
+  const roomOptions = { now, currency, range, preset, comparison };
+  const room = storeOrders ? salesRoomOf(storeOrders, roomOptions) : salesRoom(counted, roomOptions);
+  const figuresName = storeOrders ? storeName : registerName;
+  // v2 `reports.panel_scope`: "{period} · {register}", on the table dialog and its printed report.
+  const tableScope = `${periodName} · ${openTable === 'orders' ? registerName : figuresName}`;
   const periodButton = <ReportsPeriod preset={preset ?? 'custom'} range={range} locale={locale} now={opened} onPreset={setPeriod} onCustom={setPeriod} />;
   const chips = <ReportChips cashiers={reportCashierRows} cashierId={cashierId} onCashier={setCashierId}>
+    <MenuChip name="scope" value={scope} defaultValue="store"
+      choices={[{ value: 'store', label: 'Store' }, { value: 'till', label: 'This till' }]}
+      onChange={next => setScope(next as ReportScope)} />
     {leftOutNow.size > 0 && <LeftOutChip count={leftOutNow.size} onOpen={() => setOpenTable('orders')} onClear={clearLeftOut} />}
   </ReportChips>;
   const printButton = <PrintSummaryButton wide={wide} onPress={printSummary} />;
@@ -250,6 +269,10 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
           </View>}
           chart={<HourlyBars hours={room.hours} money={minor => money(minor) ?? ''} comparisonName={chartName}
             nowKey={nowKey} live={live} view={chartView} />}>
+          {store.line && <Text testID="hero-store-line">{store.line}</Text>}
+          {/* A store refund carries no date (gap G3), so it sits on its order's day. */}
+          {storeOrders && room.today.refundedMinor > 0 && <Text testID="hero-refunded">{
+            `Refunded: ${money(room.today.refundedMinor) ?? ''} · counted on each order's day`}</Text>}
           {room.today.pending > 0 && <Text>{`Waiting to sync: ${room.today.pending}`}</Text>}
           {room.today.rejected > 0 && <Text testID="hero-not-accepted">{`Not accepted by the store: ${room.today.rejected}${
             room.today.rejectedCashMinor > 0 ? ` · ${money(room.today.rejectedCashMinor) ?? ''} cash taken` : ''}`}</Text>}
@@ -269,7 +292,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
         {reprint === 'table'
           ? table && <SalesTablePrint table={table} storeName={storeName} scope={panelScope} locale={locale} />
           : reprint === 'summary'
-          ? <SalesSummaryPrint storeName={storeName} scope={`${periodName} · ${registerName} · ${cashierName}`} period={room.today}
+          ? <SalesSummaryPrint storeName={storeName} scope={`${periodName} · ${figuresName} · ${cashierName}`} period={room.today}
               date={range.from === range.to ? printDate(range.from) : `${printDate(range.from)} – ${printDate(range.to)}`} money={minor => money(minor) ?? ''} locale={locale} cashierName={resolveCashierName} />
           : reprint === 'x'
           ? register.session && <ClosurePrint kind="x" closure={register.session} expected={register.expected} storeName={storeName} currency={currency} locale={locale} registerName={registerName} resolveCashierName={resolveCashierName} />
