@@ -268,3 +268,9 @@ test('cashiers table averages each cashier and totals the period', () => {
   expect(table.status).toBe('4 orders · $11.00');
   expect(table.empty).toBe('No sales in this period');
 }, 20_000);
+
+test('taxes table reads a dash for the net and gross a store rate does not carry', () => {
+  expect(taxesTable({ ...today, taxRates: [
+    { ratePpm: 100000, label: 'State', netMinor: null, taxMinor: 2000, grossMinor: null },
+  ] }, money).rows.map(row => row.cells)).toEqual([['State', '—', '$20.00', '—']]);
+});

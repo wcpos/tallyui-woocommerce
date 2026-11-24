@@ -63,7 +63,7 @@ export function taxesTable(period: Period, money: (minor: number) => string | un
     align: ['left', 'right', 'right', 'right'],
     rows: [...period.taxRates].sort((a, b) => a.ratePpm - b.ratePpm).map(row => ({
       key: String(row.ratePpm),
-      cells: [row.label, format(row.netMinor), format(row.taxMinor), format(row.grossMinor)],
+      cells: [row.label, row.netMinor === null ? '—' : format(row.netMinor), format(row.taxMinor), row.grossMinor === null ? '—' : format(row.grossMinor)],
     })),
     total: ['Total', format(period.totalMinor - period.taxMinor), format(period.taxMinor), format(period.totalMinor)],
     status: `${period.count} ${period.count === 1 ? 'order' : 'orders'} · ${format(period.totalMinor)}`,

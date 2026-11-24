@@ -6,6 +6,7 @@ const period: Period = {
   count: 2, totalMinor: 600, taxMinor: 0, averageMinor: 300, items: 3,
   medianMinor: 300, largestMinor: 300, discountMinor: 0, pending: 0, rejected: 0, splitCount: 0,
   rejectedCashMinor: 0,
+  refundedMinor: 0, refundedOrders: 0,
   byMethod: [{ method: 'cash', label: 'Cash', count: 2, totalMinor: 600 }], taxRates: [],
   byCashier: [{ cashierRef: '2', count: 2, totalMinor: 600 }],
 };

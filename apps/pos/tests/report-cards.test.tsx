@@ -17,6 +17,7 @@ const empty: Period = {
   count: 0, totalMinor: 0, taxMinor: 0, averageMinor: 0, items: 0, medianMinor: 0, largestMinor: null, discountMinor: 0,
   pending: 0, rejected: 0, splitCount: 0, byMethod: [], taxRates: [],
   rejectedCashMinor: 0,
+  refundedMinor: 0, refundedOrders: 0,
   byCashier: [],
 };
 const period: Period = {
@@ -378,4 +379,14 @@ test('each card is v2\'s Card: the card fill on the page, its border and radius 
   for (const id of ['card-orders', 'card-payments', 'card-where-sold', 'card-products', 'card-categories', 'card-cashiers', 'card-taxes']) {
     expect(classesOf(id)).toEqual(expect.arrayContaining([...CARD_CLASSES, 'border-border', 'p-4']));
   }
+});
+
+test('the Taxes card leaves out "on net" for a rate whose net the store does not send', () => {
+  cards({ period: { ...period, taxMinor: 2000, taxRates: [
+    { ratePpm: 100000, label: 'State', netMinor: null, taxMinor: 2000, grossMinor: null },
+  ] } });
+  const row = within(screen.getByTestId('card-taxes-rate-100000'));
+  expect(row.getByText('State')).not.toBeNull();
+  expect(row.getByText('$20.00')).not.toBeNull();
+  expect(row.queryByText(/^on /)).toBeNull();
 });
