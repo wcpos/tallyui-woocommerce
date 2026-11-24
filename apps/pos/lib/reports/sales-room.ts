@@ -1,4 +1,5 @@
-import { daysOf, replacedOrderIds, taxLinesByRate, type DatePreset, type DayRange, type PosOrder } from '@tallyui/pos';
+import { daysOf, type DatePreset, type DayRange, type PosOrder } from '@tallyui/pos';
+import { roomOrdersFromLocal, type RoomOrder } from './room-orders';
 
 /** A device-local store day (`yyyy-MM-dd`) at midnight, `plus` days on. */
 const localDay = (day: string, plus = 0) => {
@@ -18,7 +19,7 @@ export const isMultiDay = (range: DayRange, preset?: DatePreset) =>
 /** The day a live day is compared with: yesterday, or the same weekday a week before (v2 reports/context.tsx `cmp`). */
 export type Compare = 'yesterday' | 'lastweek';
 export type MethodTile = { method: string; label: string; count: number; totalMinor: number };
-export type TaxRateRow = { ratePpm: number; label: string; netMinor: number; taxMinor: number; grossMinor: number };
+export type TaxRateRow = { ratePpm: number; label: string; netMinor: number | null; taxMinor: number; grossMinor: number | null };
 export type CashierFigure = { cashierRef: string; count: number; totalMinor: number };
 export type Period = {
   count: number; totalMinor: number; taxMinor: number; averageMinor: number;
@@ -30,6 +31,7 @@ export type Period = {
   largestMinor: number | null;
   /** The sum of the orders' discountMinor. */
   discountMinor: number;
+  refundedMinor: number; refundedOrders: number;
   pending: number; rejected: number; splitCount: number;
   /** The cash payments of the refused orders `rejected` counts (unreplaced only): money the drawer still holds. */
   rejectedCashMinor: number;
@@ -61,13 +63,19 @@ const NICE_STEPS = [30, 60, 90, 120, 180, 240, 300, 360];
 const emptyBucket = (hour: number, minute: number): HourBucket =>
   ({ hour, minute, today: { count: 0, totalMinor: 0 }, yesterday: { count: 0, totalMinor: 0 } });
 
+export type SalesRoomOptions = { now: Date; currency: string; range: DayRange; preset?: DatePreset; comparison: DayRange };
+
+export function salesRoom(orders: readonly PosOrder[], options: {
+  now: Date; currency: string; range: DayRange; preset?: DatePreset; comparison: DayRange;
+}): SalesRoom {
+  return salesRoomOf(roomOrdersFromLocal(orders), options);
+}
+
 /**
  * The period's figures (`today`, the names kept from the one-day room) against its comparison range.
  * A range that ends today is live: the comparison's last day counts only up to now's time of day.
  */
-export function salesRoom(orders: readonly PosOrder[], options: {
-  now: Date; currency: string; range: DayRange; preset?: DatePreset; comparison: DayRange;
-}): SalesRoom {
+export function salesRoomOf(orders: readonly RoomOrder[], options: SalesRoomOptions): SalesRoom {
   const { now, currency, range, preset, comparison } = options;
   const ranges = [rangeBounds(range), rangeBounds(comparison)];
   const last = localDay(comparison.to);
@@ -78,33 +86,34 @@ export function salesRoom(orders: readonly PosOrder[], options: {
   const buckets = new Map<number, HourBucket>();
   // A single day's sales as minutes of their own day, both days on one clock.
   const sold: { minute: number; index: number; totalMinor: number }[] = [];
-  // The outbox's own rule: a refused order a later sale replaced counts through that sale.
-  const replaced = replacedOrderIds(orders);
   const [today, yesterday] = ranges.map(({ startIso, endIso }, index): Period => {
     const period: Period = {
       count: 0, totalMinor: 0, taxMinor: 0, averageMinor: 0, items: 0,
       medianMinor: 0, largestMinor: null, discountMinor: 0,
+      refundedMinor: 0, refundedOrders: 0,
       pending: 0, rejected: 0, rejectedCashMinor: 0, splitCount: 0, byMethod: [], taxRates: [],
       byCashier: [],
     };
     const totals: number[] = [];
     for (const order of orders) {
-      if (order.currency !== currency || order.createdAt < startIso || order.createdAt >= endIso) continue;
+      if (order.currency !== currency || order.at.getTime() < Date.parse(startIso) || order.at.getTime() >= Date.parse(endIso)) continue;
       // An order the store refused is not a sale (sheet-figures.ts); only an unreplaced one is "not accepted".
-      if (order.syncStatus === 'rejected') {
-        if (replaced.has(order.id)) continue;
+      if (order.state === 'rejected') {
         period.rejected++;
-        for (const payment of order.payments) if (payment.method === 'cash') period.rejectedCashMinor += payment.amountMinor;
+        for (const payment of order.payments) if (payment.cash) period.rejectedCashMinor += payment.amountMinor;
         continue;
       }
-      const items = order.lines.reduce((sum, line) => sum + line.quantity, 0);
+      period.refundedMinor += order.refundedMinor;
+      if (order.refundedMinor > 0) period.refundedOrders++;
+      if (!order.counted) continue;
+      const items = order.items;
       period.count++;
       period.totalMinor += order.totalMinor;
       totals.push(order.totalMinor);
       period.discountMinor += order.discountMinor;
       period.items += items;
       period.taxMinor += order.taxMinor;
-      if (order.syncStatus === 'pending') period.pending++;
+      if (order.state === 'pending') period.pending++;
       if (order.payments.length > 1) period.splitCount++;
       const cashierRef = order.cashierRef ?? '';
       let cashier = period.byCashier.find(row => row.cashierRef === cashierRef);
@@ -118,32 +127,30 @@ export function salesRoom(orders: readonly PosOrder[], options: {
       for (const payment of order.payments) {
         let tile = period.byMethod.find(row => row.method === payment.method);
         if (!tile) {
-          tile = { method: payment.method, label: payment.method === 'cash' ? 'Cash' : 'Card terminal', count: 0, totalMinor: 0 };
+          tile = { method: payment.method, label: payment.label, count: 0, totalMinor: 0 };
           period.byMethod.push(tile);
         }
         if (!methods.has(payment.method)) tile.count++;
         methods.add(payment.method);
         tile.totalMinor += payment.amountMinor;
       }
-      const lines = order.lines.map(line => ({ ...line, taxInclusive: line.taxInclusive ?? order.pricesIncludeTax }));
-      for (const { ratePpm, netMinor, amountMinor } of taxLinesByRate([
-        ...lines, ...[...order.fees ?? [], ...order.shipping ?? []].map(c => ({ ...c, taxInclusive: order.pricesIncludeTax })),
-      ], order.taxMinor, undefined, order.taxRounding)) {
+      for (const { ratePpm, label, netMinor, taxMinor } of order.taxRates) {
         let row = period.taxRates.find(row => row.ratePpm === ratePpm);
         if (!row) {
-          row = { ratePpm, label: `Tax ${ratePpm / 1e4}%`, netMinor: 0, taxMinor: 0, grossMinor: 0 };
+          row = { ratePpm, label, netMinor: 0, taxMinor: 0, grossMinor: 0 };
           period.taxRates.push(row);
         }
-        row.netMinor += netMinor;
-        row.taxMinor += amountMinor;
-        row.grossMinor = row.netMinor + row.taxMinor;
+        if (row.label === `Tax ${ratePpm / 1e4}%`) row.label = label;
+        row.netMinor = row.netMinor === null || netMinor === null ? null : row.netMinor + netMinor;
+        row.taxMinor += taxMinor;
+        row.grossMinor = row.netMinor === null ? null : row.netMinor + row.taxMinor;
       }
-      if (index === 1 && order.createdAt < cutoff) {
+      if (index === 1 && order.at.getTime() < Date.parse(cutoff)) {
         yesterdaySoFar.count++;
         yesterdaySoFar.totalMinor += order.totalMinor;
         yesterdaySoFar.items += items;
       }
-      const at = new Date(order.createdAt);
+      const at = order.at;
       if (!days) {
         sold.push({ minute: at.getHours() * 60 + at.getMinutes(), index, totalMinor: order.totalMinor });
         continue;
