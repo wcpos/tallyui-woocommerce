@@ -123,3 +123,21 @@ test("a tax rate takes the store's label even when a stand-in label came first",
     { ratePpm: 100000, label: 'State', netMinor: null, taxMinor: 300, grossMinor: null },
   ]);
 });
+
+test("an on-hold or cancelled store order's refund counts in both modes, though the order does not", () => {
+  const H: StoreOrder = {
+    ...storeBase, id: 'H', status: 'on-hold', placedAt: ts(13, 0), totalMinor: 3000,
+    refunds: [{ id: 'rh', amountMinor: 500 }],
+  };
+  const C: StoreOrder = {
+    ...storeBase, id: 'C', status: 'cancelled', placedAt: ts(13, 0), totalMinor: 2000,
+    refunds: [{ id: 'rc', amountMinor: 700 }],
+  };
+  const options = { now, currency: 'USD', ...day };
+  expect(salesRoomOf(mergeRoomOrders([H, C], [], 'done'), options).today).toMatchObject({
+    count: 0, totalMinor: 0, refundedMinor: 1200, refundedOrders: 2,
+  });
+  expect(salesRoomOf(mergeRoomOrders([H, C], [], 'all'), options).today).toMatchObject({
+    count: 1, totalMinor: 3000, refundedMinor: 1200, refundedOrders: 2,
+  });
+});

@@ -63,7 +63,8 @@ export function roomOrderFromStoreOrder(order: StoreOrder, mode: ReportStatusMod
     taxRates: order.taxLines.map(({ ratePpm, label, amountMinor }) => ({
       ratePpm, label: label || `Tax ${ratePpm / 1e4}%`, netMinor: null, taxMinor: amountMinor,
     })),
-    refundedMinor: counted || order.status === 'refunded' ? order.refunds.reduce((sum, refund) => sum + refund.amountMinor, 0) : 0,
+    // v2 counts every refund in the period, whatever its order's status (report/sales-figures.ts:63-89).
+    refundedMinor: order.refunds.reduce((sum, refund) => sum + refund.amountMinor, 0),
   };
 }
 
