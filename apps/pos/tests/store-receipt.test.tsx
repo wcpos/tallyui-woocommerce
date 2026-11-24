@@ -16,7 +16,7 @@ import { classesOf } from './classes-of';
 import { SessionProvider } from '../lib/auth/session-context';
 import { saveSession } from '../lib/auth/session';
 import { OutboxProvider, useOutbox } from '../lib/sale/outbox-context';
-import { pickReceiptTemplate, receiptTemplateIdFor, renderedStoreReceipt } from '../lib/receipts/store-receipt';
+import { pickReceiptTemplate, receiptStoreTax, receiptTemplateIdFor, renderedStoreReceipt, type StoreReceiptTax } from '../lib/receipts/store-receipt';
 import { saveReceiptSettings } from '../lib/receipts/receipt-settings';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
@@ -39,6 +39,21 @@ const order: PosOrder = {
 const context = { config: { storeName: 'G12 Store', cashier: 'Paul' }, pricesIncludeTax: false };
 
 const second = html('second', '<h1>{{store.name}}</h1><p>SECOND-MARKER</p>');
+
+test("the store receipt prints the store's tax display, single and incl, and hides the breakdown when taxes are off", () => {
+  const t = html('tax', '<p>TAX:{{tax.breakdown}}:{{tax.display}}</p>');
+  const renderTax = (tax: StoreReceiptTax | undefined) => renderedStoreReceipt(
+    { status: 'ready', templates: [t] }, { kind: 'pos', order }, { ...context, store: receiptStoreTax(tax) });
+  expect(renderTax({ taxTotalDisplay: 'single', taxDisplayCart: 'incl', calcTaxes: true })).toContain('TAX:single:incl');
+  expect(renderTax({ taxTotalDisplay: 'itemized', taxDisplayCart: 'excl', calcTaxes: false })).toContain('TAX:hidden:excl');
+  expect(renderTax(undefined)).toContain('TAX:itemized:excl');
+  expect(renderTax({})).toContain('TAX:itemized:excl');
+  expect(receiptStoreTax({ taxTotalDisplay: undefined, calcTaxes: false })).toStrictEqual({ calcTaxes: false });
+  expect(renderedStoreReceipt(
+    { status: 'ready', templates: [t] }, { kind: 'pos', order },
+    { ...context, pricesIncludeTax: true, store: receiptStoreTax({ taxTotalDisplay: 'single' }) },
+  )).toContain('TAX:single:incl');
+});
 
 test('pickReceiptTemplate takes the selected template, else the first in the connector order, or none', () => {
   expect(pickReceiptTemplate([marked, second])).toBe(marked);
@@ -108,13 +123,13 @@ function OrderStoreReady() {
 }
 
 // The receipt stage needs a session (for the templates) and the order outbox (for a tender), as tender-receipt.test.
-async function sellEspresso(receiptTemplates: () => Promise<ReceiptTemplate[]>) {
+async function sellEspresso(receiptTemplates: () => Promise<ReceiptTemplate[]>, storeTax: StoreReceiptTax | undefined = undefined) {
   const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async () => ({ kind: 'retry', reason: 'network' }));
   render(
     <SessionProvider>
       <OutboxProvider transportFor={() => ({ send })} storage={getRxStorageMemory()}>
         <OrderStoreReady />
-        <SaleScreen {...props} connector={{ ...createWooCommerceConnector(), receiptTemplates }} />
+        <SaleScreen {...props} storeTax={storeTax} connector={{ ...createWooCommerceConnector(), receiptTemplates }} />
         <PortalHost />
       </OutboxProvider>
     </SessionProvider>,
@@ -124,6 +139,13 @@ async function sellEspresso(receiptTemplates: () => Promise<ReceiptTemplate[]>) 
   fireEvent.click(screen.getByTestId('cart-checkout'));
   await takeCash(300);
 }
+
+test("the receipt stage passes the store's tax display to the store template", async () => {
+  const t = html('tax', '<p>TAX:{{tax.breakdown}}:{{tax.display}}</p>');
+  await sellEspresso(async () => [t], { taxTotalDisplay: 'single', taxDisplayCart: 'incl', calcTaxes: true });
+  const frame = await screen.findByTestId('store-receipt-frame');
+  expect(frame.getAttribute('srcdoc')).toContain('TAX:single:incl');
+}, 20_000);
 
 test("the receipt stage shows the store's template in a sandboxed frame, and its done button starts a new sale", async () => {
   const receiptTemplates = vi.fn(async () => [marked]);
