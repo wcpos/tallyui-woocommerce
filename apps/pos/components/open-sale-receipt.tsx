@@ -3,7 +3,7 @@ import { ScrollView, View } from 'react-native';
 import { Dialog, DialogOverlay, DialogPortal, DialogTitle, IconButton, Receipt, Text, XIcon } from '@tallyui/components';
 import { useFormatStoreMoney } from '../lib/money/store-money';
 import { StoreMoneyFor } from '../lib/money/store-money-for';
-import { buildReceiptData, type ReceiptConfig, type SentOrder } from '@tallyui/pos';
+import { buildReceiptData, legStatus, type ReceiptConfig, type SentOrder } from '@tallyui/pos';
 import { Dialog as DialogPrimitive } from '@tallyui/primitives';
 import type { PanelPosition } from '../lib/catalogue/catalogue-view-state';
 import { AppRailShown, BESIDE_RAIL } from './app-rail';
@@ -19,7 +19,8 @@ export function OpenSaleReceipt({ open, onClose, side, order, config }: {
   const formatMoney = useFormatStoreMoney();
   const railShown = useContext(AppRailShown);
   if (!open) return null;
-  const data = buildReceiptData(order, config);
+  // @tallyui 5.6.1 keeps a voided leg on the order; the bill lists and counts live legs only.
+  const data = buildReceiptData({ ...order, payments: order.payments.filter(payment => legStatus(payment) !== 'voided') }, config);
   const receipt = { ...data, header: { ...data.header, orderNumber: `${order.id.slice(-8)} (draft)` } };
   const dueMinor = receipt.totals.totalMinor - receipt.payments.reduce((sum, payment) => sum + payment.amountMinor, 0);
   const money = formatMoney({ amount: dueMinor, currency: receipt.currency }) ?? String(dueMinor);

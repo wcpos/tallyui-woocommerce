@@ -1,10 +1,10 @@
 import { useRef } from 'react';
-import type { useSale } from '@tallyui/pos';
+import { legStatus, type useSale } from '@tallyui/pos';
 import { parkCart, type ParkedCart } from './parked-carts';
 import { toast } from '../toast/toast';
 
 export interface VoidSale {
-  /** Void is offered while the cart has lines and no payment. */
+  /** Void is offered while the cart has lines and no live (unvoided) payment. */
   offered: boolean;
   /** Clears the cart at once and offers Undo, as v2's use-void-order.ts. */
   voidSale(): void;
@@ -30,5 +30,5 @@ export function useVoidSale(sale: ReturnType<typeof useSale>, context: { resumeC
     if (typeof result === 'string') context.say(result);
   }
 
-  return { offered: sale.order.lineItems.length > 0 && sale.order.payments.length === 0, voidSale };
+  return { offered: sale.order.lineItems.length > 0 && !sale.order.payments.some(payment => legStatus(payment) !== 'voided'), voidSale };
 }
