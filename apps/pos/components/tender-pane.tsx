@@ -5,7 +5,7 @@ import type { ViewProps } from 'react-native';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Loader, Text } from '@tallyui/components';
 import { minorUnitDigits } from '@tallyui/core';
 import { useFormatStoreMoney } from '../lib/money/store-money';
-import { activePlan, appliedMinor, changeMinor, initTenderState, planLegs, quickTenderedAmounts, tenderReducer } from '@tallyui/pos';
+import { activePlan, appliedMinor, changeMinor, initTenderState, legStatus, planLegs, quickTenderedAmounts, tenderReducer } from '@tallyui/pos';
 import type { TenderKey, useSale } from '@tallyui/pos';
 import { useIsOnline } from '../lib/online/online-status';
 import { filterChipClassName, filterChipTextClassName } from './catalogue-filter-chips';
@@ -69,7 +69,8 @@ export function TenderPane({ sale, multi = false, onRecordedOffline }: {
   const slow = useElapsed(sale.saving && sale.error === null, SLOW_SAVE_NOTICE_MS);
   const due = multi ? sale.order.balanceDueMinor : sale.order.totalMinor;
   // WCPOS v2: tender-pane.tsx:337-352, 485-584.
-  const since = sale.order.payments.slice(state.plan?.from ?? 0)
+  const live = sale.order.payments.filter(payment => legStatus(payment) !== 'voided');
+  const since = live.slice(state.plan?.from ?? 0)
     .map(payment => ({ amountMinor: payment.amountMinor, title: payment.method === 'cash' ? 'Cash' : 'Card' }));
   // Multi: a removed leg raises the balance, and an entry the cashier hasn't touched follows it.
   useEffect(() => {
@@ -96,7 +97,7 @@ export function TenderPane({ sale, multi = false, onRecordedOffline }: {
   const sinceRows = since.map(row => ({ minor: row.amountMinor, title: row.title }));
   const plan = multi ? activePlan(state.plan, since.length, balance) : null;
   const planned = plan ? planLegs(plan, sinceRows, balance) : null;
-  const taken = sale.order.payments.map(payment => ({ minor: payment.amountMinor, title: payment.method === 'cash' ? 'Cash' : 'Card' }));
+  const taken = live.map(payment => ({ minor: payment.amountMinor, title: payment.method === 'cash' ? 'Cash' : 'Card' }));
   const on = state.splitView || plan !== null;
   const method = METHODS.find(m => m.id === state.methodId)!;
   // WCPOS v2: tender-figures.ts:111-113. In percent entry the reducer's entry is the typed share; the money is that share of the balance.
@@ -105,11 +106,11 @@ export function TenderPane({ sale, multi = false, onRecordedOffline }: {
   const applied = appliedMinor(entry, balance);
   const dp = minorUnitDigits(sale.order.currency);
   const quick = method.givesChange ? quickTenderedAmounts(applied, QUICK_TENDER_STEPS.map(step => step * 10 ** dp)) : [];
-  const legs = sale.order.payments.length;
+  const legs = live.length;
   // WCPOS v2 mirrors the last leg only once the store answers (record-manual-payment.ts:198,274) and swaps the pane for Done
   // at a zero balance (checkout-body.ts:28), so its label and chip (tender-pane.tsx:383-396, 906-918) never read $0.00:
   // while the paying leg saves, they read what was due before it, and count it as the payment being taken.
-  const before = multi && sale.saving && balance === 0 && legs > 0 ? sale.order.payments[legs - 1]!.amountMinor - sale.order.changeDueMinor : null;
+  const before = multi && sale.saving && balance === 0 && legs > 0 ? live[legs - 1]!.amountMinor - sale.order.changeDueMinor : null;
   const counted = before === null ? legs : legs - 1;
   const heldPlan = before === null ? null : activePlan(state.plan, since.length - 1, before);
   const held = heldPlan && before !== null ? planLegs(heldPlan, sinceRows.slice(0, -1), before).label : null;
@@ -239,7 +240,7 @@ export function TenderPane({ sale, multi = false, onRecordedOffline }: {
       {/* WCPOS v2: tender-pane.tsx:732-777. */}
       {multi && state.splitView && !plan && !percentOn && <EvenSplitTiles restMinor={balance} fmt={fmt} disabled={sale.saving}
         onPercent={() => { setPercent(true); dispatch({ type: 'set-entry', minor: 0 }); }}
-        onPick={ways => dispatch({ type: 'set-plan', plan: { kind: 'even', ways, from: sale.order.payments.length }, balanceMinor: balance })} />}
+        onPick={ways => dispatch({ type: 'set-plan', plan: { kind: 'even', ways, from: live.length }, balanceMinor: balance })} />}
       {/* WCPOS v2: tender-pane.tsx:790-812, 893, 905: percent entry swaps the quick amounts and Exact for the shares. */}
       {percentOn && <PercentChips percent={state.entryMinor} disabled={sale.saving} onPick={minor => dispatch({ type: 'set-entry', minor })} />}
       {!percentOn && quick.map(minor => <Pressable key={minor} accessibilityRole="button" testID={`checkout-quick-${minor / 10 ** dp}`}

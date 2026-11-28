@@ -225,6 +225,7 @@ test.each([
   { scenario: 'the plan starts after a leg already taken', kind: 'prior' },
   { scenario: 'Change split and Split off restore the balance', kind: 'change' },
   { scenario: 'the one-payment pane has no Split chip', kind: 'single' },
+  { scenario: 'a voided leg is not counted by a split started after it', kind: 'voided' },
 ])('$scenario', async ({ kind }) => {
   const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => ({
     kind: 'results',
@@ -252,6 +253,11 @@ test.each([
     return;
   }
   if (kind === 'prior') takeLeg(100);
+  if (kind === 'voided') {
+    takeLeg(100);
+    fireEvent.click(screen.getByTestId(/^checkout-remove-leg-/));
+    await waitFor(() => expect(screen.getByTestId(/^checkout-status-leg-/).textContent).toBe('Voided'));
+  }
   fireEvent.click(screen.getByTestId('checkout-split-chip'));
   expect(screen.getByText('Split the rest')).not.toBeNull();
   expect(screen.getByTestId('checkout-split-chip').getAttribute('aria-pressed')).toBe('true');
@@ -261,6 +267,15 @@ test.each([
     expect(screen.getByTestId('checkout-entry').textContent).toBe('$2.50');
     expect(screen.getByTestId('checkout-label').textContent).toBe('Payment 1 of 2 · $5.00 left');
     expect(screen.getByTestId('checkout-plan-done').textContent).toBe('Cash $1.00');
+    return;
+  }
+  if (kind === 'voided') {
+    expect(within(screen.getByTestId('checkout-even-2')).getByText('$3.00 each')).not.toBeNull();
+    fireEvent.click(screen.getByTestId('checkout-even-2'));
+    expect(screen.getByTestId('checkout-entry').textContent).toBe('$3.00');
+    expect(screen.getByTestId('checkout-label').textContent).toBe('Payment 1 of 2 · $6.00 left');
+    fireEvent.click(screen.getByTestId('checkout-commit'));
+    expect(screen.getByTestId('checkout-label').textContent).toBe('Payment 2 of 2 · $3.00 left');
     return;
   }
   if (kind === 'change') {
