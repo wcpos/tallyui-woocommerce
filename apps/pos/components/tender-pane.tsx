@@ -117,7 +117,8 @@ export function TenderPane({ sale, multi = false, onRecordedOffline }: {
   const shown = before ?? balance;
   // WCPOS v2: tender-pane.tsx:117-118, tender-figures.ts:165. The balance is 0 once the last leg is in, so the entry
   // against it would read as all change: paid in full, the header shows the order's change while it saves.
-  const change = multi && balance === 0 && legs > 0 ? sale.order.changeDueMinor : changeMinor(entry, applied, method.givesChange);
+  // TallyUI 5.6.1 records a cash leg at the applied amount and keeps its change on the leg (use-sale.ts:1030).
+  const change = multi && balance === 0 && legs > 0 ? sale.order.changeDueMinor + (live[legs - 1]!.changeMinor ?? 0) : changeMinor(entry, applied, method.givesChange);
   const noChange = !method.givesChange && entry > balance;
   const fmt = (amount: number) => formatMoney({ amount, currency: sale.order.currency }) ?? '';
   // WCPOS v2: tender-figures.ts:134,147 and tender-pane.tsx:285-334. A plan is measured against this payment's planned
