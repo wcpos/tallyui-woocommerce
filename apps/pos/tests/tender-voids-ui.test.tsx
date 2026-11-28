@@ -129,6 +129,8 @@ test('a failed Remove keeps the leg and shows the write error', async () => {
   fireEvent.click(screen.getByTestId(/^checkout-remove-leg-/));
   expect((await screen.findByTestId('tender-void-error')).textContent).toContain('disk full');
   expect(screen.getByTestId(/^checkout-leg-/)).not.toBeNull();
+  expect(screen.getByTestId(/^checkout-status-leg-/).textContent).toBe('Paid');
+  expect(screen.getByTestId(/^checkout-remove-leg-/)).not.toBeNull();
   expect(await collection.find().exec()).toHaveLength(0);
 }, 20_000);
 
