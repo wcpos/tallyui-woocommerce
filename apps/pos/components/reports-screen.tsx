@@ -5,6 +5,7 @@ import { Path } from 'react-native-svg';
 import { createSvgIcon, IconButton, Text } from '@tallyui/components';
 import { useFormatStoreMoney, useStoreMoney } from '../lib/money/store-money';
 import {
+  replacedOrderIds,
   formatClosureDate, presetRange, useStoreOrdersInRange, type Closure, type DatePreset, type DayRange, type PosOrder,
 } from '@tallyui/pos';
 import { Portal } from '@tallyui/primitives';
@@ -74,6 +75,7 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const { leftOut, include: includeOrders, clear: clearLeftOut } = useLeftOut();
   const now = useMinuteClock();
   const [sales, setSales] = useState<PosOrder[]>([]);
+  const [successors, setSuccessors] = useState<PosOrder[]>([]);
   const [rows, setRows] = useState<Closure[]>([]);
   const [reprint, setReprint] = useState<Closure | 'x' | 'summary' | 'table' | null>(null);
   const [openClosureId, setOpenClosureId] = useState<string | null>(null);
@@ -126,13 +128,15 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
   const ordersView = ordersTable(shown, { range, currency, money, leftOut, cashiers: reportCashierRows });
   const leftOutNow = new Set(ordersView.rows.filter(row => leftOut.has(row.key)).map(row => row.key));
   const counted = leftOutNow.size === 0 ? shown : shown.filter(order => !leftOutNow.has(order.id));
+  // #628: the replaced set comes from every loaded order and their successors, not the cashier-, untick- or period-filtered list.
+  const replaced = useMemo(() => replacedOrderIds([...sales, ...successors]), [sales, successors]);
   // PARITY 176/177: under Store, the store's POS orders joined to this till's by clientOrderId, once the whole read
   // lands (store-read.ts); otherwise this till's figures stand under the line. A store order with no copy on this till
   // has no cashier (gap G1), so a chosen cashier counts only this till's orders until the read takes cashierId.
-  const store = useMemo(() => scope === 'store' ? storeRoom(storeRead, sales) : { orders: null, line: null }, [scope, storeRead, sales]);
+  const store = useMemo(() => scope === 'store' ? storeRoom(storeRead, sales, replaced) : { orders: null, line: null }, [scope, storeRead, sales, replaced]);
   const storeOrders = store.orders?.filter(order =>
     (cashierId === null || order.cashierRef === cashierId) && !leftOutNow.has(order.key));
-  const roomOptions = { now, currency, range, preset, comparison };
+  const roomOptions = { now, currency, range, preset, comparison, replaced };
   const room = storeOrders ? salesRoomOf(storeOrders, roomOptions) : salesRoom(counted, roomOptions);
   // Products and categories are this till's lines until the store read carries lines (plan PR 4), so their totals,
   // shares and names are this till's too.
@@ -192,6 +196,12 @@ export function ReportsScreen({ storeName, currency, locale = 'en-US', onBack }:
     return () => { salesSubscription.unsubscribe(); closuresSubscription.unsubscribe(); };
   }, [orders, since, bounds.endIso]);
 
+  const refusedIds = sales.filter(order => order.syncStatus === 'rejected').map(order => order.id).join(',');
+  useEffect(() => {
+    if (!orders || !refusedIds) { setSuccessors([]); return; }
+    const subscription = orders.find({ selector: { saleId: { $in: refusedIds.split(',') } } }).$.subscribe(docs => setSuccessors(docs.map(doc => doc.toMutableJSON())));
+    return () => subscription.unsubscribe();
+  }, [orders, refusedIds]);
   useEffect(() => {
     if (!reprint) return;
     // Portal publishes to its host in an effect; print after that DOM update.
