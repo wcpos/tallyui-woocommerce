@@ -99,3 +99,33 @@ test('removeLeg journals and voids a leg nothing refuses', async () => {
   expect(voidTender.mock.calls).toEqual([['a']]);
   expect(result.current.voidError).toBeUndefined();
 });
+
+test('double tapping Cancel payments journals once and shows no error', async () => {
+  const { result, voidTender, cancelTender, bulkInsert } = setup([takenCash('a', 1000), takenCash('b', 500)]);
+  const voidOnce = voidTender.getMockImplementation()!;
+  const voided = new Set<string>();
+  voidTender.mockImplementation(id => voided.has(id) ? false : (voided.add(id), voidOnce(id)));
+  await act(async () => { result.current.requestCancel(); });
+  await act(async () => {
+    const first = result.current.confirmCancel();
+    const second = result.current.confirmCancel();
+    await Promise.all([first, second]);
+  });
+  expect(bulkInsert).toHaveBeenCalledTimes(1);
+  expect(voidTender.mock.calls).toEqual([['b'], ['a']]);
+  expect(cancelTender).toHaveBeenCalledTimes(1);
+  expect(result.current.voidError).toBeUndefined();
+});
+
+test('Cancel payments can run again after a failed journal write', async () => {
+  const { result, cancelTender, bulkInsert } = setup([takenCash('a', 1000)]);
+  bulkInsert.mockRejectedValueOnce(new Error('disk full'));
+  await act(async () => { result.current.requestCancel(); });
+  await act(async () => { await result.current.confirmCancel(); });
+  expect(result.current.voidError).toContain('disk full');
+  expect(cancelTender).not.toHaveBeenCalled();
+  await act(async () => { await result.current.confirmCancel(); });
+  expect(bulkInsert).toHaveBeenCalledTimes(2);
+  expect(cancelTender).toHaveBeenCalledTimes(1);
+  expect(result.current.voidError).toBeUndefined();
+});

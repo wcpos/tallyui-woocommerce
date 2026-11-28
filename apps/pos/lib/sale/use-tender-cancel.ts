@@ -24,7 +24,7 @@ export interface TenderCancel {
   requestCancel(): void;
   /** Keep payments: closes the void view. */
   keepPayments(): void;
-  /** Cancel payments: journals all live legs, then voids them latest first. */
+  /** Cancel payments: journals all live legs, then voids them latest first. A tap while one runs does nothing. */
   confirmCancel(): Promise<void>;
   /** Journals one leg, then voids it if taken or removes it if untaken. */
   removeLeg(id: string): Promise<void>;
@@ -40,6 +40,7 @@ export function useTenderCancel(sale: ReturnType<typeof useSale>, context: Tende
   const [cancelling, setCancelling] = useState(false);
   const [voidError, setVoidError] = useState<string>();
   const removing = useRef(new Set<string>());
+  const cancelRunning = useRef(false);
   useEffect(() => {
     if (sale.stage.kind !== 'tender') { setCancelling(false); setVoidError(undefined); }
   }, [sale.stage.kind]);
@@ -87,6 +88,9 @@ export function useTenderCancel(sale: ReturnType<typeof useSale>, context: Tende
     keepPayments: () => setCancelling(false),
     confirmCancel: async () => {
       if (sale.saving) { setCancelling(false); sale.cancelTender(); return; }
+      if (cancelRunning.current) return;
+      cancelRunning.current = true;
+      try {
       const live = sale.order.payments.filter(p => legStatus(p) !== 'voided');
       for (const leg of live) {
         const reason = legRefusal(sale, leg);
@@ -98,6 +102,7 @@ export function useTenderCancel(sale: ReturnType<typeof useSale>, context: Tende
         else if (!sale.voidTender(leg.id)) { setVoidError(VOID_RECORDED_KEPT); setCancelling(false); return; }
       }
       setCancelling(false); sale.cancelTender();
+      } finally { cancelRunning.current = false; }
     },
   };
 }
