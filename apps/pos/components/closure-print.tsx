@@ -6,6 +6,7 @@ import { useFormatStoreMoney, type FormatStoreMoney } from '../lib/money/store-m
 import { buildClosureDocument, buildXReportDocument, type Closure, type ClosureContext, type RegisterSession, type labelKeys } from '@tallyui/pos';
 
 const labels: Record<keyof typeof labelKeys, string> = {
+  cash_rounding: 'Rounding',
   x_report: 'X report', closure: 'Closure', opened: 'Opened', closed: 'Closed', approver: 'Approver',
   opening_float: 'Opening float', expected: 'Expected', counted: 'Counted', variance: 'Variance',
   tenders: 'Tenders', tender: 'Tender', cash_movements: 'Cash movements', time: 'Time', type: 'Type',

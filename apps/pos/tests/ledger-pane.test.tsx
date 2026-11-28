@@ -182,9 +182,10 @@ test('Remove takes the leg off the ledger and the untouched entry follows the ba
   await renderSale();
   takeLeg(200);
   fireEvent.click(screen.getByTestId(/^checkout-remove-leg-/));
-  await waitFor(() => expect(legs()).toHaveLength(0));
+  await waitFor(() => expect(screen.getByTestId(/^checkout-status-leg-/).textContent).toBe('Voided'));
+  expect(screen.queryByTestId(/^checkout-remove-leg-/)).toBeNull();
   expect(text('checkout-ledger-balance')).toBe('$6.00');
-  expect(text('checkout-ledger-empty')).toBe('No payments yet');
+  expect(text('checkout-ledger-eyebrow')).toBe('Total');
   // The entry follows the balance in an effect, which can land after the leg leaves.
   await waitFor(() => expect(text('checkout-entry')).toBe('$6.00'));
   expect(text('checkout-label')).toBe('To pay');

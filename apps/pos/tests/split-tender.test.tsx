@@ -183,8 +183,9 @@ test.each([true, false, undefined])('uses the advertised tender UI with multiple
 
 test('the existing outbox transport sees a catalogue capability that arrives later', async () => {
   const catalogue = vi.spyOn(CatalogueContext, 'useCatalogue').mockReturnValue({ catalogue: null, products: [], status: 'starting' });
-  // connector 4.0.0 reads /site once; answer as stock WCPOS 1.10.20.
-  const fetchStub = vi.fn<typeof fetch>(async input => String(input).endsWith('/site') ? Response.json({ wcpos_version: '1.10.20' }) : Response.json({
+  // connector 5.6.1 reads /site (stock WCPOS 1.10.20) and /status, which must advertise order_payments_list for a split.
+  const fetchStub = vi.fn<typeof fetch>(async input => String(input).endsWith('/site') ? Response.json({ wcpos_version: '1.10.20' })
+    : String(input).endsWith('/status') ? Response.json({ capabilities: ['order_payments_list'] }) : Response.json({
     document: { id: 115, status: 'completed', total: '6.000000' }, currentRevision: 'r1',
   }, { status: 201 }));
   vi.stubGlobal('fetch', fetchStub);
@@ -225,6 +226,7 @@ test.each([
   { scenario: 'the plan starts after a leg already taken', kind: 'prior' },
   { scenario: 'Change split and Split off restore the balance', kind: 'change' },
   { scenario: 'the one-payment pane has no Split chip', kind: 'single' },
+  { scenario: 'a voided leg is not counted by a split started after it', kind: 'voided' },
 ])('$scenario', async ({ kind }) => {
   const send = vi.fn<CommandTransport<OrderCreateEnvelope>['send']>(async batch => ({
     kind: 'results',
@@ -252,6 +254,11 @@ test.each([
     return;
   }
   if (kind === 'prior') takeLeg(100);
+  if (kind === 'voided') {
+    takeLeg(100);
+    fireEvent.click(screen.getByTestId(/^checkout-remove-leg-/));
+    await waitFor(() => expect(screen.getByTestId(/^checkout-status-leg-/).textContent).toBe('Voided'));
+  }
   fireEvent.click(screen.getByTestId('checkout-split-chip'));
   expect(screen.getByText('Split the rest')).not.toBeNull();
   expect(screen.getByTestId('checkout-split-chip').getAttribute('aria-pressed')).toBe('true');
@@ -261,6 +268,15 @@ test.each([
     expect(screen.getByTestId('checkout-entry').textContent).toBe('$2.50');
     expect(screen.getByTestId('checkout-label').textContent).toBe('Payment 1 of 2 · $5.00 left');
     expect(screen.getByTestId('checkout-plan-done').textContent).toBe('Cash $1.00');
+    return;
+  }
+  if (kind === 'voided') {
+    expect(within(screen.getByTestId('checkout-even-2')).getByText('$3.00 each')).not.toBeNull();
+    fireEvent.click(screen.getByTestId('checkout-even-2'));
+    expect(screen.getByTestId('checkout-entry').textContent).toBe('$3.00');
+    expect(screen.getByTestId('checkout-label').textContent).toBe('Payment 1 of 2 · $6.00 left');
+    fireEvent.click(screen.getByTestId('checkout-commit'));
+    expect(screen.getByTestId('checkout-label').textContent).toBe('Payment 2 of 2 · $3.00 left');
     return;
   }
   if (kind === 'change') {

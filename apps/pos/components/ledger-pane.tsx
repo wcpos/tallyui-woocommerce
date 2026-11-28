@@ -30,7 +30,7 @@ export function LedgerPane({ order, onRemove, closing = false, recordedOffline }
 }): JSX.Element {
   const formatMoney = useFormatStoreMoney();
   const fmt = (amount: number) => formatMoney({ amount, currency: order.currency }) ?? '';
-  const partPaid = order.payments.length > 0 && order.balanceDueMinor > 0;
+  const partPaid = order.payments.some(settled) && order.balanceDueMinor > 0;
   // v2: a zero balance with nothing settled (every leg failed or voided) is not paid.
   const paidInFull = order.balanceDueMinor === 0 && order.payments.some(settled);
   // v2 (ledger-pane.tsx:196, :259): each leg and Paid read the applied amounts, the change taken out of the cash legs.
@@ -59,11 +59,11 @@ export function LedgerPane({ order, onRemove, closing = false, recordedOffline }
             {p.reference ? <Text className="text-sm text-muted-foreground">{p.reference}</Text> : null}
             {p.method === 'cash' && p.tenderedMinor ? <Text testID={`checkout-tendered-leg-${p.id}`} className="text-sm text-muted-foreground">
               {`Tendered ${fmt(p.tenderedMinor)} · change ${fmt(p.changeMinor ?? 0)}`}</Text> : null}
-            {recordedOffline?.has(p.id) ? <Text testID={`checkout-offline-leg-${p.id}`} className="text-sm text-muted-foreground">Recorded offline</Text> : null}
+            {p.status !== 'voided' && recordedOffline?.has(p.id) ? <Text testID={`checkout-offline-leg-${p.id}`} className="text-sm text-muted-foreground">Recorded offline</Text> : null}
           </View>
           <Text className="tabular-nums text-foreground">{fmt(p.amountMinor)}</Text>
           <LegStatus payment={p} />
-          {onRemove ? <Pressable testID={`checkout-remove-leg-${p.id}`} accessibilityRole="button" accessibilityLabel="Remove tender"
+          {p.status !== 'voided' && onRemove ? <Pressable testID={`checkout-remove-leg-${p.id}`} accessibilityRole="button" accessibilityLabel="Remove tender"
             onPress={() => onRemove(p.id)} className="rounded-md border border-border bg-card px-3 py-2">
             <Text className="text-foreground">Remove</Text>
           </Pressable> : null}

@@ -34,6 +34,13 @@ test('an unpaid open sale shows Not paid with the total due, the draft reference
   expect(screen.getByRole('button', { name: 'Print receipt' })).not.toBeNull();
 });
 
+test('a voided leg is neither billed nor counted: the bill still shows the full amount due', () => {
+  const voided: SentOrder = { ...order, payments: [{ id: 'v1', method: 'cash', amountMinor: 100, status: 'voided' }] };
+  render(<><OpenSaleReceipt open onClose={vi.fn()} side="left" order={voided} config={config} /><PortalHost /></>);
+  expect(screen.getByTestId('receipt-not-paid').textContent).toBe('Not paid · $3.00 due');
+  expect(screen.queryByLabelText(/^Cash tendered:/)).toBeNull();
+});
+
 test('a fully paid order shows no Not paid line', () => {
   const paid: SentOrder = { ...order, paidMinor: 300, balanceDueMinor: 0,
     payments: [{ id: 'p1', method: 'cash', amountMinor: 100 }, { id: 'p2', method: 'external', amountMinor: 200 }] };

@@ -172,6 +172,12 @@ function SaleScreenInner(props: SaleScreenProps): JSX.Element {
     discountCodes,
     defaultCustomer: props.defaultCustomer,
   });
+  const saleRef = useRef(sale);
+  saleRef.current = sale;
+  const bindLiveSale = register?.bindLiveSale;
+  // @tallyui 5.6.1: the open session counts the live sale's taken legs; re-bound when its payments or stage change so the register re-reads them.
+  useEffect(() => { bindLiveSale?.(() => saleRef.current.registerView()); }, [bindLiveSale, sale.order.payments, sale.stage.kind]);
+  useEffect(() => () => { bindLiveSale?.(null); }, [bindLiveSale]);
   const taxLabel = useMemo(() => taxRateLabel(sale.taxLocation
     ? taxSettingsForLocation(props.storeSettings, sale.taxLocation.location) : props.storeSettings),
     [props.storeSettings, sale.taxLocation]);

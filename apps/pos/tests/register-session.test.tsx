@@ -16,7 +16,7 @@ import { REGISTER_SESSIONS_DEFAULT, REGISTER_SESSIONS_KEY, useRegisterSessionsSe
 import { sessionsOff } from './cart-head-helpers';
 import products from './fixtures/products.json';
 import stores from './fixtures/stores.json';
-import { takeCash } from './tender-helpers';
+import { takeCash, takeLeg } from './tender-helpers';
 import { CATALOGUE_VIEW_KEY } from '../lib/catalogue/catalogue-view-state';
 
 vi.mock('@tallyui/components', async importOriginal => ({
@@ -44,7 +44,7 @@ beforeEach(() => { localStorage.setItem(CATALOGUE_VIEW_KEY, JSON.stringify({ bro
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-async function setup() {
+async function setup(options: { multiplePayments?: boolean } = {}) {
   let register!: ReturnType<typeof useRegister>;
   let outbox!: ReturnType<typeof useOutbox>;
   function Probe() { register = useRegister(); outbox = useOutbox(); return null; }
@@ -57,6 +57,7 @@ async function setup() {
         <RegisterProvider>
           <Probe />
           <SaleScreen storeSettings={noTaxSettings} connector={createWooCommerceConnector()} currency={stores[0].currency} products={products}
+            multiplePayments={options.multiplePayments}
             storeName={stores[0].name} cashierName="Paul" cashierRef="2" status="ready" onSignOut={() => {}} />
           <PortalHost />
         </RegisterProvider>
@@ -129,6 +130,20 @@ test('an opened session stamps the cash sale and envelope and still shows its re
   expect(rows).toHaveLength(1);
   expect(rows[0].toJSON()).toMatchObject({ sessionId, registerId: 'web' });
   expect(app.send.mock.calls[0][0]).toEqual([expect.objectContaining({ type: 'order.create', payload: expect.objectContaining({ sessionId }) })]);
+}, 20_000);
+
+test("the open session's expected cash counts a cash leg taken in the live sale", async () => {
+  const app = await setup({ multiplePayments: true });
+  await act(async () => { await app.register.actions.openSession({ expectedFloatMinor: 10000, countedFloatMinor: 10000 }); });
+  await waitFor(() => expect(app.register.session?.status).toBe('open'));
+  await waitFor(() => expect(app.register.expected.cash).toBe(10000));
+  fireEvent.click(screen.getByText('Espresso'));
+  fireEvent.click(screen.getByTestId('cart-checkout'));
+  await screen.findByTestId('checkout-keypad');
+  takeLeg(200);
+  await waitFor(() => expect(app.register.expected.cash).toBe(10200));
+  expect(screen.queryByTestId('receipt-order')).toBeNull();
+  expect(app.send).not.toHaveBeenCalled();
 }, 20_000);
 
 test('no saved choice reads as on, the default', () => {
