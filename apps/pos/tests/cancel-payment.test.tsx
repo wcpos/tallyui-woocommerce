@@ -96,7 +96,8 @@ test('Cancel payments lists cash and card legs, then returns to the cart with no
   await waitFor(() => expect(screen.queryByTestId('cancel-payment')).toBeNull());
   fireEvent.click(screen.getByTestId('cart-checkout'));
   expect(screen.getByTestId('checkout-ledger-totals').textContent).toContain('Paid$0.00');
-  expect(screen.queryAllByTestId(/^checkout-leg-/)).toHaveLength(0);
+  expect(screen.getAllByTestId(/^checkout-leg-/)).toHaveLength(2);
+  expect(screen.getAllByTestId(/^checkout-status-leg-/).map(badge => badge.textContent)).toEqual(['Voided', 'Voided']);
   expect(send).not.toHaveBeenCalled();
 }, 20_000);
 

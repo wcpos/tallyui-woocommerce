@@ -84,7 +84,7 @@ test('Remove journals the cash leg before it leaves the sale', async () => {
   await renderSale(true);
   addCash();
   fireEvent.click(screen.getByTestId(/^checkout-remove-leg-/));
-  await waitFor(() => expect(screen.queryByTestId(/^checkout-leg-/)).toBeNull());
+  await waitFor(() => expect(screen.getByTestId(/^checkout-status-leg-/).textContent).toBe('Voided'));
   const rows = await collection.find().exec();
   expect(rows).toHaveLength(1);
   expect(rows[0].toJSON()).toMatchObject({
@@ -97,7 +97,7 @@ test("a void carries the register id of the sale's order row", async () => {
   await renderSale(true);
   addCash();
   fireEvent.click(screen.getByTestId(/^checkout-remove-leg-/));
-  await waitFor(() => expect(screen.queryByTestId(/^checkout-leg-/)).toBeNull());
+  await waitFor(() => expect(screen.getByTestId(/^checkout-status-leg-/).textContent).toBe('Voided'));
   takeLeg(600);
   await waitFor(async () => expect(await orders!.find().exec()).toHaveLength(1));
   const [order] = await orders!.find().exec();
@@ -173,7 +173,7 @@ test('double tapping Remove records exactly one void', async () => {
   const remove = screen.getByTestId(/^checkout-remove-leg-/);
   fireEvent.click(remove);
   fireEvent.click(remove);
-  await waitFor(() => expect(screen.queryByTestId(/^checkout-leg-/)).toBeNull());
+  await waitFor(() => expect(screen.getByTestId(/^checkout-status-leg-/).textContent).toBe('Voided'));
   expect(await collection.find().exec()).toHaveLength(1);
 }, 20_000);
 
