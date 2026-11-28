@@ -163,9 +163,10 @@ test('removing the offline leg removes its line; the other leg is unaffected', a
   const onlineLeg = await takeLeg(100, false);
   const onlineId = legId(onlineLeg);
   fireEvent.click(screen.getByTestId(`checkout-remove-leg-${offlineId}`));
-  await waitFor(() => expect(legs()).toHaveLength(1));
+  await waitFor(() => expect(screen.getByTestId(`checkout-status-leg-${offlineId}`).textContent).toBe('Voided'));
+  expect(legs()).toHaveLength(2);
   expect(screen.queryByTestId(`checkout-offline-leg-${offlineId}`)).toBeNull();
   expect(offlineLines()).toHaveLength(0);
-  expect(legs()[0]!.getAttribute('data-testid')).toBe(`checkout-leg-${onlineId}`);
-  expect(legs()[0]!.textContent).toContain('$1.00');
+  expect(screen.getByTestId(`checkout-leg-${onlineId}`).textContent).toContain('$1.00');
+  expect(screen.getByTestId(`checkout-status-leg-${onlineId}`).textContent).not.toBe('Voided');
 }, 20_000);

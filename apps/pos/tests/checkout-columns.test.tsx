@@ -132,11 +132,11 @@ test('5. Remove in the cart column journals one void before the leg leaves the s
   const legStillShown: boolean[] = [];
   const insert = voids.bulkInsert.bind(voids);
   vi.spyOn(voids, 'bulkInsert').mockImplementation(async rows => {
-    legStillShown.push(cart().queryAllByTestId(/^checkout-leg-/).length === 1);
+    legStillShown.push(cart().getByTestId(/^checkout-status-leg-/).textContent !== 'Voided');
     return insert(rows);
   });
   fireEvent.click(await cart().findByTestId(/^checkout-remove-leg-/));
-  await waitFor(() => expect(cart().queryByTestId(/^checkout-leg-/)).toBeNull());
+  await waitFor(() => expect(cart().getByTestId(/^checkout-status-leg-/).textContent).toBe('Voided'));
   expect(legStillShown).toEqual([true]);
   expect((await voids.find().exec()).map(row => row.reason)).toEqual(['removed']);
 }, 20_000);

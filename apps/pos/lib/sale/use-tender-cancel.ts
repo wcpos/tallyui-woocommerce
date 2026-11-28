@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { cashVoidRefusal, legStatus } from '@tallyui/pos';
 import type { Payment, TenderVoid, useSale } from '@tallyui/pos';
 import { recordTenderVoids, type TenderVoidCollection } from './tender-voids';
 import { REGISTER_ID } from '../register/register-id';
@@ -12,9 +13,9 @@ export interface TenderCancel {
   requestCancel(): void;
   /** Keep payments: closes the void view. */
   keepPayments(): void;
-  /** Cancel payments: journals every leg, then cancels the tender. */
+  /** Cancel payments: journals all live legs, then voids them latest first. */
   confirmCancel(): Promise<void>;
-  /** Journals one leg's void, then removes it. */
+  /** Journals one leg, then voids it if taken or removes it if untaken. */
   removeLeg(id: string): Promise<void>;
 }
 export interface TenderCancelContext {
@@ -27,6 +28,7 @@ export interface TenderCancelContext {
 export function useTenderCancel(sale: ReturnType<typeof useSale>, context: TenderCancelContext): TenderCancel {
   const [cancelling, setCancelling] = useState(false);
   const [voidError, setVoidError] = useState<string>();
+  const removing = useRef(new Set<string>());
   useEffect(() => {
     if (sale.stage.kind !== 'tender') { setCancelling(false); setVoidError(undefined); }
   }, [sale.stage.kind]);
@@ -52,12 +54,18 @@ export function useTenderCancel(sale: ReturnType<typeof useSale>, context: Tende
   async function removeLeg(id: string) {
     if (sale.saving) { sale.removeTender(id); return; }
     const payment = sale.order.payments.find(payment => payment.id === id);
-    if (!payment) return;
-    if (await voidTenders([payment], 'removed')) sale.removeTender(id);
+    if (!payment || legStatus(payment) === 'voided' || removing.current.has(id)) return;
+    if (payment.takenAt !== undefined && cashVoidRefusal(sale.order, id)) { sale.voidTender(id); return; }
+    removing.current.add(id);
+    try {
+      if (!(await voidTenders([payment], 'removed'))) return;
+      if (payment.takenAt !== undefined) sale.voidTender(id);
+      else sale.removeTender(id);
+    } finally { removing.current.delete(id); }
   }
 
   function requestCancel() {
-    if (sale.order.payments.length > 0 && !sale.saving) setCancelling(true);
+    if (sale.order.payments.some(p => legStatus(p) !== 'voided') && !sale.saving) setCancelling(true);
     else sale.cancelTender();
   }
 
@@ -65,7 +73,12 @@ export function useTenderCancel(sale: ReturnType<typeof useSale>, context: Tende
     keepPayments: () => setCancelling(false),
     confirmCancel: async () => {
       if (sale.saving) { setCancelling(false); sale.cancelTender(); return; }
-      if (!(await voidTenders(sale.order.payments, 'cancelled'))) return;
+      const live = sale.order.payments.filter(p => legStatus(p) !== 'voided');
+      if (!(await voidTenders(live, 'cancelled'))) return;
+      for (const leg of [...live].reverse()) {
+        if (leg.takenAt === undefined) sale.removeTender(leg.id);
+        else if (!sale.voidTender(leg.id)) { setCancelling(false); return; }
+      }
       setCancelling(false); sale.cancelTender();
     },
   };
