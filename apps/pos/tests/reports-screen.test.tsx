@@ -1790,6 +1790,27 @@ test("Store scope counts the store's POS orders once the read lands, as v2 does"
   await waitFor(() => expect(text('hero-total')).toBe('$3.00'));
 }, 20_000);
 
+test('under Store scope a refused sale replaced after the shown period is not "Not accepted" in that period', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 9, 6, 14, 30));
+  try {
+    const listOrders = vi.fn(async () => ({ orders: [storeOrder({
+      id: '900', totalMinor: 2500, placedAt: new Date(2026, 9, 5, 12).toISOString(),
+      payments: [{ method: 'pos_cash', kind: 'cash', amountMinor: 2500 }],
+    })], hasMore: false, total: 1 }));
+    const app = await setup({ connector: storeConnector(listOrders) });
+    await salesAt(app, [new Date(2026, 9, 5, 10), new Date(2026, 9, 6, 9)]);
+    const [first, second] = await app.orders.find({ sort: [{ createdAt: 'asc' }] }).exec();
+    await waitFor(async () => expect((await app.orders.findOne(first.id).exec())?.syncStatus).toBe('applied'));
+    await act(async () => { await first.incrementalPatch({ syncStatus: 'rejected' }); });
+    await choosePeriod('yesterday');
+    await waitFor(() => expect(text('hero-total')).toBe('$25.00'));
+    await screen.findByTestId('hero-not-accepted');
+    await act(async () => { await second.incrementalPatch({ saleId: first.id }); });
+    await waitFor(() => expect(screen.queryByTestId('hero-not-accepted')).toBeNull());
+  } finally { vi.useRealTimers(); }
+}, 20_000);
+
 test("This till shows the till's own sales and no store line", async () => {
   const listOrders = vi.fn<NonNullable<TallyConnector['listOrders']>>(async () => ({ orders: [storeOrder({
     id: '900', totalMinor: 2500, payments: [{ method: 'pos_cash', kind: 'cash', amountMinor: 2500 }],
