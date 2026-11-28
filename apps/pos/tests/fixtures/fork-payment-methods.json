@@ -21,10 +21,10 @@
       "defaults": { "rounding": null, "open_drawer": false }
     },
     {
-      "schema": 1, "id": "bacs", "title": "Direct bank transfer", "kind": "other", "pos_enabled": false, "order": 2,
+      "schema": 1, "id": "bacs", "title": "Direct bank transfer", "kind": "other", "pos_enabled": false, "order": 999,
       "capture": { "mode": "webview" },
       "capabilities": {
-        "amount": { "partial": false }, "change": false, "refunds": { "via": "manual", "partial": true },
+        "amount": { "partial": false }, "change": false, "refunds": { "via": "manual", "partial": false },
         "tips": "none", "offline": "none", "void": false
       },
       "defaults": { "rounding": null, "open_drawer": false }

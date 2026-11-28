@@ -1,4 +1,4 @@
-// The fixture mirrors TallyUI/woocommerce-pos#3's Tally_Payment_Methods_Controller at 5d33750; B-2 relies on these shapes.
+// The fixture mirrors the Tally_Payment_Methods_Controller on TallyUI/woocommerce-pos tally at 66c3acc (PR #3); B-2 relies on these shapes.
 import { expect, test } from 'vitest';
 import { defaultPaymentMethods } from '@tallyui/core';
 import { createWooCommerceConnector } from '@tallyui/connector-woocommerce';
