@@ -30,9 +30,9 @@ export type StoreRoom = { orders: RoomOrder[] | null; line: string | null };
  * The figures count the store's orders only when the whole read landed (reports-plan §4 Fallback);
  * until then, or when any order could not be read, the till's own figures stand.
  */
-export function storeRoom(read: StoreOrdersInRange, local: readonly PosOrder[]): StoreRoom {
+export function storeRoom(read: StoreOrdersInRange, local: readonly PosOrder[], replaced?: ReadonlySet<string>): StoreRoom {
   if (read.complete && read.error === null && read.unreadable === 0) {
-    return { orders: mergeRoomOrders(read.orders, local, 'done'), line: null };
+    return { orders: mergeRoomOrders(read.orders, local, 'done', replaced), line: null };
   }
   if (read.progress) {
     const { downloaded, total } = read.progress;

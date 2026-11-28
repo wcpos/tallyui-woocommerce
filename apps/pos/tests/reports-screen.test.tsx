@@ -331,6 +331,70 @@ test('the hero names the cash the orders the store refused took', async () => {
   await waitFor(() => expect(text('hero-not-accepted')).toBe('Not accepted by the store: 1 · $3.00 cash taken'));
 }, 20_000);
 
+test('a refused sale that a later sale replaced is not "Not accepted"', async () => {
+  const app = await setup();
+  await payCash();
+  const [first] = await app.orders.find().exec();
+  await payCash();
+  const second = (await app.orders.find().exec()).find(order => order.id !== first.id)!;
+  await waitFor(async () => expect((await app.orders.findOne(first.id).exec())?.syncStatus).toBe('applied'));
+  await act(async () => { await first.incrementalPatch({ syncStatus: 'rejected' }); });
+  await screen.findByTestId('hero-not-accepted');
+  await act(async () => { await second.incrementalPatch({ saleId: first.id }); });
+  await waitFor(() => expect(screen.queryByTestId('hero-not-accepted')).toBeNull());
+}, 20_000);
+
+test('a refused sale replaced by another cashier\'s sale is not "Not accepted" under the first cashier\'s chip', async () => {
+  const me = loadSession()!;
+  saveCashiers({ [me.site.home]: [{ ...me, tokens: { ...me.tokens, user: { id: 5, uuid: 'ann', displayName: 'Ann' } } }] });
+  const app = await setup();
+  await payCash();
+  const [first] = await app.orders.find().exec();
+  await payCash();
+  const second = (await app.orders.find().exec()).find(order => order.id !== first.id)!;
+  await waitFor(async () => expect((await app.orders.findOne(first.id).exec())?.syncStatus).toBe('applied'));
+  await act(async () => {
+    await first.incrementalPatch({ syncStatus: 'rejected' });
+    await second.incrementalPatch({ saleId: first.id, cashierRef: '5' });
+  });
+  await choose('cashier', '2');
+  await waitFor(() => expect(text('hero-total')).toBe('$0.00'));
+  expect(screen.queryByTestId('hero-not-accepted')).toBeNull();
+}, 20_000);
+
+test('unticking the replacement does not make its refused sale "Not accepted"', async () => {
+  const app = await setup();
+  await payCash();
+  const [first] = await app.orders.find().exec();
+  await payCash();
+  const second = (await app.orders.find().exec()).find(order => order.id !== first.id)!;
+  await waitFor(async () => expect((await app.orders.findOne(first.id).exec())?.syncStatus).toBe('applied'));
+  await act(async () => {
+    await first.incrementalPatch({ syncStatus: 'rejected' });
+    await second.incrementalPatch({ saleId: first.id });
+  });
+  fireEvent.click(screen.getByTestId('sales-room-orders-open'));
+  fireEvent.click(await screen.findByTestId(`orders-panel-tick-${second.id}`));
+  await waitFor(() => expect(text('hero-total')).toBe('$0.00'));
+  expect(screen.queryByTestId('hero-not-accepted')).toBeNull();
+}, 20_000);
+
+test('a refused sale replaced after the shown period is not "Not accepted" in that period', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 9, 6, 14, 30));
+  try {
+    const app = await setup();
+    await salesAt(app, [new Date(2026, 9, 5, 10), new Date(2026, 9, 6, 9)]);
+    const [first, second] = await app.orders.find({ sort: [{ createdAt: 'asc' }] }).exec();
+    await waitFor(async () => expect((await app.orders.findOne(first.id).exec())?.syncStatus).toBe('applied'));
+    await act(async () => { await first.incrementalPatch({ syncStatus: 'rejected' }); });
+    await choosePeriod('yesterday');
+    await screen.findByTestId('hero-not-accepted');
+    await act(async () => { await second.incrementalPatch({ saleId: first.id }); });
+    await waitFor(() => expect(screen.queryByTestId('hero-not-accepted')).toBeNull());
+  } finally { vi.useRealTimers(); }
+}, 20_000);
+
 test("the Categories card names the synced product's category for a sale in the period", async () => {
   // The fixture's Espresso (id 80) is in Coffee (id 25); the screen must hand the synced products to the card.
   await setup({ synced: products });

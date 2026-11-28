@@ -67,8 +67,9 @@ export type SalesRoomOptions = { now: Date; currency: string; range: DayRange; p
 
 export function salesRoom(orders: readonly PosOrder[], options: {
   now: Date; currency: string; range: DayRange; preset?: DatePreset; comparison: DayRange;
+  replaced?: ReadonlySet<string>;
 }): SalesRoom {
-  return salesRoomOf(roomOrdersFromLocal(orders), options);
+  return salesRoomOf(roomOrdersFromLocal(orders, options.replaced), options);
 }
 
 /**

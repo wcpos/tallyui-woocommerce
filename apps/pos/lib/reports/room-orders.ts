@@ -19,9 +19,8 @@ export type RoomOrder = {
   refundedMinor: number;
 };
 
-export function roomOrdersFromLocal(orders: readonly PosOrder[]): RoomOrder[] {
-  // The outbox's own rule: a refused order a later sale replaced counts through that sale.
-  const replaced = replacedOrderIds(orders);
+export function roomOrdersFromLocal(orders: readonly PosOrder[], replaced: ReadonlySet<string> = replacedOrderIds(orders)): RoomOrder[] {
+  // The outbox's own rule: a refused order a later sale replaced counts through that sale; the caller may pass the replaced set it worked out from more orders than these.
   return orders.filter(order => order.syncStatus !== 'rejected' || !replaced.has(order.id)).map(order => {
     const lines = order.lines.map(line => ({ ...line, taxInclusive: line.taxInclusive ?? order.pricesIncludeTax }));
     return {
@@ -68,12 +67,12 @@ export function roomOrderFromStoreOrder(order: StoreOrder, mode: ReportStatusMod
   };
 }
 
-export function mergeRoomOrders(store: readonly StoreOrder[], local: readonly PosOrder[], mode: ReportStatusMode): RoomOrder[] {
+export function mergeRoomOrders(store: readonly StoreOrder[], local: readonly PosOrder[], mode: ReportStatusMode, replaced?: ReadonlySet<string>): RoomOrder[] {
   const joined = new Set<string>();
   const orders = store.map(order => {
     const match = local.find(candidate => candidate.id === order.clientOrderId);
     if (match) joined.add(match.id);
     return roomOrderFromStoreOrder(order, mode, match);
   });
-  return [...orders, ...roomOrdersFromLocal(local).filter(order => !joined.has(order.key))];
+  return [...orders, ...roomOrdersFromLocal(local, replaced).filter(order => !joined.has(order.key))];
 }
