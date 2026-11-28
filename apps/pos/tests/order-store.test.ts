@@ -45,7 +45,7 @@ test('opens pos_orders and register collections in its own memory database and c
   expect(db.closed).toBe(true);
 });
 
-test('opens pos_orders at schema version 12 (the identity step from 11 added by TallyUI 3.19.0)', async () => {
+test('opens pos_orders at schema version 24', async () => {
   const name = `tallywoo_orders_${crypto.randomUUID()}`;
   const store = await openOrderStore(name, getRxStorageMemory());
   try {
@@ -55,7 +55,7 @@ test('opens pos_orders at schema version 12 (the identity step from 11 added by 
   }
 });
 
-test("keeps a till's version-9 orders byte for byte when the store opens at version 12", async () => {
+test("keeps a till's version-9 orders byte for byte when the store opens at the current version", async () => {
   const name = `tallywoo_orders_${crypto.randomUUID()}`;
   const storage = getRxStorageMemory();
   const syncedLineId = crypto.randomUUID();
@@ -134,7 +134,7 @@ test("keeps a till's version-9 orders byte for byte when the store opens at vers
   }
 });
 
-test("keeps a till's version-11 orders byte for byte when the store opens at version 12, then takes a version-12 order", async () => {
+test("keeps a till's version-11 orders byte for byte when the store opens at the current version, then takes a current order", async () => {
   const name = `tallywoo_orders_${crypto.randomUUID()}`;
   const storage = getRxStorageMemory();
   const syncedLineId = crypto.randomUUID();
@@ -212,6 +212,7 @@ test("keeps a till's version-11 orders byte for byte when the store opens at ver
 
     const current: PosOrder = {
       ...pending,
+      payments: [{ ...pending.payments[0], id: crypto.randomUUID(), takenAt: '2026-10-14T09:31:00.000Z' }],
       id: crypto.randomUUID(), saleId: crypto.randomUUID(), commandId: crypto.randomUUID(),
       syncStatus: 'pending', taxAddress: 'billing', sentVersion: 8,
       customer: {
@@ -227,6 +228,7 @@ test("keeps a till's version-11 orders byte for byte when the store opens at ver
     expect(inserted?.taxAddress).toBe('billing');
     expect(inserted?.customer?.billing?.country).toBe('AU');
     expect(inserted?.sentVersion).toBe(8);
+    expect(inserted?.payments[0]?.takenAt).toBe('2026-10-14T09:31:00.000Z');
   } finally {
     await store.close();
   }
