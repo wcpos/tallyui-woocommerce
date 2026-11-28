@@ -183,8 +183,9 @@ test.each([true, false, undefined])('uses the advertised tender UI with multiple
 
 test('the existing outbox transport sees a catalogue capability that arrives later', async () => {
   const catalogue = vi.spyOn(CatalogueContext, 'useCatalogue').mockReturnValue({ catalogue: null, products: [], status: 'starting' });
-  // connector 4.0.0 reads /site once; answer as stock WCPOS 1.10.20.
-  const fetchStub = vi.fn<typeof fetch>(async input => String(input).endsWith('/site') ? Response.json({ wcpos_version: '1.10.20' }) : Response.json({
+  // connector 5.6.1 reads /site (stock WCPOS 1.10.20) and /status, which must advertise order_payments_list for a split.
+  const fetchStub = vi.fn<typeof fetch>(async input => String(input).endsWith('/site') ? Response.json({ wcpos_version: '1.10.20' })
+    : String(input).endsWith('/status') ? Response.json({ capabilities: ['order_payments_list'] }) : Response.json({
     document: { id: 115, status: 'completed', total: '6.000000' }, currentRevision: 'r1',
   }, { status: 201 }));
   vi.stubGlobal('fetch', fetchStub);

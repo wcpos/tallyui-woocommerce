@@ -18,6 +18,8 @@ const session: Session = {
 const fetchStub = vi.fn<typeof fetch>();
 let envelope: OrderCreateEnvelope;
 let couponEnvelope: OrderCreateEnvelope;
+let siteVersion: string;
+let statusCapabilities: string[];
 
 beforeEach(() => {
   const builder = createOrderBuilder({
@@ -48,9 +50,15 @@ beforeEach(() => {
     document: { id: 115, status: 'completed', total: (envelope.payload.totalMinor / 100).toFixed(6) },
     currentRevision: 'r1',
   }), { status: 201 }));
-  // connector-woocommerce 4.0.0 reads `/site` once to pick the ledger or the push; answer as stock WCPOS 1.10.20.
-  vi.stubGlobal('fetch', (...args: Parameters<typeof fetch>) => String(args[0]).endsWith('/site')
-    ? Promise.resolve(Response.json({ wcpos_version: '1.10.20' })) : fetchStub(...args));
+  siteVersion = '1.10.20';
+  statusCapabilities = ['order_payments_list'];
+  // connector-woocommerce 5.6.1 reads /site (ledger, coupons) and /status (split tender); answer outside fetchStub.
+  vi.stubGlobal('fetch', async (...args: Parameters<typeof fetch>) => {
+    const url = String(args[0]);
+    if (url.endsWith('/site')) return Response.json({ wcpos_version: siteVersion });
+    if (url.endsWith('/status')) return Response.json({ capabilities: statusCapabilities });
+    return fetchStub(...args);
+  });
 });
 
 afterEach(() => { vi.unstubAllGlobals(); });
@@ -63,11 +71,21 @@ test('acceptsCoupons true sends coupon_lines with the coupon code', async () => 
   expect(payload.coupon_lines).toEqual([{ code: 'save10' }]);
 });
 
-test.each([undefined, () => false])('without acceptsCoupons a coupon order is rejected as coupons_unsupported and nothing is sent', async acceptsCoupons => {
+test.each([false, () => false])('a closed acceptsCoupons gate rejects a coupon order as coupons_unsupported and nothing is sent', async acceptsCoupons => {
   envelope = couponEnvelope;
-  const transport = acceptsCoupons === undefined
-    ? orderTransport(session, () => 't1') : orderTransport(session, () => 't1', undefined, acceptsCoupons);
+  const transport = orderTransport(session, () => 't1', undefined, acceptsCoupons);
   await expect(transport.send([envelope])).resolves.toMatchObject({
+    kind: 'results', results: [{ id: envelope.id, status: 'rejected', error: {
+      code: 'coupon_invalid', data: { storeCode: 'coupons_unsupported' },
+    } }],
+  });
+  expect(fetchStub).not.toHaveBeenCalled();
+});
+
+test('without acceptsCoupons a store below WCPOS 1.9.0 rejects a coupon order as coupons_unsupported and nothing is sent', async () => {
+  envelope = couponEnvelope;
+  siteVersion = '1.8.9';
+  await expect(orderTransport(session, () => 't1').send([envelope])).resolves.toMatchObject({
     kind: 'results', results: [{ id: envelope.id, status: 'rejected', error: {
       code: 'coupon_invalid', data: { storeCode: 'coupons_unsupported' },
     } }],
@@ -219,4 +237,18 @@ test.each([true, false])('sends two tenders only with acceptsPaymentsList=%s', a
     { method: 'pos_cash', title: 'Cash', amount: '2.00' },
     { method: 'pos_card', title: 'Card', amount: '4.00' },
   ]);
+});
+
+test('two tenders are rejected when the store does not advertise order_payments_list', async () => {
+  statusCapabilities = [];
+  envelope.payload.payments = [
+    { clientPaymentId: 'cash', method: 'cash', amountMinor: 200 },
+    { clientPaymentId: 'card', method: 'external', amountMinor: 400 },
+  ];
+  await expect(orderTransport(session, () => 't1', true).send([envelope])).resolves.toEqual({
+    kind: 'results', results: [{ id: envelope.id, status: 'rejected', error: {
+      code: 'invalid_payload', message: 'WooCommerce orders take one payment.',
+    } }],
+  });
+  expect(fetchStub).not.toHaveBeenCalled();
 });
