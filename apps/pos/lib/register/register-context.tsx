@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { bindRegister, ensureRegister, getBoundRegisterId, useRegisterSession } from '@tallyui/pos';
+import { bindRegister, ensureRegister, getBoundRegisterId, useRegisterSession, type UseRegisterSessionOptions } from '@tallyui/pos';
 import { cashierNameFor, deviceCashiers } from '../auth/cashier-name';
 import { useSession } from '../auth/session-context';
 import { useOutbox } from '../sale/outbox-context';
@@ -9,7 +9,9 @@ import { SOFTWARE_VERSION } from '../software';
 import { REGISTER_ID } from './register-id';
 import { useRegisterSessionsSetting } from './register-setting';
 
+type LiveSaleView = NonNullable<UseRegisterSessionOptions['liveSale']>;
 type Register = ReturnType<typeof useRegisterSession> & {
+  bindLiveSale: (view: LiveSaleView | null) => void;
   boundRegisterId: string | null;
   registerName: string | null;
   setTenderInProgress: (on: boolean) => void;
@@ -30,6 +32,12 @@ export function RegisterProvider({ children }: { children: ReactNode }) {
   const registerName = host && binding?.storeKey === storeKey ? binding.name : null;
   const [setting, setSetting] = useRegisterSessionsSetting();
   const [tenderInProgress, setTenderInProgress] = useState(false);
+  const liveSale = useRef<LiveSaleView | null>(null);
+  const [, setLiveVersion] = useState(0);
+  const bindLiveSale = useCallback((view: LiveSaleView | null) => {
+    liveSale.current = view;
+    setLiveVersion(v => v + 1);
+  }, []);
 
   useEffect(() => {
     if (!host || !storeKey) return;
@@ -50,6 +58,8 @@ export function RegisterProvider({ children }: { children: ReactNode }) {
   const hookResult = useRegisterSession({
     sessions: host, movements: collections?.cash_movements ?? null,
     closures: collections?.closures ?? null, orders, register: host, storeKey,
+    drafts: null,
+    liveSale: () => liveSale.current?.() ?? { takenLegs: [], saving: false },
     registerId: boundRegisterId, enabled,
     actor: { id: user ? String(user.id) : '', name: user?.displayName ?? '' },
     labels: {
@@ -59,7 +69,7 @@ export function RegisterProvider({ children }: { children: ReactNode }) {
     },
     timezone: 'device', softwareVersion: SOFTWARE_VERSION, tenderInProgress,
   });
-  return <RegisterContext.Provider value={{ ...hookResult, enabled, boundRegisterId, registerName, setTenderInProgress, setting, setSetting }}>{children}</RegisterContext.Provider>;
+  return <RegisterContext.Provider value={{ ...hookResult, enabled, boundRegisterId, registerName, bindLiveSale, setTenderInProgress, setting, setSetting }}>{children}</RegisterContext.Provider>;
 }
 
 export function useRegister(): Register {
