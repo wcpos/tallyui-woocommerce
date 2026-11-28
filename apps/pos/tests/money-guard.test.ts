@@ -15,6 +15,8 @@ const ALLOWED_CORE_FORMATTERS: Record<string, string> = {
 // sales-summary-print's count use Intl without a currency style.
 const ALLOWED_INTL_CURRENCY: Record<string, string> = {};
 const CORE_MONEY = new Set(['formatMoney', 'useFormatMoney', 'useMoneyFormat']);
+// Core helpers that read Intl's symbol, never the store's: no app file imports them.
+const DENIED_CORE = new Set(['useCurrencySymbol', 'currencySymbol']);
 // Files allowed core's MoneyFormatProvider, each with its reason. Core applies the provider's format to any currency,
 // so every other `@tallyui/components` money display gets its format through these two.
 const ALLOWED_FORMAT_PROVIDERS: Record<string, string> = {
@@ -22,6 +24,7 @@ const ALLOWED_FORMAT_PROVIDERS: Record<string, string> = {
   'lib/money/store-money-for.tsx': 'scopes it to one document\'s currency: the store\'s format only for the store\'s currency',
 };
 const CORE_IMPORT = /import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"]@tallyui\/core['"]/g;
+const POS_IMPORT = /import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"]@tallyui\/pos['"]/g;
 
 function sources(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap(entry => entry.isDirectory()
@@ -35,6 +38,11 @@ const read = (file: string) => readFileSync(join(POS, file), 'utf8');
 // The imported names (before any `as`) of every `{ … } from '@tallyui/core'` import.
 function coreImports(source: string): string[] {
   return [...source.matchAll(CORE_IMPORT)].flatMap(match => match[1].split(','))
+    .map(spec => spec.trim().replace(/^type\s+/, '').split(/\s+as\s+/)[0].trim()).filter(Boolean);
+}
+
+function posImports(source: string): string[] {
+  return [...source.matchAll(POS_IMPORT)].flatMap(match => match[1].split(','))
     .map(spec => spec.trim().replace(/^type\s+/, '').split(/\s+as\s+/)[0].trim()).filter(Boolean);
 }
 
@@ -62,6 +70,7 @@ test('the guard reads the whole app', () => {
 
 test('the parsers catch what they guard', () => {
   expect(coreImports("import {\n  formatMoney as fm,\n  type Money,\n} from '@tallyui/core';")).toEqual(['formatMoney', 'Money']);
+  expect(posImports("import { useSale, variantPriceLabel as vpl } from '@tallyui/pos';")).toEqual(['useSale', 'variantPriceLabel']);
   expect(intlCalls("new Intl.NumberFormat(locale, { style: 'currency', currency: c(x) }).format(1)"))
     .toEqual(["new Intl.NumberFormat(locale, { style: 'currency', currency: c(x) })"]);
 });
@@ -75,6 +84,14 @@ test('only lib/money/store-money.ts imports formatMoney, useFormatMoney or useMo
 test('only store-settings-context.tsx and store-money-for.tsx import MoneyFormatProvider from @tallyui/core', () => {
   const users = files.filter(file => coreImports(read(file)).includes('MoneyFormatProvider'));
   expect(users.sort()).toEqual(Object.keys(ALLOWED_FORMAT_PROVIDERS).sort());
+});
+
+test('no file imports useCurrencySymbol or currencySymbol from @tallyui/core, or variantPriceLabel from @tallyui/pos', () => {
+  const offenders = files.filter(file => {
+    const source = read(file);
+    return coreImports(source).some(name => DENIED_CORE.has(name)) || posImports(source).includes('variantPriceLabel');
+  });
+  expect(offenders).toEqual([]);
 });
 
 test('no file formats currency with Intl.NumberFormat', () => {

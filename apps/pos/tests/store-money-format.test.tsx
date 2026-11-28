@@ -145,7 +145,7 @@ test('(i) a store asking more places than its currency has keeps them', async ()
   } satisfies StoreSettings);
   render(<StoreSettingsProvider><StoreState /><MoneyProbe money={{ amount: 1234, currency: 'USD' }} /></StoreSettingsProvider>);
   await waitFor(() => { expect(screen.getByTestId('store-state').textContent).toBe('ready'); });
-  expect(probe()).toMatch(/^\$12\.\d{3}$/);
+  expect(probe()).toBe('$12.340');
 });
 
 // WCPOS /stores sends the raw woocommerce_price_decimal_sep, which may be ''; WooCommerce falls back to '.'
@@ -204,6 +204,7 @@ test('(k) sign-out then sign-in to the same site fetches the store settings agai
   act(() => { rerender(tree()); });
   expect(screen.getByTestId('store-state').textContent).toBe('loading');
   expect(probe()).not.toBe('12,50 €');
+  expect(probe()).toBe('€12.50');
   mocks.session = session;
   act(() => { rerender(tree()); });
   await waitFor(() => { expect(mocks.storeSettings).toHaveBeenCalledTimes(2); });
